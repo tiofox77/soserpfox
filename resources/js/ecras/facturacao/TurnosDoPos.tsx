@@ -8,10 +8,11 @@ import { Botao } from '@/ui/Botao';
 import { Campo, entrada } from '@/ui/Campo';
 import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
-import { Etiqueta } from '@/ui/Etiqueta';
+import { CartaoNumero, type TomDoCartao } from '@/ui/CartaoNumero';
 import { Modal } from '@/ui/Modal';
-import { FOCO, RAIO, cls } from '@/ui/tokens';
+import { CARTAO, FOCO, RAIO, cls } from '@/ui/tokens';
 import { t } from '@/i18n';
+import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa, SemNada, cascata } from './faixa';
 
 /**
  * O TURNO DO BALCÃO: abrir, ver o que entrou, fechar com o dinheiro
@@ -52,46 +53,74 @@ export default function TurnosDoPos() {
                 </div>
             )}
 
-            <Cartao
-                titulo={<span className="flex items-center gap-2"><i className="fas fa-cash-register text-slate-400" aria-hidden="true" />{t('Turno do POS')}</span>}
-                accoes={<span className="flex gap-2">
-                    <a href="/invoicing/pos/shift-history" className={cls('inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50', RAIO)}><i className="fas fa-clock-rotate-left" aria-hidden="true" />{t('Histórico')}</a>
-                    {turno
-                        ? <Botao cor="perigo" tom="solida" icone="fa-lock" onClick={() => porFecharModal(true)}>{t('Fechar turno')}</Botao>
-                        : <Botao cor="primaria" tom="solida" icone="fa-unlock" onClick={() => porAbrirModal(true)}>{t('Abrir turno')}</Botao>}
-                </span>}
+            <Faixa
+                icone="fa-cash-register"
+                titulo={t('POS — Ponto de Venda')}
+                subtitulo={t('Sistema de Caixa e Turnos')}
+                accoes={
+                    <>
+                        <a href="/invoicing/pos/shift-history" className={ACCAO_DA_FAIXA}><i className="fas fa-clock-rotate-left" aria-hidden="true" />{t('Histórico')}</a>
+                        {turno
+                            ? <Botao cor="perigo" tom="solida" icone="fa-lock" onClick={() => porFecharModal(true)}>{t('Fechar turno')}</Botao>
+                            : <Botao cor="bom" tom="solida" icone="fa-unlock" onClick={() => porAbrirModal(true)}>{t('Abrir turno')}</Botao>}
+                    </>
+                }
             >
-                <div className="mb-4 flex flex-wrap items-center gap-2" data-estado-turno>
-                    {turno ? <Etiqueta cor="bom" icone="fa-circle">{t('Turno :numero aberto às :hora', { numero: turno.shift_number, hora: turno.opened_at ?? '' })}</Etiqueta> : <Etiqueta icone="fa-circle">{t('Sem turno aberto')}</Etiqueta>}
-                    {caixa ? <Etiqueta cor={caixa.estado === 'open' ? 'primaria' : 'neutra'} icone="fa-vault">{t('Caixa :nome · :estado', { nome: caixa.nome, estado: caixa.estado === 'open' ? t('aberta') : t('fechada') })}</Etiqueta> : <Etiqueta icone="fa-vault">{t('Sem caixa atribuída')}</Etiqueta>}
+                {/* O ESTADO DO TURNO VIVE NO CABEÇALHO, que é onde se olha
+                    primeiro. Cada etiqueta leva ícone: o turno aberto não pode
+                    ser só «o verde». */}
+                <div className="flex flex-wrap items-center gap-2" data-estado-turno>
+                    {turno
+                        ? <EstadoNaFaixa icone="fa-circle-play">{t('Turno :numero aberto às :hora', { numero: turno.shift_number, hora: turno.opened_at ?? '' })}</EstadoNaFaixa>
+                        : <EstadoNaFaixa icone="fa-circle-stop">{t('Sem turno aberto')}</EstadoNaFaixa>}
+                    {caixa
+                        ? <EstadoNaFaixa icone="fa-vault">{t('Caixa :nome · :estado', { nome: caixa.nome, estado: caixa.estado === 'open' ? t('aberta') : t('fechada') })}</EstadoNaFaixa>
+                        : <EstadoNaFaixa icone="fa-vault">{t('Sem caixa atribuída')}</EstadoNaFaixa>}
                 </div>
+            </Faixa>
 
-                {!turno && <p className="text-sm text-slate-500">{t('Abra o turno com o dinheiro que está na gaveta. As vendas do POS ficam ligadas a ele até o fechar.')}</p>}
-
-                {turno && (
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-resumo>
-                        {[
-                            [t('Saldo inicial'), kz(turno.opening_balance)], [t('Vendas em dinheiro'), kz(turno.cash_sales)], [t('Cartão / TPA'), kz(turno.card_sales)], [t('Transferência'), kz(turno.bank_transfer_sales)],
-                            [t('Outros'), kz(turno.other_sales)], [t('Total de vendas'), kz(turno.total_sales)], [t('Documentos'), t(':facturas facturas · :recibos recibos', { facturas: turno.total_invoices, recibos: turno.total_receipts })], [t('Esperado em caixa'), kz(turno.expected_cash)],
-                        ].map(([r, v]) => (
-                            <div key={r} className={cls('border border-slate-200 bg-white p-4', RAIO)}>
-                                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{r}</p>
-                                <p className="mt-1 text-lg font-bold tabular-nums text-slate-900">{v}</p>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </Cartao>
+            {!turno && (
+                <div className={CARTAO}>
+                    <SemNada
+                        icone="fa-cash-register"
+                        titulo={t('Nenhum turno aberto')}
+                        frase={t('Abra o turno com o dinheiro que está na gaveta. As vendas do POS ficam ligadas a ele até o fechar.')}
+                        accao={<Botao cor="bom" tom="solida" altura="grande" icone="fa-play" onClick={() => porAbrirModal(true)}>{t('Abrir novo turno')}</Botao>}
+                    />
+                </div>
+            )}
 
             {turno && (
-                <Cartao titulo={t('Movimentos do turno (:quantos)', { quantos: turno.movimentos_n ?? 0 })} semPadding>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-resumo>
+                    {/* A COR SEGUE O SIGNIFICADO: o dinheiro em verde, o que se
+                        espera na gaveta em âmbar (é o que se vai contar), e as
+                        contagens no azul da casa. */}
+                    {([
+                        [t('Saldo inicial'), kz(turno.opening_balance), 'fa-wallet', 'azul'],
+                        [t('Vendas em dinheiro'), kz(turno.cash_sales), 'fa-money-bill-wave', 'verde'],
+                        [t('Cartão / TPA'), kz(turno.card_sales), 'fa-credit-card', 'indigo'],
+                        [t('Transferência'), kz(turno.bank_transfer_sales), 'fa-building-columns', 'roxo'],
+                        [t('Outros'), kz(turno.other_sales), 'fa-ellipsis', 'cinza'],
+                        [t('Total de vendas'), kz(turno.total_sales), 'fa-chart-line', 'verde'],
+                        [t('Documentos'), t(':facturas facturas · :recibos recibos', { facturas: turno.total_invoices, recibos: turno.total_receipts }), 'fa-file-invoice', 'azul'],
+                        [t('Esperado em caixa'), kz(turno.expected_cash), 'fa-vault', 'ambar'],
+                    ] as Array<[string, string, string, TomDoCartao]>).map(([r, v, icone, tom], i) => (
+                        <div key={r} className="entra" style={cascata(i)}>
+                            <CartaoNumero rotulo={r} valor={v} icone={icone} tom={tom} />
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {turno && (
+                <Cartao titulo={t('Movimentos do turno (:quantos)', { quantos: turno.movimentos_n ?? 0 })} icone="fa-list" semPadding>
                     <div className="max-h-96 overflow-auto">
                         <table className="w-full text-sm">
-                            <thead><tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500"><th className="px-4 py-3 font-semibold">{t('Quando')}</th><th className="px-4 py-3 font-semibold">{t('Tipo')}</th><th className="px-4 py-3 font-semibold">{t('Documento')}</th><th className="px-4 py-3 font-semibold">{t('Meio')}</th><th className="px-4 py-3 text-right font-semibold">{t('Valor')}</th></tr></thead>
+                            <thead className="sticky top-0 z-10"><tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-600"><th className="px-4 py-3 font-semibold">{t('Quando')}</th><th className="px-4 py-3 font-semibold">{t('Tipo')}</th><th className="px-4 py-3 font-semibold">{t('Documento')}</th><th className="px-4 py-3 font-semibold">{t('Meio')}</th><th className="px-4 py-3 text-right font-semibold">{t('Valor')}</th></tr></thead>
                             <tbody className="divide-y divide-slate-100">
-                                {(turno.movimentos ?? []).length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">{t('Ainda não houve movimentos.')}</td></tr>}
-                                {(turno.movimentos ?? []).map((m) => (
-                                    <tr key={m.id}><td className="whitespace-nowrap px-4 py-2 text-slate-600">{m.quando}</td><td className="px-4 py-2">{m.tipo_rotulo}</td><td className="px-4 py-2 font-mono text-xs">{m.reference_number ?? '—'}</td><td className="px-4 py-2">{m.meio}</td><td className="px-4 py-2 text-right tabular-nums">{kz(m.amount)}</td></tr>
+                                {(turno.movimentos ?? []).length === 0 && <tr><td colSpan={5}><SemNada icone="fa-inbox" titulo={t('Ainda não houve movimentos.')} frase={t('Cada venda do balcão entra aqui assim que é fechada.')} /></td></tr>}
+                                {(turno.movimentos ?? []).map((m, i) => (
+                                    <tr key={m.id} className="entra transition-all duration-200 hover:bg-indigo-50/60" style={cascata(i)}><td className="whitespace-nowrap px-4 py-2 text-slate-600">{m.quando}</td><td className="px-4 py-2">{m.tipo_rotulo}</td><td className="px-4 py-2 font-mono text-xs">{m.reference_number ?? '—'}</td><td className="px-4 py-2">{m.meio}</td><td className="px-4 py-2 text-right tabular-nums">{kz(m.amount)}</td></tr>
                                 ))}
                             </tbody>
                         </table>

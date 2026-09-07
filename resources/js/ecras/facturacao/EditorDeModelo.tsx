@@ -10,6 +10,7 @@ import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
 import { FOCO, RAIO, cls } from '@/ui/tokens';
 import { t } from '@/i18n';
+import { ACCAO_DA_FAIXA, Faixa, SemNada, cascata } from './faixa';
 
 /**
  * O EDITOR DE UM MODELO DE PROPOSTA.
@@ -80,22 +81,33 @@ function Editor({ id, inicial, previaInicial, catalogo, variaveis }: { id: numbe
 
     const bloco = estado.blocos.find((b) => b.id === seleccionado) ?? null;
     const nomeDoTipo = (tipo: string) => catalogo.find((c) => c.tipo === tipo)?.nome ?? tipo;
+    const iconeDoTipo = (tipo: string) => catalogo.find((c) => c.tipo === tipo)?.icone ?? 'fa-square';
 
     return (
         <div className="space-y-3" data-editor-de-modelo>
+            {/* A BARRA DE TOPO DO EDITOR, como no ecrã de sempre: o nome do
+                modelo, e à direita o que se faz com ele. */}
+            <Faixa
+                icone="fa-pen-ruler"
+                titulo={estado.nome || t('Modelo sem nome')}
+                subtitulo={estado.descricao || undefined}
+                accoes={
+                    <>
+                        <a href="/invoicing/sales/quote-templates" className={ACCAO_DA_FAIXA}><i className="fas fa-arrow-left" aria-hidden="true" />{t('Modelos')}</a>
+                        <button type="button" onClick={() => porMostrarVariaveis((v) => !v)} aria-pressed={mostrarVariaveis} className={ACCAO_DA_FAIXA}><i className="fas fa-code" aria-hidden="true" />{t('Variáveis')}</button>
+                        <button type="button" onClick={() => fazer({ accao: 'pagina' })} className={ACCAO_DA_FAIXA}><i className="fas fa-file-circle-plus" aria-hidden="true" />{t('Página (:n)', { n: estado.paginas })}</button>
+                        <Botao cor="primaria" tom="solida" icone="fa-floppy-disk" aTrabalhar={accao.isPending} onClick={() => fazer({ accao: 'guardar' })}>{t('Guardar')}</Botao>
+                    </>
+                }
+            />
+
             {recado && <p role="status" className={cls('border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-900', RAIO)}><i className="fas fa-circle-check mr-2" aria-hidden="true" />{recado}</p>}
             <AvisoDeErro erro={accao.error} />
 
-            <Cartao>
+            <Cartao titulo={t('Identificação')} icone="fa-tag">
                 <div className="flex flex-wrap items-end gap-3">
                     <Campo etiqueta={t('Nome do modelo')} className="min-w-[16rem] flex-1"><input key={`nome-${estado.id}`} defaultValue={estado.nome} onBlur={(e) => e.target.value !== estado.nome && fazer({ accao: 'renomear', nome: e.target.value, descricao: estado.descricao })} className={entrada} /></Campo>
                     <Campo etiqueta={t('Descrição')} className="min-w-[16rem] flex-1"><input key={`desc-${estado.id}`} defaultValue={estado.descricao} onBlur={(e) => e.target.value !== estado.descricao && fazer({ accao: 'renomear', nome: estado.nome, descricao: e.target.value })} className={entrada} /></Campo>
-                    <span className="flex flex-wrap gap-2">
-                        <a href="/invoicing/sales/quote-templates" className={cls('inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50', RAIO)}><i className="fas fa-arrow-left" aria-hidden="true" />{t('Modelos')}</a>
-                        <Botao icone="fa-braces" onClick={() => porMostrarVariaveis((v) => !v)}>{t('Variáveis')}</Botao>
-                        <Botao icone="fa-file-circle-plus" onClick={() => fazer({ accao: 'pagina' })}>{t('Página (:n)', { n: estado.paginas })}</Botao>
-                        <Botao cor="primaria" tom="solida" icone="fa-floppy-disk" aTrabalhar={accao.isPending} onClick={() => fazer({ accao: 'guardar' })}>{t('Guardar')}</Botao>
-                    </span>
                 </div>
                 {mostrarVariaveis && (
                     <div className="mt-4 grid gap-3 text-xs sm:grid-cols-3" data-variaveis>
@@ -108,16 +120,16 @@ function Editor({ id, inicial, previaInicial, catalogo, variaveis }: { id: numbe
 
             <div className="grid gap-3 lg:grid-cols-[16rem_1fr_20rem]">
                 <div className="space-y-3">
-                    <Cartao titulo={t('Acrescentar')}>
+                    <Cartao titulo={t('Acrescentar')} icone="fa-plus">
                         <div className="grid grid-cols-2 gap-1">
                             {catalogo.map((c) => (
-                                <button key={c.tipo} type="button" title={c.ajuda} onClick={() => fazer({ accao: 'adicionar', tipo: c.tipo })} className={cls('flex items-center gap-2 border border-slate-200 px-2 py-1.5 text-left text-xs font-semibold text-slate-700 hover:border-indigo-300 hover:bg-indigo-50/40', RAIO, FOCO)} data-adicionar={c.tipo}>
-                                    <i className={cls('fas w-4 text-center text-slate-400', c.icone)} aria-hidden="true" />{c.nome}
+                                <button key={c.tipo} type="button" title={c.ajuda} onClick={() => fazer({ accao: 'adicionar', tipo: c.tipo })} className={cls('group flex items-center gap-2 border border-slate-200 px-2 py-1.5 text-left text-xs font-semibold text-slate-700', RAIO, FOCO, 'transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-sm')} data-adicionar={c.tipo}>
+                                    <i className={cls('fas w-4 text-center text-slate-400 transition-colors duration-200 group-hover:text-indigo-600', c.icone)} aria-hidden="true" />{c.nome}
                                 </button>
                             ))}
                         </div>
                     </Cartao>
-                    <Cartao titulo={t('Blocos')} semPadding>
+                    <Cartao titulo={t('Blocos')} icone="fa-layer-group" semPadding>
                         {/* ARRASTAR PARA ORDENAR.
                             O editor em Blade reordenava a arrastar, e passar
                             para setas foi um passo atrás: mover um bloco do
@@ -126,11 +138,15 @@ function Editor({ id, inicial, previaInicial, catalogo, variaveis }: { id: numbe
                             arrastar não é acessível. A ordem final é UMA
                             viagem ao servidor (`reordenar`), não uma por
                             passo. */}
+                        {estado.blocos.length === 0 && (
+                            <SemNada icone="fa-layer-group" titulo={t('Sem secções')} frase={t('Acrescente uma acima.')} />
+                        )}
                         <ol className="divide-y divide-slate-100" data-blocos onDragOver={(e) => e.preventDefault()}>
                             {estado.blocos.map((b, i) => (
                                 <li
                                     key={b.id}
                                     draggable
+                                    style={cascata(i)}
                                     onDragStart={() => porArrastado(b.id)}
                                     onDragOver={(e) => {
                                         e.preventDefault();
@@ -139,32 +155,42 @@ function Editor({ id, inicial, previaInicial, catalogo, variaveis }: { id: numbe
                                     onDragEnd={largar}
                                     onDrop={largar}
                                     className={cls(
-                                        'flex items-center gap-1 px-2 py-1.5 text-sm',
-                                        b.id === seleccionado && 'bg-indigo-50',
+                                        'entra group flex cursor-move items-center gap-1 px-2 py-1.5 text-sm transition-all duration-200',
+                                        b.id === seleccionado ? 'bg-indigo-50 ring-1 ring-inset ring-indigo-200' : 'hover:bg-slate-50',
                                         b.id === alvo && arrastado !== b.id && 'border-t-2 border-indigo-400',
                                         b.id === arrastado && 'opacity-50',
                                     )}
                                 >
                                     <i className="fas fa-grip-vertical cursor-grab text-xs text-slate-300" aria-hidden="true" />
+                                    <i className={cls('fas w-4 text-center text-xs', iconeDoTipo(b.tipo), b.id === seleccionado ? 'text-indigo-500' : 'text-slate-400')} aria-hidden="true" />
                                     <button type="button" onClick={() => porSeleccionado(b.id)} className={cls('flex-1 truncate text-left', FOCO, RAIO)} aria-current={b.id === seleccionado}>
                                         <span className="mr-1 text-xs text-slate-400">{i + 1}.</span>{nomeDoTipo(b.tipo)}{typeof b.titulo === 'string' && b.titulo && <span className="ml-1 text-xs text-slate-500">· {b.titulo}</span>}
                                     </button>
-                                    <button type="button" onClick={() => fazer({ accao: 'mover', id: b.id, direccao: -1 })} aria-label={t('Subir')} className={cls('p-1 text-slate-400 hover:text-slate-800', FOCO, RAIO)}><i className="fas fa-chevron-up" aria-hidden="true" /></button>
-                                    <button type="button" onClick={() => fazer({ accao: 'mover', id: b.id, direccao: 1 })} aria-label={t('Descer')} className={cls('p-1 text-slate-400 hover:text-slate-800', FOCO, RAIO)}><i className="fas fa-chevron-down" aria-hidden="true" /></button>
-                                    <button type="button" onClick={() => fazer({ accao: 'duplicar', id: b.id })} aria-label={t('Duplicar')} className={cls('p-1 text-slate-400 hover:text-slate-800', FOCO, RAIO)}><i className="fas fa-copy" aria-hidden="true" /></button>
-                                    <button type="button" onClick={() => fazer({ accao: 'remover', id: b.id })} aria-label={t('Remover')} className={cls('p-1 text-slate-400 hover:text-red-600', FOCO, RAIO)}><i className="fas fa-trash" aria-hidden="true" /></button>
+                                    {/* Os botões da linha só aparecem ao passar
+                                        — mas também ao chegar por TECLADO, que
+                                        é o que o ecrã em Blade não fazia:
+                                        `hidden group-hover:flex` deixava quem
+                                        navega por Tab sem os alcançar. */}
+                                    <span className="flex items-center gap-0.5 opacity-0 transition-opacity duration-200 focus-within:opacity-100 group-hover:opacity-100">
+                                        <button type="button" onClick={() => fazer({ accao: 'mover', id: b.id, direccao: -1 })} aria-label={t('Subir')} className={cls('p-1 text-slate-400 hover:text-slate-800', FOCO, RAIO)}><i className="fas fa-chevron-up" aria-hidden="true" /></button>
+                                        <button type="button" onClick={() => fazer({ accao: 'mover', id: b.id, direccao: 1 })} aria-label={t('Descer')} className={cls('p-1 text-slate-400 hover:text-slate-800', FOCO, RAIO)}><i className="fas fa-chevron-down" aria-hidden="true" /></button>
+                                        <button type="button" onClick={() => fazer({ accao: 'duplicar', id: b.id })} aria-label={t('Duplicar')} className={cls('p-1 text-slate-400 hover:text-slate-800', FOCO, RAIO)}><i className="fas fa-copy" aria-hidden="true" /></button>
+                                        <button type="button" onClick={() => fazer({ accao: 'remover', id: b.id })} aria-label={t('Remover')} className={cls('p-1 text-slate-400 hover:text-red-600', FOCO, RAIO)}><i className="fas fa-trash" aria-hidden="true" /></button>
+                                    </span>
                                 </li>
                             ))}
                         </ol>
                     </Cartao>
                 </div>
 
-                <Cartao titulo={t('A folha, como vai sair')} semPadding>
-                    <iframe title={t('Pré-visualização do modelo')} srcDoc={previa} className={cls('h-[80vh] w-full bg-slate-100', accao.isPending && 'opacity-60')} data-previa />
+                <Cartao titulo={t('A folha, como vai sair')} icone="fa-file-lines" semPadding>
+                    <iframe title={t('Pré-visualização do modelo')} srcDoc={previa} className={cls('h-[80vh] w-full bg-slate-100 transition-opacity duration-200', accao.isPending && 'opacity-60')} data-previa />
                 </Cartao>
 
                 <div className="space-y-3">
-                    {bloco ? <OpcoesDoBloco key={bloco.id} bloco={bloco} nome={nomeDoTipo(bloco.tipo)} fazer={fazer} /> : <Cartao titulo={t('Bloco')}><p className="text-sm text-slate-400">{t('Escolha um bloco na lista.')}</p></Cartao>}
+                    {bloco
+                        ? <OpcoesDoBloco key={bloco.id} bloco={bloco} nome={nomeDoTipo(bloco.tipo)} icone={iconeDoTipo(bloco.tipo)} fazer={fazer} />
+                        : <Cartao titulo={t('Bloco')} icone="fa-square"><SemNada icone="fa-hand-pointer" titulo={t('Nenhum bloco escolhido')} frase={t('Escolha um bloco na lista.')} /></Cartao>}
                     <Estilos estilos={estado.estilos} fazer={fazer} />
                 </div>
             </div>
@@ -173,14 +199,14 @@ function Editor({ id, inicial, previaInicial, catalogo, variaveis }: { id: numbe
 }
 
 /** As opções do bloco, geradas das chaves que ele tem: cada tipo traz as suas. */
-function OpcoesDoBloco({ bloco, nome, fazer }: { bloco: Bloco; nome: string; fazer: (c: Record<string, unknown>) => void }) {
+function OpcoesDoBloco({ bloco, nome, icone, fazer }: { bloco: Bloco; nome: string; icone: string; fazer: (c: Record<string, unknown>) => void }) {
     const campos = Object.entries(bloco).filter(([k]) => !['id', 'tipo', 'layout'].includes(k));
     const l = bloco.layout;
     const campo = (chave: string, valor: unknown) => fazer({ accao: 'campo', id: bloco.id, campo: chave, valor });
     const layout = (chave: string, valor: number | boolean) => l && fazer({ accao: 'layout', id: bloco.id, layout: { ...l, [chave]: valor } });
 
     return (
-        <Cartao titulo={nome}>
+        <Cartao titulo={nome} icone={icone}>
             <div className="space-y-3" data-opcoes>
                 {campos.length === 0 && <p className="text-sm text-slate-400">{t('Este bloco não tem opções.')}</p>}
                 {campos.map(([k, v]) => {
@@ -222,7 +248,7 @@ function Estilos({ estilos, fazer }: { estilos: Record<string, unknown>; fazer: 
     const s = (k: string) => String(estilos[k] ?? '');
 
     return (
-        <Cartao titulo={t('Estilos')}>
+        <Cartao titulo={t('Estilos')} icone="fa-palette">
             <div className="space-y-3" data-estilos>
                 <Campo etiqueta={t('Cor principal')}><input type="color" defaultValue={s('cor_principal') || '#4f46e5'} onBlur={(e) => e.target.value !== s('cor_principal') && estilo('cor_principal', e.target.value)} className={cls(entrada, 'h-10 p-1')} /></Campo>
                 <Campo etiqueta={t('Fonte')}><input defaultValue={s('fonte')} onBlur={(e) => e.target.value !== s('fonte') && estilo('fonte', e.target.value)} className={entrada} /></Campo>

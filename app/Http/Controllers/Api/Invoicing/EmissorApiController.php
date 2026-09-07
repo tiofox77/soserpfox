@@ -4,12 +4,15 @@ namespace App\Http\Controllers\Api\Invoicing;
 
 use App\Http\Controllers\Controller;
 use App\Models\Client;
+use App\Models\Invoicing\QuoteTemplate;
+use App\Models\Invoicing\Warehouse;
 use App\Models\Product;
 use App\Models\Supplier;
 use App\Services\Invoicing\CalculadoraDeDocumento;
 use App\Services\Invoicing\DuplicaDocumento;
 use App\Services\Invoicing\TaxResolver;
 use App\Services\Invoicing\TiposDeDocumento;
+use App\Support\Geografia;
 use App\Traits\DocumentosPorAutor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -61,13 +64,17 @@ class EmissorApiController extends Controller
             'linhas.*.discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'desconto_comercial' => ['nullable', 'numeric', 'min:0'],
             'desconto_financeiro' => ['nullable', 'numeric', 'min:0'],
+            'is_service' => ['nullable', 'boolean'],
         ]);
 
         return response()->json($calculadora->calcular(
             $dados['linhas'] ?? [],
             (float) ($dados['desconto_comercial'] ?? 0),
             0,
-            (float) ($dados['desconto_financeiro'] ?? 0)
+            (float) ($dados['desconto_financeiro'] ?? 0),
+            // Prestação de serviço: retém-se IRT a 6,5%. Sem isto o ecrã
+            // mostrava um total e o documento gravava outro.
+            (bool) ($dados['is_service'] ?? false)
         ));
     }
 
@@ -88,11 +95,28 @@ class EmissorApiController extends Controller
             'parte' => $def['parte'],
             'rota' => $def['rota'],
             'partes' => $partes,
+            // O `type` vai junto porque é ele que decide se o armazém é
+            // obrigatório: um documento só de serviços dispensa-o.
             'artigos' => Product::where('tenant_id', activeTenantId())
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->limit(500)
-                ->get(['id', 'name', 'code', 'price', 'unit']),
+                ->get(['id', 'name', 'code', 'price', 'unit', 'type']),
+
+            'armazens' => Warehouse::where('tenant_id', activeTenantId())
+                ->where('is_active', true)->orderBy('name')->get(['id', 'name']),
+
+            // O armazém por omissão da empresa, para uma proposta nova nascer
+            // com ele já escolhido — era o que o `mount` do Livewire fazia.
+            'armazem_padrao' => Warehouse::getDefault(activeTenantId())?->id,
+
+            // OS MODELOS DE PROPOSTA — só no orçamento, que é o único
+            // documento que o `RenderizadorDeProposta` desenha.
+            'modelos' => $this->modelosDeProposta($tipo),
+            'modelo_padrao' => $this->temModelo($tipo)
+                ? QuoteTemplate::where('tenant_id', activeTenantId())
+                    ->where('is_active', true)->where('is_default', true)->value('id')
+                : null,
             // Cabinda tem regime de IVA próprio e o que o determina é o LOCAL
             // DA OPERAÇÃO. Vazio é "automática": deriva da província da outra
             // parte. Fixar 'AO' por omissão era o que fazia Cabinda passar
@@ -101,6 +125,23 @@ class EmissorApiController extends Controller
                 ['valor' => '', 'rotulo' => __('Pela província do :parte', ['parte' => $def['parte']])],
                 ['valor' => 'AO', 'rotulo' => 'Angola (continente)'],
                 ['valor' => 'AO-CAB', 'rotulo' => __('Cabinda (regime próprio)')],
+            ],
+
+            /*
+             * A OUTRA PARTE CRIA-SE AQUI, sem largar a proposta a meio — é o
+             * «cliente rápido» de sempre, e o «fornecedor rápido» quando o
+             * documento é de compra.
+             *
+             * A permissão é a de criar a FICHA (cliente ou fornecedor), que é
+             * outra coisa que não a de emitir o documento: quem não a tem não
+             * vê o botão, e a porta de criação recusa na mesma.
+             */
+            'criar_parte' => [
+                'tipo' => $def['parte'],
+                'pode' => (bool) $request->user()?->can(
+                    $editor['parte_id'] === 'supplier_id' ? 'invoicing.suppliers.create' : 'invoicing.clients.create'
+                ),
+                'pais_padrao' => Geografia::PAIS_PADRAO,
             ],
 
             'permissoes' => [
@@ -172,11 +213,20 @@ class EmissorApiController extends Controller
                 'estado' => $d->status,
                 'pode_editar' => $d->status === 'draft',
                 'parte_id' => $d->{$editor['parte_id']},
+                'warehouse_id' => $d->warehouse_id,
                 'data' => $data($d->{$def['data']}),
                 'valido_ate' => $data($d->valid_until ?? null),
                 // A região gravada é a das LINHAS: é lá que ela conta.
                 'tax_country_region' => $linhas->first()?->tax_country_region,
+                // Prestação de serviço (IRT 6,5%) e as condições que saem no
+                // papel: sem elas, reabrir uma proposta apagava as duas.
+                'is_service' => (bool) ($d->is_service ?? false),
                 'notas' => $d->notes,
+                'condicoes' => $d->terms,
+                // Só o orçamento tem modelo — nos outros vai nulo e o ecrã
+                // nem desenha o campo.
+                'quote_template_id' => $this->temModelo($tipo) ? $d->quote_template_id : null,
+                'campos_proposta' => $this->temModelo($tipo) ? (array) ($d->campos_proposta ?? []) : [],
                 'pdf' => url(ltrim($def['rota'], '/') . '/' . $d->id . '/pdf'),
             ],
             'linhas' => $linhas->map(fn ($l) => [
@@ -217,9 +267,15 @@ class EmissorApiController extends Controller
         $editor = TiposDeDocumento::editaveis()[$tipo];
         $dados = $request->validate([
             'parte_id' => ['required', 'integer'],
+            'warehouse_id' => ['nullable', 'integer'],
             'data' => ['required', 'date'],
             'valido_ate' => ['nullable', 'date', 'after_or_equal:data'],
             'notas' => ['nullable', 'string', 'max:2000'],
+            'condicoes' => ['nullable', 'string', 'max:2000'],
+            'is_service' => ['nullable', 'boolean'],
+            'quote_template_id' => ['nullable', 'integer'],
+            'campos_proposta' => ['nullable', 'array'],
+            'campos_proposta.*' => ['nullable', 'string', 'max:5000'],
             'tax_country_region' => ['nullable', 'in:AO,AO-CAB'],
             'desconto_comercial' => ['nullable', 'numeric', 'min:0'],
             'desconto_financeiro' => ['nullable', 'numeric', 'min:0'],
@@ -234,18 +290,51 @@ class EmissorApiController extends Controller
             'linhas.min' => __('Um documento sem linhas não é um documento.'),
         ]);
 
+        $eServico = (bool) ($dados['is_service'] ?? false);
+
+        /*
+         * O ARMAZÉM SÓ É OBRIGATÓRIO COM MERCADORIA.
+         *
+         * Era o que o `save()` do Livewire fazia: com produtos físicos no
+         * documento exigia-se o armazém, e uma proposta só de serviços
+         * dispensava-o. Marcá-la como prestação de serviço diz o mesmo por
+         * outras palavras — e é a pessoa a dizê-lo.
+         *
+         * A pergunta é sobre o pedido TER FALADO no armazém e o ter deixado
+         * vazio, que é uma escolha. Um pedido que nem lhe toca — a conversão
+         * de um documento, um comando — continua a deixar o modelo pôr o
+         * armazém padrão da empresa, como sempre fez.
+         */
+        if (! $eServico && $request->has('warehouse_id') && empty($dados['warehouse_id'])
+            && CalculadoraDeDocumento::temArtigosFisicos($dados['linhas'])) {
+            return response()->json([
+                'message' => __('Selecione um armazém — existem produtos físicos no documento.'),
+                'errors' => ['warehouse_id' => [__('Obrigatório com artigos físicos.')]],
+            ], 422);
+        }
+
         // A CONTA É FEITA AQUI. O que o browser mandou de totais é ignorado.
         $conta = $calculadora->calcular(
             $dados['linhas'],
             (float) ($dados['desconto_comercial'] ?? 0),
             0,
-            (float) ($dados['desconto_financeiro'] ?? 0)
+            (float) ($dados['desconto_financeiro'] ?? 0),
+            $eServico
         );
 
         $modelo = $def['modelo'];
         $regiao = $this->regiaoDaOperacao($dados, $editor);
+        $temModelo = $this->temModelo($tipo);
 
-        $documento = DB::transaction(function () use ($def, $editor, $dados, $conta, $modelo, $existente, $regiao) {
+        // O armazém confirma-se contra esta empresa; e só se mexe nele se o
+        // pedido falou dele, para uma gravação que o omite não apagar o que
+        // o documento já tinha.
+        $mexeNoArmazem = $request->has('warehouse_id');
+        $armazemPedido = ($dados['warehouse_id'] ?? null)
+            ? Warehouse::where('tenant_id', activeTenantId())->whereKey($dados['warehouse_id'])->value('id')
+            : null;
+
+        $documento = DB::transaction(function () use ($def, $editor, $dados, $conta, $modelo, $existente, $regiao, $eServico, $temModelo, $mexeNoArmazem, $armazemPedido) {
             if ($existente) {
                 $editor['itens']::where($editor['chave'], $existente->id)->delete();
             }
@@ -260,6 +349,26 @@ class EmissorApiController extends Controller
 
             $d->{$editor['parte_id']} = $dados['parte_id'];
             $d->{$def['data']} = $dados['data'];            $d->notes = $dados['notas'] ?? null;
+            $d->terms = $dados['condicoes'] ?? null;
+            $d->is_service = $eServico;
+
+            if ($mexeNoArmazem) {
+                $d->warehouse_id = $armazemPedido;
+            }
+
+            if ($temModelo) {
+                // O modelo confirma-se contra esta empresa: um id vindo do
+                // pedido não é prova de nada.
+                $escolhido = ($dados['quote_template_id'] ?? null)
+                    ? QuoteTemplate::where('tenant_id', activeTenantId())->find($dados['quote_template_id'])
+                    : null;
+
+                $d->quote_template_id = $escolhido?->id;
+                $d->campos_proposta = $this->camposDoModeloEscolhido(
+                    $escolhido,
+                    (array) ($dados['campos_proposta'] ?? []),
+                );
+            }
 
             if (in_array('valid_until', $d->getFillable(), true) || ! empty($dados['valido_ate'])) {
                 $d->valid_until = $dados['valido_ate'] ?? null;
@@ -267,6 +376,9 @@ class EmissorApiController extends Controller
 
             $d->subtotal = $conta['totais']['liquido'];
             $d->tax_amount = $conta['totais']['imposto'];
+            // A retenção de IRT de uma prestação de serviço, que já saiu do
+            // total — o mesmo número que o ecrã mostra.
+            $d->irt_amount = $conta['totais']['retencao'];
             $d->total = $conta['totais']['total'];
 
             // O NÚMERO NÃO SE ESCREVE AQUI: o modelo numera-se a si próprio no
@@ -310,6 +422,76 @@ class EmissorApiController extends Controller
     }
 
     /* ─── Por dentro ──────────────────────────────────────────────────── */
+
+    /**
+     * ESTE DOCUMENTO DESENHA-SE POR UM MODELO DE PROPOSTA?
+     *
+     * Só o orçamento. É o único que o `RenderizadorDeProposta` sabe desenhar
+     * e o único cuja tabela tem `quote_template_id` — as proformas saem
+     * sempre pelo desenho da casa.
+     */
+    private function temModelo(string $tipo): bool
+    {
+        return $tipo === 'orcamentos';
+    }
+
+    /**
+     * Os modelos de proposta da empresa, com os campos que cada um pede.
+     *
+     * Os campos livres viajam com o modelo para o ecrã os poder desenhar mal
+     * se escolha um, sem uma segunda ida ao servidor. O padrão vem à frente,
+     * como na lista de modelos.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function modelosDeProposta(string $tipo): array
+    {
+        if (! $this->temModelo($tipo)) {
+            return [];
+        }
+
+        return QuoteTemplate::where('tenant_id', activeTenantId())
+            ->where('is_active', true)
+            ->orderByDesc('is_default')
+            ->orderBy('nome')
+            ->get()
+            ->map(fn (QuoteTemplate $m) => [
+                'id' => $m->id,
+                'nome' => $m->nome,
+                'is_default' => (bool) $m->is_default,
+                'campos' => array_values($m->camposLivres()),
+            ])
+            ->all();
+    }
+
+    /**
+     * SÓ OS CAMPOS QUE O MODELO ESCOLHIDO PEDE.
+     *
+     * Trocar de modelo a meio deixava aqui textos órfãos de um modelo antigo,
+     * que voltariam a aparecer se alguém voltasse a escolhê-lo. Sem modelo,
+     * ou sem nada escrito, fica nulo.
+     *
+     * @param  array<string, mixed>  $escritos
+     * @return array<string, string>|null
+     */
+    private function camposDoModeloEscolhido(?QuoteTemplate $modelo, array $escritos): ?array
+    {
+        if (! $modelo) {
+            return null;
+        }
+
+        $guardar = [];
+
+        foreach (array_keys($modelo->camposLivres()) as $chave) {
+            $valor = trim((string) ($escritos[$chave] ?? ''));
+
+            if ($valor !== '') {
+                $guardar[$chave] = $valor;
+            }
+        }
+
+        return $guardar ?: null;
+    }
 
     /**
      * A REGIÃO FISCAL DA OPERAÇÃO, que desce às linhas.

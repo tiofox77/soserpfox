@@ -12,6 +12,7 @@ use App\Services\Invoicing\CalculadoraDeDocumento;
 use App\Services\Invoicing\DuplicaDocumento;
 use App\Services\Invoicing\EmissorDeCompras;
 use App\Services\Invoicing\TaxResolver;
+use App\Support\Geografia;
 use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -192,6 +193,20 @@ class CompraApiController extends Controller
                 ['valor' => 'draft', 'rotulo' => __('Rascunho')],
                 ['valor' => 'pending', 'rotulo' => __('Por pagar')],
                 ['valor' => 'paid', 'rotulo' => __('Paga')],
+            ],
+
+            /*
+             * O FORNECEDOR RÁPIDO — a factura do fornecedor está na mão e ele
+             * ainda não está na ficha. Cria-se aqui, sem largar o registo a
+             * meio, pela porta de sempre (`/catalogos/fornecedores`).
+             *
+             * Criar fornecedores é permissão própria, diferente da de
+             * registar compras: quem não a tem não vê o botão.
+             */
+            'criar_parte' => [
+                'tipo' => 'fornecedor',
+                'pode' => (bool) $request->user()?->can('invoicing.suppliers.create'),
+                'pais_padrao' => Geografia::PAIS_PADRAO,
             ],
 
             'permissoes' => [

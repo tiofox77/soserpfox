@@ -369,4 +369,73 @@ class ApiDosClientesParaReactTest extends TenantTestCase
         $this->assertStringNotContainsString("'Luanda',", $ecra,
             'o ecrã voltou a ter a sua própria lista de geografia');
     }
+
+    /**
+     * O «CLIENTE RÁPIDO» DO EMISSOR ENTRA POR ESTA MESMA PORTA.
+     *
+     * Está-se a emitir uma factura, o cliente não existe, e cria-se ali mesmo
+     * sem largar o documento a meio. O que **não** existe é um segundo caminho
+     * de criação: o formulário rápido manda o que o formulário completo manda,
+     * para esta rota, e recebe as mesmas recusas. Uma criação «rápida» mais
+     * permissiva que a normal não seria rápida — seria a porta das traseiras
+     * para meter na base o que a casa recusa à frente.
+     *
+     * @test
+     */
+    public function o_cliente_rapido_do_emissor_grava_com_as_mesmas_regras(): void
+    {
+        $this->comPermissoes(
+            'invoicing.clients.view',
+            'invoicing.clients.create',
+            'invoicing.sales.invoices.create'
+        );
+
+        // Exactamente o que o formulário rápido envia: os cinco campos, mais o
+        // tipo e o país que ele assume por omissão.
+        $rapido = fn (array $por = []) => array_merge([
+            'type' => 'pessoa_juridica',
+            'name' => 'Cliente do Balcão, Lda',
+            'nif' => '5000000123',
+            'email' => null,
+            'phone' => null,
+            'address' => null,
+            'country' => 'AO',
+        ], $por);
+
+        // O NIF passa pelo verificador angolano: curto demais, ou a começar
+        // por um dígito que não existe, não entra.
+        $this->postJson(self::RAIZ, $rapido(['nif' => '123']))
+            ->assertStatus(422)->assertJsonValidationErrors('nif');
+        $this->postJson(self::RAIZ, $rapido(['nif' => '900000000']))
+            ->assertStatus(422)->assertJsonValidationErrors('nif');
+
+        // E o nome curto continua a ser nome curto.
+        $this->postJson(self::RAIZ, $rapido(['name' => 'ab']))
+            ->assertStatus(422)->assertJsonValidationErrors('name');
+
+        $id = $this->postJson(self::RAIZ, $rapido())->assertCreated()->json('data.id');
+
+        $this->assertDatabaseHas('invoicing_clients', [
+            'id' => $id,
+            'tenant_id' => $this->tenant->id,
+            'nif' => '5000000123',
+        ]);
+
+        // O MESMO NIF NÃO ENTRA DUAS VEZES nesta empresa — foi o que aconteceu
+        // ao ecrã antigo, que gravava todos os clientes rápidos sem NIF com o
+        // mesmo «999999999» e assim os tornava indistinguíveis na AGT.
+        $this->postJson(self::RAIZ, $rapido(['name' => 'Outro Balcão, Lda']))
+            ->assertStatus(422)->assertJsonValidationErrors('nif');
+
+        // E, criado, tem de estar escolhível no emissor: é lá que o ecrã o vai
+        // buscar para o pôr no documento que está a meio.
+        $clientes = collect(
+            $this->getJson('/api/v1/invoicing/react/factura/opcoes')->assertOk()->json('clientes')
+        );
+
+        $this->assertTrue(
+            $clientes->contains('id', $id),
+            'o cliente criado do emissor tem de aparecer nas opções da factura'
+        );
+    }
 }

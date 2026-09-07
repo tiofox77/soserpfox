@@ -8,8 +8,9 @@ import { Botao } from '@/ui/Botao';
 import { Campo, entrada } from '@/ui/Campo';
 import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
-import { CARTAO, RAIO, cls, kz } from '@/ui/tokens';
+import { cls, kz } from '@/ui/tokens';
 import { t } from '@/i18n';
+import { Aviso, NaoAbriu, PainelDeSucesso } from './PecasDoEditor';
 
 /**
  * REGISTAR UM ADIANTAMENTO — dinheiro recebido de um cliente antes de haver
@@ -65,25 +66,24 @@ export default function EmitirAdiantamento({ id }: { id?: number }) {
     if (opcoes.isError || existente.isError) {
         const erro = opcoes.error ?? existente.error;
         return (
-            <div className={cls('border border-red-200 bg-red-50 p-6', RAIO)} role="alert">
-                <h2 className="mb-2 text-lg font-bold text-red-900">{t('Não foi possível abrir o adiantamento')}</h2>
-                <p className="text-sm text-red-800">{erro instanceof ErroDaApi ? erro.message : t('Verifique a ligação.')}</p>
-            </div>
+            <NaoAbriu
+                titulo={t('Não foi possível abrir o adiantamento')}
+                mensagem={erro instanceof ErroDaApi ? erro.message : t('Verifique a ligação.')}
+            />
         );
     }
 
     if (feito) {
         return (
-            <div className={cls(CARTAO, 'p-8 text-center')}>
-                <i className="fas fa-circle-check mb-3 text-4xl text-emerald-500" aria-hidden="true" />
-                <h2 className="text-xl font-bold text-slate-900">{feito.numero}</h2>
-                <p className="mt-1 text-sm text-slate-500">{t(':valor Kz disponíveis para abater em facturas.', { valor: kz(feito.amount) })}</p>
-                <div className="mt-6 flex justify-center gap-2">
-                    <Botao cor="primaria" tom="solida" icone="fa-file-pdf" onClick={() => window.open(feito.pdf, '_blank')}>{t('PDF')}</Botao>
-                    <Botao icone="fa-list" onClick={() => (window.location.href = feito.abrir)}>{t('Ver adiantamentos')}</Botao>
-                    {!id && <Botao icone="fa-plus" onClick={() => { porFeito(null); porClienteId(''); porValor(''); porFinalidade(''); porNotas(''); }}>{t('Registar outro')}</Botao>}
-                </div>
-            </div>
+            <PainelDeSucesso
+                numero={feito.numero}
+                mensagem={t(':valor Kz disponíveis para abater em facturas.', { valor: kz(feito.amount) })}
+                icone="fa-hand-holding-dollar"
+            >
+                <Botao cor="primaria" tom="solida" icone="fa-file-pdf" onClick={() => window.open(feito.pdf, '_blank')}>{t('PDF')}</Botao>
+                <Botao icone="fa-list" onClick={() => (window.location.href = feito.abrir)}>{t('Ver adiantamentos')}</Botao>
+                {!id && <Botao icone="fa-plus" onClick={() => { porFeito(null); porClienteId(''); porValor(''); porFinalidade(''); porNotas(''); }}>{t('Registar outro')}</Botao>}
+            </PainelDeSucesso>
         );
     }
 
@@ -95,12 +95,13 @@ export default function EmitirAdiantamento({ id }: { id?: number }) {
             <AvisoDeErro erro={guardar.error} />
 
             {bloqueado && (
-                <p role="alert" className={cls('border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900', RAIO)}>
-                    {t('Este adiantamento já foi usado em facturas. Já não se edita.')}
-                </p>
+                <Aviso icone="fa-lock">{t('Este adiantamento já foi usado em facturas. Já não se edita.')}</Aviso>
             )}
 
-            <Cartao titulo={id ? t('Editar :numero', { numero: existente.data?.data.numero ?? '' }) : t('Novo adiantamento')}>
+            <Cartao
+                titulo={id ? t('Editar :numero', { numero: existente.data?.data.numero ?? '' }) : t('Novo adiantamento')}
+                icone="fa-hand-holding-dollar"
+            >
                 <div className="grid gap-4 sm:grid-cols-2">
                     <Campo etiqueta={t('Cliente')} erro={erros.client_id} obrigatorio className="sm:col-span-2">
                         <select value={clienteId} onChange={(e) => porClienteId(e.target.value)} disabled={bloqueado} className={entrada}>

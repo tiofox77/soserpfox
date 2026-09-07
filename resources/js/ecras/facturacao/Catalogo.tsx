@@ -7,11 +7,12 @@ import { AvisoDeErro } from '@/ui/AvisoDeErro';
 import { Botao } from '@/ui/Botao';
 import { Campo as CampoDoFormulario, entrada } from '@/ui/Campo';
 import { Cartao } from '@/ui/Cartao';
+import { CartaoNumero } from '@/ui/CartaoNumero';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { FOCO, RAIO, cls, kz } from '@/ui/tokens';
-import { t, tPartes } from '@/i18n';
+import { etiquetaIntl, t, tPartes } from '@/i18n';
 
 /**
  * UM CATÁLOGO — fornecedores, categorias, marcas, armazéns, condições de
@@ -94,8 +95,39 @@ export default function Catalogo({ tipo }: { tipo: string }) {
 
             <AvisoDeErro erro={apagar.error ?? accao.error ?? logotipo.error} />
 
+            {/* OS CARTÕES DO TOPO. A contagem é a do servidor, com os filtros
+                postos; o que está contado nas linhas à vista di-lo no cartão. */}
+            <div className={cls('grid gap-3 sm:grid-cols-2', o.accoes.activar ? 'lg:grid-cols-3' : 'lg:grid-cols-2', lista.isFetching && 'opacity-70')}>
+                <CartaoNumero
+                    rotulo={o.titulo}
+                    tom="indigo"
+                    icone={o.icone}
+                    nota={t('com os filtros actuais')}
+                    valor={contas === undefined ? <span className="text-white/50">—</span> : contas.total.toLocaleString(etiquetaIntl())}
+                />
+                <CartaoNumero
+                    rotulo={t('Nesta página')}
+                    tom="cinza"
+                    icone="fa-list"
+                    nota={contas ? t('Página :actual de :total', { actual: contas.current_page, total: contas.last_page }) : undefined}
+                    valor={linhas.length.toLocaleString(etiquetaIntl())}
+                />
+                {/* Só onde o activar/desactivar existe: nos outros a coluna não
+                    é sequer oferecida, e um cartão a dizer sempre o mesmo é ruído. */}
+                {o.accoes.activar && (
+                    <CartaoNumero
+                        rotulo={t('Activos nesta página')}
+                        tom="verde"
+                        icone="fa-toggle-on"
+                        valor={linhas.filter((l) => l.is_active !== false).length.toLocaleString(etiquetaIntl())}
+                        nota={t(':quantos nesta página', { quantos: linhas.length })}
+                    />
+                )}
+            </div>
+
             <Cartao
-                titulo={<span className="flex items-center gap-2"><i className={cls('fas', o.icone, 'text-slate-400')} aria-hidden="true" />{o.titulo}</span>}
+                titulo={o.titulo}
+                icone={o.icone}
                 accoes={o.permissoes.pode_escrever && <Botao cor="primaria" tom="solida" icone="fa-plus" onClick={abrirNovo}>{t('Novo(a) :nome', { nome: o.singular.toLowerCase() })}</Botao>}
             >
                 <div className="flex flex-wrap items-end gap-3">
@@ -118,19 +150,60 @@ export default function Catalogo({ tipo }: { tipo: string }) {
             <Cartao semPadding>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                        <thead>
-                            <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500">
+                        {/* O cabeçalho de sempre: fundo cinzento claro e
+                            maiúsculas pequenas. Sem ícone por coluna — aqui as
+                            colunas vêm do servidor e mudam de catálogo para
+                            catálogo, e um ícone adivinhado é pior do que nenhum. */}
+                        <thead className="bg-slate-50">
+                            <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-600">
                                 {o.accoes.logotipo && <th className="w-12 px-4 py-3"></th>}
-                                {o.colunas.map((c) => <th key={c.chave} className={cls('px-4 py-3 font-semibold', c.alinhar === 'direita' && 'text-right')}>{c.rotulo}</th>)}
-                                <th className="w-40 px-4 py-3"></th>
+                                {o.colunas.map((c) => <th key={c.chave} className={cls('px-4 py-3 font-bold', c.alinhar === 'direita' && 'text-right')}>{c.rotulo}</th>)}
+                                <th className="w-40 px-4 py-3 text-right font-bold"><i className="fas fa-gear mr-1.5 text-slate-400" aria-hidden="true" />{t('Acções')}</th>
                             </tr>
                         </thead>
                         <tbody className={cls('divide-y divide-slate-100', lista.isFetching && 'opacity-60')}>
                             {linhas.length === 0 && (
-                                <tr><td colSpan={o.colunas.length + 2} className="px-4 py-10 text-center text-slate-400">{lista.isPending ? t('A carregar…') : t('Nada para mostrar.')}</td></tr>
+                                <tr>
+                                    <td colSpan={o.colunas.length + 2} className="px-6 py-16 text-center">
+                                        {lista.isPending ? (
+                                            <span className="text-slate-400">{t('A carregar…')}</span>
+                                        ) : (
+                                            /* O ESTADO VAZIO COM DESENHO: o círculo de
+                                               80px com o ícone do catálogo lá dentro, e
+                                               uma frase que diz o que fazer a seguir —
+                                               o «Nada para mostrar.» que aqui estava não
+                                               dizia nem o que faltava nem por onde ir. */
+                                            <div className="animate-fade-in">
+                                                <div className="mx-auto mb-4 grid h-20 w-20 place-items-center rounded-full bg-slate-100">
+                                                    <i className={cls('fas', o.icone, 'text-4xl text-slate-300')} aria-hidden="true" />
+                                                </div>
+                                                <p className="text-lg font-bold text-slate-800">{t('Nada para mostrar.')}</p>
+                                                <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
+                                                    {o.permissoes.pode_escrever
+                                                        ? t('Limpe a procura, ou crie o(a) primeiro(a) :nome.', { nome: o.singular.toLowerCase() })
+                                                        : t('Limpe a procura para ver mais.')}
+                                                </p>
+                                                {o.permissoes.pode_escrever && (
+                                                    <div className="mt-5 flex justify-center">
+                                                        <Botao cor="primaria" tom="solida" icone="fa-plus" onClick={abrirNovo}>
+                                                            {t('Novo(a) :nome', { nome: o.singular.toLowerCase() })}
+                                                        </Botao>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </td>
+                                </tr>
                             )}
-                            {linhas.map((l) => (
-                                <tr key={l.id} className={cls(l.is_active === false && 'text-slate-400')}>
+                            {linhas.map((l, i) => (
+                                <tr
+                                    key={l.id}
+                                    /* A entrada em cascata (`--i`) e o realce ao passar
+                                       vêm do ecrã de sempre; a guarda de
+                                       prefers-reduced-motion está no layout. */
+                                    className={cls('entra transition-all duration-200 hover:bg-indigo-50/60', l.is_active === false && 'text-slate-400')}
+                                    style={{ '--i': Math.min(i, 12) } as React.CSSProperties}
+                                >
                                     {o.accoes.logotipo && (
                                         <td className="px-4 py-2">
                                             {l.logo ? <img src={l.logo} alt="" className="h-8 w-8 rounded object-contain" /> : <span className="inline-block h-8 w-8 rounded bg-slate-100" aria-hidden="true" />}
@@ -141,21 +214,21 @@ export default function Catalogo({ tipo }: { tipo: string }) {
                                         {o.permissoes.pode_escrever && (
                                             <span className="flex justify-end gap-1">
                                                 {o.accoes.padrao && !l.is_default && (
-                                                    <button type="button" onClick={() => accao.mutate({ l, qual: 'padrao' })} title={t('Tornar padrão')} aria-label={t('Tornar padrão: :nome', { nome: String(l.name ?? l.id) })} className={cls('p-2 text-slate-400 hover:text-amber-500', RAIO, FOCO)}><i className="fas fa-star" aria-hidden="true" /></button>
+                                                    <button type="button" onClick={() => accao.mutate({ l, qual: 'padrao' })} title={t('Tornar padrão')} aria-label={t('Tornar padrão: :nome', { nome: String(l.name ?? l.id) })} className={cls('p-2 text-slate-400 transition-all duration-200 hover:scale-110 active:scale-100 hover:text-amber-500', RAIO, FOCO)}><i className="fas fa-star" aria-hidden="true" /></button>
                                                 )}
                                                 {o.accoes.activar && (
-                                                    <button type="button" onClick={() => accao.mutate({ l, qual: 'activar' })} title={l.is_active ? t('Desactivar') : t('Activar')} aria-label={t(l.is_active ? 'Desactivar: :nome' : 'Activar: :nome', { nome: String(l.name ?? l.id) })} className={cls('p-2 text-slate-400 hover:text-slate-700', RAIO, FOCO)}><i className={cls('fas', l.is_active ? 'fa-toggle-on text-emerald-500' : 'fa-toggle-off')} aria-hidden="true" /></button>
+                                                    <button type="button" onClick={() => accao.mutate({ l, qual: 'activar' })} title={l.is_active ? t('Desactivar') : t('Activar')} aria-label={t(l.is_active ? 'Desactivar: :nome' : 'Activar: :nome', { nome: String(l.name ?? l.id) })} className={cls('p-2 text-slate-400 transition-all duration-200 hover:scale-110 active:scale-100 hover:text-slate-700', RAIO, FOCO)}><i className={cls('fas', l.is_active ? 'fa-toggle-on text-emerald-500' : 'fa-toggle-off')} aria-hidden="true" /></button>
                                                 )}
                                                 {o.accoes.logotipo && (
-                                                    <label title={t('Logótipo')} className={cls('cursor-pointer p-2 text-slate-400 hover:text-indigo-600', RAIO)}>
+                                                    <label title={t('Logótipo')} className={cls('cursor-pointer p-2 text-slate-400 transition-all duration-200 hover:scale-110 active:scale-100 hover:text-indigo-600', RAIO)}>
                                                         <i className="fas fa-image" aria-hidden="true" />
                                                         <span className="sr-only">{t('Logótipo de :nome', { nome: String(l.name ?? l.id) })}</span>
                                                         <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) logotipo.mutate({ l, ficheiro: f }); e.target.value = ''; }} />
                                                     </label>
                                                 )}
-                                                <button type="button" onClick={() => abrirEdicao(l)} aria-label={t('Editar: :nome', { nome: String(l.name ?? l.id) })} className={cls('p-2 text-slate-400 hover:text-indigo-600', RAIO, FOCO)}><i className="fas fa-pen" aria-hidden="true" /></button>
+                                                <button type="button" onClick={() => abrirEdicao(l)} aria-label={t('Editar: :nome', { nome: String(l.name ?? l.id) })} className={cls('p-2 text-slate-400 transition-all duration-200 hover:scale-110 active:scale-100 hover:text-indigo-600', RAIO, FOCO)}><i className="fas fa-pen" aria-hidden="true" /></button>
                                                 {o.accoes.apagar && (
-                                                    <button type="button" disabled={!l.pode_apagar} onClick={() => porAApagar(l)} title={l.pode_apagar ? t('Apagar') : t('Em uso — não se pode apagar')} aria-label={t('Apagar: :nome', { nome: String(l.name ?? l.id) })} className={cls('p-2 text-slate-400 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40', RAIO, FOCO)}><i className="fas fa-trash" aria-hidden="true" /></button>
+                                                    <button type="button" disabled={!l.pode_apagar} onClick={() => porAApagar(l)} title={l.pode_apagar ? t('Apagar') : t('Em uso — não se pode apagar')} aria-label={t('Apagar: :nome', { nome: String(l.name ?? l.id) })} className={cls('p-2 text-slate-400 transition-all duration-200 hover:scale-110 active:scale-100 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40', RAIO, FOCO)}><i className="fas fa-trash" aria-hidden="true" /></button>
                                                 )}
                                             </span>
                                         )}

@@ -9,9 +9,11 @@ import { Campo, entrada } from '@/ui/Campo';
 import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
+import { CartaoNumero, type TomDoCartao } from '@/ui/CartaoNumero';
 import { Modal } from '@/ui/Modal';
 import { FOCO, RAIO, cls } from '@/ui/tokens';
 import { t, tPartes } from '@/i18n';
+import { EstadoNaFaixa, Faixa, SemNada, cascata } from './faixa';
 
 /**
  * AS CONFIGURAÇÕES AGT — os dois ambientes em separado.
@@ -103,8 +105,24 @@ function Painel({ o, e, aActualizar, empresa, separador, porSeparador, aoEscolhe
                 </div>
             )}
 
+            {/* A FAIXA DIZ SEMPRE QUAL É O AMBIENTE QUE EMITE, e não o que se
+                está a ver. É a resposta à única pergunta que interessa nesta
+                página: «os meus documentos estão a ir para a AGT a sério?». */}
+            <Faixa
+                icone="fa-file-signature"
+                cor="laranja"
+                titulo={t('AGT Angola')}
+                subtitulo={t('Decreto Presidencial n.º 71/25 — Sistema de Facturação Electrónica')}
+                accoes={
+                    <EstadoNaFaixa icone={activo === 'production' ? 'fa-shield-halved' : 'fa-flask'}>
+                        <span data-a-emitir>{t('A emitir em')} <strong>{e.ambientes[activo].rotulo}</strong></span>
+                    </EstadoNaFaixa>
+                }
+            />
+
             <Cartao
-                titulo={<span className="flex items-center gap-2"><i className="fas fa-file-signature text-slate-400" aria-hidden="true" />{t('AGT Angola')}</span>}
+                titulo={t('Contexto de operação')}
+                icone="fa-building"
                 accoes={o.permissoes.escolhe_empresa && (
                     <label className="text-sm"><span className="sr-only">{t('Empresa')}</span>
                         <select value={empresa ?? e.empresa.id} onChange={(ev) => aoEscolherEmpresa(Number(ev.target.value) || undefined)} className={entrada} aria-label={t('Empresa')}>
@@ -115,24 +133,32 @@ function Painel({ o, e, aActualizar, empresa, separador, porSeparador, aoEscolhe
             >
                 <p className="mb-4 text-sm text-slate-600">
                     <strong className="text-slate-900">{e.empresa.nome}</strong>{e.empresa.nif && <span className="ml-2 font-mono text-xs text-slate-500">{t('NIF')} {e.empresa.nif}</span>}
-                    <span className="ml-3" data-a-emitir>{t('A emitir em')} <strong>{e.ambientes[activo].rotulo}</strong></span>
                 </p>
 
                 {/* Os dois ambientes lado a lado: ver um de cada vez escondia que produção ainda não tem chaves. */}
                 <div className="grid gap-3 sm:grid-cols-2">
-                    {(Object.keys(e.ambientes) as Ambiente[]).map((amb) => {
+                    {(Object.keys(e.ambientes) as Ambiente[]).map((amb, i) => {
                         const x = e.ambientes[amb];
                         return (
-                            <button key={amb} type="button" onClick={() => aoVer(amb)} aria-pressed={x.a_ver} data-ambiente={amb}
-                                className={cls('flex flex-col items-start gap-2 border p-4 text-left', RAIO, FOCO, x.a_ver ? 'border-indigo-400 bg-indigo-50/60 ring-1 ring-indigo-300' : 'border-slate-200 bg-white hover:border-slate-300')}>
-                                <span className="flex w-full items-center justify-between">
-                                    <span className="text-base font-bold text-slate-900">{x.rotulo}</span>
-                                    {x.activo ? <Etiqueta cor="bom" icone="fa-bolt">{t('Activo')}</Etiqueta> : <Etiqueta>{t('Inactivo')}</Etiqueta>}
+                            <button key={amb} type="button" onClick={() => aoVer(amb)} aria-pressed={x.a_ver} data-ambiente={amb} style={cascata(i)}
+                                className={cls(
+                                    'entra flex flex-col items-start gap-2 border p-4 text-left shadow-sm',
+                                    RAIO, FOCO,
+                                    'transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md',
+                                    x.a_ver ? 'border-indigo-400 bg-indigo-50/60 ring-1 ring-indigo-300' : 'border-slate-200 bg-white hover:border-slate-300',
+                                )}>
+                                <span className="flex w-full items-center justify-between gap-2">
+                                    <span className="flex items-center gap-2 text-base font-bold text-slate-900">
+                                        <i className={cls('fas', amb === 'production' ? 'fa-shield-halved text-slate-400' : 'fa-flask text-slate-400')} aria-hidden="true" />
+                                        {x.rotulo}
+                                    </span>
+                                    {x.activo ? <Etiqueta cor="bom" icone="fa-bolt" ponto>{t('Activo')}</Etiqueta> : <Etiqueta ponto>{t('Inactivo')}</Etiqueta>}
                                 </span>
                                 <span className="flex flex-wrap gap-2 text-xs">
                                     <Etiqueta cor={x.chaves ? 'bom' : 'aviso'} icone={x.chaves ? 'fa-key' : 'fa-triangle-exclamation'}>{x.chaves ? t('Par RSA instalado') : t('Sem par RSA')}</Etiqueta>
                                     <Etiqueta cor={x.produtor ? 'bom' : 'aviso'} icone="fa-building">{x.produtor ? t('Produtor configurado') : t('Produtor por configurar')}</Etiqueta>
                                 </span>
+                                {x.a_ver && <span className="text-xs font-semibold text-indigo-700"><i className="fas fa-eye mr-1" aria-hidden="true" />{t('a ver este')}</span>}
                             </button>
                         );
                     })}
@@ -140,7 +166,7 @@ function Painel({ o, e, aActualizar, empresa, separador, porSeparador, aoEscolhe
 
                 {!noActivo && (
                     <div className={cls('mt-4 flex flex-wrap items-center justify-between gap-3 border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900', RAIO)}>
-                        <span>{tPartes('Está a ver :aVer, mas a empresa emite em :activo. As acções que escrevem na AGT ficam fechadas aqui.', { aVer: <strong>{e.ambientes[aVer].rotulo}</strong>, activo: <strong>{e.ambientes[activo].rotulo}</strong> })}</span>
+                        <span><i className="fas fa-triangle-exclamation mr-2" aria-hidden="true" />{tPartes('Está a ver :aVer, mas a empresa emite em :activo. As acções que escrevem na AGT ficam fechadas aqui.', { aVer: <strong>{e.ambientes[aVer].rotulo}</strong>, activo: <strong>{e.ambientes[activo].rotulo}</strong> })}</span>
                         {podeEditar && <Botao cor="primaria" tom="solida" icone="fa-bolt" aTrabalhar={activar.isPending} onClick={() => activar.mutate()}>{t('Passar a emitir aqui')}</Botao>}
                     </div>
                 )}
@@ -148,10 +174,17 @@ function Painel({ o, e, aActualizar, empresa, separador, porSeparador, aoEscolhe
 
             <RelatorioDeConformidade e={e} />
 
-            <div className={cls('flex flex-wrap gap-1 border-b border-slate-200', aActualizar && 'opacity-60')} role="tablist">
+            {/* Os separadores, sobre a mesma barra clara do ecrã de sempre: o
+                que está aberto fica branco e destacado, e é essa diferença de
+                fundo — não só a cor da letra — que se vê de longe. */}
+            <div className={cls('flex flex-wrap gap-1 border border-slate-200 bg-slate-50 p-1 shadow-sm', RAIO, aActualizar && 'opacity-60')} role="tablist">
                 {SEPARADORES.map((s) => (
                     <button key={s.chave} type="button" role="tab" aria-selected={separador === s.chave} onClick={() => porSeparador(s.chave)}
-                        className={cls('-mb-px flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-semibold', FOCO, separador === s.chave ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-slate-500 hover:text-slate-800')}>
+                        className={cls(
+                            'flex items-center gap-2 px-4 py-2 text-sm font-semibold transition-all duration-200',
+                            RAIO, FOCO,
+                            separador === s.chave ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-white/70 hover:text-slate-800',
+                        )}>
                         <i className={cls('fas', s.icone)} aria-hidden="true" />{s.rotulo}
                     </button>
                 ))}
@@ -167,21 +200,29 @@ function Painel({ o, e, aActualizar, empresa, separador, porSeparador, aoEscolhe
     );
 }
 
+/**
+ * O RELATÓRIO DE CONFORMIDADE, nos cartões de gradiente da casa.
+ *
+ * A COR SEGUE O QUE O NÚMERO QUER DIZER, como no resto do sistema: as
+ * rejeitadas ficam vermelhas quando existem e cinzentas quando são zero —
+ * um cartão vermelho a dizer «0» treina a pessoa a ignorar o vermelho.
+ */
 function RelatorioDeConformidade({ e }: { e: EstadoDaAgt }) {
     const r = e.relatorio;
-    const cartoes = [
-        { rotulo: 'Séries registadas', valor: t(':quantas de :total', { quantas: r.series?.registered ?? 0, total: r.series?.total ?? 0 }), icone: 'fa-hashtag' },
-        { rotulo: 'Submissões validadas', valor: t(':quantas de :total', { quantas: r.submissions?.validated ?? 0, total: r.submissions?.total ?? 0 }), icone: 'fa-paper-plane' },
-        { rotulo: 'Rejeitadas', valor: String(r.submissions?.rejected ?? 0), icone: 'fa-circle-xmark' },
-        { rotulo: 'Facturas (30 dias) com ATCUD', valor: t(':quantas de :total', { quantas: r.invoices_30_days?.with_atcud ?? 0, total: r.invoices_30_days?.total ?? 0 }), icone: 'fa-file-invoice' },
+    const rejeitadas = r.submissions?.rejected ?? 0;
+
+    const cartoes: Array<{ rotulo: string; valor: string; icone: string; tom: TomDoCartao }> = [
+        { rotulo: 'Séries registadas', valor: t(':quantas de :total', { quantas: r.series?.registered ?? 0, total: r.series?.total ?? 0 }), icone: 'fa-hashtag', tom: 'azul' },
+        { rotulo: 'Submissões validadas', valor: t(':quantas de :total', { quantas: r.submissions?.validated ?? 0, total: r.submissions?.total ?? 0 }), icone: 'fa-paper-plane', tom: 'verde' },
+        { rotulo: 'Rejeitadas', valor: String(rejeitadas), icone: rejeitadas > 0 ? 'fa-circle-xmark' : 'fa-check', tom: rejeitadas > 0 ? 'vermelho' : 'cinza' },
+        { rotulo: 'Facturas (30 dias) com ATCUD', valor: t(':quantas de :total', { quantas: r.invoices_30_days?.with_atcud ?? 0, total: r.invoices_30_days?.total ?? 0 }), icone: 'fa-file-invoice', tom: 'indigo' },
     ];
 
     return (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-relatorio>
-            {cartoes.map((c) => (
-                <div key={c.rotulo} className={cls('flex items-center gap-3 border border-slate-200 bg-white p-4', RAIO)}>
-                    <i className={cls('fas text-xl text-slate-300', c.icone)} aria-hidden="true" />
-                    <div><p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t(c.rotulo)}</p><p className="text-lg font-bold tabular-nums text-slate-900">{c.valor}</p></div>
+            {cartoes.map((c, i) => (
+                <div key={c.rotulo} className="entra" style={cascata(i)}>
+                    <CartaoNumero rotulo={t(c.rotulo)} valor={c.valor} icone={c.icone} tom={c.tom} />
                 </div>
             ))}
         </div>
@@ -196,7 +237,7 @@ function Definicoes({ o, e, empresa, podeEditar, feito, falhou }: { o: OpcoesDaA
     const gravar = useMutation({ mutationFn: () => agt.guardar(forma, empresa), onSuccess: (r) => { feito(r.message); porErros({}); }, onError: (er) => { porErros(er instanceof ErroDaApi ? er.erros : {}); falhou(er); } });
 
     return (
-        <Cartao titulo={t('Definições')} accoes={podeEditar && <Botao cor="primaria" tom="solida" icone="fa-floppy-disk" aTrabalhar={gravar.isPending} onClick={() => gravar.mutate()}>{t('Guardar')}</Botao>}>
+        <Cartao titulo={t('Definições')} icone="fa-sliders" accoes={podeEditar && <Botao cor="primaria" tom="solida" icone="fa-floppy-disk" aTrabalhar={gravar.isPending} onClick={() => gravar.mutate()}>{t('Guardar')}</Botao>}>
             <p className="mb-4 text-sm text-slate-500">{t('Guardar aqui nunca muda o ambiente que emite. Isso é o botão «Passar a emitir aqui».')}</p>
             <div className="grid gap-4 sm:grid-cols-2">
                 <Campo etiqueta={t('Código CAE (classe)')} erro={erros.agt_eac_code} className="sm:col-span-2">
@@ -227,7 +268,7 @@ function Chaves({ e, empresa, podeEditar, feito, falhou }: { e: EstadoDaAgt; emp
 
     return (
         <div className="space-y-4">
-            <Cartao titulo={t('Chaves de :ambiente', { ambiente: rotulo })} accoes={<Botao icone="fa-plug" aTrabalhar={testar.isPending} onClick={() => testar.mutate()}>{t('Testar ligação')}</Botao>}>
+            <Cartao titulo={t('Chaves de :ambiente', { ambiente: rotulo })} icone="fa-key" accoes={<Botao icone="fa-plug" aTrabalhar={testar.isPending} onClick={() => testar.mutate()}>{t('Testar ligação')}</Botao>}>
                 <ul className="grid gap-2 sm:grid-cols-3" data-chaves>
                     <li><Etiqueta cor={e.chaves.publica ? 'bom' : 'aviso'} icone={e.chaves.publica ? 'fa-check' : 'fa-xmark'}>{e.chaves.publica ? t('Chave pública instalada') : t('Chave pública em falta')}</Etiqueta></li>
                     <li><Etiqueta cor={e.chaves.privada ? 'bom' : 'aviso'} icone={e.chaves.privada ? 'fa-check' : 'fa-xmark'}>{e.chaves.privada ? t('Chave privada instalada') : t('Chave privada em falta')}</Etiqueta></li>
@@ -242,7 +283,7 @@ function Chaves({ e, empresa, podeEditar, feito, falhou }: { e: EstadoDaAgt; emp
             </Cartao>
 
             {podeEditar && (
-                <Cartao titulo={t('Instalar o par RSA de :ambiente', { ambiente: rotulo })} accoes={<span className="flex gap-2">{(e.chaves.publica || e.chaves.privada) && <Botao cor="perigo" icone="fa-trash" onClick={() => porARemover(true)}>{t('Remover')}</Botao>}<Botao cor="primaria" tom="solida" icone="fa-key" aTrabalhar={guardar.isPending} disabled={!publica || !privada} onClick={() => guardar.mutate()}>{t('Guardar par')}</Botao></span>}>
+                <Cartao titulo={t('Instalar o par RSA de :ambiente', { ambiente: rotulo })} icone="fa-file-shield" accoes={<span className="flex gap-2">{(e.chaves.publica || e.chaves.privada) && <Botao cor="perigo" icone="fa-trash" onClick={() => porARemover(true)}>{t('Remover')}</Botao>}<Botao cor="primaria" tom="solida" icone="fa-key" aTrabalhar={guardar.isPending} disabled={!publica || !privada} onClick={() => guardar.mutate()}>{t('Guardar par')}</Botao></span>}>
                     <p className="mb-4 text-sm text-slate-500">{t('O par vem do Portal do Contribuinte, um por ambiente. Instalar as chaves de produção não põe a empresa a emitir por lá.')}</p>
                     <div className="grid gap-4 sm:grid-cols-2">
                         <Campo etiqueta={t('Chave pública (PEM)')} erro={erros.contributorPublicKey}><textarea value={publica} onChange={(ev) => porPublica(ev.target.value)} rows={8} spellCheck={false} className={cls(entrada, 'font-mono text-xs')} /></Campo>
@@ -262,13 +303,13 @@ function Series({ e, empresa, podeEditar, noActivo, feito, falhou }: { e: Estado
     const sincronizar = useMutation({ mutationFn: () => agt.sincronizarSeries(e.ambiente, empresa), onSuccess: (r) => feito(r.message), onError: falhou });
 
     return (
-        <Cartao titulo={t('Séries')} semPadding accoes={podeEditar && <Botao cor="primaria" tom="solida" icone="fa-rotate" aTrabalhar={sincronizar.isPending} disabled={!noActivo} onClick={() => sincronizar.mutate()}>{noActivo ? t('Sincronizar com a AGT') : t('Sincronizar (só no ambiente activo)')}</Botao>}>
+        <Cartao titulo={t('Séries')} icone="fa-hashtag" semPadding accoes={podeEditar && <Botao cor="primaria" tom="solida" icone="fa-rotate" aTrabalhar={sincronizar.isPending} disabled={!noActivo} onClick={() => sincronizar.mutate()}>{noActivo ? t('Sincronizar com a AGT') : t('Sincronizar (só no ambiente activo)')}</Botao>}>
             <table className="w-full text-sm">
-                <thead><tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500"><th className="px-4 py-3 font-semibold">{t('Código')}</th><th className="px-4 py-3 font-semibold">{t('Nome')}</th><th className="px-4 py-3 font-semibold">{t('Tipo')}</th><th className="px-4 py-3 font-semibold">AGT</th></tr></thead>
+                <thead><tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-600"><th className="px-4 py-3 font-semibold">{t('Código')}</th><th className="px-4 py-3 font-semibold">{t('Nome')}</th><th className="px-4 py-3 font-semibold">{t('Tipo')}</th><th className="px-4 py-3 font-semibold">AGT</th></tr></thead>
                 <tbody className="divide-y divide-slate-100">
-                    {e.series.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">{t('Sem séries activas.')}</td></tr>}
-                    {e.series.map((s) => (
-                        <tr key={s.id}><td className="px-4 py-2 font-mono font-semibold text-slate-900">{s.series_code}</td><td className="px-4 py-2">{s.name}</td><td className="px-4 py-2 text-slate-600">{s.document_type}</td><td className="px-4 py-2">{s.registada ? <Etiqueta cor="bom" icone="fa-shield">{s.agt_series_id}</Etiqueta> : <Etiqueta cor="aviso">{t('Por registar')}</Etiqueta>}</td></tr>
+                    {e.series.length === 0 && <tr><td colSpan={4}><SemNada icone="fa-hashtag" titulo={t('Sem séries activas.')} frase={t('Crie a primeira série de documentos nas Séries de Documentos.')} /></td></tr>}
+                    {e.series.map((s, i) => (
+                        <tr key={s.id} className="entra transition-all duration-200 hover:bg-indigo-50/60" style={cascata(i)}><td className="px-4 py-2 font-mono font-semibold text-slate-900">{s.series_code}</td><td className="px-4 py-2">{s.name}</td><td className="px-4 py-2 text-slate-600">{s.document_type}</td><td className="px-4 py-2">{s.registada ? <Etiqueta cor="bom" icone="fa-shield">{s.agt_series_id}</Etiqueta> : <Etiqueta cor="aviso" icone="fa-clock">{t('Por registar')}</Etiqueta>}</td></tr>
                     ))}
                 </tbody>
             </table>
@@ -281,19 +322,19 @@ function Submissoes({ e, empresa, podeEditar, noActivo, feito, falhou }: { e: Es
     const reenviar = useMutation({ mutationFn: ({ s, repor }: { s: Submissao; repor: boolean }) => agt.reenviar(s.id, e.ambiente, repor, empresa), onSuccess: (r) => feito(r.message), onError: falhou });
 
     return (
-        <Cartao titulo={t('Submissões')} semPadding accoes={podeEditar && <Botao icone="fa-arrows-rotate" aTrabalhar={actualizar.isPending} onClick={() => actualizar.mutate()}>{t('Actualizar estados')}</Botao>}>
+        <Cartao titulo={t('Submissões')} icone="fa-paper-plane" semPadding accoes={podeEditar && <Botao icone="fa-arrows-rotate" aTrabalhar={actualizar.isPending} onClick={() => actualizar.mutate()}>{t('Actualizar estados')}</Botao>}>
             <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                    <thead><tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500"><th className="px-4 py-3 font-semibold">{t('Quando')}</th><th className="px-4 py-3 font-semibold">{t('Documento')}</th><th className="px-4 py-3 font-semibold">{t('Estado')}</th><th className="px-4 py-3 font-semibold">{t('Referência / ATCUD')}</th><th className="px-4 py-3 font-semibold">{t('Erro')}</th><th className="px-4 py-3 text-right font-semibold">{t('Tentativas')}</th><th className="w-40 px-4 py-3"></th></tr></thead>
+                    <thead><tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-600"><th className="px-4 py-3 font-semibold">{t('Quando')}</th><th className="px-4 py-3 font-semibold">{t('Documento')}</th><th className="px-4 py-3 font-semibold">{t('Estado')}</th><th className="px-4 py-3 font-semibold">{t('Referência / ATCUD')}</th><th className="px-4 py-3 font-semibold">{t('Erro')}</th><th className="px-4 py-3 text-right font-semibold">{t('Tentativas')}</th><th className="w-40 px-4 py-3"></th></tr></thead>
                     <tbody className="divide-y divide-slate-100">
-                        {e.submissoes.length === 0 && <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">{t('Nada submetido neste ambiente.')}</td></tr>}
-                        {e.submissoes.map((s) => {
+                        {e.submissoes.length === 0 && <tr><td colSpan={7}><SemNada icone="fa-paper-plane" titulo={t('Nada submetido neste ambiente.')} frase={t('Assim que um documento for emitido e comunicado, aparece aqui com o estado que a AGT devolveu.')} /></td></tr>}
+                        {e.submissoes.map((s, i) => {
                             const est = ESTADOS[s.status] ?? { rotulo: s.status, cor: 'neutra' as const };
                             return (
-                                <tr key={s.id}>
+                                <tr key={s.id} className="entra transition-all duration-200 hover:bg-indigo-50/60" style={cascata(i)}>
                                     <td className="whitespace-nowrap px-4 py-2 text-slate-600">{s.quando}</td>
                                     <td className="px-4 py-2 font-mono text-xs">{s.document_type_code} {s.document_number}</td>
-                                    <td className="px-4 py-2"><Etiqueta cor={est.cor}>{est.rotulo}</Etiqueta></td>
+                                    <td className="px-4 py-2"><Etiqueta cor={est.cor} ponto>{est.rotulo}</Etiqueta></td>
                                     <td className="px-4 py-2 font-mono text-xs text-slate-600">{s.agt_reference ?? '—'}{s.atcud && <span className="block text-slate-400">{s.atcud}</span>}</td>
                                     <td className="max-w-xs px-4 py-2 text-xs text-red-700">{s.error_message}</td>
                                     <td className="px-4 py-2 text-right tabular-nums">{s.retry_count}</td>
@@ -313,18 +354,18 @@ function Submissoes({ e, empresa, podeEditar, noActivo, feito, falhou }: { e: Es
 
 function Comunicacoes({ e }: { e: EstadoDaAgt }) {
     return (
-        <Cartao titulo={t('Comunicações com a AGT')} semPadding>
+        <Cartao titulo={t('Comunicações com a AGT')} icone="fa-list" semPadding>
             <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                    <thead><tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500"><th className="px-4 py-3 font-semibold">{t('Quando')}</th><th className="px-4 py-3 font-semibold">{t('Serviço')}</th><th className="px-4 py-3 font-semibold">{t('Pedido')}</th><th className="px-4 py-3 font-semibold">{t('Resposta')}</th><th className="px-4 py-3 text-right font-semibold">ms</th></tr></thead>
+                    <thead><tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-600"><th className="px-4 py-3 font-semibold">{t('Quando')}</th><th className="px-4 py-3 font-semibold">{t('Serviço')}</th><th className="px-4 py-3 font-semibold">{t('Pedido')}</th><th className="px-4 py-3 font-semibold">{t('Resposta')}</th><th className="px-4 py-3 text-right font-semibold">ms</th></tr></thead>
                     <tbody className="divide-y divide-slate-100">
-                        {e.logs.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">{t('Ainda não houve comunicações neste ambiente.')}</td></tr>}
-                        {e.logs.map((l) => (
-                            <tr key={l.id}>
+                        {e.logs.length === 0 && <tr><td colSpan={5}><SemNada icone="fa-satellite-dish" titulo={t('Ainda não houve comunicações neste ambiente.')} frase={t('Cada ida à AGT — registar uma série, submeter um documento, consultar — fica registada aqui.')} /></td></tr>}
+                        {e.logs.map((l, i) => (
+                            <tr key={l.id} className="entra transition-all duration-200 hover:bg-indigo-50/60" style={cascata(i)}>
                                 <td className="whitespace-nowrap px-4 py-2 text-slate-600">{l.quando}</td>
                                 <td className="px-4 py-2">{l.service}</td>
                                 <td className="px-4 py-2 font-mono text-xs text-slate-600">{l.method} {l.endpoint}</td>
-                                <td className="px-4 py-2">{l.success ? <Etiqueta cor="bom">{l.response_status ?? 'OK'}</Etiqueta> : <Etiqueta cor="perigo">{l.response_status ?? t('Falhou')}</Etiqueta>}{l.error_message && <span className="block text-xs text-red-700">{l.error_message}</span>}</td>
+                                <td className="px-4 py-2">{l.success ? <Etiqueta cor="bom" icone="fa-circle-check">{l.response_status ?? 'OK'}</Etiqueta> : <Etiqueta cor="perigo" icone="fa-circle-exclamation">{l.response_status ?? t('Falhou')}</Etiqueta>}{l.error_message && <span className="block text-xs text-red-700">{l.error_message}</span>}</td>
                                 <td className="px-4 py-2 text-right tabular-nums text-slate-500">{l.response_time ?? '—'}</td>
                             </tr>
                         ))}
@@ -343,7 +384,7 @@ function Consulta({ o, e, empresa }: { o: OpcoesDaAgt; e: EstadoDaAgt; empresa?:
     const m = (chave: keyof typeof forma) => (ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => porForma({ ...forma, [chave]: ev.target.value });
 
     return (
-        <Cartao titulo={t('Consultar a AGT em :ambiente', { ambiente: e.ambientes[e.ambiente].rotulo })} accoes={<Botao cor="primaria" tom="solida" icone="fa-magnifying-glass" aTrabalhar={consultar.isPending} onClick={() => consultar.mutate()}>{t('Consultar')}</Botao>}>
+        <Cartao titulo={t('Consultar a AGT em :ambiente', { ambiente: e.ambientes[e.ambiente].rotulo })} icone="fa-magnifying-glass" accoes={<Botao cor="primaria" tom="solida" icone="fa-magnifying-glass" aTrabalhar={consultar.isPending} onClick={() => consultar.mutate()}>{t('Consultar')}</Botao>}>
             <AvisoDeErro erro={consultar.error} />
             <div className="grid gap-4 sm:grid-cols-3">
                 <Campo etiqueta={t('Operação')} erro={erros.apiOperation}><select value={forma.apiOperation} onChange={m('apiOperation')} className={entrada}>{o.operacoes.map((x) => <option key={x.valor} value={x.valor}>{x.rotulo}</option>)}</select></Campo>

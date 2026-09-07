@@ -42,6 +42,10 @@ export type Artigo = CamposDeSector & {
     unit: string;
     category: { id: number; name: string } | null;
     category_id: number | null;
+    /** A marca do artigo. Só o número — o nome está nas opções. */
+    brand_id: number | null;
+    /** O fornecedor habitual deste artigo. */
+    supplier_id: number | null;
     price: number;
     cost: number | null;
     tax_type: 'iva' | 'isento';
@@ -57,6 +61,17 @@ export type Artigo = CamposDeSector & {
     stock_max: number | null;
     em_falta: boolean;
     esgotado: boolean;
+
+    /*
+     * LOTES E VALIDADES. Viajam sempre, como os de sector: uma chave omitida
+     * deixava o valor anterior no formulário, e um artigo a que se tirou o
+     * controlo de lotes continuava a aparecer marcado.
+     */
+    track_batches: boolean;
+    track_expiry: boolean;
+    require_batch_on_purchase: boolean;
+    require_batch_on_sale: boolean;
+
     is_active: boolean;
     /** A morada da imagem de destaque, já pronta a mostrar. */
     imagem: string | null;
@@ -85,6 +100,8 @@ export type ArtigoParaGravar = {
     cost: number | string | null;
     unit: string;
     category_id: number | string;
+    brand_id: number | string | null;
+    supplier_id: number | string | null;
     tax_type: 'iva' | 'isento';
     tax_rate_id: number | string | null;
     exemption_reason: string | null;
@@ -94,6 +111,12 @@ export type ArtigoParaGravar = {
     stock_max: number | string | null;
     is_active: boolean;
     stock_quantity?: number | string;
+
+    // Lotes e validades. Um SERVIÇO não os tem: o servidor apaga-os.
+    track_batches: boolean;
+    track_expiry: boolean;
+    require_batch_on_purchase: boolean;
+    require_batch_on_sale: boolean;
 
     // Os de sector. Vazios em quase todo o catálogo, e é assim que fica bem.
     requires_prescription: boolean;
@@ -134,6 +157,8 @@ export type Escolha = { valor: string; rotulo: string };
 
 export type OpcoesDosArtigos = {
     categorias: Array<{ id: number; name: string }>;
+    marcas: Array<{ id: number; name: string }>;
+    fornecedores: Array<{ id: number; name: string }>;
     taxas: Array<{ id: number; name: string; rate: number }>;
     unidades: string[];
     generos: Escolha[];

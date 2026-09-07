@@ -18,6 +18,7 @@ import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { FOCO, RAIO, cls } from '@/ui/tokens';
 import { t } from '@/i18n';
+import { Faixa, SemNada, cascata } from './faixa';
 
 /**
  * AS DEFINIÇÕES DA FACTURAÇÃO.
@@ -108,16 +109,24 @@ export default function Definicoes() {
 
     return (
         <div className="space-y-4">
+            <Faixa
+                icone="fa-gears"
+                titulo={t('Configurações de Facturação')}
+                subtitulo={t('Configure os padrões do sistema de facturação')}
+            />
+
             <AvisoDeErro erro={guardar.error} />
 
             {mensagem && (
-                <p role="status" className={cls('px-4 py-3 text-sm font-medium', RAIO, mensagem.tom === 'bom' ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800')}>
+                <p role="status" className={cls('border px-4 py-3 text-sm font-medium', RAIO, mensagem.tom === 'bom' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800')}>
+                    <i className={cls('fas mr-2', mensagem.tom === 'bom' ? 'fa-circle-check' : 'fa-triangle-exclamation')} aria-hidden="true" />
                     {mensagem.texto}
                 </p>
             )}
 
-            {/* Os separadores. */}
-            <nav aria-label={t('Secções das definições')} className="flex flex-wrap gap-1 border-b border-slate-200">
+            {/* Os separadores, na mesma barra clara do resto do sistema: o que
+                está aberto fica branco e levantado, não só de outra cor. */}
+            <nav aria-label={t('Secções das definições')} className={cls('flex flex-wrap gap-1 border border-slate-200 bg-slate-50 p-1 shadow-sm', RAIO)}>
                 {SEPARADORES.map((s) => (
                     <button
                         key={s.chave}
@@ -126,9 +135,10 @@ export default function Definicoes() {
                         aria-selected={separador === s.chave}
                         onClick={() => porSeparador(s.chave)}
                         className={cls(
-                            'flex items-center gap-2 px-4 py-2.5 text-sm font-semibold transition',
+                            'flex items-center gap-2 px-4 py-2 text-sm font-semibold transition-all duration-200',
+                            RAIO,
                             FOCO,
-                            separador === s.chave ? 'border-b-2 border-indigo-600 text-indigo-700' : 'text-slate-500 hover:text-slate-800',
+                            separador === s.chave ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-white/70 hover:text-slate-800',
                         )}
                     >
                         <i className={cls('fas', s.icone)} aria-hidden="true" />
@@ -139,7 +149,7 @@ export default function Definicoes() {
 
             {separador === 'padroes' && (
                 <div className="grid gap-4 lg:grid-cols-2">
-                    <Cartao titulo={t('Padrões dos documentos')}>
+                    <Cartao titulo={t('Padrões dos documentos')} icone="fa-star">
                         <div className="grid gap-4 sm:grid-cols-2">
                             <Campo etiqueta={t('Armazém principal')} erro={erros.default_warehouse_id}>
                                 <select value={forma.default_warehouse_id ?? ''} onChange={numero('default_warehouse_id')} className={entrada}>
@@ -174,7 +184,7 @@ export default function Definicoes() {
                         </div>
                     </Cartao>
 
-                    <Cartao titulo={t('Moeda e números')}>
+                    <Cartao titulo={t('Moeda e números')} icone="fa-coins">
                         <div className="grid gap-4 sm:grid-cols-2">
                             <Campo etiqueta={t('Moeda')} erro={erros.default_currency} obrigatorio>
                                 <select value={forma.default_currency} onChange={texto('default_currency')} className={entrada}>
@@ -216,7 +226,7 @@ export default function Definicoes() {
 
             {separador === 'impostos' && (
                 <div className="grid gap-4 lg:grid-cols-2">
-                    <Cartao titulo={t('Impostos')}>
+                    <Cartao titulo={t('Impostos')} icone="fa-percent">
                         <div className="grid gap-4 sm:grid-cols-2">
                             <Campo etiqueta={t('IVA padrão (%)')} erro={erros.default_tax_rate} obrigatorio>
                                 <input type="number" min="0" max="100" step="0.01" value={forma.default_tax_rate} onChange={texto('default_tax_rate')} className={cls(entrada, 'text-right tabular-nums')} />
@@ -230,7 +240,7 @@ export default function Definicoes() {
                         </div>
                     </Cartao>
 
-                    <Cartao titulo={t('Descontos e prazos')}>
+                    <Cartao titulo={t('Descontos e prazos')} icone="fa-tags">
                         <div className="space-y-2">
                             <Interruptor etiqueta={t('Permitir desconto por linha')} valor={forma.allow_line_discounts} aoMudar={(v) => mudar('allow_line_discounts', v)} />
                             <Interruptor etiqueta={t('Permitir desconto comercial (antes do IVA)')} valor={forma.allow_commercial_discount} aoMudar={(v) => mudar('allow_commercial_discount', v)} />
@@ -253,7 +263,7 @@ export default function Definicoes() {
 
             {separador === 'impressao' && (
                 <div className="grid gap-4 lg:grid-cols-2">
-                    <Cartao titulo={t('Papel e cabeçalho')}>
+                    <Cartao titulo={t('Papel e cabeçalho')} icone="fa-print">
                         <div className="grid gap-4 sm:grid-cols-2">
                             {/* Dois valores e mais nenhum: isto decide o que sai na impressora de quem está ao balcão. */}
                             <Campo etiqueta={t('Papel da venda ao balcão')} erro={erros.pos_formato_impressao}>
@@ -274,7 +284,7 @@ export default function Definicoes() {
                         </div>
                     </Cartao>
 
-                    <Cartao titulo={t('Textos por omissão')}>
+                    <Cartao titulo={t('Textos por omissão')} icone="fa-align-left">
                         <div className="space-y-4">
                             <Campo etiqueta={t('Rodapé das facturas')} erro={erros.invoice_footer_text}>
                                 <textarea rows={2} value={forma.invoice_footer_text ?? ''} onChange={texto('invoice_footer_text')} className={cls(entrada, 'h-auto py-2')} />
@@ -292,7 +302,7 @@ export default function Definicoes() {
 
             {separador === 'pos' && (
                 <div className="grid gap-4 lg:grid-cols-2">
-                    <Cartao titulo={t('Comportamento do balcão')}>
+                    <Cartao titulo={t('Comportamento do balcão')} icone="fa-cash-register">
                         <div className="space-y-2">
                             <Interruptor etiqueta={t('Imprimir automaticamente')} valor={forma.pos_auto_print} aoMudar={(v) => mudar('pos_auto_print', v)} />
                             <Interruptor etiqueta={t('Sons ao adicionar e vender')} valor={forma.pos_play_sounds} aoMudar={(v) => mudar('pos_play_sounds', v)} />
@@ -309,7 +319,7 @@ export default function Definicoes() {
                         </div>
                     </Cartao>
 
-                    <Cartao titulo={t('Stock e catálogo')}>
+                    <Cartao titulo={t('Stock e catálogo')} icone="fa-boxes-stacked">
                         <div className="space-y-2">
                             <Interruptor etiqueta={t('Validar stock antes de vender')} valor={forma.pos_validate_stock} aoMudar={(v) => mudar('pos_validate_stock', v)} />
                             <Interruptor etiqueta={t('Permitir vender para stock negativo')} valor={forma.pos_allow_negative_stock} aoMudar={(v) => mudar('pos_allow_negative_stock', v)} />
@@ -326,7 +336,7 @@ export default function Definicoes() {
             )}
 
             {separador === 'pwa' && (
-                <Cartao titulo={t('O menu do aparelho')}>
+                <Cartao titulo={t('O menu do aparelho')} icone="fa-mobile-screen">
                     <p className="mb-4 text-sm text-slate-500">{t('O que aparece no menu do PWA nos telemóveis e tablets da empresa. O Início vai sempre.')}</p>
                     <div className="grid gap-2 sm:grid-cols-2">
                         {o.entradas_do_pwa.map((e) => (
@@ -344,7 +354,7 @@ export default function Definicoes() {
             )}
 
             {separador === 'perfil' && (
-                <Cartao titulo={t('Perfil do negócio')}>
+                <Cartao titulo={t('Perfil do negócio')} icone="fa-store">
                     <p className="mb-4 text-sm text-slate-500">{t('Podem estar todos ligados ao mesmo tempo — um supermercado com balcão de farmácia e prateleira de cosmética é as três coisas. Cada perfil liga as funções do seu sector.')}</p>
                     <div className="grid gap-2 sm:grid-cols-2">
                         <Interruptor etiqueta={t('Farmácia')} icone="fa-pills" valor={forma.profile_pharmacy} aoMudar={(v) => mudar('profile_pharmacy', v)} />
@@ -356,7 +366,7 @@ export default function Definicoes() {
             )}
 
             {separador !== 'series' && (
-                <div className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-slate-200 bg-white/90 py-3 backdrop-blur">
+                <div className="sticky bottom-0 z-10 flex items-center justify-end gap-2 border-t border-slate-200 bg-white/90 px-2 py-3 shadow-[0_-4px_12px_-8px_rgba(15,23,42,.35)] backdrop-blur">
                     {!podeEditar && <span className="mr-auto text-sm text-slate-500">{t('Só pode ver — não tem permissão para editar.')}</span>}
                     <Botao cor="primaria" tom="solida" altura="grande" icone="fa-floppy-disk" aTrabalhar={guardar.isPending} disabled={!podeEditar} onClick={() => guardar.mutate(forma)}>
                         {t('Guardar definições')}
@@ -418,25 +428,28 @@ function Series({ ecra, podeEditar, aoMudar, aoAvisar }: { ecra: EcraDasDefinico
             <AvisoDeErro erro={padrao.error} />
 
             <div className="grid gap-4 md:grid-cols-2">
-                {tipos.map((tipo) => (
-                    <Cartao
-                        key={tipo.tipo}
-                        titulo={
-                            <span className="flex items-center gap-2">
-                                <i className={cls('fas', 'fa-' + tipo.icone, 'text-slate-400')} aria-hidden="true" />
-                                {tipo.nome}
-                                {tipo.prefixo && <Etiqueta>{tipo.prefixo}</Etiqueta>}
-                            </span>
-                        }
-                        accoes={podeEditar && <Botao icone="fa-plus" onClick={() => abrirNova(tipo.tipo, tipo.prefixo, tipo.nome)}>{t('Nova série')}</Botao>}
-                    >
-                        <ListaDeSeries series={porTipo[tipo.tipo] ?? []} podeEditar={podeEditar} aRenomear={abrirRenomear} aTornarPadrao={(s) => padrao.mutate({ serie: s, confirmado: false })} />
-                    </Cartao>
+                {tipos.map((tipo, i) => (
+                    <div key={tipo.tipo} className="entra" style={cascata(i)}>
+                        <Cartao
+                            titulo={
+                                <h2 className="flex items-center gap-2 text-sm font-bold tracking-tight text-slate-800">
+                                    <span className="grid h-7 w-7 place-items-center rounded-lg bg-indigo-50 text-indigo-600">
+                                        <i className={cls('fas', 'fa-' + tipo.icone, 'text-xs')} aria-hidden="true" />
+                                    </span>
+                                    {tipo.nome}
+                                    {tipo.prefixo && <Etiqueta>{tipo.prefixo}</Etiqueta>}
+                                </h2>
+                            }
+                            accoes={podeEditar && <Botao icone="fa-plus" onClick={() => abrirNova(tipo.tipo, tipo.prefixo, tipo.nome)}>{t('Nova série')}</Botao>}
+                        >
+                            <ListaDeSeries series={porTipo[tipo.tipo] ?? []} podeEditar={podeEditar} aRenomear={abrirRenomear} aTornarPadrao={(s) => padrao.mutate({ serie: s, confirmado: false })} />
+                        </Cartao>
+                    </div>
                 ))}
             </div>
 
             {outras.length > 0 && (
-                <Cartao titulo={t('Outras séries')} >
+                <Cartao titulo={t('Outras séries')} icone="fa-hashtag">
                     <p className="mb-3 text-xs text-slate-500">{t('Tipos de documento que não têm cartão próprio acima.')}</p>
                     <ListaDeSeries series={outras} podeEditar={podeEditar} aRenomear={abrirRenomear} aTornarPadrao={(s) => padrao.mutate({ serie: s, confirmado: false })} comTipo />
                 </Cartao>
@@ -503,12 +516,14 @@ function ListaDeSeries({ series, podeEditar, aRenomear, aTornarPadrao, comTipo =
     aTornarPadrao: (s: Serie) => void;
     comTipo?: boolean;
 }) {
-    if (series.length === 0) return <p className="text-sm text-slate-400">{t('Sem séries activas.')}</p>;
+    if (series.length === 0) {
+        return <SemNada icone="fa-hashtag" titulo={t('Sem séries activas.')} frase={t('Crie a primeira com o botão «Nova série» aqui em cima.')} />;
+    }
 
     return (
         <ul className="divide-y divide-slate-100">
-            {series.map((s) => (
-                <li key={s.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">
+            {series.map((s, i) => (
+                <li key={s.id} className={cls('entra flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg px-2 py-2 text-sm transition-all duration-200 hover:bg-indigo-50/60')} style={cascata(i)}>
                     <span className="font-mono font-semibold text-slate-900">{s.series_code}</span>
                     <span className="text-slate-600">{s.name}</span>
                     {comTipo && <Etiqueta>{s.document_type}</Etiqueta>}
@@ -539,9 +554,17 @@ function ListaDeSeries({ series, podeEditar, aRenomear, aTornarPadrao, comTipo =
 
 function Interruptor({ etiqueta, valor, aoMudar, icone }: { etiqueta: ReactNode; valor: boolean; aoMudar: (v: boolean) => void; icone?: string }) {
     return (
-        <label className={cls('flex cursor-pointer items-center gap-3 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50', RAIO)}>
+        <label
+            className={cls(
+                'flex cursor-pointer items-center gap-3 border px-3 py-2 text-sm transition-all duration-200',
+                RAIO,
+                // Ligado tem fundo e moldura, e não só um visto: numa coluna de
+                // dez interruptores é isso que se vê de relance.
+                valor ? 'border-indigo-200 bg-indigo-50/60 text-slate-800' : 'border-transparent text-slate-700 hover:border-slate-200 hover:bg-slate-50',
+            )}
+        >
             <input type="checkbox" checked={valor} onChange={(e) => aoMudar(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-indigo-600" />
-            {icone && <i className={cls('fas w-4 text-center text-slate-400', icone)} aria-hidden="true" />}
+            {icone && <i className={cls('fas w-4 text-center', icone, valor ? 'text-indigo-500' : 'text-slate-400')} aria-hidden="true" />}
             {etiqueta}
         </label>
     );

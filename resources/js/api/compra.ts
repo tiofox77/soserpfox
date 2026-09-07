@@ -1,5 +1,6 @@
 import { api } from './cliente';
 import type { LinhaCalculada, Totais } from './emissor';
+import type { CriarParte } from './partes';
 
 /** Uma linha da factura de compra. O lote e a validade nascem aqui. */
 export type LinhaDaCompra = {
@@ -18,6 +19,8 @@ export type OpcoesDaCompra = {
     armazens: Array<{ id: number; name: string }>;
     regioes: Array<{ valor: string; rotulo: string }>;
     estados: Array<{ valor: string; rotulo: string }>;
+    /** O FORNECEDOR RÁPIDO: se se pode criar aqui, e com que país por omissão. */
+    criar_parte: CriarParte;
     permissoes: { pode_criar: boolean };
 };
 

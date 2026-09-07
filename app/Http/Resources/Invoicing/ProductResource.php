@@ -36,6 +36,12 @@ class ProductResource extends JsonResource
             'category' => $this->category ? ['id' => $this->category->id, 'name' => $this->category->name] : null,
             'category_id' => $this->category_id,
 
+            // A marca e o fornecedor habitual. Só o número: o nome está na
+            // lista de opções, e mandá-lo aqui obrigava a carregar duas
+            // relações em cada linha da listagem para nada.
+            'brand_id' => $this->brand_id,
+            'supplier_id' => $this->supplier_id,
+
             'price' => round((float) $this->price, 2),
             'cost' => $this->cost === null ? null : round((float) $this->cost, 2),
 
@@ -55,6 +61,17 @@ class ProductResource extends JsonResource
             // stock e tem mínimo definido.
             'em_falta' => $gereStock && $minimo > 0 && $stock <= $minimo,
             'esgotado' => $gereStock && $stock <= 0,
+
+            /*
+             * LOTES E VALIDADES — sempre, pela mesma razão dos campos de
+             * sector logo abaixo: o formulário carrega a ficha daqui, e uma
+             * chave omitida deixava o valor anterior no ecrã. Um artigo a que
+             * se tirou o controlo de lotes continuava a aparecer marcado.
+             */
+            'track_batches' => (bool) $this->track_batches,
+            'track_expiry' => (bool) $this->track_expiry,
+            'require_batch_on_purchase' => (bool) $this->require_batch_on_purchase,
+            'require_batch_on_sale' => (bool) $this->require_batch_on_sale,
 
             'is_active' => (bool) $this->is_active,
 

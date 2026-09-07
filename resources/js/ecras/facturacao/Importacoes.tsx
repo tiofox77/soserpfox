@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { importacoes, type Importacao, type OpcoesDasImportacoes } from '@/api/importacoes';
@@ -7,10 +7,11 @@ import { AvisoDeErro } from '@/ui/AvisoDeErro';
 import { Botao } from '@/ui/Botao';
 import { Campo, entrada } from '@/ui/Campo';
 import { Cartao } from '@/ui/Cartao';
+import { CartaoNumero } from '@/ui/CartaoNumero';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
-import { FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
+import { CORES, FOCO, RAIO, cls, data, kz, type Cor } from '@/ui/tokens';
 import { t, tPartes } from '@/i18n';
 
 /**
@@ -20,7 +21,19 @@ import { t, tPartes } from '@/i18n';
  * é sempre FOB + frete + seguro: o ecrã mostra a soma para o utilizador ver
  * o que vai gravar, mas quem a grava é o servidor (`GestorDeImportacoes`),
  * o mesmo que o ecrã Livewire chama.
+ *
+ * O ASPECTO É O DE SEMPRE: os quatro cartões de gradiente do topo (quantas
+ * são, quantas andam no mar, quantas estão presas na alfândega e quanto
+ * dinheiro está lá fora), a tabela com o cabeçalho de fundo, e o navio
+ * dentro do círculo quando não há nenhuma.
  */
+
+/** O atraso da linha `i` na entrada em cascata (ver `.entra` no layout). */
+const cascata = (i: number) => ({ '--i': i }) as CSSProperties;
+
+/** O quadrado de uma acção de linha: fundo suave da cor do que ela faz. */
+const accao = (cor: Cor) =>
+    cls('grid h-9 w-9 place-items-center rounded-lg transition-all duration-200 hover:scale-110', CORES[cor].suave, FOCO);
 
 type Forma = {
     supplier_id: string; warehouse_id: string; reference: string; order_date: string; expected_arrival_date: string;
@@ -109,17 +122,20 @@ export default function Importacoes() {
 
             <AvisoDeErro erro={estado.error ?? apagar.error} />
 
+            {/* O que está a andar é azul, o que está preso na alfândega é
+                âmbar, e o dinheiro lá fora é verde. */}
             {resumo && (
-                <div className="grid gap-3 sm:grid-cols-4">
-                    <Numero rotulo={t('Importações')} valor={String(resumo.total)} icone="fa-ship" />
-                    <Numero rotulo={t('Em trânsito')} valor={String(resumo.em_transito)} icone="fa-route" />
-                    <Numero rotulo={t('Na alfândega')} valor={String(resumo.na_alfandega)} icone="fa-landmark" />
-                    <Numero rotulo={t('CIF em curso')} valor={`${kz(resumo.valor_em_curso)} Kz`} icone="fa-coins" />
+                <div className={cls('grid grid-cols-2 gap-3 sm:grid-cols-4', lista.isFetching && 'opacity-70')}>
+                    <CartaoNumero rotulo={t('Importações')} valor={resumo.total.toLocaleString('pt-PT')} icone="fa-ship" tom="indigo" />
+                    <CartaoNumero rotulo={t('Em trânsito')} valor={resumo.em_transito.toLocaleString('pt-PT')} icone="fa-route" tom="azul" />
+                    <CartaoNumero rotulo={t('Na alfândega')} valor={resumo.na_alfandega.toLocaleString('pt-PT')} icone="fa-landmark" tom={resumo.na_alfandega > 0 ? 'ambar' : 'cinza'} />
+                    <CartaoNumero rotulo={t('CIF em curso')} valor={kz(resumo.valor_em_curso)} sufixo="Kz" icone="fa-money-bill-wave" tom="verde" />
                 </div>
             )}
 
             <Cartao
-                titulo={<span className="flex items-center gap-2"><i className="fas fa-ship text-slate-400" aria-hidden="true" />{t('Importações')}</span>}
+                titulo={t('Importações')}
+                icone="fa-ship"
                 accoes={o.permissoes.pode_criar && <Botao cor="primaria" tom="solida" icone="fa-plus" onClick={abrirNova}>{t('Nova importação')}</Botao>}
             >
                 <div className="flex flex-wrap items-end gap-3">
@@ -148,40 +164,56 @@ export default function Importacoes() {
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
-                            <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500">
-                                <th className="px-4 py-3 font-semibold">{t('Número')}</th>
-                                <th className="px-4 py-3 font-semibold">{t('Fornecedor')}</th>
-                                <th className="px-4 py-3 font-semibold">{t('Origem')}</th>
-                                <th className="px-4 py-3 font-semibold">{t('Pedido')}</th>
-                                <th className="px-4 py-3 font-semibold">{t('Chegada prevista')}</th>
-                                <th className="px-4 py-3 text-right font-semibold">CIF</th>
-                                <th className="px-4 py-3 font-semibold">{t('Estado')}</th>
-                                <th className="w-32 px-4 py-3"></th>
+                            <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-600">
+                                <th className="px-4 py-3 font-bold"><i className="fas fa-hashtag mr-1.5 text-cyan-500" aria-hidden="true" />{t('Número')}</th>
+                                <th className="px-4 py-3 font-bold"><i className="fas fa-industry mr-1.5 text-indigo-500" aria-hidden="true" />{t('Fornecedor')}</th>
+                                <th className="px-4 py-3 font-bold"><i className="fas fa-earth-americas mr-1.5 text-blue-500" aria-hidden="true" />{t('Origem')}</th>
+                                <th className="px-4 py-3 font-bold">{t('Pedido')}</th>
+                                <th className="px-4 py-3 font-bold">{t('Chegada prevista')}</th>
+                                <th className="px-4 py-3 text-right font-bold">CIF</th>
+                                <th className="px-4 py-3 font-bold">{t('Estado')}</th>
+                                <th className="w-32 px-4 py-3 text-right font-bold">{t('Acções')}</th>
                             </tr>
                         </thead>
                         <tbody className={cls('divide-y divide-slate-100', lista.isFetching && 'opacity-60')}>
-                            {linhas.length === 0 && <tr><td colSpan={8} className="px-4 py-10 text-center text-slate-400">{lista.isPending ? t('A carregar…') : t('Nenhuma importação.')}</td></tr>}
-                            {linhas.map((i) => (
-                                <tr key={i.id}>
+                            {linhas.length === 0 && (
+                                <tr>
+                                    <td colSpan={8} className="px-6 py-16">
+                                        {lista.isPending ? (
+                                            <p className="text-center text-slate-400">{t('A carregar…')}</p>
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center text-center">
+                                                <div className="mb-4 grid h-20 w-20 place-items-center rounded-full bg-slate-100">
+                                                    <i className="fas fa-ship text-3xl text-slate-400" aria-hidden="true" />
+                                                </div>
+                                                <p className="text-lg font-semibold text-slate-500">{t('Nenhuma importação encontrada')}</p>
+                                                <p className="mt-2 text-sm text-slate-400">{t('Crie a sua primeira importação para começar')}</p>
+                                            </div>
+                                        )}
+                                    </td>
+                                </tr>
+                            )}
+                            {linhas.map((i, k) => (
+                                <tr key={i.id} style={cascata(k)} className="entra transition-all duration-200 hover:bg-cyan-50/60">
                                     <td className="px-4 py-2 font-mono font-semibold text-slate-900">{i.numero}{i.reference && <span className="block font-sans text-xs font-normal text-slate-400">{i.reference}</span>}</td>
-                                    <td className="px-4 py-2">{i.fornecedor}</td>
+                                    <td className="px-4 py-2 font-medium text-slate-800">{i.fornecedor}</td>
                                     <td className="px-4 py-2">{i.origin_country}{i.origin_port ? ` · ${i.origin_port}` : ''}</td>
                                     <td className="px-4 py-2 tabular-nums">{i.order_date ? data(i.order_date) : ''}</td>
                                     <td className="px-4 py-2 tabular-nums">{i.expected_arrival_date ? data(i.expected_arrival_date) : ''}</td>
-                                    <td className="px-4 py-2 text-right tabular-nums">{kz(i.cif_value)}</td>
+                                    <td className="px-4 py-2 text-right font-bold tabular-nums text-slate-900">{kz(i.cif_value)}</td>
                                     <td className="px-4 py-2">
                                         {o.permissoes.pode_editar ? (
                                             <select value={i.estado} onChange={(e) => estado.mutate({ i, e: e.target.value })} aria-label={t('Estado de :numero', { numero: i.numero })} className={cls(entrada, 'h-8 py-0 text-xs')}>
                                                 {o.estados.map((e) => <option key={e.valor} value={e.valor}>{e.rotulo}</option>)}
                                             </select>
                                         ) : (
-                                            <Etiqueta cor={COR[i.estado_cor] ?? 'neutra'}>{i.estado_rotulo}</Etiqueta>
+                                            <Etiqueta cor={COR[i.estado_cor] ?? 'neutra'} ponto>{i.estado_rotulo}</Etiqueta>
                                         )}
                                     </td>
                                     <td className="px-4 py-2 text-right">
-                                        <span className="flex justify-end gap-1">
-                                            {o.permissoes.pode_editar && <button type="button" onClick={() => abrirEdicao(i)} aria-label={t('Editar :numero', { numero: i.numero })} className={cls('p-2 text-slate-400 hover:text-indigo-600', RAIO, FOCO)}><i className="fas fa-pen" aria-hidden="true" /></button>}
-                                            {o.permissoes.pode_apagar && <button type="button" onClick={() => porAApagar(i)} aria-label={t('Apagar :numero', { numero: i.numero })} className={cls('p-2 text-slate-400 hover:text-red-600', RAIO, FOCO)}><i className="fas fa-trash" aria-hidden="true" /></button>}
+                                        <span className="flex justify-end gap-1.5">
+                                            {o.permissoes.pode_editar && <button type="button" onClick={() => abrirEdicao(i)} aria-label={t('Editar :numero', { numero: i.numero })} className={accao('primaria')}><i className="fas fa-pen" aria-hidden="true" /></button>}
+                                            {o.permissoes.pode_apagar && <button type="button" onClick={() => porAApagar(i)} aria-label={t('Apagar :numero', { numero: i.numero })} className={accao('perigo')}><i className="fas fa-trash" aria-hidden="true" /></button>}
                                         </span>
                                     </td>
                                 </tr>
@@ -190,7 +222,7 @@ export default function Importacoes() {
                     </table>
                 </div>
                 {contas && contas.last_page > 1 && (
-                    <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-sm text-slate-500">
+                    <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
                         <span>{t('Página :actual de :total · :quantas', { actual: contas.current_page, total: contas.last_page, quantas: contas.total })}</span>
                         <span className="flex gap-1">
                             <Botao icone="fa-chevron-left" disabled={contas.current_page <= 1} onClick={() => porFiltros((f) => ({ ...f, page: contas.current_page - 1 }))}>{t('Anterior')}</Botao>
@@ -201,13 +233,15 @@ export default function Importacoes() {
             </Cartao>
 
             {forma && (
-                <Formulario o={o} forma={forma} erros={erros} titulo={aEditar ? t('Editar :numero', { numero: aEditar.numero }) : t('Nova importação')} aGravar={gravar.isPending} erroGeral={gravar.error} aoMudar={porForma} aoFechar={() => { porForma(null); porAEditar(null); }} aoGravar={() => gravar.mutate(forma)} />
+                <Formulario o={o} forma={forma} erros={erros} titulo={aEditar ? t('Editar :numero', { numero: aEditar.numero }) : t('Nova importação')} icone={aEditar ? 'fa-pen' : 'fa-ship'} aGravar={gravar.isPending} erroGeral={gravar.error} aoMudar={porForma} aoFechar={() => { porForma(null); porAEditar(null); }} aoGravar={() => gravar.mutate(forma)} />
             )}
 
             <Modal
                 aberto={aApagar !== null}
                 aoFechar={() => porAApagar(null)}
                 titulo={t('Eliminar a importação?')}
+                icone="fa-trash"
+                cor="perigo"
                 rodape={<><Botao onClick={() => porAApagar(null)}>{t('Cancelar')}</Botao><Botao cor="perigo" tom="solida" icone="fa-trash" aTrabalhar={apagar.isPending} onClick={() => aApagar && apagar.mutate(aApagar)}>{t('Eliminar')}</Botao></>}
             >
                 <p className="text-sm text-slate-700">{tPartes('Vai eliminar :numero. Não há volta.', { numero: <strong>{aApagar?.numero}</strong> })}</p>
@@ -216,20 +250,8 @@ export default function Importacoes() {
     );
 }
 
-function Numero({ rotulo, valor, icone }: { rotulo: string; valor: string; icone: string }) {
-    return (
-        <div className={cls('flex items-center gap-3 border border-slate-200 bg-white px-4 py-3', RAIO)}>
-            <i className={cls('fas text-slate-300', icone)} aria-hidden="true" />
-            <div>
-                <p className="text-xs uppercase tracking-wider text-slate-500">{rotulo}</p>
-                <p className="text-lg font-bold tabular-nums text-slate-900">{valor}</p>
-            </div>
-        </div>
-    );
-}
-
-function Formulario({ o, forma, erros, titulo, aGravar, erroGeral, aoMudar, aoFechar, aoGravar }: {
-    o: OpcoesDasImportacoes; forma: Forma; erros: Record<string, string[]>; titulo: string; aGravar: boolean; erroGeral: unknown;
+function Formulario({ o, forma, erros, titulo, icone, aGravar, erroGeral, aoMudar, aoFechar, aoGravar }: {
+    o: OpcoesDasImportacoes; forma: Forma; erros: Record<string, string[]>; titulo: string; icone: string; aGravar: boolean; erroGeral: unknown;
     aoMudar: (f: Forma) => void; aoFechar: () => void; aoGravar: () => void;
 }) {
     const m = (chave: keyof Forma) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => aoMudar({ ...forma, [chave]: e.target.value });
@@ -240,6 +262,8 @@ function Formulario({ o, forma, erros, titulo, aGravar, erroGeral, aoMudar, aoFe
             aberto
             aoFechar={aoFechar}
             titulo={titulo}
+            subtitulo={t('Gestão completa do processo de importação - Angola')}
+            icone={icone}
             largura="lg"
             rodape={<><Botao onClick={aoFechar}>{t('Cancelar')}</Botao><Botao cor="primaria" tom="solida" icone="fa-floppy-disk" aTrabalhar={aGravar} onClick={aoGravar}>{t('Guardar')}</Botao></>}
         >
@@ -272,9 +296,12 @@ function Formulario({ o, forma, erros, titulo, aGravar, erroGeral, aoMudar, aoFe
                 <Campo etiqueta="FOB" erro={erros.fob_value} obrigatorio><input type="number" min="0" step="0.01" value={forma.fob_value} onChange={m('fob_value')} className={cls(entrada, 'text-right tabular-nums')} /></Campo>
                 <Campo etiqueta={t('Frete')} erro={erros.freight_cost}><input type="number" min="0" step="0.01" value={forma.freight_cost} onChange={m('freight_cost')} className={cls(entrada, 'text-right tabular-nums')} /></Campo>
                 <Campo etiqueta={t('Seguro')} erro={erros.insurance_cost}><input type="number" min="0" step="0.01" value={forma.insurance_cost} onChange={m('insurance_cost')} className={cls(entrada, 'text-right tabular-nums')} /></Campo>
-                <div className={cls('flex items-center justify-between border border-slate-200 bg-slate-50 px-4 py-2', RAIO)}>
-                    <span className="text-sm text-slate-500">{t('CIF = FOB + frete + seguro')}</span>
-                    <span className="text-lg font-bold tabular-nums text-slate-900" data-cif>{kz(cif)}</span>
+                {/* A soma à vista enquanto se escreve, no verde do dinheiro:
+                    é o número que o servidor vai gravar, e vê-se antes de
+                    carregar em Guardar. */}
+                <div className={cls('flex items-center justify-between border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 px-4 py-2.5', RAIO)}>
+                    <span className="text-sm font-medium text-emerald-800"><i className="fas fa-calculator mr-1.5 text-emerald-500" aria-hidden="true" />{t('CIF = FOB + frete + seguro')}</span>
+                    <span className="text-lg font-bold tabular-nums text-emerald-900" data-cif>{kz(cif)}</span>
                 </div>
                 <Campo etiqueta={t('Observações')} erro={erros.notes} className="sm:col-span-2">
                     <textarea rows={2} value={forma.notes} onChange={m('notes')} className={cls(entrada, 'h-auto py-2')} />

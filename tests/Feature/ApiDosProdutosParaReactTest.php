@@ -59,6 +59,22 @@ class ApiDosProdutosParaReactTest extends TenantTestCase
         ], $por));
     }
 
+    private function marca(): \App\Models\Brand
+    {
+        return \App\Models\Brand::firstOrCreate(
+            ['tenant_id' => $this->tenant->id, 'name' => 'Marca de Ensaio'],
+            ['is_active' => true]
+        );
+    }
+
+    private function fornecedor(): \App\Models\Supplier
+    {
+        return \App\Models\Supplier::firstOrCreate(
+            ['tenant_id' => $this->tenant->id, 'name' => 'Fornecedor de Ensaio'],
+            ['is_active' => true]
+        );
+    }
+
     private function corpo(array $por = []): array
     {
         return array_merge([
@@ -336,6 +352,78 @@ class ApiDosProdutosParaReactTest extends TenantTestCase
         $this->assertNull($porId[$servico->id]['stock'], 'e não tem stock nenhum para mostrar');
     }
 
+    /*
+     * A PROCURA — o que o selector de artigos dos editores usa.
+     *
+     * O modal «Adicionar artigo» dos emissores (`EscolhaDeArtigo.tsx`) manda
+     * `procura` e `activo=1` a esta rota e mostra o que vier. Filtrar no
+     * browser obrigava a descarregar o catálogo inteiro — cinco mil artigos
+     * numa empresa grande — e era exactamente o que se veio evitar. Por isso
+     * o que se prova aqui é o contrato de que esse ecrã depende: que se
+     * procura pelas QUATRO referências do artigo, e que um artigo
+     * desactivado não aparece a quem pediu só os activos.
+     */
+
+    /** @test */
+    public function a_procura_encontra_pelo_nome_pelo_codigo_pelo_sku_e_pelo_codigo_de_barras(): void
+    {
+        $this->comPermissoes('invoicing.products.view');
+
+        $cimento = $this->artigo(['name' => 'Cimento Portland 50kg', 'code' => 'CIM-050']);
+        $tinta = $this->artigo(['name' => 'Tinta Plástica Branca', 'sku' => 'TNT-BR-01']);
+        $areia = $this->artigo(['name' => 'Areia Lavada', 'barcode' => '5601234567890']);
+
+        $encontrados = fn (string $termo) => collect(
+            $this->getJson(self::RAIZ . '?procura=' . urlencode($termo))->assertOk()->json('data')
+        )->pluck('id');
+
+        // Pelo nome, e por um pedaço dele: é assim que se escreve ao balcão.
+        $this->assertTrue($encontrados('cim')->contains($cimento->id));
+        $this->assertFalse($encontrados('cim')->contains($tinta->id));
+
+        $this->assertTrue($encontrados('CIM-050')->contains($cimento->id), 'pelo código');
+        $this->assertTrue($encontrados('TNT-BR-01')->contains($tinta->id), 'pelo SKU');
+        $this->assertTrue($encontrados('5601234567890')->contains($areia->id), 'pelo código de barras');
+
+        $this->assertCount(0, $encontrados('zzz-nao-existe-zzz'));
+    }
+
+    /**
+     * O QUE O CARTÃO MOSTRA vem já decidido do servidor.
+     *
+     * Nome, referência, preço e — só em quem gere stock — as existências e a
+     * decisão de estar em falta. Um ecrã que decidisse «em falta» por si
+     * teria de repetir a regra do mínimo, e as duas divergiriam.
+     *
+     * @test
+     */
+    public function a_procura_traz_o_preco_e_o_stock_e_deixa_de_fora_os_desactivados(): void
+    {
+        $this->comPermissoes('invoicing.products.view');
+
+        $activo = $this->artigo(['name' => 'Bloco de Ensaio Activo', 'price' => 2500, 'stock_min' => 5]);
+        Stock::create([
+            'tenant_id' => $this->tenant->id,
+            'product_id' => $activo->id,
+            'warehouse_id' => $this->armazem->id,
+            'quantity' => 2,
+        ]);
+
+        $morto = $this->artigo(['name' => 'Bloco de Ensaio Morto', 'is_active' => false]);
+
+        $data = collect($this->getJson(self::RAIZ . '?procura=Bloco+de+Ensaio&activo=1')->assertOk()->json('data'));
+
+        $this->assertFalse($data->pluck('id')->contains($morto->id), 'um artigo desactivado não se factura');
+
+        $cartao = $data->firstWhere('id', $activo->id);
+
+        $this->assertNotNull($cartao, 'o activo tem de vir');
+        $this->assertSame(2500.0, (float) $cartao['price']);
+        $this->assertSame(2.0, (float) $cartao['stock'], 'o stock sai das linhas, não da coluna agregada');
+        $this->assertTrue($cartao['em_falta'], 'dois abaixo do mínimo de cinco');
+        $this->assertTrue($cartao['manage_stock']);
+    }
+
     /* ─── AS IMAGENS ──────────────────────────────────────────────────── */
 
     /*
@@ -604,6 +692,209 @@ class ApiDosProdutosParaReactTest extends TenantTestCase
         $this->assertNull($alheio->fresh()->featured_image);
     }
 
+    /* ─── MARCA, FORNECEDOR E LOTES ───────────────────────────────────── */
+
+    /**
+     * OS SEIS CAMPOS QUE A MIGRAÇÃO PARA REACT TINHA DEIXADO PARA TRÁS.
+     *
+     * A marca, o fornecedor habitual e as quatro marcas de lote. Sem as
+     * últimas o artigo nunca entra no controlo de lotes e validades — é o
+     * `track_batches` que o `Product::controlaStock()` lê.
+     *
+     * @test
+     */
+    public function grava_e_le_a_marca_o_fornecedor_e_os_lotes(): void
+    {
+        $this->comPermissoes('invoicing.products.create');
+
+        $marca = $this->marca();
+        $fornecedor = $this->fornecedor();
+
+        $resposta = $this->postJson(self::RAIZ, $this->corpo([
+            'brand_id' => $marca->id,
+            'supplier_id' => $fornecedor->id,
+            'track_batches' => true,
+            'track_expiry' => true,
+            'require_batch_on_purchase' => true,
+            'require_batch_on_sale' => true,
+        ]))->assertCreated();
+
+        $artigo = Product::findOrFail($resposta->json('data.id'));
+
+        $this->assertSame($marca->id, $artigo->brand_id);
+        $this->assertSame($fornecedor->id, $artigo->supplier_id);
+        $this->assertTrue($artigo->track_batches);
+        $this->assertTrue($artigo->track_expiry);
+        $this->assertTrue($artigo->require_batch_on_purchase);
+        $this->assertTrue($artigo->require_batch_on_sale);
+
+        // E voltam na resposta: o formulário carrega a ficha daqui.
+        $resposta->assertJsonPath('data.brand_id', $marca->id)
+            ->assertJsonPath('data.supplier_id', $fornecedor->id)
+            ->assertJsonPath('data.track_batches', true)
+            ->assertJsonPath('data.track_expiry', true)
+            ->assertJsonPath('data.require_batch_on_purchase', true)
+            ->assertJsonPath('data.require_batch_on_sale', true);
+    }
+
+    /**
+     * AS SEIS CHAVES SAEM SEMPRE, mesmo num artigo que não tem nada disto.
+     *
+     * Uma chave omitida deixava o valor anterior no formulário: abrir um
+     * artigo com lotes e a seguir um sem eles mostrava o segundo marcado.
+     *
+     * @test
+     */
+    public function um_artigo_comum_traz_as_seis_chaves_na_mesma(): void
+    {
+        $this->comPermissoes('invoicing.products.view');
+
+        $artigo = $this->artigo();
+        $linha = collect($this->getJson(self::RAIZ)->json('data'))->firstWhere('id', $artigo->id);
+
+        foreach (['brand_id', 'supplier_id'] as $chave) {
+            $this->assertArrayHasKey($chave, $linha);
+            $this->assertNull($linha[$chave]);
+        }
+
+        foreach (['track_batches', 'track_expiry', 'require_batch_on_purchase', 'require_batch_on_sale'] as $chave) {
+            $this->assertArrayHasKey($chave, $linha);
+            $this->assertFalse($linha[$chave], "«{$chave}» tem de sair sempre, e falso quando não está ligado");
+        }
+    }
+
+    /**
+     * A MARCA E O FORNECEDOR DE OUTRA EMPRESA NÃO ENTRAM.
+     *
+     * A regra de sempre era um `exists:invoicing_brands,id` seco — um número
+     * escrito à mão punha a marca de outra empresa num artigo nosso.
+     *
+     * @test
+     */
+    public function a_marca_e_o_fornecedor_de_outra_empresa_sao_recusados(): void
+    {
+        $this->comPermissoes('invoicing.products.create');
+
+        $outra = \App\Models\Tenant::create([
+            'name' => 'Outra',
+            'slug' => 'outra-' . uniqid(),
+            'email' => 'o' . uniqid() . '@ex.com',
+        ]);
+
+        $marcaAlheia = \App\Models\Brand::create([
+            'tenant_id' => $outra->id, 'name' => 'Marca Alheia', 'is_active' => true,
+        ]);
+        $fornecedorAlheio = \App\Models\Supplier::create([
+            'tenant_id' => $outra->id, 'name' => 'Fornecedor Alheio',
+        ]);
+
+        $this->postJson(self::RAIZ, $this->corpo(['brand_id' => $marcaAlheia->id]))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('brand_id');
+
+        $this->postJson(self::RAIZ, $this->corpo(['supplier_id' => $fornecedorAlheio->id]))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('supplier_id');
+
+        // E as da própria empresa entram.
+        $this->postJson(self::RAIZ, $this->corpo([
+            'brand_id' => $this->marca()->id,
+            'supplier_id' => $this->fornecedor()->id,
+        ]))->assertCreated();
+    }
+
+    /**
+     * UM SERVIÇO NÃO TEM LOTES.
+     *
+     * É a mesma regra do stock, continuada: um lote é uma remessa com número
+     * e validade, e uma hora de trabalho não tem remessa nenhuma.
+     *
+     * @test
+     */
+    public function um_servico_nao_fica_com_controlo_de_lotes(): void
+    {
+        $this->comPermissoes('invoicing.products.create');
+        $this->comPermissoes('invoicing.products.edit');
+
+        $resposta = $this->postJson(self::RAIZ, $this->corpo([
+            'type' => 'servico',
+            'track_batches' => true,
+            'track_expiry' => true,
+            'require_batch_on_purchase' => true,
+            'require_batch_on_sale' => true,
+        ]))->assertCreated();
+
+        $servico = Product::findOrFail($resposta->json('data.id'));
+
+        $this->assertFalse($servico->track_batches, 'um serviço não se rastreia por lotes');
+        $this->assertFalse($servico->track_expiry);
+        $this->assertFalse($servico->require_batch_on_purchase);
+        $this->assertFalse($servico->require_batch_on_sale);
+
+        // E um produto com lotes que passe a serviço perde-os.
+        $produto = $this->artigo(['track_batches' => true, 'require_batch_on_sale' => true]);
+
+        $this->putJson(self::RAIZ . '/' . $produto->id, $this->corpo([
+            'type' => 'servico',
+            'track_batches' => true,
+        ]))->assertOk();
+
+        $this->assertFalse($produto->fresh()->track_batches);
+        $this->assertFalse($produto->fresh()->require_batch_on_sale);
+    }
+
+    /** Desligar uma marca de lote desliga-a mesmo — não é um botão só de ligar. @test */
+    public function as_marcas_de_lote_tambem_se_desligam(): void
+    {
+        $this->comPermissoes('invoicing.products.edit');
+
+        $artigo = $this->artigo(['track_batches' => true, 'track_expiry' => true]);
+
+        $this->putJson(self::RAIZ . '/' . $artigo->id, $this->corpo([
+            'track_batches' => false,
+            'track_expiry' => false,
+        ]))->assertOk();
+
+        $this->assertFalse($artigo->fresh()->track_batches);
+        $this->assertFalse($artigo->fresh()->track_expiry);
+    }
+
+    /** As opções trazem as marcas e os fornecedores — só os desta empresa. @test */
+    public function as_opcoes_trazem_as_marcas_e_os_fornecedores_da_empresa(): void
+    {
+        $this->comPermissoes('invoicing.products.view');
+
+        $outra = \App\Models\Tenant::create([
+            'name' => 'Outra',
+            'slug' => 'outra-' . uniqid(),
+            'email' => 'o' . uniqid() . '@ex.com',
+        ]);
+
+        $minha = $this->marca();
+        $alheia = \App\Models\Brand::create([
+            'tenant_id' => $outra->id, 'name' => 'Marca Alheia', 'is_active' => true,
+        ]);
+        // Uma marca desligada não se oferece — era o que a lista de sempre fazia.
+        $desligada = \App\Models\Brand::create([
+            'tenant_id' => $this->tenant->id, 'name' => 'Marca Antiga', 'is_active' => false,
+        ]);
+
+        $meu = $this->fornecedor();
+        $alheio = \App\Models\Supplier::create([
+            'tenant_id' => $outra->id, 'name' => 'Fornecedor Alheio',
+        ]);
+
+        $opcoes = $this->getJson(self::RAIZ . '/opcoes')->assertOk()->json();
+
+        $marcas = collect($opcoes['marcas'])->pluck('id');
+        $this->assertTrue($marcas->contains($minha->id));
+        $this->assertFalse($marcas->contains($alheia->id));
+        $this->assertFalse($marcas->contains($desligada->id));
+
+        $fornecedores = collect($opcoes['fornecedores'])->pluck('id');
+        $this->assertTrue($fornecedores->contains($meu->id));
+        $this->assertFalse($fornecedores->contains($alheio->id));
+    }
     /** Um artigo sem imagens sai com as chaves à mesma — a null e vazia. @test */
     public function um_artigo_sem_imagens_traz_as_chaves_na_mesma(): void
     {

@@ -52,6 +52,32 @@ test('a ficha do contribuinte abre com o nif', async ({ page }) => {
     await expect(page.getByLabel(/^Estabelecimento/)).not.toHaveValue('');
 });
 
+/**
+ * A CHAVE PRIVADA «DO MODO ANTIGO»: cola-se, e NUNCA SE VÊ.
+ *
+ * O ecrã de sempre deixava colá-la e há empresas que ainda assinam com ela; a
+ * migração para React tinha-a deixado de fora. O que este ecrã mostra dela é a
+ * etiqueta de instalada ou por instalar — o PEM não aparece em lado nenhum,
+ * porque a resposta da API não o traz.
+ */
+test('a chave do modo antigo cola-se e nunca se ve', async ({ page }) => {
+    await page.goto('/invoicing/agt-credentials');
+    if (!(await page.locator('[data-ecra]').count())) {
+        test.skip(true, 'sem permissão para a AGT nesta bancada');
+    }
+
+    await expect(page.locator('[data-chave-legado]')).toBeVisible({ timeout: 30_000 });
+
+    // A caixa de colar existe e está VAZIA: nada do que lá esteve volta.
+    const caixa = page.getByLabel(/^Chave privada em PEM/);
+    if (await caixa.count()) {
+        await expect(caixa).toHaveValue('');
+    }
+
+    // E o PEM não está escrito em parte nenhuma da página.
+    expect(await page.locator('[data-ecra]').innerText()).not.toContain('PRIVATE KEY');
+});
+
 test('nenhum erro na consola', async ({ page }) => {
     const erros = [];
     page.on('console', (m) => { if (m.type() === 'error') erros.push(m.text()); });

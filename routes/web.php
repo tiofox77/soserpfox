@@ -577,6 +577,16 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::post('/agt/consulta', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'consultar'])->name('agt.consulta');
         Route::get('/agt/contribuinte', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'contribuinte'])->name('agt.contribuinte');
         Route::post('/agt/contribuinte', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'guardarContribuinte'])->name('agt.contribuinte.guardar');
+        // A chave privada «do modo antigo»: cola-se e remove-se, e nunca volta na resposta.
+        Route::post('/agt/contribuinte/chave', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'guardarChaveLegado'])->name('agt.contribuinte.chave');
+        Route::post('/agt/contribuinte/chave/remover', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'removerChaveLegado'])->name('agt.contribuinte.chave.remover');
+
+        // O adquirente: as facturas que os FORNECEDORES emitiram contra esta empresa.
+        // Confirmar e rejeitar escrevem na AGT — permissão de editar, e só no ambiente activo.
+        Route::get('/adquirente/estado', [\App\Http\Controllers\Api\Invoicing\AdquirenteApiController::class, 'estado'])->name('adquirente.estado');
+        Route::get('/adquirente/facturas', [\App\Http\Controllers\Api\Invoicing\AdquirenteApiController::class, 'listar'])->name('adquirente.listar');
+        Route::get('/adquirente/factura', [\App\Http\Controllers\Api\Invoicing\AdquirenteApiController::class, 'detalhe'])->name('adquirente.detalhe');
+        Route::post('/adquirente/validar', [\App\Http\Controllers\Api\Invoicing\AdquirenteApiController::class, 'validar'])->name('adquirente.validar');
 
         // Os relatórios: o esquema e os números de cada mapa, pelo mesmo serviço do ecrã de sempre.
         Route::get('/relatorios', [\App\Http\Controllers\Api\Invoicing\RelatoriosApiController::class, 'seccoes'])->name('relatorios.seccoes');
@@ -912,7 +922,7 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
 
     // Adquirente AGT (DS.120 §§4.3, 4.4, 4.7)
     Route::middleware('permission:invoicing.agt.view')
-        ->get('/agt-adquirente', \App\Livewire\Agt\AdquirenteIndex::class)
+        ->get('/agt-adquirente', \App\Support\EcraReact::pagina('facturacao/adquirente-agt', 'Facturas Recebidas (Adquirente) — AGT'))
         ->name('agt-adquirente');
     
     // POS

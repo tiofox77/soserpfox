@@ -222,14 +222,30 @@ class ColunaAgtNasListasTest extends TenantTestCase
      */
     public function o_cabecalho_e_o_corpo_tem_a_mesma_largura(): void
     {
+        /*
+         * CONTAR ETIQUETAS DEIXOU DE PROVAR ALGUMA COISA.
+         *
+         * Enquanto o cabeçalho era escrito à mão, um `<th>` a mais do que os
+         * `<td>` era uma coluna esquecida — e esta contagem apanhava-a. Hoje o
+         * cabeçalho das listas é DESENHADO A PARTIR DE UMA LISTA de colunas
+         * (`{colunas.map(…) => <th>}`): há um `<th>` no ficheiro e oito
+         * `<td>`, e está tudo certo.
+         *
+         * A propriedade continua a valer — o que mudou foi onde se mede. Ela
+         * prova-se agora no BROWSER, sobre a tabela desenhada, em
+         * `tests/browser/react.todas-as-paginas.spec.js`: para cada página com
+         * tabela, o número de células da primeira linha tem de ser o número de
+         * colunas do cabeçalho. É mais forte do que contar texto, porque
+         * apanha também a coluna que existe no ficheiro e não chega ao ecrã.
+         *
+         * Aqui fica o que ainda se pode afirmar do ficheiro: as duas metades
+         * existem, e nenhuma lista ficou sem cabeçalho ou sem corpo.
+         */
         foreach (self::ECRAS as $ficheiro) {
             $fonte = file_get_contents(resource_path($ficheiro));
 
-            $colunas = preg_match_all('#<th[\s>]#', $fonte);
-            $celulas = preg_match_all('#<td[\s>]#', $fonte);
-
-            $this->assertSame($colunas, $celulas,
-                "{$ficheiro}: {$colunas} colunas no cabeçalho e {$celulas} células na linha");
+            $this->assertMatchesRegularExpression('#<th[\s>]#', $fonte, "{$ficheiro}: tabela sem cabeçalho");
+            $this->assertMatchesRegularExpression('#<td[\s>]#', $fonte, "{$ficheiro}: tabela sem corpo");
         }
     }
 }

@@ -26,16 +26,40 @@ test('mostra os cartões e o gráfico do ano', async ({ page }) => {
 });
 
 /**
- * OS DOZE MESES ESTÃO SEMPRE LÁ.
+ * TROCAR O PERÍODO PEDE AO SERVIDOR — e o ecrã inteiro segue-o.
  *
- * Um gráfico que salte de Março para Junho porque Abril e Maio não têm
- * facturas mente sobre a forma do ano.
+ * O painel em Blade tinha um selector de período e a migração para React
+ * perdeu-o: o ecrã passou a mostrar sempre o mesmo. As contas são todas do
+ * servidor, portanto escolher tem mesmo de sair daqui e voltar — e o título,
+ * os cartões e o gráfico têm de vir todos da MESMA resposta, que é o que
+ * impede o título de dizer uma coisa e os cartões contarem outra.
+ *
+ * E os doze meses estão sempre lá: um gráfico que salte de Março para Junho
+ * porque Abril e Maio não têm facturas mente sobre a forma do ano.
  */
-test('o grafico tem os doze meses, mesmo os vazios', async ({ page }) => {
-    const grafico = page.getByRole('img', { name: /Vendas \(AOA\)/ });
-    await expect(grafico).toBeVisible({ timeout: 20_000 });
+test('trocar o periodo pede ao servidor e o ecra inteiro segue', async ({ page }) => {
+    const selector = page.locator('[data-periodo]');
 
-    expect(await grafico.locator('> div').count()).toBe(12);
+    await expect(selector).toBeVisible({ timeout: 20_000 });
+    await expect(selector).toHaveValue('month');
+    await expect(page.getByText('Evolução de Vendas - Este mês')).toBeVisible();
+
+    const pedido = page.waitForResponse(
+        (r) => r.url().includes('/react/painel') && r.url().includes('periodo=year'),
+    );
+
+    await selector.selectOption('year');
+    await pedido;
+
+    // O título segue, e o cartão deixa de dizer «do Mês» quando o que está
+    // somado lá dentro já é o ano inteiro.
+    await expect(page.getByText('Evolução de Vendas - Este ano')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('Faturação Este ano')).toBeVisible();
+    await expect(page.getByText('Faturação do Mês')).toHaveCount(0);
+
+    const grafico = page.getByRole('img', { name: /Vendas \(AOA\)/ });
+
+    await expect(grafico.locator('> div')).toHaveCount(12);
 
     // E as barras TÊM ALTURA. Contar doze colunas não chega: elas existiam e
     // eram todas de altura zero — o gráfico aparecia vazio com a legenda a
@@ -90,10 +114,13 @@ test('os botoes de exportar tem a mesa posta', async ({ page }) => {
         expect(valor).toMatch(/^-?\d+\.\d{2}$/);
     }
 
-    // E as linhas do CSV, uma por mês do ano.
+    // E AS LINHAS DO CSV SÃO AS DO GRÁFICO — as do período que está no ecrã,
+    // uma por coluna. Exportar o ano enquanto o ecrã mostra o mês seria dar à
+    // folha de cálculo números que ninguém pediu.
     const linhas = JSON.parse(await page.locator('#dadosVendas').textContent());
+    const colunas = await page.getByRole('img', { name: /Vendas \(AOA\)/ }).locator('> div').count();
 
-    expect(linhas.length).toBe(12);
+    expect(linhas.length).toBe(colunas);
     expect(linhas[0]).toHaveProperty('total');
 });
 
@@ -111,7 +138,9 @@ test('em ingles o painel inteiro muda de lingua', async ({ page }) => {
     await expect(page.getByRole('heading', { name: 'Invoicing Dashboard' })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText('Monthly Revenue')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText('Awaiting payment')).toBeVisible();
-    await expect(page.getByText('Sales Trend - This Year')).toBeVisible();
+    // O período por omissão é o mês, e o título traz o rótulo que o servidor
+    // já traduziu — a frase composta é o que a pessoa lê.
+    await expect(page.getByText('Sales Trend - This month')).toBeVisible();
     await expect(page.getByRole('img', { name: /Sales \(AOA\)/ })).toBeVisible();
 
     // O formato dos números segue a língua: em inglês o milhar é vírgula e o

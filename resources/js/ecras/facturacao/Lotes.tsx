@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { lotes, type Lote, type OpcoesDosLotes } from '@/api/lotes';
@@ -7,10 +7,11 @@ import { AvisoDeErro } from '@/ui/AvisoDeErro';
 import { Botao } from '@/ui/Botao';
 import { Campo, entrada } from '@/ui/Campo';
 import { Cartao } from '@/ui/Cartao';
+import { CartaoNumero } from '@/ui/CartaoNumero';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
-import { FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
+import { CORES, FOCO, RAIO, cls, data, kz, type Cor } from '@/ui/tokens';
 import { t, tPartes } from '@/i18n';
 
 /**
@@ -19,7 +20,19 @@ import { t, tPartes } from '@/i18n';
  * O que está a expirar sobe ao topo. Corrigir a quantidade de um lote não
  * altera o que já saiu dele — é o `GestorDeLotes`, no servidor, que faz
  * essa conta, o mesmo que o ecrã Livewire chama.
+ *
+ * O ASPECTO É O DE SEMPRE: quatro cartões de gradiente no topo (activos,
+ * a expirar, expirados e o total), a lista com o cabeçalho de fundo e as
+ * linhas a entrar em cascata, e o estado vazio desenhado — o círculo com a
+ * caixa aberta lá dentro e a frase que diz o que fazer a seguir.
  */
+
+/** O atraso da linha `i` na entrada em cascata (ver `.entra` no layout). */
+const cascata = (i: number) => ({ '--i': i }) as CSSProperties;
+
+/** O quadrado de uma acção de linha: fundo suave da cor do que ela faz. */
+const accao = (cor: Cor) =>
+    cls('grid h-9 w-9 place-items-center rounded-lg transition-all duration-200 hover:scale-110', CORES[cor].suave, FOCO);
 
 type Forma = { product_id: string; warehouse_id: string; batch_number: string; manufacturing_date: string; expiry_date: string; quantity: string; cost_price: string; alert_days: string; notes: string };
 const VAZIA: Forma = { product_id: '', warehouse_id: '', batch_number: '', manufacturing_date: '', expiry_date: '', quantity: '', cost_price: '', alert_days: '30', notes: '' };
@@ -81,16 +94,20 @@ export default function Lotes() {
             )}
             <AvisoDeErro erro={apagar.error} />
 
+            {/* O verde é o que está bom, o âmbar o que está a chegar ao fim e o
+                vermelho o que já lá chegou. O ícone diz o mesmo sem a cor. */}
             {resumo && (
-                <div className="grid gap-3 sm:grid-cols-3">
-                    <Numero rotulo={t('Lotes activos')} valor={resumo.activos} icone="fa-boxes-stacked" />
-                    <Numero rotulo={t('A expirar em breve')} valor={resumo.a_expirar} icone="fa-hourglass-half" alerta={resumo.a_expirar > 0} />
-                    <Numero rotulo={t('Expirados')} valor={resumo.expirados} icone="fa-calendar-xmark" alerta={resumo.expirados > 0} />
+                <div className={cls('grid grid-cols-2 gap-3 sm:grid-cols-4', lista.isFetching && 'opacity-70')}>
+                    <CartaoNumero rotulo={t('Lotes activos')} valor={resumo.activos.toLocaleString('pt-PT')} icone="fa-circle-check" tom="verde" />
+                    <CartaoNumero rotulo={t('A expirar em breve')} valor={resumo.a_expirar.toLocaleString('pt-PT')} icone="fa-hourglass-half" tom={resumo.a_expirar > 0 ? 'ambar' : 'cinza'} />
+                    <CartaoNumero rotulo={t('Expirados')} valor={resumo.expirados.toLocaleString('pt-PT')} icone="fa-calendar-xmark" tom={resumo.expirados > 0 ? 'vermelho' : 'cinza'} />
+                    <CartaoNumero rotulo={t('Total')} valor={(contas?.total ?? 0).toLocaleString('pt-PT')} icone="fa-layer-group" tom="azul" />
                 </div>
             )}
 
             <Cartao
-                titulo={<span className="flex items-center gap-2"><i className="fas fa-calendar-check text-slate-400" aria-hidden="true" />{t('Lotes e Validades')}</span>}
+                titulo={t('Lotes e Validades')}
+                icone="fa-calendar-check"
                 accoes={o.permissoes.pode_criar && <Botao cor="primaria" tom="solida" icone="fa-plus" onClick={abrirNovo}>{t('Novo lote')}</Botao>}
             >
                 <div className="flex flex-wrap items-end gap-3">
@@ -119,35 +136,62 @@ export default function Lotes() {
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
-                            <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500">
-                                <th className="px-4 py-3 font-semibold">{t('Lote')}</th>
-                                <th className="px-4 py-3 font-semibold">{t('Artigo')}</th>
-                                <th className="px-4 py-3 font-semibold">{t('Armazém')}</th>
-                                <th className="px-4 py-3 font-semibold">{t('Validade')}</th>
-                                <th className="px-4 py-3 text-right font-semibold">{t('Disponível')}</th>
-                                <th className="px-4 py-3 text-right font-semibold">{t('Custo')}</th>
-                                <th className="px-4 py-3 font-semibold">{t('Estado')}</th>
-                                <th className="w-24 px-4 py-3"></th>
+                            <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-600">
+                                <th className="px-4 py-3 font-bold"><i className="fas fa-hashtag mr-1.5 text-teal-500" aria-hidden="true" />{t('Lote')}</th>
+                                <th className="px-4 py-3 font-bold"><i className="fas fa-box mr-1.5 text-indigo-500" aria-hidden="true" />{t('Artigo')}</th>
+                                <th className="px-4 py-3 font-bold"><i className="fas fa-warehouse mr-1.5 text-blue-500" aria-hidden="true" />{t('Armazém')}</th>
+                                <th className="px-4 py-3 font-bold"><i className="fas fa-calendar-day mr-1.5 text-amber-500" aria-hidden="true" />{t('Validade')}</th>
+                                <th className="px-4 py-3 text-right font-bold">{t('Disponível')}</th>
+                                <th className="px-4 py-3 text-right font-bold">{t('Custo')}</th>
+                                <th className="px-4 py-3 font-bold">{t('Estado')}</th>
+                                <th className="w-24 px-4 py-3 text-right font-bold">{t('Acções')}</th>
                             </tr>
                         </thead>
                         <tbody className={cls('divide-y divide-slate-100', lista.isFetching && 'opacity-60')}>
-                            {linhas.length === 0 && <tr><td colSpan={8} className="px-4 py-10 text-center text-slate-400">{lista.isPending ? t('A carregar…') : t('Nenhum lote.')}</td></tr>}
-                            {linhas.map((l) => (
-                                <tr key={l.id}>
+                            {linhas.length === 0 && (
+                                <tr>
+                                    <td colSpan={8} className="px-6 py-16">
+                                        {lista.isPending ? (
+                                            <p className="text-center text-slate-400">{t('A carregar…')}</p>
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center text-center">
+                                                <div className="mb-4 grid h-20 w-20 place-items-center rounded-full bg-slate-100">
+                                                    <i className="fas fa-box-open text-3xl text-slate-400" aria-hidden="true" />
+                                                </div>
+                                                <p className="text-lg font-semibold text-slate-500">{t('Nenhum lote encontrado')}</p>
+                                                {/* A frase manda para o botão que já está em cima:
+                                                    repeti-lo aqui punha dois botões iguais no
+                                                    mesmo ecrã. */}
+                                                <p className="mt-2 text-sm text-slate-400">{t('Crie um novo lote usando o botão acima')}</p>
+                                            </div>
+                                        )}
+                                    </td>
+                                </tr>
+                            )}
+                            {linhas.map((l, i) => (
+                                <tr key={l.id} style={cascata(i)} className="entra transition-all duration-200 hover:bg-teal-50/60">
                                     <td className="px-4 py-2 font-mono font-semibold text-slate-900">{l.batch_number ?? <span className="text-slate-300">—</span>}</td>
-                                    <td className="px-4 py-2">{l.artigo}</td>
-                                    <td className="px-4 py-2">{l.armazem}</td>
+                                    <td className="px-4 py-2 font-medium text-slate-800">{l.artigo}</td>
+                                    <td className="px-4 py-2">{l.armazem ? <Etiqueta cor="primaria" icone="fa-warehouse">{l.armazem}</Etiqueta> : <span className="text-slate-300">—</span>}</td>
                                     <td className="px-4 py-2 tabular-nums">
                                         {l.expiry_date ? data(l.expiry_date) : <span className="text-slate-300">—</span>}
-                                        {l.dias !== null && <span className={cls('ml-2 text-xs', l.dias < 0 ? 'text-red-600' : l.dias <= l.alert_days ? 'text-amber-600' : 'text-slate-400')}>{l.dias < 0 ? t('há :dias dias', { dias: -l.dias }) : t(':dias dias', { dias: l.dias })}</span>}
+                                        {l.dias !== null && <span className={cls('ml-2 text-xs font-semibold', l.dias < 0 ? 'text-red-600' : l.dias <= l.alert_days ? 'text-amber-600' : 'text-slate-400')}>{l.dias < 0 ? t('há :dias dias', { dias: -l.dias }) : t(':dias dias', { dias: l.dias })}</span>}
                                     </td>
-                                    <td className="px-4 py-2 text-right tabular-nums">{l.quantity_available.toLocaleString('pt-PT')} <span className="text-xs text-slate-400">/ {l.quantity.toLocaleString('pt-PT')} {l.unidade}</span></td>
+                                    <td className="px-4 py-2 text-right tabular-nums"><span className="font-bold text-slate-900">{l.quantity_available.toLocaleString('pt-PT')}</span> <span className="text-xs text-slate-400">/ {l.quantity.toLocaleString('pt-PT')} {l.unidade}</span></td>
                                     <td className="px-4 py-2 text-right tabular-nums">{kz(l.cost_price)}</td>
-                                    <td className="px-4 py-2"><Etiqueta cor={l.status === 'expired' ? 'perigo' : l.status === 'active' ? 'bom' : 'neutra'}>{l.status === 'expired' ? t('Expirado') : l.status === 'active' ? t('Activo') : l.status}</Etiqueta></td>
+                                    <td className="px-4 py-2">
+                                        <Etiqueta
+                                            cor={l.status === 'expired' ? 'perigo' : l.status === 'active' ? 'bom' : 'neutra'}
+                                            icone={l.status === 'expired' ? 'fa-circle-xmark' : l.status === 'active' ? 'fa-circle-check' : 'fa-circle-minus'}
+                                            ponto
+                                        >
+                                            {l.status === 'expired' ? t('Expirado') : l.status === 'active' ? t('Activo') : l.status}
+                                        </Etiqueta>
+                                    </td>
                                     <td className="px-4 py-2 text-right">
-                                        <span className="flex justify-end gap-1">
-                                            {o.permissoes.pode_editar && <button type="button" onClick={() => abrirEdicao(l)} aria-label={t('Editar lote :lote', { lote: l.batch_number ?? l.id })} className={cls('p-2 text-slate-400 hover:text-indigo-600', RAIO, FOCO)}><i className="fas fa-pen" aria-hidden="true" /></button>}
-                                            {o.permissoes.pode_apagar && <button type="button" disabled={!l.pode_apagar} onClick={() => porAApagar(l)} title={l.pode_apagar ? t('Apagar') : t('Já usado — não se apaga')} aria-label={t('Apagar lote :lote', { lote: l.batch_number ?? l.id })} className={cls('p-2 text-slate-400 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40', RAIO, FOCO)}><i className="fas fa-trash" aria-hidden="true" /></button>}
+                                        <span className="flex justify-end gap-1.5">
+                                            {o.permissoes.pode_editar && <button type="button" onClick={() => abrirEdicao(l)} aria-label={t('Editar lote :lote', { lote: l.batch_number ?? l.id })} className={accao('primaria')}><i className="fas fa-pen" aria-hidden="true" /></button>}
+                                            {o.permissoes.pode_apagar && <button type="button" disabled={!l.pode_apagar} onClick={() => porAApagar(l)} title={l.pode_apagar ? t('Apagar') : t('Já usado — não se apaga')} aria-label={t('Apagar lote :lote', { lote: l.batch_number ?? l.id })} className={cls(accao('perigo'), 'disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100')}><i className="fas fa-trash" aria-hidden="true" /></button>}
                                         </span>
                                     </td>
                                 </tr>
@@ -156,7 +200,7 @@ export default function Lotes() {
                     </table>
                 </div>
                 {contas && contas.last_page > 1 && (
-                    <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-sm text-slate-500">
+                    <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
                         <span>{t('Página :pagina de :ultima', { pagina: contas.current_page, ultima: contas.last_page })}</span>
                         <span className="flex gap-1">
                             <Botao icone="fa-chevron-left" disabled={contas.current_page <= 1} onClick={() => porFiltros((f) => ({ ...f, page: contas.current_page - 1 }))}>{t('Anterior')}</Botao>
@@ -166,32 +210,23 @@ export default function Lotes() {
                 )}
             </Cartao>
 
-            {forma && <Formulario o={o} forma={forma} erros={erros} titulo={aEditar ? t('Editar lote :lote', { lote: aEditar.batch_number ?? '' }) : t('Novo lote')} aGravar={gravar.isPending} erroGeral={gravar.error} aoMudar={porForma} aoFechar={() => { porForma(null); porAEditar(null); }} aoGravar={() => gravar.mutate(forma)} />}
+            {forma && <Formulario o={o} forma={forma} erros={erros} titulo={aEditar ? t('Editar lote :lote', { lote: aEditar.batch_number ?? '' }) : t('Novo lote')} icone={aEditar ? 'fa-pen' : 'fa-plus'} aGravar={gravar.isPending} erroGeral={gravar.error} aoMudar={porForma} aoFechar={() => { porForma(null); porAEditar(null); }} aoGravar={() => gravar.mutate(forma)} />}
 
-            <Modal aberto={aApagar !== null} aoFechar={() => porAApagar(null)} titulo={t('Apagar o lote?')} rodape={<><Botao onClick={() => porAApagar(null)}>{t('Cancelar')}</Botao><Botao cor="perigo" tom="solida" icone="fa-trash" aTrabalhar={apagar.isPending} onClick={() => aApagar && apagar.mutate(aApagar)}>{t('Apagar')}</Botao></>}>
+            <Modal aberto={aApagar !== null} aoFechar={() => porAApagar(null)} titulo={t('Apagar o lote?')} icone="fa-trash" cor="perigo" rodape={<><Botao onClick={() => porAApagar(null)}>{t('Cancelar')}</Botao><Botao cor="perigo" tom="solida" icone="fa-trash" aTrabalhar={apagar.isPending} onClick={() => aApagar && apagar.mutate(aApagar)}>{t('Apagar')}</Botao></>}>
                 <p className="text-sm text-slate-700">{tPartes('Vai apagar o lote :lote. Não há volta.', { lote: <strong>{aApagar?.batch_number ?? aApagar?.id}</strong> })}</p>
             </Modal>
         </div>
     );
 }
 
-function Numero({ rotulo, valor, icone, alerta = false }: { rotulo: string; valor: number; icone: string; alerta?: boolean }) {
-    return (
-        <div className={cls('flex items-center gap-3 border bg-white px-4 py-3', RAIO, alerta ? 'border-amber-300' : 'border-slate-200')}>
-            <i className={cls('fas', icone, alerta ? 'text-amber-500' : 'text-slate-300')} aria-hidden="true" />
-            <div><p className="text-xs uppercase tracking-wider text-slate-500">{rotulo}</p><p className="text-lg font-bold tabular-nums text-slate-900">{valor}</p></div>
-        </div>
-    );
-}
-
-function Formulario({ o, forma, erros, titulo, aGravar, erroGeral, aoMudar, aoFechar, aoGravar }: {
-    o: OpcoesDosLotes; forma: Forma; erros: Record<string, string[]>; titulo: string; aGravar: boolean; erroGeral: unknown;
+function Formulario({ o, forma, erros, titulo, icone, aGravar, erroGeral, aoMudar, aoFechar, aoGravar }: {
+    o: OpcoesDosLotes; forma: Forma; erros: Record<string, string[]>; titulo: string; icone: string; aGravar: boolean; erroGeral: unknown;
     aoMudar: (f: Forma) => void; aoFechar: () => void; aoGravar: () => void;
 }) {
     const m = (chave: keyof Forma) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => aoMudar({ ...forma, [chave]: e.target.value });
 
     return (
-        <Modal aberto aoFechar={aoFechar} titulo={titulo} largura="lg" rodape={<><Botao onClick={aoFechar}>{t('Cancelar')}</Botao><Botao cor="primaria" tom="solida" icone="fa-floppy-disk" aTrabalhar={aGravar} onClick={aoGravar}>{t('Guardar')}</Botao></>}>
+        <Modal aberto aoFechar={aoFechar} titulo={titulo} subtitulo={t('Controle de validade e lotes de produtos')} icone={icone} largura="lg" rodape={<><Botao onClick={aoFechar}>{t('Cancelar')}</Botao><Botao cor="primaria" tom="solida" icone="fa-floppy-disk" aTrabalhar={aGravar} onClick={aoGravar}>{t('Guardar')}</Botao></>}>
             <AvisoDeErro erro={erroGeral} />
             <div className="grid gap-4 sm:grid-cols-2">
                 <Campo etiqueta={t('Artigo')} erro={erros.product_id} obrigatorio>

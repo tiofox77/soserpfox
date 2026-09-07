@@ -326,6 +326,17 @@ return [
                     'blade'    => 'resources/views/livewire/invoicing/agt-credentials.blade.php',
                     'react'    => 'ecras/facturacao/CredenciaisAgt.tsx',
                 ],
+                /*
+                 * Passou despercebido ao mapa até ao fim: vive em
+                 * `app/Livewire/Agt/`, e não em `app/Livewire/Invoicing/`
+                 * como os outros 71.
+                 */
+                [
+                    'nome'     => 'Facturas recebidas (adquirente) — AGT',
+                    'livewire' => 'app/Livewire/Agt/AdquirenteIndex.php',
+                    'blade'    => 'resources/views/livewire/agt/adquirente-index.blade.php',
+                    'react'    => 'ecras/facturacao/AdquirenteAgt.tsx',
+                ],
             ],
         ],
         'Facturação: relatórios' => [

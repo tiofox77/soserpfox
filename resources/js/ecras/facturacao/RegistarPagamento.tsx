@@ -85,16 +85,22 @@ export function RegistarPagamento({ tipo, id, aoFechar, aoRegistar }: {
             aberto
             aoFechar={aoFechar}
             titulo={c ? t('Pagar :numero', { numero: c.factura.numero }) : t('Pagar')}
+            subtitulo={c ? c.factura.parte : undefined}
+            icone="fa-money-bill-wave"
+            cor="bom"
             largura="md"
-            rodape={<><Botao onClick={aoFechar}>{t('Cancelar')}</Botao><Botao cor="primaria" tom="solida" icone="fa-money-bill-wave" aTrabalhar={registar.isPending} disabled={!c} onClick={() => registar.mutate()}>{t('Registar pagamento')}</Botao></>}
+            rodape={<><Botao onClick={aoFechar}>{t('Cancelar')}</Botao><Botao cor="bom" tom="solida" icone="fa-money-bill-wave" aTrabalhar={registar.isPending} disabled={!c} onClick={() => registar.mutate()}>{t('Registar pagamento')}</Botao></>}
         >
             <AvisoDeErro erro={registar.error ?? ctx.error} />
             {!c ? <Carregando linhas={4} /> : (
                 <div className="space-y-4">
-                    <div className={cls('grid grid-cols-3 gap-3 border border-slate-200 bg-slate-50 px-4 py-3 text-sm', RAIO)}>
-                        <div><p className="text-xs uppercase tracking-wider text-slate-500">{c.factura.parte}</p><p className="font-semibold tabular-nums">{kz(c.factura.total)}</p></div>
-                        <div><p className="text-xs uppercase tracking-wider text-slate-500">{t('Já pago')}</p><p className="font-semibold tabular-nums">{kz(c.factura.pago)}</p></div>
-                        <div><p className="text-xs uppercase tracking-wider text-slate-500">{t('Falta')}</p><p className="font-bold tabular-nums text-amber-700" data-por-pagar>{kz(c.por_pagar)}</p></div>
+                    {/* OS TRÊS NÚMEROS DA FACTURA, em destaque e cada um com o
+                        seu ícone: quanto é, quanto já se pagou, e o que falta —
+                        que é o que a pessoa está a olhar. */}
+                    <div className={cls('grid grid-cols-1 gap-3 border border-indigo-200 bg-indigo-50 px-4 py-4 text-sm sm:grid-cols-3', RAIO)}>
+                        <div><p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-indigo-900/70"><i className="fas fa-file-invoice" aria-hidden="true" />{c.factura.parte}</p><p className="mt-0.5 text-lg font-bold tabular-nums text-indigo-900">{kz(c.factura.total)}</p></div>
+                        <div><p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-800/70"><i className="fas fa-circle-check" aria-hidden="true" />{t('Já pago')}</p><p className="mt-0.5 text-lg font-bold tabular-nums text-emerald-700">{kz(c.factura.pago)}</p></div>
+                        <div><p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-800/70"><i className="fas fa-hourglass-half" aria-hidden="true" />{t('Falta')}</p><p className="mt-0.5 text-xl font-bold tabular-nums text-amber-700" data-por-pagar>{kz(c.por_pagar)}</p></div>
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -127,9 +133,10 @@ export function RegistarPagamento({ tipo, id, aoFechar, aoRegistar }: {
                     </div>
 
                     {c.adiantamentos.length > 0 && (
-                        <div className={cls('border border-indigo-200 bg-indigo-50 p-3', RAIO)}>
-                            <label className="flex items-center gap-2 text-sm font-semibold text-indigo-900">
-                                <input type="checkbox" checked={usarAdiantamento} onChange={(e) => { porUsarAdiantamento(e.target.checked); if (e.target.checked && c.adiantamentos[0]) escolherAdiantamento(String(c.adiantamentos[0].id)); else { porDoAdiantamento(''); porValor(String(c.por_pagar)); } }} className="h-4 w-4 rounded border-slate-300" />
+                        <div className={cls('border border-amber-200 bg-amber-50 p-3', RAIO)}>
+                            <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-amber-900">
+                                <input type="checkbox" checked={usarAdiantamento} onChange={(e) => { porUsarAdiantamento(e.target.checked); if (e.target.checked && c.adiantamentos[0]) escolherAdiantamento(String(c.adiantamentos[0].id)); else { porDoAdiantamento(''); porValor(String(c.por_pagar)); } }} className="h-4 w-4 rounded border-amber-300 text-amber-600" />
+                                <i className="fas fa-coins text-amber-600" aria-hidden="true" />
                                 {t('Usar um adiantamento deste cliente')}
                             </label>
                             {usarAdiantamento && (
@@ -147,13 +154,34 @@ export function RegistarPagamento({ tipo, id, aoFechar, aoRegistar }: {
                         </div>
                     )}
 
-                    <p className="text-sm text-slate-600" data-falta-depois>
-                        {faltaDepois > 0
-                            ? <>{t('Depois deste pagamento ficam a faltar')}{' '}<strong className="tabular-nums">{kz(faltaDepois)} Kz</strong>.</>
-                            : excedente > 0 && tipo === 'sale'
-                                ? <>{t('Fica liquidada. O excedente de')}{' '}<strong className="tabular-nums">{kz(excedente)} Kz</strong>{' '}{t('vira adiantamento do cliente.')}</>
-                                : <>{t('Fica liquidada.')}</>}
-                    </p>
+                    {/* O QUE FICA DEPOIS DE CARREGAR — o «Resumo do Pagamento»
+                        do ecrã de sempre. Verde quando a factura fica
+                        liquidada, âmbar quando ainda sobra por pagar: a cor
+                        acompanha o ícone, nunca vai sozinha. */}
+                    <div
+                        className={cls(
+                            'flex items-start gap-3 border px-4 py-3 text-sm',
+                            RAIO,
+                            faltaDepois > 0 ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-emerald-200 bg-emerald-50 text-emerald-900',
+                        )}
+                        data-falta-depois
+                    >
+                        <span
+                            className={cls(
+                                'grid h-8 w-8 flex-none place-items-center rounded-lg',
+                                faltaDepois > 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700',
+                            )}
+                        >
+                            <i className={`fas ${faltaDepois > 0 ? 'fa-hourglass-half' : 'fa-circle-check'}`} aria-hidden="true" />
+                        </span>
+                        <p className="min-w-0 leading-relaxed">
+                            {faltaDepois > 0
+                                ? <>{t('Depois deste pagamento ficam a faltar')}{' '}<strong className="text-base font-bold tabular-nums">{kz(faltaDepois)} Kz</strong>.</>
+                                : excedente > 0 && tipo === 'sale'
+                                    ? <>{t('Fica liquidada. O excedente de')}{' '}<strong className="text-base font-bold tabular-nums">{kz(excedente)} Kz</strong>{' '}{t('vira adiantamento do cliente.')}</>
+                                    : <>{t('Fica liquidada.')}</>}
+                        </p>
+                    </div>
                 </div>
             )}
         </Modal>

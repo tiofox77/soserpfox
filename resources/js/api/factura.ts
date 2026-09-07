@@ -1,5 +1,6 @@
 import { api } from './cliente';
 import type { LinhaCalculada, Totais } from './emissor';
+import type { CriarParte } from './partes';
 
 export type LinhaDaFactura = {
     product_id: number | null;
@@ -19,6 +20,8 @@ export type OpcoesDaFactura = {
     formas_de_pagamento: Array<{ id: number; code: string; name: string }>;
     retencoes: Array<{ valor: string; rotulo: string }>;
     regioes: Array<{ valor: string; rotulo: string }>;
+    /** O CLIENTE RÁPIDO: se se pode criar aqui, e com que país por omissão. */
+    criar_parte: CriarParte;
     permissoes: { pode_criar: boolean };
 };
 
@@ -33,9 +36,13 @@ export type OpcoesDaFactura = {
 export type ConteudoDaFactura = {
     client_id: number | null; warehouse_id: number | null; invoice_type: string;
     invoice_date: string | null; due_date: string | null; delivery_date: string | null;
+    /** ONDE os bens são entregues — sai no documento, ao lado da data de entrega. */
+    delivery_location: string | null;
     tax_country_region: string | null; payment_method: string | null;
     discount_commercial: number; discount_financial: number;
     withholding_type: string | null; withholding_percentage: number; notes: string | null;
+    /** As condições que saem no papel (termos e condições). */
+    terms: string | null;
 };
 
 /** Uma factura aberta no editor: o cabeçalho, as linhas, e se ainda se pode mexer. */

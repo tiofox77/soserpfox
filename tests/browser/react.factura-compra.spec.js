@@ -104,3 +104,73 @@ test('duplicar um documento que nao existe diz que nao abriu', async ({ page }) 
     await expect(page.getByRole('alert')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText('Não foi possível abrir o registo de compras')).toBeVisible();
 });
+
+/**
+ * O FORNECEDOR RÁPIDO — o que a migração para React tinha deixado cair.
+ *
+ * A factura do fornecedor está na mão e ele ainda não está na ficha. Criá-lo
+ * obrigava a largar o registo a meio e a reescrever as linhas. O botão abre o
+ * formulário dos cinco campos de sempre e, criado, o fornecedor fica ESCOLHIDO
+ * no documento — era esse o ponto.
+ *
+ * A criação passa pela porta de sempre (`POST /react/catalogos/fornecedores`).
+ */
+test('o fornecedor rapido cria e fica escolhido no documento', async ({ page }) => {
+    const escolha = page.getByLabel(/^fornecedor\b/i);
+    await expect(escolha).toHaveValue('');
+
+    await page.getByRole('button', { name: /^Novo fornecedor$/ }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+
+    const nif = '5' + String(Date.now()).slice(-9);
+
+    await page.getByLabel(/^Nome/).fill('Fornecedor Rápido ' + nif);
+    await page.getByLabel(/^NIF/).fill(nif);
+    await page.getByLabel(/^Telefone/).fill('923000000');
+
+    const criado = page.waitForResponse(
+        (r) => r.url().includes('/react/catalogos/fornecedores') && r.request().method() === 'POST',
+        { timeout: 20_000 },
+    );
+
+    await page.getByRole('button', { name: /Criar e escolher/ }).click();
+
+    expect((await criado).status()).toBe(201);
+
+    await expect(page.getByRole('dialog')).toBeHidden({ timeout: 20_000 });
+    await expect(escolha).not.toHaveValue('');
+});
+
+/**
+ * O BOTÃO DE CRIAR FORNECEDOR SEGUE O QUE O SERVIDOR DISSER.
+ *
+ * Registar compras e abrir fichas de fornecedores são duas permissões — e o
+ * ecrã tem de obedecer ao servidor sobre a segunda.
+ *
+ * FINGIR A RESPOSTA NÃO SERVE AQUI: esta aplicação tem service worker, e o
+ * que passa por ele não é interceptado pelo `page.route` — o ecrã continuava
+ * a receber a resposta verdadeira. Pergunta-se então ao servidor por um
+ * pedido que não passa pelo service worker, e exige-se que o botão exista se
+ * e só se ele autorizar. Que a permissão é mesmo respeitada do lado de lá
+ * está provado em `ApiDaCompraParaReactTest` — e é essa a guarda que conta.
+ */
+test('o botao de criar fornecedor segue o que o servidor disser', async ({ page }) => {
+    const opcoes = await page.request.get('/api/v1/invoicing/react/compra/opcoes');
+    const pode = (await opcoes.json()).criar_parte?.pode ?? false;
+
+    await page.goto(ECRA);
+    await expect(page.getByRole('table')).toBeVisible({ timeout: 20_000 });
+
+    await expect(page.getByRole('button', { name: /^Novo fornecedor$/ })).toHaveCount(pode ? 1 : 0);
+    await expect(page.getByLabel('Procurar fornecedor')).toBeVisible();
+});
+
+/** A procura filtra a lista — um `<select>` com todos os fornecedores não se usa. */
+test('a procura filtra a lista de fornecedores', async ({ page }) => {
+    const escolha = page.getByLabel(/^fornecedor\b/i);
+
+    await page.getByLabel('Procurar fornecedor').fill('zzz-nao-existe-zzz');
+
+    await expect(page.getByText('Nada encontrado')).toBeVisible();
+    expect(await escolha.locator('option').count()).toBe(1);
+});

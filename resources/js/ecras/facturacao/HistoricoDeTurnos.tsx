@@ -12,6 +12,7 @@ import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { FOCO, RAIO, cls } from '@/ui/tokens';
 import { t } from '@/i18n';
+import { ACCAO_DA_FAIXA, Faixa, SemNada, cascata } from './faixa';
 
 /**
  * O HISTÓRICO DE TURNOS. Quem não pode ver todos fica preso aos seus — e
@@ -40,8 +41,15 @@ export default function HistoricoDeTurnos() {
 
     return (
         <div className="space-y-4" data-historico-turnos>
-            <Cartao titulo={<span className="flex items-center gap-2"><i className="fas fa-clock-rotate-left text-slate-400" aria-hidden="true" />{t('Histórico de Turnos')}</span>}
-                accoes={<a href="/invoicing/pos/shifts" className={cls('inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50', RAIO)}><i className="fas fa-cash-register" aria-hidden="true" />{t('O meu turno')}</a>}>
+            <Faixa
+                icone="fa-clock-rotate-left"
+                cor="neutra"
+                titulo={t('Histórico de Turnos')}
+                subtitulo={t('Turnos abertos e fechados, com o que ficou na gaveta')}
+                accoes={<a href="/invoicing/pos/shifts" className={ACCAO_DA_FAIXA}><i className="fas fa-cash-register" aria-hidden="true" />{t('O meu turno')}</a>}
+            />
+
+            <Cartao titulo={t('Filtros')} icone="fa-filter">
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <Campo etiqueta={t('De')}><input type="date" value={filtros.dateFrom} onChange={(e) => mudar('dateFrom', e.target.value)} className={entrada} /></Campo>
                     <Campo etiqueta={t('Até')}><input type="date" value={filtros.dateTo} onChange={(e) => mudar('dateTo', e.target.value)} className={entrada} /></Campo>
@@ -53,14 +61,14 @@ export default function HistoricoDeTurnos() {
                 {!pode_ver_todos && <p className="mt-3 text-xs text-slate-500">{t('Só vê os seus turnos.')}</p>}
             </Cartao>
 
-            <Cartao semPadding>
+            <Cartao titulo={t('Turnos')} icone="fa-list" semPadding accoes={<span className="text-sm text-slate-500">{t(':total no total', { total: meta.total })}</span>}>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                        <thead><tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500"><th className="px-4 py-3 font-semibold">{t('Nº')}</th><th className="px-4 py-3 font-semibold">{t('Operador')}</th><th className="px-4 py-3 font-semibold">{t('Abertura')}</th><th className="px-4 py-3 font-semibold">{t('Fecho')}</th><th className="px-4 py-3 text-right font-semibold">{t('Vendas')}</th><th className="px-4 py-3 text-right font-semibold">{t('Esperado')}</th><th className="px-4 py-3 text-right font-semibold">{t('Contado')}</th><th className="px-4 py-3 text-right font-semibold">{t('Diferença')}</th><th className="px-4 py-3 font-semibold">{t('Estado')}</th><th className="w-32 px-4 py-3"></th></tr></thead>
+                        <thead><tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-600"><th className="px-4 py-3 font-semibold">{t('Nº')}</th><th className="px-4 py-3 font-semibold">{t('Operador')}</th><th className="px-4 py-3 font-semibold">{t('Abertura')}</th><th className="px-4 py-3 font-semibold">{t('Fecho')}</th><th className="px-4 py-3 text-right font-semibold">{t('Vendas')}</th><th className="px-4 py-3 text-right font-semibold">{t('Esperado')}</th><th className="px-4 py-3 text-right font-semibold">{t('Contado')}</th><th className="px-4 py-3 text-right font-semibold">{t('Diferença')}</th><th className="px-4 py-3 font-semibold">{t('Estado')}</th><th className="w-32 px-4 py-3"></th></tr></thead>
                         <tbody className={cls('divide-y divide-slate-100', q.isFetching && 'opacity-60')}>
-                            {linhas.length === 0 && <tr><td colSpan={10} className="px-4 py-10 text-center text-slate-400">{t('Nenhum turno neste período.')}</td></tr>}
-                            {linhas.map((turno) => (
-                                <tr key={turno.id}>
+                            {linhas.length === 0 && <tr><td colSpan={10}><SemNada icone="fa-inbox" titulo={t('Nenhum turno encontrado')} frase={t('Nenhum turno neste período. Alargue as datas ou limpe o filtro do operador.')} /></td></tr>}
+                            {linhas.map((turno, i) => (
+                                <tr key={turno.id} className="entra transition-all duration-200 hover:bg-indigo-50/60" style={cascata(i)}>
                                     <td className="px-4 py-2 font-mono text-xs font-semibold text-slate-900">{turno.shift_number}</td>
                                     <td className="px-4 py-2">{turno.operador}</td>
                                     <td className="whitespace-nowrap px-4 py-2 text-slate-600">{turno.opened_at}</td>
@@ -69,7 +77,7 @@ export default function HistoricoDeTurnos() {
                                     <td className="px-4 py-2 text-right tabular-nums">{kz(turno.expected_cash)}</td>
                                     <td className="px-4 py-2 text-right tabular-nums">{turno.actual_cash === null ? '—' : kz(turno.actual_cash)}</td>
                                     <td className={cls('px-4 py-2 text-right tabular-nums', (turno.cash_difference ?? 0) < 0 && 'text-red-700')}>{turno.cash_difference === null ? '—' : kz(turno.cash_difference)}</td>
-                                    <td className="px-4 py-2">{turno.status === 'open' ? <Etiqueta cor="bom">{t('Aberto')}</Etiqueta> : <Etiqueta>{t('Fechado')}</Etiqueta>}</td>
+                                    <td className="px-4 py-2">{turno.status === 'open' ? <Etiqueta cor="bom" icone="fa-circle-play" ponto>{t('Aberto')}</Etiqueta> : <Etiqueta icone="fa-lock" ponto>{t('Fechado')}</Etiqueta>}</td>
                                     <td className="px-4 py-2 text-right">
                                         <span className="flex justify-end gap-1">
                                             <button type="button" onClick={() => porAberto(turno.id)} aria-label={t('Ver turno :numero', { numero: turno.shift_number })} className={cls('p-2 text-slate-400 hover:text-indigo-600', RAIO, FOCO)}><i className="fas fa-eye" aria-hidden="true" /></button>

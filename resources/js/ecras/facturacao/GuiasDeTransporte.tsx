@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { guias, type Guia, type LinhaDaGuia } from '@/api/guias';
@@ -10,7 +10,7 @@ import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
-import { FOCO, RAIO, cls, data } from '@/ui/tokens';
+import { CORES, FOCO, RAIO, cls, data, type Cor } from '@/ui/tokens';
 import { t, tPartes } from '@/i18n';
 
 /**
@@ -21,7 +21,20 @@ import { t, tPartes } from '@/i18n';
  * copiando o cliente e as linhas dela. O número, a série, a assinatura e a
  * comunicação à AGT são do servidor (`EmissorDeGuias`), o mesmo que o ecrã
  * Livewire chama.
+ *
+ * O ASPECTO É O DE SEMPRE — este ecrã era o laranja da casa. Volta o
+ * cabeçalho de tabela com fundo, a cascata das linhas, os quadrados de acção
+ * e o estado vazio com o camião dentro do círculo. E o vazio ganha a frase
+ * que o Blade não tinha: dizia só que não havia guias, e não o que fazer a
+ * seguir.
  */
+
+/** O atraso da linha `i` na entrada em cascata (ver `.entra` no layout). */
+const cascata = (i: number) => ({ '--i': i }) as CSSProperties;
+
+/** O quadrado de uma acção de linha: fundo suave da cor do que ela faz. */
+const accao = (cor: Cor) =>
+    cls('grid h-9 w-9 place-items-center rounded-lg transition-all duration-200 hover:scale-110', CORES[cor].suave, FOCO);
 
 const LINHA_NOVA: LinhaDaGuia = { product_id: null, product_name: '', description: '', quantity: 1, unit: 'un' };
 
@@ -75,7 +88,8 @@ export default function GuiasDeTransporte() {
             <AvisoDeErro erro={comunicar.error ?? anular.error} />
 
             <Cartao
-                titulo={<span className="flex items-center gap-2"><i className="fas fa-truck text-slate-400" aria-hidden="true" />{t('Guias de Transporte')}</span>}
+                titulo={t('Guias de Transporte')}
+                icone="fa-truck"
                 accoes={o.permissoes.pode_criar && <Botao cor="primaria" tom="solida" icone="fa-plus" onClick={() => porARegistar(true)}>{t('Nova guia')}</Botao>}
             >
                 <label className="block max-w-md text-sm">
@@ -88,35 +102,54 @@ export default function GuiasDeTransporte() {
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
-                            <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500">
-                                <th className="px-4 py-3 font-semibold">{t('Número')}</th>
-                                <th className="px-4 py-3 font-semibold">{t('Tipo')}</th>
-                                <th className="px-4 py-3 font-semibold">{t('Cliente')}</th>
-                                <th className="px-4 py-3 font-semibold">{t('Data')}</th>
-                                <th className="px-4 py-3 font-semibold">{t('Estado')}</th>
-                                <th className="px-4 py-3 font-semibold">AGT</th>
-                                <th className="w-40 px-4 py-3"></th>
+                            <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-600">
+                                <th className="px-4 py-3 font-bold"><i className="fas fa-hashtag mr-1.5 text-orange-500" aria-hidden="true" />{t('Número')}</th>
+                                <th className="px-4 py-3 font-bold">{t('Tipo')}</th>
+                                <th className="px-4 py-3 font-bold"><i className="fas fa-user mr-1.5 text-indigo-500" aria-hidden="true" />{t('Cliente')}</th>
+                                <th className="px-4 py-3 font-bold">{t('Data')}</th>
+                                <th className="px-4 py-3 font-bold">{t('Estado')}</th>
+                                <th className="px-4 py-3 font-bold">AGT</th>
+                                <th className="w-40 px-4 py-3 text-right font-bold">{t('Acções')}</th>
                             </tr>
                         </thead>
                         <tbody className={cls('divide-y divide-slate-100', lista.isFetching && 'opacity-60')}>
-                            {linhas.length === 0 && <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400">{lista.isPending ? t('A carregar…') : t('Nenhuma guia.')}</td></tr>}
-                            {linhas.map((g) => (
-                                <tr key={g.id}>
+                            {linhas.length === 0 && (
+                                <tr>
+                                    <td colSpan={7} className="px-6 py-16">
+                                        {lista.isPending ? (
+                                            <p className="text-center text-slate-400">{t('A carregar…')}</p>
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center text-center">
+                                                <div className="mb-4 grid h-20 w-20 place-items-center rounded-full bg-slate-100">
+                                                    <i className="fas fa-truck text-3xl text-slate-400" aria-hidden="true" />
+                                                </div>
+                                                <p className="text-lg font-semibold text-slate-500">{t('Nenhuma guia registada')}</p>
+                                                {/* O Blade parava no «não há guias». Um vazio que
+                                                    não diz o passo seguinte deixa a pessoa à espera
+                                                    de que apareça alguma coisa sozinha. */}
+                                                <p className="mt-2 text-sm text-slate-400">{t('Crie uma nova guia usando o botão acima')}</p>
+                                            </div>
+                                        )}
+                                    </td>
+                                </tr>
+                            )}
+                            {linhas.map((g, i) => (
+                                <tr key={g.id} style={cascata(i)} className="entra transition-all duration-200 hover:bg-orange-50/60">
                                     <td className="px-4 py-2 font-mono font-semibold text-slate-900">{g.numero}</td>
-                                    <td className="px-4 py-2">{g.tipo_rotulo}</td>
-                                    <td className="px-4 py-2">{g.cliente}</td>
+                                    <td className="px-4 py-2"><Etiqueta cor="neutra" icone="fa-truck">{g.tipo_rotulo}</Etiqueta></td>
+                                    <td className="px-4 py-2 font-medium text-slate-800">{g.cliente}</td>
                                     <td className="px-4 py-2 tabular-nums">{data(g.data)}</td>
-                                    <td className="px-4 py-2"><Etiqueta cor={g.estado === 'cancelled' ? 'perigo' : 'bom'}>{g.estado === 'cancelled' ? t('Anulada') : t('Emitida')}</Etiqueta></td>
+                                    <td className="px-4 py-2"><Etiqueta cor={g.estado === 'cancelled' ? 'perigo' : 'bom'} icone={g.estado === 'cancelled' ? 'fa-ban' : 'fa-circle-check'} ponto>{g.estado === 'cancelled' ? t('Anulada') : t('Emitida')}</Etiqueta></td>
                                     <td className="px-4 py-2">
-                                        {g.agt ? <Etiqueta cor="primaria" icone="fa-shield">{g.agt}</Etiqueta> : g.assinada ? <Etiqueta>{t('Por comunicar')}</Etiqueta> : <Etiqueta cor="aviso">{t('Sem assinatura')}</Etiqueta>}
+                                        {g.agt ? <Etiqueta cor="primaria" icone="fa-shield">{g.agt}</Etiqueta> : g.assinada ? <Etiqueta icone="fa-clock">{t('Por comunicar')}</Etiqueta> : <Etiqueta cor="aviso" icone="fa-triangle-exclamation">{t('Sem assinatura')}</Etiqueta>}
                                     </td>
                                     <td className="px-4 py-2 text-right">
-                                        <span className="flex justify-end gap-1">
-                                            <a href={g.pdf} target="_blank" rel="noreferrer" title="PDF" aria-label={t('PDF de :numero', { numero: g.numero })} className={cls('p-2 text-red-500 hover:bg-red-50', RAIO, FOCO)}><i className="fas fa-file-pdf" aria-hidden="true" /></a>
+                                        <span className="flex justify-end gap-1.5">
+                                            <a href={g.pdf} target="_blank" rel="noreferrer" title="PDF" aria-label={t('PDF de :numero', { numero: g.numero })} className={accao('perigo')}><i className="fas fa-file-pdf" aria-hidden="true" /></a>
                                             {g.assinada && !g.agt && (
-                                                <button type="button" onClick={() => comunicar.mutate(g)} title={t('Comunicar à AGT')} aria-label={t('Comunicar :numero à AGT', { numero: g.numero })} className={cls('p-2 text-indigo-600 hover:bg-indigo-50', RAIO, FOCO)}><i className="fas fa-paper-plane" aria-hidden="true" /></button>
+                                                <button type="button" onClick={() => comunicar.mutate(g)} title={t('Comunicar à AGT')} aria-label={t('Comunicar :numero à AGT', { numero: g.numero })} className={accao('primaria')}><i className="fas fa-paper-plane" aria-hidden="true" /></button>
                                             )}
-                                            <button type="button" onClick={() => porAAnular(g)} title={t('Anular')} aria-label={t('Anular :numero', { numero: g.numero })} className={cls('p-2 text-slate-400 hover:text-red-600', RAIO, FOCO)}><i className="fas fa-ban" aria-hidden="true" /></button>
+                                            <button type="button" onClick={() => porAAnular(g)} title={t('Anular')} aria-label={t('Anular :numero', { numero: g.numero })} className={accao('aviso')}><i className="fas fa-ban" aria-hidden="true" /></button>
                                         </span>
                                     </td>
                                 </tr>
@@ -125,7 +158,7 @@ export default function GuiasDeTransporte() {
                     </table>
                 </div>
                 {contas && contas.last_page > 1 && (
-                    <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-sm text-slate-500">
+                    <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
                         <span>{t('Página :actual de :total · :quantas guias', { actual: contas.current_page, total: contas.last_page, quantas: contas.total })}</span>
                         <span className="flex gap-1">
                             <Botao icone="fa-chevron-left" disabled={contas.current_page <= 1} onClick={() => porPagina(contas.current_page - 1)}>{t('Anterior')}</Botao>
@@ -141,6 +174,8 @@ export default function GuiasDeTransporte() {
                 aberto={aAnular !== null}
                 aoFechar={() => porAAnular(null)}
                 titulo={t('Anular a guia?')}
+                icone="fa-ban"
+                cor="perigo"
                 rodape={<><Botao onClick={() => porAAnular(null)}>{t('Cancelar')}</Botao><Botao cor="perigo" tom="solida" icone="fa-ban" aTrabalhar={anular.isPending} onClick={() => aAnular && anular.mutate(aAnular)}>{t('Anular')}</Botao></>}
             >
                 <p className="text-sm text-slate-700">{tPartes('A guia :numero fica anulada e sai da lista. O número fica gasto.', { numero: <strong>{aAnular?.numero}</strong> })}</p>
@@ -208,6 +243,9 @@ function NovaGuia({ aoFechar, aoRegistar }: { aoFechar: () => void; aoRegistar: 
             aberto
             aoFechar={aoFechar}
             titulo={t('Nova guia')}
+            subtitulo={t('Documentos de transporte de mercadorias (GT / GR)')}
+            icone="fa-truck"
+            cor="aviso"
             largura="lg"
             rodape={<><Botao onClick={aoFechar}>{t('Cancelar')}</Botao><Botao cor="primaria" tom="solida" icone="fa-truck" aTrabalhar={guardar.isPending} onClick={() => guardar.mutate()}>{t('Registar guia')}</Botao></>}
         >
@@ -258,8 +296,8 @@ function NovaGuia({ aoFechar, aoRegistar }: { aoFechar: () => void; aoRegistar: 
                         </Campo>
                     </div>
 
-                    <div className={cls('border border-slate-200', RAIO)}>
-                        <div className="flex items-center gap-2 border-b border-slate-200 px-3 py-2">
+                    <div className={cls('overflow-hidden border border-slate-200', RAIO)}>
+                        <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2">
                             <select value={artigo} onChange={(e) => porArtigo(e.target.value)} aria-label={t('Artigo a juntar')} className={cls(entrada, 'flex-1')}>
                                 <option value="">{t('Juntar artigo…')}</option>
                                 {o.artigos.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -267,12 +305,16 @@ function NovaGuia({ aoFechar, aoRegistar }: { aoFechar: () => void; aoRegistar: 
                             <Botao icone="fa-plus" onClick={juntarArtigo} disabled={!artigo}>{t('Juntar')}</Botao>
                         </div>
                         {linhas.length === 0 ? (
-                            <p className="px-3 py-4 text-center text-sm text-slate-400">{t('Sem linhas. Escolha uma factura de origem ou junte artigos.')}</p>
+                            /* A caixa a tracejado do ecrã de sempre. */
+                            <div className={cls('m-2 border-2 border-dashed border-slate-200 p-6 text-center text-slate-400', RAIO)}>
+                                <i className="fas fa-inbox mb-2 text-3xl" aria-hidden="true" />
+                                <p className="text-sm">{t('Sem linhas. Escolha uma factura de origem ou junte artigos.')}</p>
+                            </div>
                         ) : (
                             <table className="w-full text-sm">
                                 <tbody className="divide-y divide-slate-100">
                                     {linhas.map((l, i) => (
-                                        <tr key={i}>
+                                        <tr key={i} style={cascata(i)} className="entra transition-all duration-200 hover:bg-orange-50/60">
                                             <td className="px-3 py-2">
                                                 <input value={l.description} onChange={(e) => porLinhas((ls) => ls.map((x, j) => (j === i ? { ...x, description: e.target.value } : x)))} aria-label={t('Descrição da linha :n', { n: i + 1 })} className={entrada} />
                                             </td>
@@ -281,7 +323,7 @@ function NovaGuia({ aoFechar, aoRegistar }: { aoFechar: () => void; aoRegistar: 
                                             </td>
                                             <td className="w-20 px-3 py-2 text-slate-500">{l.unit}</td>
                                             <td className="w-12 px-3 py-2 text-right">
-                                                <button type="button" onClick={() => porLinhas((ls) => ls.filter((_, j) => j !== i))} aria-label={t('Apagar linha :n', { n: i + 1 })} className={cls('p-2 text-red-500 hover:bg-red-50', RAIO, FOCO)}><i className="fas fa-trash" aria-hidden="true" /></button>
+                                                <button type="button" onClick={() => porLinhas((ls) => ls.filter((_, j) => j !== i))} aria-label={t('Apagar linha :n', { n: i + 1 })} className={accao('perigo')}><i className="fas fa-trash" aria-hidden="true" /></button>
                                             </td>
                                         </tr>
                                     ))}

@@ -17,6 +17,7 @@ use App\Services\Invoicing\CalculadoraDeDocumento;
 use App\Services\Invoicing\DuplicaDocumento;
 use App\Services\Invoicing\EmissorDeFacturas;
 use App\Services\Invoicing\TaxResolver;
+use App\Support\Geografia;
 use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -117,6 +118,10 @@ class FacturaApiController extends Controller
                 'invoice_date' => $data($f->invoice_date),
                 'due_date' => $data($f->due_date),
                 'delivery_date' => $data($f->delivery_date),
+                // ONDE os bens são entregues: o emissor já o gravava e o
+                // editor não o mostrava, por isso reabrir uma factura
+                // apagava-o.
+                'delivery_location' => $f->delivery_location,
                 'tax_country_region' => $f->tax_country_region ?? $f->items->first()?->tax_country_region,
                 'payment_method' => $f->payment_method,
                 'discount_commercial' => (float) ($f->discount_commercial ?? 0),
@@ -124,6 +129,9 @@ class FacturaApiController extends Controller
                 'withholding_type' => $retencao->withholding_tax_type ?? null,
                 'withholding_percentage' => (float) ($retencao->withholding_tax_percentage ?? 0),
                 'notes' => $f->notes,
+                // As condições que saem no papel — mesma história do local
+                // de entrega: gravavam-se e não voltavam.
+                'terms' => $f->terms,
                 'pdf' => url('invoicing/sales/invoices/' . $f->id . '/pdf'),
             ],
             'linhas' => $f->items->map(fn ($i) => [
@@ -176,6 +184,22 @@ class FacturaApiController extends Controller
                 ['valor' => '', 'rotulo' => __('Pela província do cliente')],
                 ['valor' => 'AO', 'rotulo' => 'Angola (continente)'],
                 ['valor' => 'AO-CAB', 'rotulo' => 'Cabinda'],
+            ],
+
+            /*
+             * O CLIENTE RÁPIDO — está-se a emitir, o cliente não existe, e
+             * cria-se aqui sem largar o documento a meio.
+             *
+             * O ecrã não pode adivinhar quem pode criar clientes: é uma
+             * permissão diferente da de emitir facturas, e quem não a tem não
+             * vê o botão (a `/clients` recusa na mesma). O país por omissão
+             * vem daqui e não de uma constante escrita em TypeScript — é o
+             * mesmo `Geografia::PAIS_PADRAO` que o formulário de clientes usa.
+             */
+            'criar_parte' => [
+                'tipo' => 'cliente',
+                'pode' => (bool) $request->user()?->can('invoicing.clients.create'),
+                'pais_padrao' => Geografia::PAIS_PADRAO,
             ],
 
             'permissoes' => [

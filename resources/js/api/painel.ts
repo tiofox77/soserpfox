@@ -1,16 +1,24 @@
 import { api } from './cliente';
 
+/** Um atalho de período. Os rótulos vêm do servidor já traduzidos. */
+export type PeriodoDoPainel = {
+    valor: string;
+    rotulo: string;
+    rotulo_anterior: string;
+    de: string;
+    ate: string;
+    opcoes: Array<{ valor: string; rotulo: string }>;
+};
+
 export type NumerosDoPainel = {
+    periodo: PeriodoDoPainel;
     stats: {
         total_invoiced: number;
-        total_invoiced_last_month: number;
+        total_invoiced_previous: number;
         total_received: number;
         total_pending: number;
         total_overdue: number;
-        year_invoiced: number;
-        year_invoiced_previous: number;
         growth: number;
-        year_growth: number;
     };
     documentos: {
         invoices: number;
@@ -25,6 +33,8 @@ export type NumerosDoPainel = {
         partially_paid: number;
         overdue: number;
     };
+    /** A linha do gráfico do período escolhido: dias ou meses, conforme ele. */
+    serie: Array<{ data: string; rotulo: string; valor: number }>;
     por_mes: Array<{ rotulo: string; valor: number }>;
     por_mes_ano_passado: Array<{ rotulo: string; valor: number }>;
     por_cobrar: Array<{
@@ -39,5 +49,6 @@ export type NumerosDoPainel = {
 };
 
 export const painel = {
-    numeros: () => api.ler<NumerosDoPainel>('/painel'),
+    /** O período viaja no pedido: quem conta é o servidor, não o ecrã. */
+    numeros: (periodo?: string) => api.ler<NumerosDoPainel>('/painel', periodo ? { periodo } : {}),
 };

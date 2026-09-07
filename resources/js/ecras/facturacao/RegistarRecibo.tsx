@@ -9,8 +9,9 @@ import { Botao } from '@/ui/Botao';
 import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
-import { CARTAO, RAIO, cls, data as fmtData, kz } from '@/ui/tokens';
+import { FOCO, RAIO, cls, data as fmtData, kz } from '@/ui/tokens';
 import { t } from '@/i18n';
+import { NaoAbriu, PainelDeSucesso, SemNada } from './PecasDoEditor';
 
 /**
  * REGISTAR UM RECIBO — ou abrir um que já existe, só para ler.
@@ -40,10 +41,10 @@ function ReciboEmitido({ id }: { id: number }) {
     if (q.isPending) return <Carregando linhas={5} />;
     if (q.isError) {
         return (
-            <div className={cls('border border-red-200 bg-red-50 p-6', RAIO)} role="alert">
-                <h2 className="mb-2 text-lg font-bold text-red-900">{t('Não foi possível abrir o recibo')}</h2>
-                <p className="text-sm text-red-800">{q.error instanceof ErroDaApi ? q.error.message : t('Verifique a ligação.')}</p>
-            </div>
+            <NaoAbriu
+                titulo={t('Não foi possível abrir o recibo')}
+                mensagem={q.error instanceof ErroDaApi ? q.error.message : t('Verifique a ligação.')}
+            />
         );
     }
 
@@ -53,7 +54,7 @@ function ReciboEmitido({ id }: { id: number }) {
         <div className="space-y-4" data-documento-aberto>
             <Cartao
                 titulo={<span className="flex items-center gap-2"><i className="fas fa-receipt text-slate-400" aria-hidden="true" />{r.numero ?? t('Recibo')}<Etiqueta cor={r.estado === 'cancelled' ? 'perigo' : 'bom'}>{r.estado}</Etiqueta></span>}
-                accoes={<span className="flex gap-2"><a href={r.pdf} target="_blank" rel="noreferrer" className={cls('inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50', RAIO)}><i className="fas fa-file-pdf" aria-hidden="true" />{t('PDF')}</a><Botao icone="fa-list" onClick={() => (window.location.href = '/invoicing/receipts')}>{t('Ver os recibos')}</Botao></span>}
+                accoes={<span className="flex gap-2"><a href={r.pdf} target="_blank" rel="noreferrer" className={cls('inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md', RAIO, FOCO)}><i className="fas fa-file-pdf text-red-500" aria-hidden="true" />{t('PDF')}</a><Botao icone="fa-list" onClick={() => (window.location.href = '/invoicing/receipts')}>{t('Ver os recibos')}</Botao></span>}
             >
                 <p className="mb-4 text-sm text-slate-500">{t('Documento fiscal: abre-se para consultar, não para editar.')}</p>
                 <dl className="grid gap-3 text-sm sm:grid-cols-3">
@@ -67,7 +68,8 @@ function ReciboEmitido({ id }: { id: number }) {
                     ].map(([rotulo, valor]) => (
                         <div key={rotulo}><dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">{rotulo}</dt><dd className="font-medium text-slate-900">{valor}</dd></div>
                     ))}
-                    <div className="sm:col-span-3 border-t border-slate-100 pt-3"><dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('Valor')}</dt><dd className="text-2xl font-bold tabular-nums text-emerald-700">{kz(r.amount_paid)} <span className="text-sm font-normal text-slate-400">Kz</span></dd></div>
+                    {/* O VALOR, com o peso do total de um documento. */}
+                    <div className="-mx-5 -mb-5 mt-1 border-t-2 border-emerald-200 bg-emerald-50/70 px-5 py-4 sm:col-span-3"><dt className="text-xs font-semibold uppercase tracking-wider text-emerald-800/70">{t('Valor')}</dt><dd className="text-2xl font-bold tabular-nums text-emerald-700 sm:text-3xl">{kz(r.amount_paid)} <span className="text-base font-normal text-emerald-800/60">Kz</span></dd></div>
                 </dl>
             </Cartao>
         </div>
@@ -139,44 +141,36 @@ function Registar({ facturaId: daMorada, clienteId: clienteDaMorada }: { factura
 
     if (opcoes.isError) {
         return (
-            <div className={cls('border border-red-200 bg-red-50 p-6', RAIO)} role="alert">
-                <h2 className="mb-2 text-lg font-bold text-red-900">{t('Não foi possível abrir')}</h2>
-                <p className="text-sm text-red-800">
-                    {opcoes.error instanceof ErroDaApi ? opcoes.error.message : t('Verifique a ligação.')}
-                </p>
-            </div>
+            <NaoAbriu
+                titulo={t('Não foi possível abrir')}
+                mensagem={opcoes.error instanceof ErroDaApi ? opcoes.error.message : t('Verifique a ligação.')}
+            />
         );
     }
 
     if (feito) {
         return (
-            <div className={cls(CARTAO, 'p-8 text-center')}>
-                <i className="fas fa-circle-check mb-3 text-4xl text-emerald-500" aria-hidden="true" />
-                <h2 className="text-xl font-bold text-slate-900">{feito.numero}</h2>
-                <p className="mt-1 text-sm text-slate-500">{t('Recibo criado.')}</p>
-                {feito.agt && <p className="mt-1 text-xs text-slate-400">{feito.agt}</p>}
-                <div className="mt-6 flex justify-center gap-2">
-                    <Botao
-                        cor="primaria"
-                        tom="solida"
-                        icone="fa-list"
-                        onClick={() => (window.location.href = '/invoicing/receipts')}
-                    >
-                        {t('Ver os recibos')}
-                    </Botao>
-                    <Botao
-                        icone="fa-plus"
-                        onClick={() => {
-                            porFeito(null);
-                            porFacturaId('');
-                            porValor('');
-                            porReferencia('');
-                        }}
-                    >
-                        {t('Registar outro')}
-                    </Botao>
-                </div>
-            </div>
+            <PainelDeSucesso numero={feito.numero} mensagem={t('Recibo criado.')} agt={feito.agt} icone="fa-receipt">
+                <Botao
+                    cor="primaria"
+                    tom="solida"
+                    icone="fa-list"
+                    onClick={() => (window.location.href = '/invoicing/receipts')}
+                >
+                    {t('Ver os recibos')}
+                </Botao>
+                <Botao
+                    icone="fa-plus"
+                    onClick={() => {
+                        porFeito(null);
+                        porFacturaId('');
+                        porValor('');
+                        porReferencia('');
+                    }}
+                >
+                    {t('Registar outro')}
+                </Botao>
+            </PainelDeSucesso>
         );
     }
 
@@ -200,7 +194,7 @@ function Registar({ facturaId: daMorada, clienteId: clienteDaMorada }: { factura
         <div className="space-y-4">
             <AvisoDeErro erro={guardar.error} />
 
-            <Cartao titulo={t('De quem se recebe')}>
+            <Cartao titulo={t('De quem se recebe')} icone="fa-user">
                 <div className="grid gap-4 sm:grid-cols-3">
                     <Campo etiqueta={t('Tipo')} obrigatorio>
                         <select
@@ -247,16 +241,16 @@ function Registar({ facturaId: daMorada, clienteId: clienteDaMorada }: { factura
                 </div>
             </Cartao>
 
-            <Cartao titulo={t('Factura')}>
+            <Cartao titulo={t('Factura')} icone="fa-file-invoice">
                 {facturas.isFetching ? (
-                    <p className="py-4 text-sm text-slate-400">{t('A procurar facturas por receber…')}</p>
+                    <SemNada icone="fa-spinner fa-spin">{t('A procurar facturas por receber…')}</SemNada>
                 ) : lista.length === 0 ? (
-                    <p className="py-4 text-sm text-slate-500">
+                    <SemNada icone="fa-file-circle-question">
                         {parteId
                             ? t('Não há facturas por receber deste :parte.', { parte: tipo === 'sale' ? t('cliente') : t('fornecedor') })
                             : t('Não há facturas por receber.')}{' '}
                         {t('Pode registar um recibo sem factura — fica como adiantamento.')}
-                    </p>
+                    </SemNada>
                 ) : (
                     <Campo etiqueta={t('Factura a receber')} erro={erros.invoice_id}>
                         <select
@@ -278,7 +272,7 @@ function Registar({ facturaId: daMorada, clienteId: clienteDaMorada }: { factura
                 {escolhida && <Saldo f={escolhida} />}
             </Cartao>
 
-            <Cartao titulo={t('Pagamento')}>
+            <Cartao titulo={t('Pagamento')} icone="fa-money-bill-wave">
                 <div className="grid gap-4 sm:grid-cols-3">
                     <Campo etiqueta={t('Valor recebido')} erro={erros.amount_paid} obrigatorio>
                         <input
@@ -341,21 +335,32 @@ function Registar({ facturaId: daMorada, clienteId: clienteDaMorada }: { factura
     );
 }
 
+/**
+ * OS TRÊS NÚMEROS DE QUEM ESTÁ NA CAIXA: quanto é, quanto já se recebeu, e
+ * quanto falta. Sem isto, a segunda prestação escreve-se de cabeça.
+ *
+ * Vêm em três blocos com cor própria — era assim no ecrã em Blade — e cada um
+ * leva o seu ícone, porque um estado que só se distingue pela cor não serve a
+ * quem não a distingue.
+ */
 function Saldo({ f }: { f: FacturaPorReceber }) {
     return (
-        <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-slate-100 pt-4 text-sm">
-            <div>
-                <dt className="text-xs uppercase tracking-wider text-slate-400">{t('Total')}</dt>
-                <dd className="tabular-nums text-slate-800">{kz(f.total)}</dd>
-            </div>
-            <div>
-                <dt className="text-xs uppercase tracking-wider text-slate-400">{t('Já recebido')}</dt>
-                <dd className="tabular-nums text-slate-800">{kz(f.pago)}</dd>
-            </div>
-            <div>
-                <dt className="text-xs uppercase tracking-wider text-slate-400">{t('Falta')}</dt>
-                <dd className="text-lg font-bold tabular-nums text-amber-600">{kz(f.falta)}</dd>
-            </div>
+        <dl className="mt-4 grid grid-cols-1 gap-3 border-t border-slate-100 pt-4 text-sm sm:grid-cols-3">
+            <Bloco rotulo={t('Total')} valor={kz(f.total)} icone="fa-file-invoice" cor="border-slate-200 bg-slate-50 text-slate-700" />
+            <Bloco rotulo={t('Já recebido')} valor={kz(f.pago)} icone="fa-circle-check" cor="border-emerald-200 bg-emerald-50 text-emerald-700" />
+            <Bloco rotulo={t('Falta')} valor={kz(f.falta)} icone="fa-hourglass-half" cor="border-amber-200 bg-amber-50 text-amber-700" destaque />
         </dl>
+    );
+}
+
+function Bloco({ rotulo, valor, icone, cor, destaque = false }: { rotulo: string; valor: string; icone: string; cor: string; destaque?: boolean }) {
+    return (
+        <div className={cls('border px-3 py-2.5 text-center', RAIO, cor)}>
+            <dt className="flex items-center justify-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider opacity-80">
+                <i className={`fas ${icone}`} aria-hidden="true" />
+                {rotulo}
+            </dt>
+            <dd className={cls('mt-0.5 font-bold tabular-nums', destaque ? 'text-lg' : 'text-sm')}>{valor}</dd>
+        </div>
     );
 }

@@ -12,6 +12,7 @@ import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { FOCO, RAIO, cls } from '@/ui/tokens';
 import { t, tPartes } from '@/i18n';
+import { Faixa, SemNada, cascata } from './faixa';
 
 /**
  * A GESTÃO DAS SÉRIES DE DOCUMENTOS — a ficha inteira.
@@ -87,8 +88,17 @@ export default function Series() {
             )}
             <AvisoDeErro erro={eliminar.error} />
 
+            <Faixa
+                icone="fa-hashtag"
+                titulo={t('Séries de Documentos')}
+                subtitulo={t('Configure as séries e numeração dos documentos fiscais')}
+            />
+
+            {/* O título vive na faixa e só lá: escrito duas vezes, a página
+                passa a ter dois cabeçalhos a dizer o mesmo. */}
             <Cartao
-                titulo={<span className="flex items-center gap-2"><i className="fas fa-hashtag text-slate-400" aria-hidden="true" />{t('Séries de Documentos')}</span>}
+                titulo={t('Filtros')}
+                icone="fa-filter"
                 accoes={o.permissoes.pode_escrever && <Botao cor="primaria" tom="solida" icone="fa-plus" onClick={abrirNova}>{t('Nova série')}</Botao>}
             >
                 <div className="flex flex-wrap items-end gap-3">
@@ -99,20 +109,28 @@ export default function Series() {
                 </div>
             </Cartao>
 
-            <Cartao semPadding>
+            <Cartao titulo={t('Séries')} icone="fa-list" semPadding accoes={contas && <span className="text-sm text-slate-500">{t(':total no total', { total: contas.total })}</span>}>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                        <thead><tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500"><th className="px-4 py-3 font-semibold">{t('Tipo')}</th><th className="px-4 py-3 font-semibold">{t('Código')}</th><th className="px-4 py-3 font-semibold">{t('Nome')}</th><th className="px-4 py-3 font-semibold">{t('Próximo número')}</th><th className="px-4 py-3 text-right font-semibold">{t('Emitidos')}</th><th className="px-4 py-3 font-semibold">AGT</th><th className="w-28 px-4 py-3"></th></tr></thead>
+                        <thead><tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-600"><th className="px-4 py-3 font-semibold">{t('Tipo')}</th><th className="px-4 py-3 font-semibold">{t('Código')}</th><th className="px-4 py-3 font-semibold">{t('Nome')}</th><th className="px-4 py-3 font-semibold">{t('Próximo número')}</th><th className="px-4 py-3 text-right font-semibold">{t('Emitidos')}</th><th className="px-4 py-3 font-semibold">AGT</th><th className="w-28 px-4 py-3"></th></tr></thead>
                         <tbody className={cls('divide-y divide-slate-100', lista.isFetching && 'opacity-60')}>
-                            {linhas.length === 0 && <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400">{lista.isPending ? t('A carregar…') : t('Nenhuma série.')}</td></tr>}
-                            {linhas.map((s) => (
-                                <tr key={s.id} className={cls(!s.is_active && 'text-slate-400')}>
+                            {linhas.length === 0 && (
+                                <tr>
+                                    <td colSpan={7}>
+                                        {lista.isPending
+                                            ? <p className="px-4 py-10 text-center text-slate-400"><i className="fas fa-spinner fa-spin mr-2" aria-hidden="true" />{t('A carregar…')}</p>
+                                            : <SemNada icone="fa-hashtag" titulo={t('Nenhuma série encontrada')} frase={t('Crie a primeira série de documentos.')} accao={o.permissoes.pode_escrever ? <Botao cor="primaria" tom="solida" icone="fa-plus" onClick={abrirNova}>{t('Criar a primeira')}</Botao> : undefined} />}
+                                    </td>
+                                </tr>
+                            )}
+                            {linhas.map((s, i) => (
+                                <tr key={s.id} className={cls('entra transition-all duration-200 hover:bg-indigo-50/60', !s.is_active && 'text-slate-400')} style={cascata(i)}>
                                     <td className="px-4 py-2">{s.tipo_rotulo}<span className="ml-2 font-mono text-xs text-slate-400">{s.prefix}</span></td>
                                     <td className="px-4 py-2 font-mono font-semibold text-slate-900">{s.series_code}{s.is_default && <span className="ml-2"><Etiqueta cor="aviso" icone="fa-star">{t('Padrão')}</Etiqueta></span>}</td>
                                     <td className="px-4 py-2">{s.name}{!s.is_active && <span className="ml-2 text-xs">{t('(inactiva)')}</span>}</td>
                                     <td className="px-4 py-2 font-mono text-xs text-slate-600">{s.exemplo}</td>
                                     <td className="px-4 py-2 text-right tabular-nums">{s.emitidos}</td>
-                                    <td className="px-4 py-2">{s.registada ? <Etiqueta cor="primaria" icone="fa-shield">{s.agt_series_id}</Etiqueta> : <Etiqueta>{t('Por registar')}</Etiqueta>}</td>
+                                    <td className="px-4 py-2">{s.registada ? <Etiqueta cor="primaria" icone="fa-shield">{s.agt_series_id}</Etiqueta> : <Etiqueta icone="fa-clock">{t('Por registar')}</Etiqueta>}</td>
                                     <td className="px-4 py-2 text-right">
                                         {o.permissoes.pode_escrever && (
                                             <span className="flex justify-end gap-1">

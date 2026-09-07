@@ -7,6 +7,7 @@ use App\Models\Invoicing\CreditNote;
 use App\Models\Invoicing\DebitNote;
 use App\Models\Invoicing\Receipt;
 use App\Models\Invoicing\SalesInvoice;
+use App\Services\Invoicing\Relatorios\Periodo;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -18,6 +19,14 @@ use Illuminate\Support\Facades\DB;
  * ecrãs davam números diferentes ao primeiro ajuste — que é exactamente o
  * defeito que este código já apanhou no PIN de turno, na Geografia, no
  * TaxResolver e no papel de impressão do POS.
+ *
+ * O PERÍODO É ARGUMENTO, NÃO ESTADO DO ECRÃ. O painel de sempre tinha um
+ * selector — semana, mês, ano — e a migração perdeu-o: o ecrã em React passou a
+ * mostrar sempre o ano. Voltou, mas por aqui: quem escolhe é o ecrã, quem conta
+ * é este serviço, e assim os cartões, o gráfico e o título não podem discordar
+ * entre si sobre o período que estão a mostrar. Os atalhos são os MESMOS dos
+ * relatórios (`Relatorios\Periodo`); uma segunda lista de períodos acabaria,
+ * como sempre acaba, a divergir da primeira.
  *
  * A REGRA QUE ISTO GUARDA. Conta-se pelo SALDO, nunca pelo nome do estado.
  * Nomear os estados que contam foi o que partiu o painel: contava `pending` e
@@ -36,58 +45,121 @@ class PainelDaFacturacao
     private const LIQUIDADAS = ['cancelled', 'paid', 'credited'];
 
     /**
-     * Tudo o que o painel mostra, para a data de hoje.
+     * Os atalhos que o painel oferece — um subconjunto dos dos relatórios.
      *
-     * @return array{stats: array, documents: array, invoiceStatus: array,
+     * Fica de fora o `custom` (não há aqui duas caixas de data) e o `ytd`, que
+     * para o painel é o mesmo que o ano: ninguém factura no futuro.
+     */
+    public const PERIODOS = ['today', 'week', 'month', 'quarter', 'year', 'last_year'];
+
+    /** O mês, como o painel de sempre abria. */
+    public const PERIODO_OMISSAO = 'month';
+
+    /** Um atalho que este painel conheça — qualquer outra coisa é o de omissão. */
+    public static function periodo(?string $pedido): string
+    {
+        return in_array($pedido, self::PERIODOS, true) ? $pedido : self::PERIODO_OMISSAO;
+    }
+
+    /**
+     * O rótulo do atalho, JÁ NA LÍNGUA de quem está a olhar.
+     *
+     * Sai do servidor e não do ecrã, como os nomes dos meses: assim o título do
+     * gráfico e a caixa de escolha escrevem «Este mês» da mesma maneira.
+     */
+    public static function rotulo(string $periodo): string
+    {
+        return __(Periodo::ATALHOS[self::periodo($periodo)]);
+    }
+
+    /** As opções da caixa de escolha, na ordem em que se lêem. */
+    public static function opcoesDePeriodo(): array
+    {
+        return array_map(
+            fn (string $p) => ['valor' => $p, 'rotulo' => self::rotulo($p)],
+            self::PERIODOS
+        );
+    }
+
+    /** O intervalo do atalho. É o mesmo cálculo dos relatórios. */
+    public static function intervalo(string $periodo): array
+    {
+        return Periodo::datas(self::periodo($periodo));
+    }
+
+    /**
+     * O PERÍODO ANTERIOR EQUIVALENTE, para a comparação do cartão.
+     *
+     * O ano compara-se com o ano passado ATÉ AO MESMO DIA. Comparar um ano a
+     * meio com um ano inteiro daria sempre uma queda que não existe — era a
+     * nota que a leitura ano a ano já trazia, e vale para os outros períodos.
+     *
+     * @return array{0: Carbon, 1: Carbon, 2: string} de, até, rótulo
+     */
+    public static function anterior(string $periodo): array
+    {
+        $hoje = Carbon::today();
+
+        return match (self::periodo($periodo)) {
+            'today' => [$hoje->copy()->subDay()->startOfDay(), $hoje->copy()->subDay()->endOfDay(), __('Ontem')],
+            'week' => [$hoje->copy()->subWeek()->startOfWeek(), $hoje->copy()->subWeek()->endOfWeek(), __('Semana passada')],
+            'quarter' => [$hoje->copy()->subQuarter()->startOfQuarter(), $hoje->copy()->subQuarter()->endOfQuarter(), __('Trimestre passado')],
+            'year' => [$hoje->copy()->subYear()->startOfYear(), $hoje->copy()->subYear()->endOfDay(), __('Ano passado')],
+            'last_year' => [$hoje->copy()->subYears(2)->startOfYear(), $hoje->copy()->subYears(2)->endOfYear(), __('Ano anterior')],
+            default => [$hoje->copy()->subMonth()->startOfMonth(), $hoje->copy()->subMonth()->endOfMonth(), __('Mês passado')],
+        };
+    }
+
+    /**
+     * Tudo o que o painel mostra, para o período pedido.
+     *
+     * @return array{periodo: array, stats: array, documents: array, invoiceStatus: array,
      *               pendingInvoices: \Illuminate\Support\Collection,
      *               topClients: \Illuminate\Support\Collection,
      *               recentActivities: \Illuminate\Support\Collection}
      */
-    public function numeros(int $tenantId): array
+    public function numeros(int $tenantId, string $periodo = self::PERIODO_OMISSAO): array
     {
-        $hoje = Carbon::today();
-        $mesPassado = Carbon::now()->subMonth()->startOfMonth();
-        $fimDoMesPassado = Carbon::now()->subMonth()->endOfMonth();
+        $periodo = self::periodo($periodo);
+        [$de, $ate] = self::intervalo($periodo);
+        [$dePassado, $atePassado, $rotuloPassado] = self::anterior($periodo);
 
         $stats = [
-            'total_invoiced' => (float) $this->doMes($this->vendasVivas($tenantId), $hoje)->sum('total'),
-
-            'total_invoiced_last_month' => (float) $this->vendasVivas($tenantId)
-                ->whereBetween('invoice_date', [$mesPassado, $fimDoMesPassado])
-                ->sum('total'),
+            'total_invoiced' => $this->facturadoEntre($tenantId, $de, $ate),
+            'total_invoiced_previous' => $this->facturadoEntre($tenantId, $dePassado, $atePassado),
 
             'total_received' => (float) escopoDoAutor(Receipt::where('tenant_id', $tenantId))
-                ->whereMonth('payment_date', $hoje->month)
-                ->whereYear('payment_date', $hoje->year)
+                ->whereBetween('payment_date', [$de, $ate])
                 ->where('status', 'issued')
                 ->sum('amount_paid'),
 
+            // O QUE SE DEVE NÃO É UMA GRANDEZA DE PERÍODO. Uma factura de
+            // Janeiro por pagar continua por pagar em Dezembro: filtrar a
+            // dívida pelo período escolhido esconderia precisamente o que estes
+            // dois cartões existem para mostrar — foi assim que um deles dizia
+            // 76 mil quando havia 15 milhões. São o retrato de hoje, e a lista
+            // lá em baixo segue-os.
             'total_pending' => $this->somaPorCobrar($tenantId),
             'total_overdue' => $this->somaPorCobrar($tenantId, true),
-
-            // ANO A ANO, ATÉ AO MESMO DIA. Comparar um ano a meio com um ano
-            // inteiro daria sempre uma queda que não existe.
-            'year_invoiced' => $this->facturadoEntre(
-                $tenantId,
-                $hoje->copy()->startOfYear(),
-                $hoje->copy()->endOfDay()
-            ),
-            'year_invoiced_previous' => $this->facturadoEntre(
-                $tenantId,
-                $hoje->copy()->subYear()->startOfYear(),
-                $hoje->copy()->subYear()->endOfDay()
-            ),
         ];
 
-        $stats['growth'] = $this->crescimento($stats['total_invoiced'], $stats['total_invoiced_last_month']);
-        $stats['year_growth'] = $this->crescimento($stats['year_invoiced'], $stats['year_invoiced_previous']);
+        $stats['growth'] = $this->crescimento($stats['total_invoiced'], $stats['total_invoiced_previous']);
 
         return [
+            'periodo' => [
+                'valor' => $periodo,
+                'rotulo' => self::rotulo($periodo),
+                'rotulo_anterior' => $rotuloPassado,
+                'de' => $de->toDateString(),
+                'ate' => $ate->toDateString(),
+                'opcoes' => self::opcoesDePeriodo(),
+            ],
             'stats' => $stats,
-            'documents' => $this->documentosDoMes($tenantId, $hoje),
-            'invoiceStatus' => $this->estadoDasFacturas($tenantId, $hoje),
+            'documents' => $this->documentosDoPeriodo($tenantId, $de, $ate),
+            'invoiceStatus' => $this->estadoDasFacturas($tenantId, $de, $ate),
 
-            // A mesma regra do cartão: a lista e o número têm de bater certo.
+            // A mesma regra do cartão: a lista e o número têm de bater certo —
+            // e, como ele, mostram a dívida toda e não só a do período.
             'pendingInvoices' => $this->porCobrar($tenantId)
                 ->with('client')
                 ->orderByRaw('due_date IS NULL, due_date ASC')
@@ -95,8 +167,7 @@ class PainelDaFacturacao
                 ->get(),
 
             'topClients' => escopoDoAutor(SalesInvoice::with('client')->where('tenant_id', $tenantId))
-                ->whereMonth('invoice_date', $hoje->month)
-                ->whereYear('invoice_date', $hoje->year)
+                ->whereBetween('invoice_date', [$de, $ate])
                 ->where('status', '!=', 'cancelled')
                 ->selectRaw('client_id, SUM(total) as total_amount, COUNT(*) as invoice_count')
                 ->groupBy('client_id')
@@ -148,14 +219,61 @@ class PainelDaFacturacao
     }
 
     /**
+     * A LINHA DO GRÁFICO, para o período escolhido.
+     *
+     * PERÍODOS LONGOS AGRUPAM-SE POR MÊS. Agrupar sempre por dia dava, numa
+     * empresa com movimento, uma linha com um ponto por cada dia do ano:
+     * ilegível, e com os rótulos por cima uns dos outros.
+     *
+     * E os baldes vazios entram a zero: um gráfico que salte de Março para
+     * Junho porque Abril e Maio não têm linhas mente sobre a forma do período.
+     *
+     * O rótulo sai daqui e não do ecrã — é o servidor que sabe se aquilo é um
+     * dia ou um mês, e é ele que tem a língua de quem está a olhar.
+     *
+     * @return list<array{data: string, rotulo: string, valor: float}>
+     */
+    public function serie(int $tenantId, string $periodo = self::PERIODO_OMISSAO): array
+    {
+        [$de, $ate] = self::intervalo($periodo);
+
+        // Dois meses de dias ainda se lêem; um trimestre já não.
+        $porMes = $de->diffInDays($ate) > 62;
+
+        $chave = $porMes ? "DATE_FORMAT(invoice_date, '%Y-%m-01')" : 'DATE(invoice_date)';
+
+        $somas = escopoDoAutor(SalesInvoice::where('tenant_id', $tenantId))
+            ->whereBetween('invoice_date', [$de, $ate])
+            ->where('status', '!=', 'cancelled')
+            ->selectRaw($chave . ' as balde, SUM(total) as soma')
+            ->groupBy('balde')
+            ->pluck('soma', 'balde');
+
+        $pontos = [];
+        $cursor = $porMes ? $de->copy()->startOfMonth() : $de->copy()->startOfDay();
+
+        while ($cursor <= $ate) {
+            $balde = $cursor->format('Y-m-d');
+
+            $pontos[] = [
+                'data' => $balde,
+                'rotulo' => $porMes
+                    ? $cursor->locale(app()->getLocale())->isoFormat('MMM')
+                    : $cursor->format('d/m'),
+                'valor' => (float) ($somas[$balde] ?? 0),
+            ];
+
+            $porMes ? $cursor->addMonth() : $cursor->addDay();
+        }
+
+        return $pontos;
+    }
+
+    /**
      * O facturado mês a mês de um ano, com os doze meses sempre presentes.
      *
-     * UMA CONSULTA, não doze. E os meses sem nada entram a zero: um gráfico
-     * que salte de Março para Junho porque Abril e Maio não têm linhas mente
-     * sobre a forma do ano.
-     *
-     * O rótulo sai daqui e não do ecrã — assim o painel em Blade e o painel em
-     * React escrevem «Set» da mesma maneira.
+     * A VISTA DO ANO INTEIRO, que não depende do período escolhido. Uma
+     * consulta, não doze.
      *
      * @return list<array{rotulo: string, valor: float}>
      */
@@ -188,16 +306,10 @@ class PainelDaFacturacao
 
     /* ─── Por dentro ──────────────────────────────────────────────────── */
 
-    private function vendasVivas(int $tenantId)
+    /** O período, na coluna de data que interessa a cada documento. */
+    private function noPeriodo($query, Carbon $de, Carbon $ate, string $coluna = 'invoice_date')
     {
-        return escopoDoAutor(SalesInvoice::where('tenant_id', $tenantId))
-            ->where('status', '!=', 'cancelled');
-    }
-
-    /** O MÊS E O ANO. Sem o ano, Setembro de 2026 contava Setembro de 2025. */
-    private function doMes($query, Carbon $dia)
-    {
-        return $query->whereMonth('invoice_date', $dia->month)->whereYear('invoice_date', $dia->year);
+        return $query->whereBetween($coluna, [$de, $ate]);
     }
 
     private function crescimento(float $agora, float $antes): float
@@ -205,12 +317,14 @@ class PainelDaFacturacao
         return $antes > 0 ? (($agora - $antes) / $antes) * 100 : 0.0;
     }
 
-    private function documentosDoMes(int $tenantId, Carbon $hoje): array
+    private function documentosDoPeriodo(int $tenantId, Carbon $de, Carbon $ate): array
     {
-        $contar = fn (string $modelo, string $coluna) => escopoDoAutor($modelo::where('tenant_id', $tenantId))
-            ->whereMonth($coluna, $hoje->month)
-            ->whereYear($coluna, $hoje->year)
-            ->count();
+        $contar = fn (string $modelo, string $coluna) => $this->noPeriodo(
+            escopoDoAutor($modelo::where('tenant_id', $tenantId)),
+            $de,
+            $ate,
+            $coluna
+        )->count();
 
         return [
             'invoices' => $contar(SalesInvoice::class, 'invoice_date'),
@@ -222,39 +336,42 @@ class PainelDaFacturacao
     }
 
     /**
-     * AS QUATRO CAIXAS DO MÊS, contadas pelo saldo como os cartões.
+     * AS QUATRO CAIXAS DO PERÍODO, contadas pelo saldo como os cartões.
      *
      * Não se sobrepõem: uma factura cai numa caixa e numa só. Se contassem
      * pelo nome do estado, os quatro números diziam uma coisa e o cartão ao
      * lado dizia outra.
      */
-    private function estadoDasFacturas(int $tenantId, Carbon $hoje): array
+    private function estadoDasFacturas(int $tenantId, Carbon $de, Carbon $ate): array
     {
+        $hoje = Carbon::today();
+
         $porVencer = fn ($q) => $q->where(function ($w) use ($hoje) {
             $w->whereNull('due_date')->orWhereDate('due_date', '>=', $hoje);
         });
 
         return [
             // Liquidadas por pagamento: o avesso do «por cobrar».
-            'paid' => $this->doMes(
+            'paid' => $this->noPeriodo(
                 escopoDoAutor(SalesInvoice::where('tenant_id', $tenantId))
                     ->whereNotIn('status', ['cancelled', 'credited'])
                     ->whereRaw('COALESCE(total, 0) - COALESCE(paid_amount, 0) <= 0.01'),
-                $hoje
+                $de,
+                $ate
             )->count(),
 
             // Por cobrar, dentro do prazo e ainda sem nada recebido.
-            'pending' => $porVencer($this->doMes($this->porCobrar($tenantId), $hoje))
+            'pending' => $porVencer($this->noPeriodo($this->porCobrar($tenantId), $de, $ate))
                 ->whereRaw('COALESCE(paid_amount, 0) <= 0.01')
                 ->count(),
 
             // Por cobrar, dentro do prazo, com parte já recebida.
-            'partially_paid' => $porVencer($this->doMes($this->porCobrar($tenantId), $hoje))
+            'partially_paid' => $porVencer($this->noPeriodo($this->porCobrar($tenantId), $de, $ate))
                 ->whereRaw('COALESCE(paid_amount, 0) > 0.01')
                 ->count(),
 
             // Passou da data e falta receber — seja qual for o nome do estado.
-            'overdue' => $this->doMes($this->porCobrar($tenantId, true), $hoje)->count(),
+            'overdue' => $this->noPeriodo($this->porCobrar($tenantId, true), $de, $ate)->count(),
         ];
     }
 }

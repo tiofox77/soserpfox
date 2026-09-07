@@ -209,6 +209,34 @@
 
         /* wire:loading global — leve fade na própria zona de loading */
         [wire\:loading].animate-pop { animation: modalScaleIn .18s ease-out both; }
+
+        /* Linhas de tabela e cartões: entram em cascata, não de repente.
+           O atraso vem de uma variável posta na linha (--i), para a segunda
+           linha entrar um instante depois da primeira. */
+        @keyframes entradaSuave {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0);   }
+        }
+        .entra {
+            animation: entradaSuave .22s ease-out both;
+            animation-delay: calc(var(--i, 0) * 22ms);
+        }
+
+        /*
+           QUEM PEDIU MENOS MOVIMENTO NÃO O LEVA.
+           Há quem sinta náuseas com interfaces que saltam, e o sistema
+           operativo tem uma definição para o dizer. Isto respeita-a: o ecrã
+           continua a funcionar exactamente igual, só que quieto.
+        */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: .01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: .01ms !important;
+                scroll-behavior: auto !important;
+            }
+            .entra { animation: none; opacity: 1; transform: none; }
+        }
         
         @keyframes pulse-glow {
             0%, 100% {

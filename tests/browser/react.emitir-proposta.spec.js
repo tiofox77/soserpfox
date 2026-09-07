@@ -48,6 +48,41 @@ test('os totais vem do servidor', async ({ page }) => {
     await expect(page.getByText('Incidência de IVA')).toBeVisible();
 });
 
+/**
+ * OS CAMPOS QUE A MIGRAÇÃO TINHA DEIXADO PARA TRÁS.
+ *
+ * O armazém da proposta e as condições que saem no papel existiam no ecrã em
+ * Blade e não vieram para o React: uma proposta gravada por aqui perdia-os.
+ */
+test('o armazem e as condicoes estao no ecra', async ({ page }) => {
+    await expect(page.getByLabel('Armazém')).toBeVisible();
+    await expect(page.getByLabel('Termos e Condições')).toBeVisible();
+
+    await page.getByLabel('Termos e Condições').fill('Pagamento a 30 dias.');
+    await expect(page.getByLabel('Termos e Condições')).toHaveValue('Pagamento a 30 dias.');
+});
+
+/**
+ * MARCAR PRESTAÇÃO DE SERVIÇO VOLTA A PERGUNTAR OS TOTAIS.
+ *
+ * Retém-se IRT a 6,5%, e a conta é a do servidor: o ecrã não a faz, pede-a
+ * outra vez.
+ */
+test('marcar prestacao de servico volta a perguntar os totais ao servidor', async ({ page }) => {
+    await page.getByLabel('Artigo da linha 1').selectOption({ index: 1 });
+    await page.getByLabel('Quantidade da linha 1').fill('1');
+    await expect(page.getByText('Contado no servidor')).toBeVisible({ timeout: 20_000 });
+
+    const pedido = page.waitForResponse(
+        (r) => r.url().includes('/emissor/proformas-venda/calcular') && r.request().method() === 'POST',
+        { timeout: 20_000 },
+    );
+
+    await page.getByLabel(/Prestação de Serviço/).check();
+
+    expect((await pedido).ok()).toBe(true);
+});
+
 test('acrescenta e apaga linhas', async ({ page }) => {
     await page.getByRole('button', { name: /Nova linha/ }).click();
     expect(await page.locator('tbody tr').count()).toBe(2);

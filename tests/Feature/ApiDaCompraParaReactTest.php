@@ -300,4 +300,76 @@ class ApiDaCompraParaReactTest extends TenantTestCase
             $this->getJson('/api/v1/invoicing/react/documentos/facturas-compra/opcoes')->assertOk()->json('pode_duplicar')
         );
     }
+
+    /**
+     * O FORNECEDOR RÁPIDO: AS OPÇÕES DIZEM SE ELE SE PODE CRIAR AQUI.
+     *
+     * A factura do fornecedor está na mão e ele ainda não está na ficha.
+     * Criá-lo daqui é permissão própria (`invoicing.suppliers.create`), outra
+     * coisa que não registar compras: sem ela o botão não aparece — e a
+     * `/catalogos/fornecedores` recusa na mesma.
+     *
+     * @test
+     */
+    public function as_opcoes_dizem_se_o_fornecedor_se_pode_criar_aqui(): void
+    {
+        $this->comPermissoes('invoicing.purchases.invoices.create');
+
+        $this->getJson(self::RAIZ . '/opcoes')
+            ->assertOk()
+            ->assertJsonPath('criar_parte.tipo', 'fornecedor')
+            ->assertJsonPath('criar_parte.pode', false)
+            ->assertJsonPath('criar_parte.pais_padrao', 'AO');
+
+        $this->comPermissoes('invoicing.suppliers.create');
+
+        $this->getJson(self::RAIZ . '/opcoes')
+            ->assertOk()
+            ->assertJsonPath('criar_parte.pode', true);
+    }
+
+    /**
+     * O FORNECEDOR RÁPIDO ENTRA PELA PORTA DE SEMPRE, e fica escolhível.
+     *
+     * Não há um segundo caminho de criação: é a `/catalogos/fornecedores`, com
+     * as regras do esquema (nome com pelo menos três letras, país em código
+     * ISO de duas). E, criado, tem de aparecer nas opções da compra — é lá que
+     * o ecrã o vai buscar para o pôr escolhido no documento.
+     *
+     * @test
+     */
+    public function o_fornecedor_rapido_grava_pela_porta_dos_catalogos(): void
+    {
+        $this->comPermissoes(
+            'invoicing.purchases.invoices.create',
+            'invoicing.suppliers.view',
+            'invoicing.suppliers.create'
+        );
+
+        $porta = '/api/v1/invoicing/react/catalogos/fornecedores';
+
+        $rapido = fn (array $por = []) => array_merge([
+            'type' => 'pessoa_juridica',
+            'name' => 'Fornecedor do Balcão, Lda',
+            'nif' => '5000000321',
+            'email' => null,
+            'phone' => null,
+            'address' => null,
+            'country' => 'AO',
+        ], $por);
+
+        // As mesmas regras do ecrã completo: nome curto e país por extenso
+        // não passam por a criação ser «rápida».
+        $this->postJson($porta, $rapido(['name' => 'ab']))->assertJsonValidationErrors('name');
+        $this->postJson($porta, $rapido(['country' => 'Angola']))->assertJsonValidationErrors('country');
+
+        $id = $this->postJson($porta, $rapido())->assertCreated()->json('data.id');
+
+        $fornecedores = collect($this->getJson(self::RAIZ . '/opcoes')->assertOk()->json('fornecedores'));
+
+        $this->assertTrue(
+            $fornecedores->contains('id', $id),
+            'o fornecedor criado do emissor tem de aparecer nas opções da compra'
+        );
+    }
 }

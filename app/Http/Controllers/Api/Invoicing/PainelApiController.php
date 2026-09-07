@@ -11,11 +11,15 @@ use Illuminate\Http\Request;
  * Os números do painel da facturação.
  *
  * ESTE CONTROLADOR NÃO FAZ CONTAS NENHUMAS. Chama o `PainelDaFacturacao`, que
- * é o mesmo serviço que o componente Livewire usa — é essa a razão de o
- * serviço existir. Se as contas vivessem aqui, os dois painéis passavam a dar
- * números diferentes ao primeiro ajuste, e ninguém saberia qual acreditar.
+ * é a fonte única destas somas — é essa a razão de o serviço existir. Se as
+ * contas vivessem aqui, o painel e os relatórios que bebem do mesmo sítio
+ * passavam a dar números diferentes ao primeiro ajuste, e ninguém saberia qual
+ * acreditar. Só o formato muda: aqui sai JSON.
  *
- * Só o formato muda: aqui sai JSON, lá sai HTML.
+ * O PERÍODO VEM NO PEDIDO e vai inteiro para o serviço. É ele que o valida
+ * contra os atalhos conhecidos — assim os cartões, o gráfico e o título saem
+ * todos do mesmo intervalo, que era o que o selector do painel de sempre
+ * garantia e a migração perdeu.
  */
 class PainelApiController extends Controller
 {
@@ -27,16 +31,26 @@ class PainelApiController extends Controller
             __('Sem permissão para ver o painel da facturação.')
         );
 
-        $dados = $painel->numeros(activeTenantId());
+        $empresa = activeTenantId();
+        $periodo = PainelDaFacturacao::periodo($request->query('periodo'));
+
+        $dados = $painel->numeros($empresa, $periodo);
 
         return response()->json([
+            // O período escolhido, com o rótulo já traduzido e a lista para a
+            // caixa de escolha: o ecrã não guarda uma segunda lista de atalhos.
+            'periodo' => $dados['periodo'],
+
             'stats' => $dados['stats'],
             'documentos' => $dados['documents'],
             'estado_das_facturas' => $dados['invoiceStatus'],
 
-            // O ano mês a mês, com os doze meses sempre presentes.
-            'por_mes' => $painel->porMes(activeTenantId()),
-            'por_mes_ano_passado' => $painel->porMes(activeTenantId(), (int) now()->subYear()->year),
+            // A linha do gráfico: dias ou meses, conforme o período pedido.
+            'serie' => $painel->serie($empresa, $periodo),
+
+            // O ano inteiro, mês a mês, que não depende do período escolhido.
+            'por_mes' => $painel->porMes($empresa),
+            'por_mes_ano_passado' => $painel->porMes($empresa, (int) now()->subYear()->year),
 
             // As listas saem enxutas: o painel mostra número, cliente, data e
             // saldo, e mais nada. Devolver o modelo inteiro publicava a

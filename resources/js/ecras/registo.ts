@@ -109,6 +109,9 @@ export const ecras: Record<string, Ecra> = {
         import('./facturacao/Agt'),
     'facturacao/credenciais-agt': () =>
         import('./facturacao/CredenciaisAgt'),
+    // O painel do adquirente: as facturas que os fornecedores emitiram contra esta empresa.
+    'facturacao/adquirente-agt': () =>
+        import('./facturacao/AdquirenteAgt'),
     // Os relatórios: a porta, o ecrã genérico de qualquer mapa, e os gráficos.
     'facturacao/relatorios-hub': () =>
         import('./facturacao/RelatoriosHub'),

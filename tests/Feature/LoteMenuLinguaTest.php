@@ -353,21 +353,32 @@ class LoteMenuLinguaTest extends TenantTestCase
     {
         $this->assertOPainelTraduz([
             'Vendas (AOA)' => 'Sales (AOA)',
-            'Este Ano' => 'This Year',
         ], 'en');
 
         $fonte = $this->fonteDoPainel();
         $frases = \App\Support\DicionarioDoReact::frases('en');
 
+        /*
+         * O PERÍODO JÁ NÃO ESTÁ ESCRITO DENTRO DO ECRÃ.
+         *
+         * Estava — «Este Ano» à letra — porque o painel em React tinha perdido
+         * o selector que o de Blade tinha e mostrava sempre o ano. Com o
+         * selector de volta, o rótulo do período escolhido vem do servidor, que
+         * é quem sabe qual foi e quem tem a língua de quem está a olhar.
+         *
+         * O que não mudou: o título continua a ser UMA CHAVE SÓ, com o período
+         * por dentro. Partido em pedaços obrigava o tradutor a adivinhar a
+         * ordem das palavras, e há línguas onde ela não é a portuguesa.
+         */
         $this->assertStringContainsString(
-            "t('Evolução de Vendas - :periodo', { periodo: t('Este Ano') })",
+            "t('Evolução de Vendas - :periodo', { periodo: d.periodo.rotulo })",
             $fonte,
-            'O título do gráfico devia compor-se de uma chave só, com o período por dentro.'
+            'O título do gráfico devia compor-se de uma chave só, com o período que veio do servidor por dentro.'
         );
 
         $this->assertSame(
-            'Sales Trend - This Year',
-            str_replace(':periodo', $frases['Este Ano'], $frases['Evolução de Vendas - :periodo']),
+            'Sales Trend - This month',
+            str_replace(':periodo', $frases['Este mês'], $frases['Evolução de Vendas - :periodo']),
             'A frase composta é o que a pessoa lê — e é ela que tem de fazer sentido em inglês.'
         );
     }

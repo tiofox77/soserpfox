@@ -46,14 +46,22 @@ export default function DefinirPin() {
     return (
         <div className="mx-auto max-w-lg space-y-4" data-definir-pin>
             {recado && <p role="status" className={cls('border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900', RAIO)}><i className="fas fa-circle-check mr-2" aria-hidden="true" />{recado}</p>}
-            <Cartao titulo={<span className="flex items-center gap-2"><i className="fas fa-key text-slate-400" aria-hidden="true" />{t('PIN de turno')}</span>} accoes={q.data.ja_tem_pin ? <Etiqueta cor="bom" icone="fa-check">{t('Já tem PIN')}</Etiqueta> : <Etiqueta cor="aviso" icone="fa-triangle-exclamation">{t('Sem PIN')}</Etiqueta>}>
+            {/* Sem faixa de gradiente, e de propósito: o ecrã em Blade era uma
+                ficha estreita com um cartão só, e uma faixa a toda a largura
+                por cima de um formulário de três campos ficava a gritar. */}
+            <Cartao titulo={t('PIN de turno')} icone="fa-key" accoes={q.data.ja_tem_pin ? <Etiqueta cor="bom" icone="fa-check">{t('Já tem PIN')}</Etiqueta> : <Etiqueta cor="aviso" icone="fa-triangle-exclamation">{t('Sem PIN')}</Etiqueta>}>
                 <AvisoDeErro erro={guardar.error} />
                 <p className="mb-4 text-sm text-slate-600">{t(':nome, o PIN abre o seu turno no POS quando não há internet. Quatro a seis dígitos, e nada de óbvio.', { nome: q.data.nome })}</p>
                 <form className="grid gap-4" onSubmit={(e) => { e.preventDefault(); guardar.mutate(); }}>
-                    <Campo etiqueta={t('PIN novo')} erro={erros.pin} obrigatorio><input type="password" inputMode="numeric" pattern="[0-9]*" maxLength={6} autoComplete="off" value={forma.pin} onChange={m('pin')} className={cls(entrada, 'font-mono tracking-widest')} /></Campo>
-                    <Campo etiqueta={t('Repita o PIN')} erro={erros.pin_confirmation} obrigatorio><input type="password" inputMode="numeric" pattern="[0-9]*" maxLength={6} autoComplete="off" value={forma.pin_confirmation} onChange={m('pin_confirmation')} className={cls(entrada, 'font-mono tracking-widest')} /></Campo>
-                    <Campo etiqueta={t('A sua palavra-passe')} erro={erros.password} obrigatorio><input type="password" autoComplete="current-password" value={forma.password} onChange={m('password')} className={entrada} /></Campo>
-                    <div><Botao cor="primaria" tom="solida" icone="fa-floppy-disk" aTrabalhar={guardar.isPending}>{q.data.ja_tem_pin ? t('Mudar o PIN') : t('Definir o PIN')}</Botao></div>
+                    {/* O PIN escreve-se ao centro e espaçado, como no ecrã de
+                        sempre: quatro a seis dígitos lêem-se um a um. */}
+                    <Campo etiqueta={t('PIN novo')} erro={erros.pin} obrigatorio><input type="password" inputMode="numeric" pattern="[0-9]*" maxLength={6} autoComplete="off" value={forma.pin} onChange={m('pin')} className={cls(entrada, 'h-12 text-center font-mono text-lg tracking-[0.4em]')} /></Campo>
+                    <Campo etiqueta={t('Repita o PIN')} erro={erros.pin_confirmation} obrigatorio><input type="password" inputMode="numeric" pattern="[0-9]*" maxLength={6} autoComplete="off" value={forma.pin_confirmation} onChange={m('pin_confirmation')} className={cls(entrada, 'h-12 text-center font-mono text-lg tracking-[0.4em]')} /></Campo>
+                    <div className="border-t border-slate-100 pt-4">
+                        <Campo etiqueta={t('A sua palavra-passe')} erro={erros.password} obrigatorio><input type="password" autoComplete="current-password" value={forma.password} onChange={m('password')} className={entrada} /></Campo>
+                    </div>
+                    <div><Botao cor="primaria" tom="solida" altura="grande" icone="fa-floppy-disk" aTrabalhar={guardar.isPending} className="w-full">{q.data.ja_tem_pin ? t('Mudar o PIN') : t('Definir o PIN')}</Botao></div>
+                    <p className="text-xs text-slate-400">{t('Guardamos apenas um verificador do PIN, nunca o PIN em si. Ele só vai para os tablets da sua empresa e deixa de valer 14 dias após a última sincronização.')}</p>
                 </form>
             </Cartao>
         </div>

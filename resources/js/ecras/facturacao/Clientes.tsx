@@ -9,15 +9,16 @@ import {
     type OpcoesDosClientes,
 } from '@/api/clientes';
 import { ErroDaApi } from '@/api/cliente';
-import { t } from '@/i18n';
+import { etiquetaIntl, t } from '@/i18n';
 import { Campo, Rotulo, entrada } from '@/ui/Campo';
 import { Botao } from '@/ui/Botao';
 import { Cartao } from '@/ui/Cartao';
+import { CartaoNumero } from '@/ui/CartaoNumero';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { AvisoDeErro } from '@/ui/AvisoDeErro';
 import { Modal } from '@/ui/Modal';
-import { CARTAO, FOCO, RAIO, cls } from '@/ui/tokens';
+import { CARTAO, FOCO, GRADIENTES, RAIO, cls } from '@/ui/tokens';
 
 /**
  * OS CLIENTES — o primeiro ecrã que também ESCREVE.
@@ -158,8 +159,16 @@ export default function Clientes() {
                 </div>
             )}
 
+            {/* OS CARTÕES DO TOPO, como o ecrã em Blade tinha.
+                A CONTAGEM é a do servidor e conta tudo o que passa na procura;
+                as repartições são das linhas à vista, e dizem-no no cartão. Os
+                totais por tipo exigiriam outra pergunta ao servidor, e este
+                lote não mexe na API. */}
+            <Cartoes total={contas?.total} linhas={linhas} tipos={opcoes.data?.tipos} aActualizar={lista.isFetching} />
+
             <Cartao
                 titulo={t('Clientes')}
+                icone="fa-users"
                 accoes={
                     permissoes?.pode_criar && (
                         <Botao cor="primaria" tom="solida" icone="fa-plus" onClick={abrirNovo}>
@@ -213,32 +222,66 @@ export default function Clientes() {
             {lista.isPending ? (
                 <Carregando />
             ) : linhas.length === 0 ? (
-                <div className={cls(CARTAO, 'px-6 py-14 text-center')}>
-                    <i className="fas fa-users mb-3 text-4xl text-slate-300" aria-hidden="true" />
-                    <p className="font-semibold text-slate-700">{t('Nenhum cliente com esta procura')}</p>
-                </div>
+                <EstadoVazio
+                    icone="fa-users"
+                    titulo={t('Nenhum cliente com esta procura')}
+                    frase={
+                        permissoes?.pode_criar
+                            ? t('Limpe a procura, ou crie o primeiro cliente.')
+                            : t('Limpe a procura para ver mais.')
+                    }
+                    accao={
+                        permissoes?.pode_criar && (
+                            <Botao cor="primaria" tom="solida" icone="fa-plus" onClick={abrirNovo}>
+                                {t('Novo cliente')}
+                            </Botao>
+                        )
+                    }
+                />
             ) : (
                 <Cartao semPadding>
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500">
-                                    <th className="px-4 py-3 font-semibold">{t('Nome')}</th>
-                                    <th className="px-4 py-3 font-semibold">{t('NIF')}</th>
-                                    <th className="px-4 py-3 font-semibold">{t('Tipo')}</th>
-                                    <th className="px-4 py-3 font-semibold">{t('Contacto')}</th>
-                                    <th className="px-4 py-3 font-semibold">{t('Morada')}</th>
-                                    <th className="px-4 py-3 text-right font-semibold">{t('Documentos')}</th>
-                                    <th className="px-4 py-3 text-right font-semibold">{t('Acções')}</th>
+                            {/* O cabeçalho de sempre: fundo cinzento claro,
+                                maiúsculas pequenas e um ícone por coluna — todos
+                                no mesmo tom, que no Blade cada um tinha a sua cor
+                                e seis cores num cabeçalho não ajudam a encontrar
+                                nada. */}
+                            <thead className="bg-slate-50">
+                                <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-600">
+                                    <Cabecalho icone="fa-user">{t('Nome')}</Cabecalho>
+                                    <Cabecalho icone="fa-id-card">{t('NIF')}</Cabecalho>
+                                    <Cabecalho icone="fa-tag">{t('Tipo')}</Cabecalho>
+                                    <Cabecalho icone="fa-envelope">{t('Contacto')}</Cabecalho>
+                                    <Cabecalho icone="fa-location-dot">{t('Morada')}</Cabecalho>
+                                    <Cabecalho icone="fa-file-lines" direita>{t('Documentos')}</Cabecalho>
+                                    <Cabecalho icone="fa-gear" direita>{t('Acções')}</Cabecalho>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {linhas.map((c) => (
-                                    <tr key={c.id} className="transition hover:bg-slate-50">
-                                        <td className="px-4 py-3 font-medium text-slate-800">{c.name}</td>
+                                {linhas.map((c, i) => (
+                                    <tr
+                                        key={c.id}
+                                        className="entra transition-all duration-200 hover:bg-indigo-50/60"
+                                        style={cascata(i)}
+                                    >
+                                        <td className="px-4 py-3">
+                                            <div className="flex items-center gap-3">
+                                                {/* A MEDALHA COM AS INICIAIS, como o ecrã em
+                                                    Blade tinha. Fica fora da árvore de
+                                                    acessibilidade: o nome está escrito ao
+                                                    lado, e «GA» lido em voz alta não
+                                                    acrescenta nada. */}
+                                                <Medalha nome={c.name} />
+                                                <span className="font-semibold text-slate-800">{c.name}</span>
+                                            </div>
+                                        </td>
                                         <td className="px-4 py-3 font-mono text-xs text-slate-600">{c.nif}</td>
                                         <td className="px-4 py-3">
-                                            <Etiqueta cor={c.type === 'pessoa_fisica' ? 'neutra' : 'primaria'}>
+                                            <Etiqueta
+                                                cor={c.type === 'pessoa_fisica' ? 'neutra' : 'primaria'}
+                                                icone={c.type === 'pessoa_fisica' ? 'fa-user' : 'fa-building'}
+                                            >
                                                 {c.tipo_rotulo}
                                             </Etiqueta>
                                         </td>
@@ -273,7 +316,7 @@ export default function Clientes() {
                                                         onClick={() => abrirEdicao(c)}
                                                         title={t('Editar')}
                                                         aria-label={t('Editar :nome', { nome: c.name })}
-                                                        className={cls('p-2 text-slate-500 transition hover:bg-slate-100', RAIO, FOCO)}
+                                                        className={cls('p-2 text-slate-500 transition-all duration-200 hover:scale-110 active:scale-100 hover:bg-slate-100', RAIO, FOCO)}
                                                     >
                                                         <i className="fas fa-pen" aria-hidden="true" />
                                                     </button>
@@ -288,7 +331,7 @@ export default function Clientes() {
                                                             onClick={() => porAApagar(c)}
                                                             title={t('Apagar')}
                                                             aria-label={t('Apagar :nome', { nome: c.name })}
-                                                            className={cls('p-2 text-red-500 transition hover:bg-red-50', RAIO, FOCO)}
+                                                            className={cls('p-2 text-red-500 transition-all duration-200 hover:scale-110 active:scale-100 hover:bg-red-50', RAIO, FOCO)}
                                                         >
                                                             <i className="fas fa-trash" aria-hidden="true" />
                                                         </button>
@@ -388,6 +431,141 @@ export default function Clientes() {
                     </p>
                 )}
             </Modal>
+        </div>
+    );
+}
+
+/* ─── O aspecto da lista ──────────────────────────────────────────────── */
+
+/**
+ * A ENTRADA EM CASCATA das linhas.
+ *
+ * O `--i` é o atraso da linha; a animação `entra` está no layout, com a guarda
+ * de `prefers-reduced-motion`. O índice tem tecto: com 100 linhas por página,
+ * 22ms cada dava dois segundos a ver a tabela a montar-se, que é o contrário
+ * do que a cascata serve.
+ */
+function cascata(i: number): React.CSSProperties {
+    return { '--i': Math.min(i, 12) } as React.CSSProperties;
+}
+
+/** Uma coluna do cabeçalho: o rótulo com o seu ícone, sempre no mesmo tom. */
+function Cabecalho({
+    icone,
+    direita = false,
+    children,
+}: {
+    icone: string;
+    direita?: boolean;
+    children: React.ReactNode;
+}) {
+    return (
+        <th className={cls('px-4 py-3 font-bold', direita && 'text-right')}>
+            <i className={`fas ${icone} mr-1.5 text-slate-400`} aria-hidden="true" />
+            {children}
+        </th>
+    );
+}
+
+/** O círculo com as duas primeiras letras, como no ecrã de sempre. */
+function Medalha({ nome }: { nome: string }) {
+    return (
+        <span
+            aria-hidden="true"
+            className={cls(
+                'grid h-10 w-10 flex-none place-items-center rounded-full text-xs font-bold text-white shadow-sm',
+                GRADIENTES.primaria,
+            )}
+        >
+            {nome.slice(0, 2).toUpperCase()}
+        </span>
+    );
+}
+
+/**
+ * O ESTADO VAZIO COM DESENHO — o círculo de 80px com o ícone lá dentro, como o
+ * ecrã em Blade tinha. Uma linha de texto solta numa caixa branca lê-se como um
+ * erro de carregamento; isto lê-se como uma resposta, e diz o que fazer a
+ * seguir.
+ */
+function EstadoVazio({
+    icone,
+    titulo,
+    frase,
+    accao,
+}: {
+    icone: string;
+    titulo: string;
+    frase?: string;
+    accao?: React.ReactNode;
+}) {
+    return (
+        <div className={cls(CARTAO, 'animate-fade-in px-6 py-16 text-center')}>
+            <div className="mx-auto mb-4 grid h-20 w-20 place-items-center rounded-full bg-slate-100">
+                <i className={`fas ${icone} text-4xl text-slate-300`} aria-hidden="true" />
+            </div>
+            <p className="text-lg font-bold text-slate-800">{titulo}</p>
+            {frase && <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">{frase}</p>}
+            {accao && <div className="mt-5 flex justify-center">{accao}</div>}
+        </div>
+    );
+}
+
+/**
+ * OS CARTÕES DE NÚMERO DO TOPO.
+ *
+ * O ecrã em Blade tinha três (total, pessoas jurídicas, pessoas físicas) e a
+ * migração deixou a página a começar por uma caixa branca. Voltam com o mesmo
+ * gradiente, pelo `CartaoNumero`, e os rótulos dos tipos vêm traduzidos do
+ * servidor — são os mesmos do filtro logo abaixo.
+ */
+function Cartoes({
+    total,
+    linhas,
+    tipos,
+    aActualizar,
+}: {
+    total?: number;
+    linhas: Cliente[];
+    tipos?: Array<{ valor: string; rotulo: string }>;
+    aActualizar: boolean;
+}) {
+    const rotulo = (valor: string, omissao: string) => tipos?.find((x) => x.valor === valor)?.rotulo ?? omissao;
+    const quantos = (valor: string) => linhas.filter((c) => c.type === valor).length;
+    const nesta = t(':quantos nesta página', { quantos: linhas.length });
+
+    return (
+        <div className={cls('grid gap-3 sm:grid-cols-2 lg:grid-cols-4', aActualizar && 'opacity-70')}>
+            <CartaoNumero
+                rotulo={t('Clientes')}
+                tom="indigo"
+                icone="fa-users"
+                nota={t('com os filtros actuais')}
+                valor={total === undefined ? <span className="text-white/50">—</span> : total.toLocaleString(etiquetaIntl())}
+            />
+            <CartaoNumero
+                rotulo={rotulo('pessoa_juridica', t('Pessoa Jurídica'))}
+                tom="azul"
+                icone="fa-building"
+                nota={nesta}
+                valor={quantos('pessoa_juridica').toLocaleString(etiquetaIntl())}
+            />
+            <CartaoNumero
+                rotulo={rotulo('pessoa_fisica', t('Pessoa Física'))}
+                tom="roxo"
+                icone="fa-user"
+                nota={nesta}
+                valor={quantos('pessoa_fisica').toLocaleString(etiquetaIntl())}
+            />
+            {/* Quem entra no portal do cliente: é o que a lista já assinala
+                linha a linha, contado à cabeça. */}
+            <CartaoNumero
+                rotulo={t('Portal activo nesta página')}
+                tom="verde"
+                icone="fa-user-lock"
+                nota={nesta}
+                valor={linhas.filter((c) => c.portal_access).length.toLocaleString(etiquetaIntl())}
+            />
         </div>
     );
 }

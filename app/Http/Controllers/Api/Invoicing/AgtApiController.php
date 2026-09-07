@@ -230,6 +230,46 @@ class AgtApiController extends Controller
         return response()->json(['message' => __('Configuração AGT guardada com sucesso.'), 'data' => $g->lerContribuinte()]);
     }
 
+    /**
+     * A CHAVE PRIVADA «DO MODO ANTIGO» do contribuinte, sem ambiente.
+     *
+     * O ecrã de sempre deixava colá-la aqui e há empresas que ainda assinam
+     * com ela. Colar e remover é tudo o que se faz — a chave NUNCA VOLTA na
+     * resposta, nem por pedaços: o `lerContribuinte()` diz apenas se está
+     * instalada. Uma chave privada que sai numa resposta HTTP fica no registo
+     * do navegador, na cache e em qualquer intermediário pelo caminho, e a
+     * partir daí qualquer um assina documentos fiscais em nome da empresa.
+     *
+     * O PEM valida-se no serviço, e o erro sai no campo.
+     */
+    public function guardarChaveLegado(Request $request): JsonResponse
+    {
+        $this->exigirEditar($request);
+        [$g] = $this->gestao($request);
+
+        $d = $request->validate(['contributor_private_key' => ['required', 'string', 'max:20000']]);
+
+        $g->guardarChaveLegado($d['contributor_private_key']);
+
+        return response()->json([
+            'message' => __('Chave privada do contribuinte guardada.'),
+            'data' => $g->lerContribuinte(),
+        ]);
+    }
+
+    public function removerChaveLegado(Request $request): JsonResponse
+    {
+        $this->exigirEditar($request);
+        [$g] = $this->gestao($request);
+
+        $g->removerChaveLegado();
+
+        return response()->json([
+            'message' => __('Chave privada do contribuinte removida.'),
+            'data' => $g->lerContribuinte(),
+        ]);
+    }
+
     /* ─── Por dentro ──────────────────────────────────────────────────── */
 
     /** @return array{0: GestaoAgt, 1: int} */

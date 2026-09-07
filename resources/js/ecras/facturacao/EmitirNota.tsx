@@ -9,8 +9,17 @@ import { Campo, entrada } from '@/ui/Campo';
 import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
-import { CARTAO, FOCO, RAIO, cls, data as fmtData, kz } from '@/ui/tokens';
+import { FOCO, RAIO, cls, data as fmtData, kz } from '@/ui/tokens';
 import { t } from '@/i18n';
+import {
+    CABECALHO_DA_TABELA,
+    CELULA_DO_CABECALHO,
+    LINHA_DA_TABELA,
+    NaoAbriu,
+    PainelDeSucesso,
+    SemNada,
+    cascata,
+} from './PecasDoEditor';
 
 /**
  * EMITIR UMA NOTA DE CRÉDITO OU DE DÉBITO — ou abrir uma emitida, só para ler.
@@ -40,10 +49,10 @@ function NotaEmitida({ tipo, id }: { tipo: TipoDeNota; id: number }) {
     if (q.isPending) return <Carregando linhas={6} />;
     if (q.isError) {
         return (
-            <div className={cls('border border-red-200 bg-red-50 p-6', RAIO)} role="alert">
-                <h2 className="mb-2 text-lg font-bold text-red-900">{t('Não foi possível abrir a nota')}</h2>
-                <p className="text-sm text-red-800">{q.error instanceof ErroDaApi ? q.error.message : t('Verifique a ligação.')}</p>
-            </div>
+            <NaoAbriu
+                titulo={t('Não foi possível abrir a nota')}
+                mensagem={q.error instanceof ErroDaApi ? q.error.message : t('Verifique a ligação.')}
+            />
         );
     }
 
@@ -53,7 +62,7 @@ function NotaEmitida({ tipo, id }: { tipo: TipoDeNota; id: number }) {
         <div className="space-y-4" data-documento-aberto>
             <Cartao
                 titulo={<span className="flex items-center gap-2"><i className={cls('fas text-slate-400', eCredito ? 'fa-file-circle-minus' : 'fa-file-circle-plus')} aria-hidden="true" />{n.numero ?? (eCredito ? t('Nota de crédito') : t('Nota de débito'))}<Etiqueta cor={n.estado === 'cancelled' ? 'perigo' : 'bom'}>{n.estado}</Etiqueta></span>}
-                accoes={<span className="flex gap-2"><a href={n.pdf} target="_blank" rel="noreferrer" className={cls('inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50', RAIO)}><i className="fas fa-file-pdf" aria-hidden="true" />{t('PDF')}</a><Botao icone="fa-list" onClick={() => (window.location.href = eCredito ? '/invoicing/credit-notes' : '/invoicing/debit-notes')}>{t('Ver as notas')}</Botao></span>}
+                accoes={<span className="flex gap-2"><a href={n.pdf} target="_blank" rel="noreferrer" className={cls('inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md', RAIO, FOCO)}><i className="fas fa-file-pdf text-red-500" aria-hidden="true" />{t('PDF')}</a><Botao icone="fa-list" onClick={() => (window.location.href = eCredito ? '/invoicing/credit-notes' : '/invoicing/debit-notes')}>{t('Ver as notas')}</Botao></span>}
             >
                 <p className="mb-4 text-sm text-slate-500">{t('Documento fiscal emitido: abre-se para consultar. Corrige-se com outra nota.')}</p>
                 <dl className="grid gap-3 text-sm sm:grid-cols-3">
@@ -65,13 +74,14 @@ function NotaEmitida({ tipo, id }: { tipo: TipoDeNota; id: number }) {
                     ))}
                 </dl>
             </Cartao>
-            <Cartao titulo={t('Linhas')} semPadding>
+            <Cartao titulo={t('Linhas')} icone="fa-box" semPadding>
                 <table className="w-full text-sm">
-                    <thead><tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500"><th className="px-4 py-3 font-semibold">{t('Artigo')}</th><th className="px-4 py-3 text-right font-semibold">{t('Qtd.')}</th><th className="px-4 py-3 text-right font-semibold">{t('Preço')}</th><th className="px-4 py-3 text-right font-semibold">{t('IVA')}</th><th className="px-4 py-3 text-right font-semibold">{t('Total')}</th></tr></thead>
+                    <thead className={CABECALHO_DA_TABELA}><tr className="border-b border-slate-200"><th className={CELULA_DO_CABECALHO}>{t('Artigo')}</th><th className={cls('text-right', CELULA_DO_CABECALHO)}>{t('Qtd.')}</th><th className={cls('text-right', CELULA_DO_CABECALHO)}>{t('Preço')}</th><th className={cls('text-right', CELULA_DO_CABECALHO)}>{t('IVA')}</th><th className={cls('text-right', CELULA_DO_CABECALHO)}>{t('Total')}</th></tr></thead>
                     <tbody className="divide-y divide-slate-100">
-                        {n.linhas.map((l, i) => <tr key={i}><td className="px-4 py-2">{l.nome}</td><td className="px-4 py-2 text-right tabular-nums">{l.quantity}</td><td className="px-4 py-2 text-right tabular-nums">{kz(l.price)}</td><td className="px-4 py-2 text-right tabular-nums text-slate-500">{l.tax_rate}%</td><td className="px-4 py-2 text-right tabular-nums">{kz(l.total)}</td></tr>)}
+                        {n.linhas.map((l, i) => <tr key={i} className={LINHA_DA_TABELA} style={cascata(i)}><td className="px-4 py-2 font-medium text-slate-800">{l.nome}</td><td className="px-4 py-2 text-right tabular-nums">{l.quantity}</td><td className="px-4 py-2 text-right tabular-nums">{kz(l.price)}</td><td className="px-4 py-2 text-right tabular-nums text-slate-500">{l.tax_rate}%</td><td className="px-4 py-2 text-right font-semibold tabular-nums">{kz(l.total)}</td></tr>)}
                     </tbody>
-                    <tfoot><tr className="border-t-2 border-slate-300 bg-slate-50 font-bold"><td className="px-4 py-2" colSpan={4}>{t('Total')}</td><td className="px-4 py-2 text-right tabular-nums">{kz(n.total)} Kz</td></tr></tfoot>
+                    {/* O TOTAL DA NOTA, com o peso do total de um documento. */}
+                    <tfoot><tr className="border-t-2 border-emerald-200 bg-emerald-50/70"><td className="px-4 py-3 text-base font-bold text-slate-700" colSpan={4}>{t('Total')}</td><td className="px-4 py-3 text-right text-xl font-bold tabular-nums text-emerald-700">{kz(n.total)} <span className="text-sm font-normal text-emerald-800/60">Kz</span></td></tr></tfoot>
                 </table>
             </Cartao>
         </div>
@@ -154,28 +164,25 @@ function Emitir({ tipo, facturaId: daMorada, clienteId: clienteDaMorada }: { tip
 
     if (opcoes.isError) {
         return (
-            <div className={cls('border border-red-200 bg-red-50 p-6', RAIO)} role="alert">
-                <h2 className="mb-2 text-lg font-bold text-red-900">{t('Não foi possível abrir')}</h2>
-                <p className="text-sm text-red-800">
-                    {opcoes.error instanceof ErroDaApi ? opcoes.error.message : t('Verifique a ligação.')}
-                </p>
-            </div>
+            <NaoAbriu
+                titulo={t('Não foi possível abrir')}
+                mensagem={opcoes.error instanceof ErroDaApi ? opcoes.error.message : t('Verifique a ligação.')}
+            />
         );
     }
 
     if (feito) {
         return (
-            <div className={cls(CARTAO, 'p-8 text-center')}>
-                <i className="fas fa-circle-check mb-3 text-4xl text-emerald-500" aria-hidden="true" />
-                <h2 className="text-xl font-bold text-slate-900">{feito.numero}</h2>
-                <p className="mt-1 text-sm text-slate-500">{eCredito ? t('Nota de crédito emitida.') : t('Nota de débito emitida.')}</p>
-                {feito.agt && <p className="mt-1 text-xs text-slate-400">{feito.agt}</p>}
-                <div className="mt-6 flex justify-center">
-                    <Botao cor="primaria" tom="solida" icone="fa-list" onClick={() => (window.location.href = feito.abrir)}>
-                        {t('Ver as notas')}
-                    </Botao>
-                </div>
-            </div>
+            <PainelDeSucesso
+                numero={feito.numero}
+                mensagem={eCredito ? t('Nota de crédito emitida.') : t('Nota de débito emitida.')}
+                agt={feito.agt}
+                icone={eCredito ? 'fa-file-circle-minus' : 'fa-file-circle-plus'}
+            >
+                <Botao cor="primaria" tom="solida" icone="fa-list" onClick={() => (window.location.href = feito.abrir)}>
+                    {t('Ver as notas')}
+                </Botao>
+            </PainelDeSucesso>
         );
     }
 
@@ -190,7 +197,7 @@ function Emitir({ tipo, facturaId: daMorada, clienteId: clienteDaMorada }: { tip
         <div className="space-y-4">
             <AvisoDeErro erro={guardar.error} />
 
-            <Cartao titulo={t('Documento a corrigir')}>
+            <Cartao titulo={t('Documento a corrigir')} icone="fa-circle-info">
                 <div className="grid gap-4 sm:grid-cols-3">
                     <Campo etiqueta={t('Cliente')} erro={erros.client_id} obrigatorio>
                         <select
@@ -262,38 +269,47 @@ function Emitir({ tipo, facturaId: daMorada, clienteId: clienteDaMorada }: { tip
 
                 {/* QUANTO AINDA SE PODE CREDITAR, à vista. É o número que o E43 compara. */}
                 {eCredito && escolhida && (
-                    <p className="mt-4 border-t border-slate-100 pt-4 text-sm text-slate-600">
-                        {t('Esta factura tem')}{' '}<strong className="tabular-nums text-amber-700">{kz(escolhida.por_creditar)} Kz</strong>
-                        {t('por anular')}
-                        {escolhida.por_creditar < escolhida.total && (
-                            <span className="text-slate-400">{' '}{t('(de :total — o resto já foi creditado)', { total: kz(escolhida.total) })}</span>
-                        )}
-                        .
-                    </p>
+                    <div className={cls('mt-4 flex items-start gap-3 border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900', RAIO)}>
+                        <span className="grid h-8 w-8 flex-none place-items-center rounded-lg bg-amber-100 text-amber-700">
+                            <i className="fas fa-scale-balanced" aria-hidden="true" />
+                        </span>
+                        <p className="min-w-0 leading-relaxed">
+                            {/* Sem o espaço explícito o JSX colava o valor à
+                                frase seguinte: «12.000,00 Kzpor anular». */}
+                            {t('Esta factura tem')}{' '}<strong className="tabular-nums">{kz(escolhida.por_creditar)} Kz</strong>{' '}
+                            {t('por anular')}
+                            {escolhida.por_creditar < escolhida.total && (
+                                <span className="text-amber-700/80">{' '}{t('(de :total — o resto já foi creditado)', { total: kz(escolhida.total) })}</span>
+                            )}
+                            .
+                        </p>
+                    </div>
                 )}
             </Cartao>
 
-            <Cartao titulo={t('Linhas')} semPadding>
+            <Cartao titulo={t('Linhas')} icone="fa-box" semPadding>
                 {linhasDaFactura.isFetching ? (
-                    <p className="px-5 py-6 text-sm text-slate-400">{t('A ler as linhas da factura…')}</p>
+                    <SemNada icone="fa-spinner fa-spin">{t('A ler as linhas da factura…')}</SemNada>
                 ) : linhas.length === 0 ? (
-                    <p className="px-5 py-6 text-sm text-slate-500">{t('Escolha a factura para ver as linhas.')}</p>
+                    <SemNada icone={eCredito ? 'fa-file-circle-minus' : 'fa-file-circle-plus'}>
+                        {t('Escolha a factura para ver as linhas.')}
+                    </SemNada>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500">
-                                    <th className="px-4 py-3 font-semibold">{t('Artigo')}</th>
-                                    <th className="px-4 py-3 text-right font-semibold">{t('Na factura')}</th>
-                                    <th className="w-32 px-4 py-3 text-right font-semibold">{eCredito ? t('A anular') : t('A debitar')}</th>
-                                    <th className="px-4 py-3 text-right font-semibold">{t('Preço')}</th>
-                                    <th className="px-4 py-3 text-right font-semibold">{t('Imposto')}</th>
+                            <thead className={CABECALHO_DA_TABELA}>
+                                <tr className="border-b border-slate-200">
+                                    <th className={CELULA_DO_CABECALHO}>{t('Artigo')}</th>
+                                    <th className={cls('text-right', CELULA_DO_CABECALHO)}>{t('Na factura')}</th>
+                                    <th className={cls('w-32 text-right', CELULA_DO_CABECALHO)}>{eCredito ? t('A anular') : t('A debitar')}</th>
+                                    <th className={cls('text-right', CELULA_DO_CABECALHO)}>{t('Preço')}</th>
+                                    <th className={cls('text-right', CELULA_DO_CABECALHO)}>{t('Imposto')}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {linhas.map((l, i) => (
-                                    <tr key={l.origem_line_id}>
-                                        <td className="px-4 py-2 text-slate-800">{l.nome}</td>
+                                    <tr key={l.origem_line_id} className={LINHA_DA_TABELA} style={cascata(i)}>
+                                        <td className="px-4 py-2 font-medium text-slate-800">{l.nome}</td>
                                         <td className="px-4 py-2 text-right tabular-nums text-slate-500">{l.quantity}</td>
                                         <td className="px-4 py-2">
                                             <input
@@ -326,7 +342,7 @@ function Emitir({ tipo, facturaId: daMorada, clienteId: clienteDaMorada }: { tip
                 )}
             </Cartao>
 
-            <Cartao titulo={t('Observações')}>
+            <Cartao titulo={t('Observações')} icone="fa-pen">
                 <textarea
                     rows={3}
                     value={notasTexto}

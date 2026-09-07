@@ -13,12 +13,13 @@ import { ErroDaApi } from '@/api/cliente';
 import { Campo, Rotulo, entrada } from '@/ui/Campo';
 import { Botao } from '@/ui/Botao';
 import { Cartao } from '@/ui/Cartao';
+import { CartaoNumero } from '@/ui/CartaoNumero';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { AvisoDeErro } from '@/ui/AvisoDeErro';
 import { Modal } from '@/ui/Modal';
-import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
-import { t, tPartes } from '@/i18n';
+import { CARTAO, FOCO, GRADIENTES, RAIO, cls, kz } from '@/ui/tokens';
+import { etiquetaIntl, t, tPartes } from '@/i18n';
 
 /**
  * OS ARTIGOS.
@@ -52,6 +53,8 @@ const VAZIO: ArtigoParaGravar = {
     cost: '',
     unit: 'un',
     category_id: '',
+    brand_id: '',
+    supplier_id: '',
     tax_type: 'iva',
     tax_rate_id: '',
     exemption_reason: '',
@@ -61,6 +64,11 @@ const VAZIO: ArtigoParaGravar = {
     stock_max: '',
     is_active: true,
     stock_quantity: 0,
+
+    track_batches: false,
+    track_expiry: false,
+    require_batch_on_purchase: false,
+    require_batch_on_sale: false,
 
     requires_prescription: false,
     is_controlled: false,
@@ -92,6 +100,9 @@ const FORMAS_FARMACEUTICAS = [
     'gotas',
     'supositório',
 ];
+
+/** As quatro marcas de lote, para o mapa não perder o tipo pelo caminho. */
+type ChaveDeLote = 'track_batches' | 'track_expiry' | 'require_batch_on_purchase' | 'require_batch_on_sale';
 
 type Recado = { texto: string; mau: boolean };
 
@@ -213,6 +224,8 @@ export default function Produtos() {
             cost: a.cost ?? '',
             unit: a.unit,
             category_id: a.category_id ?? '',
+            brand_id: a.brand_id ?? '',
+            supplier_id: a.supplier_id ?? '',
             tax_type: a.tax_type,
             tax_rate_id: a.tax_rate_id ?? '',
             exemption_reason: a.exemption_reason ?? '',
@@ -221,6 +234,11 @@ export default function Produtos() {
             stock_min: a.stock_min ?? '',
             stock_max: a.stock_max ?? '',
             is_active: a.is_active,
+
+            track_batches: a.track_batches,
+            track_expiry: a.track_expiry,
+            require_batch_on_purchase: a.require_batch_on_purchase,
+            require_batch_on_sale: a.require_batch_on_sale,
 
             requires_prescription: a.requires_prescription,
             is_controlled: a.is_controlled,
@@ -267,8 +285,16 @@ export default function Produtos() {
                 </div>
             )}
 
+            {/* OS CARTÕES DO TOPO, como o ecrã em Blade tinha.
+                A CONTAGEM é a do servidor e conta tudo o que passa nos filtros;
+                as outras três são das linhas à vista, e dizem-no no próprio
+                cartão. Os totais do catálogo inteiro exigiriam outra pergunta ao
+                servidor, e este lote não mexe na API. */}
+            <Cartoes total={contas?.total} linhas={linhas} aActualizar={lista.isFetching} />
+
             <Cartao
                 titulo={t('Artigos')}
+                icone="fa-box"
                 accoes={
                     permissoes?.pode_criar && (
                         <Botao cor="primaria" tom="solida" icone="fa-plus" onClick={abrirNovo}>
@@ -356,41 +382,69 @@ export default function Produtos() {
             {lista.isPending ? (
                 <Carregando />
             ) : linhas.length === 0 ? (
-                <div className={cls(CARTAO, 'px-6 py-14 text-center')}>
-                    <i className="fas fa-box-open mb-3 text-4xl text-slate-300" aria-hidden="true" />
-                    <p className="font-semibold text-slate-700">{t('Nenhum artigo com estes filtros')}</p>
-                </div>
+                <EstadoVazio
+                    icone="fa-box-open"
+                    titulo={t('Nenhum artigo com estes filtros')}
+                    frase={t('Alargue a procura ou limpe os filtros para ver mais.')}
+                    accao={
+                        <Botao icone="fa-eraser" onClick={() => porFiltros({ procura: '', page: 1 })}>
+                            {t('Limpar')}
+                        </Botao>
+                    }
+                />
             ) : (
                 <Cartao semPadding>
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500">
-                                    <th className="px-4 py-3 font-semibold">{t('Artigo')}</th>
-                                    <th className="px-4 py-3 font-semibold">{t('Categoria')}</th>
-                                    <th className="px-4 py-3 font-semibold">{t('Imposto')}</th>
-                                    <th className="px-4 py-3 text-right font-semibold">{t('Preço')}</th>
-                                    <th className="px-4 py-3 text-right font-semibold">{t('Stock')}</th>
-                                    <th className="px-4 py-3 font-semibold">{t('Estado')}</th>
-                                    <th className="px-4 py-3 text-right font-semibold">{t('Acções')}</th>
+                            {/* O cabeçalho de sempre: fundo cinzento claro,
+                                maiúsculas pequenas e um ícone por coluna — todos
+                                no mesmo tom, que no Blade cada um tinha a sua cor
+                                e sete cores num cabeçalho não ajudam a encontrar
+                                nada. */}
+                            <thead className="bg-slate-50">
+                                <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-600">
+                                    <Cabecalho icone="fa-box">{t('Artigo')}</Cabecalho>
+                                    <Cabecalho icone="fa-folder">{t('Categoria')}</Cabecalho>
+                                    <Cabecalho icone="fa-percent">{t('Imposto')}</Cabecalho>
+                                    <Cabecalho icone="fa-money-bill" direita>{t('Preço')}</Cabecalho>
+                                    <Cabecalho icone="fa-warehouse" direita>{t('Stock')}</Cabecalho>
+                                    <Cabecalho icone="fa-toggle-on">{t('Estado')}</Cabecalho>
+                                    <Cabecalho icone="fa-gear" direita>{t('Acções')}</Cabecalho>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {linhas.map((a) => (
-                                    <tr key={a.id} className="transition hover:bg-slate-50">
+                                {linhas.map((a, i) => (
+                                    <tr
+                                        key={a.id}
+                                        className="entra transition-all duration-200 hover:bg-indigo-50/60"
+                                        style={cascata(i)}
+                                    >
                                         <td className="px-4 py-3">
-                                            <div className="font-medium text-slate-800">
-                                                {a.name}
-                                                {preenchido(a.net_content) && (
-                                                    <span className="ml-1 font-semibold text-slate-400">
-                                                        · {a.net_content}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <CrachasDeSector artigo={a} opcoes={opcoes.data} />
-                                            <div className="text-xs text-slate-400">
-                                                {[a.code, a.sku].filter(Boolean).join(' · ') || '—'}
-                                                {a.type === 'servico' && ` · ${t('serviço')}`}
+                                            <div className="flex items-start gap-3">
+                                                {/* A MEDALHA DO ARTIGO. O ecrã em Blade
+                                                    punha aqui um círculo com as duas
+                                                    primeiras letras; se houver imagem,
+                                                    é a imagem que vai — é o que quem
+                                                    procura no catálogo reconhece
+                                                    primeiro. Fica fora da árvore de
+                                                    acessibilidade: o nome do artigo
+                                                    está já ao lado, escrito. */}
+                                                <Medalha nome={a.name} imagem={a.imagem} />
+                                                <div className="min-w-0">
+                                                    <div className="font-semibold text-slate-800">
+                                                        {a.name}
+                                                        {preenchido(a.net_content) && (
+                                                            <span className="ml-1 font-semibold text-slate-400">
+                                                                · {a.net_content}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <CrachasDeSector artigo={a} opcoes={opcoes.data} />
+                                                    <div className="text-xs text-slate-400">
+                                                        {[a.code, a.sku].filter(Boolean).join(' · ') || '—'}
+                                                        {a.type === 'servico' && ` · ${t('serviço')}`}
+                                                    </div>
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="px-4 py-3 text-slate-600">
@@ -407,33 +461,39 @@ export default function Produtos() {
                                             {kz(a.price)}
                                         </td>
                                         <td className="px-4 py-3 text-right tabular-nums">
-                                            {/* Um serviço não tem stock. Mostrar «0» seria mentira. */}
+                                            {/* Um serviço não tem stock. Mostrar «0» seria mentira.
+                                                O crachá com ícone é o do ecrã de sempre: esgotado,
+                                                abaixo do mínimo e em ordem distinguem-se pelo
+                                                desenho e não só pela cor. */}
                                             {a.stock === null ? (
                                                 <span className="text-slate-300">—</span>
                                             ) : (
-                                                <span
-                                                    className={cls(
+                                                <Etiqueta
+                                                    cor={a.esgotado ? 'perigo' : a.em_falta ? 'aviso' : 'bom'}
+                                                    icone={
                                                         a.esgotado
-                                                            ? 'font-bold text-red-600'
+                                                            ? 'fa-circle-xmark'
                                                             : a.em_falta
-                                                              ? 'font-bold text-amber-600'
-                                                              : 'text-slate-700',
-                                                    )}
+                                                              ? 'fa-triangle-exclamation'
+                                                              : 'fa-circle-check'
+                                                    }
                                                 >
-                                                    {kz(a.stock, 0)}
-                                                    {a.stock_min ? (
-                                                        <span className="ml-1 text-xs text-slate-400">
-                                                            /{a.stock_min}
-                                                        </span>
-                                                    ) : null}
-                                                </span>
+                                                    <span className="tabular-nums">
+                                                        {kz(a.stock, 0)}
+                                                        {a.stock_min ? (
+                                                            <span className="ml-0.5 font-normal opacity-70">
+                                                                /{a.stock_min}
+                                                            </span>
+                                                        ) : null}
+                                                    </span>
+                                                </Etiqueta>
                                             )}
                                         </td>
                                         <td className="px-4 py-3">
                                             {a.is_active ? (
-                                                <Etiqueta cor="bom">{t('Activo')}</Etiqueta>
+                                                <Etiqueta cor="bom" ponto>{t('Activo')}</Etiqueta>
                                             ) : (
-                                                <Etiqueta cor="neutra">{t('Desactivado')}</Etiqueta>
+                                                <Etiqueta cor="neutra" ponto>{t('Desactivado')}</Etiqueta>
                                             )}
                                         </td>
                                         <td className="px-4 py-3">
@@ -444,7 +504,7 @@ export default function Produtos() {
                                                         onClick={() => abrirEdicao(a)}
                                                         title={t('Editar')}
                                                         aria-label={t('Editar :nome', { nome: a.name })}
-                                                        className={cls('p-2 text-slate-500 transition hover:bg-slate-100', RAIO, FOCO)}
+                                                        className={cls('p-2 text-slate-500 transition-all duration-200 hover:scale-110 active:scale-100 hover:bg-slate-100', RAIO, FOCO)}
                                                     >
                                                         <i className="fas fa-pen" aria-hidden="true" />
                                                     </button>
@@ -455,7 +515,7 @@ export default function Produtos() {
                                                         onClick={() => porAApagar(a)}
                                                         title={t('Apagar')}
                                                         aria-label={t('Apagar :nome', { nome: a.name })}
-                                                        className={cls('p-2 text-red-500 transition hover:bg-red-50', RAIO, FOCO)}
+                                                        className={cls('p-2 text-red-500 transition-all duration-200 hover:scale-110 active:scale-100 hover:bg-red-50', RAIO, FOCO)}
                                                     >
                                                         <i className="fas fa-trash" aria-hidden="true" />
                                                     </button>
@@ -545,6 +605,159 @@ export default function Produtos() {
                     </p>
                 )}
             </Modal>
+        </div>
+    );
+}
+
+/* ─── O aspecto da lista ──────────────────────────────────────────────── */
+
+/**
+ * A ENTRADA EM CASCATA das linhas.
+ *
+ * O `--i` é o atraso da linha; a animação `entra` está no layout, com a guarda
+ * de `prefers-reduced-motion`. O índice tem tecto: com 100 linhas por página,
+ * 22ms cada dava dois segundos a ver a tabela a montar-se, que é o contrário
+ * do que a cascata serve.
+ */
+function cascata(i: number): React.CSSProperties {
+    return { '--i': Math.min(i, 12) } as React.CSSProperties;
+}
+
+/** Uma coluna do cabeçalho: o rótulo com o seu ícone, sempre no mesmo tom. */
+function Cabecalho({
+    icone,
+    direita = false,
+    children,
+}: {
+    icone: string;
+    direita?: boolean;
+    children: React.ReactNode;
+}) {
+    return (
+        <th className={cls('px-4 py-3 font-bold', direita && 'text-right')}>
+            <i className={`fas ${icone} mr-1.5 text-slate-400`} aria-hidden="true" />
+            {children}
+        </th>
+    );
+}
+
+/**
+ * A MEDALHA DO ARTIGO: a imagem se houver, as duas primeiras letras se não.
+ *
+ * Vem do ecrã em Blade, que punha aqui um círculo com iniciais em gradiente.
+ * Toda ela `aria-hidden`: quem ouve o ecrã já tem o nome do artigo escrito ao
+ * lado, e «PA» lido em voz alta não acrescenta nada.
+ */
+function Medalha({ nome, imagem }: { nome: string; imagem?: string | null }) {
+    if (imagem) {
+        return (
+            <img
+                src={imagem}
+                alt=""
+                aria-hidden="true"
+                className="h-10 w-10 flex-none rounded-full border border-slate-200 object-cover shadow-sm"
+            />
+        );
+    }
+
+    return (
+        <span
+            aria-hidden="true"
+            className={cls(
+                'grid h-10 w-10 flex-none place-items-center rounded-full text-xs font-bold text-white shadow-sm',
+                GRADIENTES.primaria,
+            )}
+        >
+            {nome.slice(0, 2).toUpperCase()}
+        </span>
+    );
+}
+
+/**
+ * O ESTADO VAZIO COM DESENHO — o círculo de 80px com o ícone lá dentro, como o
+ * ecrã em Blade tinha. Uma linha de texto solta numa caixa branca lê-se como um
+ * erro de carregamento; isto lê-se como uma resposta, e diz o que fazer a
+ * seguir.
+ */
+function EstadoVazio({
+    icone,
+    titulo,
+    frase,
+    accao,
+}: {
+    icone: string;
+    titulo: string;
+    frase?: string;
+    accao?: React.ReactNode;
+}) {
+    return (
+        <div className={cls(CARTAO, 'animate-fade-in px-6 py-16 text-center')}>
+            <div className="mx-auto mb-4 grid h-20 w-20 place-items-center rounded-full bg-slate-100">
+                <i className={`fas ${icone} text-4xl text-slate-300`} aria-hidden="true" />
+            </div>
+            <p className="text-lg font-bold text-slate-800">{titulo}</p>
+            {frase && <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">{frase}</p>}
+            {accao && <div className="mt-5 flex justify-center">{accao}</div>}
+        </div>
+    );
+}
+
+/**
+ * OS CARTÕES DE NÚMERO DO TOPO.
+ *
+ * O ecrã em Blade tinha três (total, valor médio, serviços) e a migração
+ * deixou a página a começar por uma caixa branca de filtros. Voltam com o
+ * mesmo gradiente, pelo `CartaoNumero`.
+ *
+ * A COR SEGUE O SIGNIFICADO: o que está em falta é âmbar, e leva ícone — cor
+ * sozinha não chega a quem não a distingue.
+ */
+function Cartoes({
+    total,
+    linhas,
+    aActualizar,
+}: {
+    total?: number;
+    linhas: Artigo[];
+    aActualizar: boolean;
+}) {
+    const comPreco = linhas.filter((a) => Number(a.price) > 0);
+    const medio = comPreco.length > 0 ? comPreco.reduce((s, a) => s + Number(a.price), 0) / comPreco.length : 0;
+    const servicos = linhas.filter((a) => a.type === 'servico').length;
+    const emFalta = linhas.filter((a) => a.esgotado || a.em_falta).length;
+    const nesta = t(':quantos nesta página', { quantos: linhas.length });
+
+    return (
+        <div className={cls('grid gap-3 sm:grid-cols-2 lg:grid-cols-4', aActualizar && 'opacity-70')}>
+            <CartaoNumero
+                rotulo={t('Artigos')}
+                tom="indigo"
+                icone="fa-box"
+                nota={t('com os filtros actuais')}
+                valor={total === undefined ? <span className="text-white/50">—</span> : total.toLocaleString(etiquetaIntl())}
+            />
+            <CartaoNumero
+                rotulo={t('Preço médio nesta página')}
+                tom="verde"
+                icone="fa-money-bill-wave"
+                sufixo="Kz"
+                nota={nesta}
+                valor={kz(medio)}
+            />
+            <CartaoNumero
+                rotulo={t('Serviços nesta página')}
+                tom="azul"
+                icone="fa-bell-concierge"
+                nota={nesta}
+                valor={servicos.toLocaleString(etiquetaIntl())}
+            />
+            <CartaoNumero
+                rotulo={t('Em falta nesta página')}
+                tom={emFalta > 0 ? 'ambar' : 'cinza'}
+                icone="fa-triangle-exclamation"
+                nota={nesta}
+                valor={emFalta.toLocaleString(etiquetaIntl())}
+            />
         </div>
     );
 }
@@ -775,6 +988,16 @@ function Formulario({
 
     const eServico = dados.type === 'servico';
 
+    /*
+     * A EMPRESA AINDA NÃO TEM TAXAS DE IVA.
+     *
+     * Sem isto ficava um select vazio e ninguém percebia porquê: o formulário
+     * exige a taxa, a lista não tem nenhuma, e o artigo não se gravava sem
+     * explicação. Só se decide depois de as opções chegarem — enquanto elas
+     * vêm a caminho, a lista está vazia por estar a carregar, e não por falta.
+     */
+    const semTaxas = !!opcoes && opcoes.taxas.length === 0;
+
     return (
         <Modal
             aberto
@@ -844,6 +1067,39 @@ function Formulario({
                     </select>
                 </Campo>
 
+                {/* A MARCA E O FORNECEDOR ficam ao pé da categoria: são as
+                    três perguntas de arrumação do artigo — onde entra, de quem
+                    é, a quem se compra — e nenhuma delas é obrigatória. */}
+                <Campo etiqueta={t('Marca')} erro={erros.brand_id}>
+                    <select
+                        value={String(dados.brand_id ?? '')}
+                        onChange={(e) => campo('brand_id', e.target.value)}
+                        className={entrada}
+                    >
+                        <option value="">{t('Nenhuma')}</option>
+                        {opcoes?.marcas.map((m) => (
+                            <option key={m.id} value={m.id}>
+                                {m.name}
+                            </option>
+                        ))}
+                    </select>
+                </Campo>
+
+                <Campo etiqueta={t('Fornecedor')} erro={erros.supplier_id}>
+                    <select
+                        value={String(dados.supplier_id ?? '')}
+                        onChange={(e) => campo('supplier_id', e.target.value)}
+                        className={entrada}
+                    >
+                        <option value="">{t('Nenhum')}</option>
+                        {opcoes?.fornecedores.map((f) => (
+                            <option key={f.id} value={f.id}>
+                                {f.name}
+                            </option>
+                        ))}
+                    </select>
+                </Campo>
+
                 <Campo etiqueta={t('Unidade')} erro={erros.unit} obrigatorio>
                     <select value={dados.unit} onChange={(e) => campo('unit', e.target.value)} className={entrada}>
                         {opcoes?.unidades.map((u) => (
@@ -901,7 +1157,33 @@ function Formulario({
                     </select>
                 </Campo>
 
-                {dados.tax_type === 'iva' ? (
+                {dados.tax_type === 'iva' && semTaxas ? (
+                    <div
+                        role="alert"
+                        className={cls('sm:col-span-2 border border-amber-300 bg-amber-50 p-4', RAIO)}
+                    >
+                        <p className="text-sm font-semibold text-amber-900">
+                            <i className="fas fa-triangle-exclamation mr-2" aria-hidden="true" />
+                            {t('Nenhuma taxa de IVA cadastrada')}
+                        </p>
+                        <p className="mt-1 text-xs text-amber-800">
+                            {t('Por favor, cadastre as taxas primeiro em:')}
+                        </p>
+                        <a
+                            href="/invoicing/taxes"
+                            target="_blank"
+                            rel="noreferrer"
+                            className={cls(
+                                'mt-2 inline-flex items-center gap-2 bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700',
+                                RAIO,
+                                FOCO,
+                            )}
+                        >
+                            <i className="fas fa-up-right-from-square" aria-hidden="true" />
+                            {t('Ir para Taxas de IVA')}
+                        </a>
+                    </div>
+                ) : dados.tax_type === 'iva' ? (
                     <Campo etiqueta={t('Taxa')} erro={erros.tax_rate_id} obrigatorio className="sm:col-span-2">
                         <select
                             value={String(dados.tax_rate_id ?? '')}
@@ -979,6 +1261,8 @@ function Formulario({
                                 />
                             </Campo>
                         )}
+
+                        <LotesEValidade dados={dados} aoMudar={aoMudar} />
                     </>
                 )}
 
@@ -1045,6 +1329,86 @@ function Formulario({
                 </label>
             </form>
         </Modal>
+    );
+}
+
+/* ─── Lotes e validades ───────────────────────────────────────────────── */
+
+/**
+ * O QUE LIGA ESTE ARTIGO AO MÓDULO DOS LOTES.
+ *
+ * Sem estes quatro interruptores um artigo nunca entra no controlo de lotes:
+ * é o `track_batches` que o `Product::controlaStock()` lê para saber que este
+ * artigo desconta lote a lote, e são os dois «exigir» que fazem a compra e a
+ * venda pedirem o número da remessa.
+ *
+ * VIVE COM O STOCK, e só em PRODUTOS. Um serviço não tem remessa nem prazo de
+ * validade — o servidor apaga-lhe estas marcas, e mostrá-las era prometer uma
+ * coisa que não se cumpre.
+ *
+ * E NÃO SE ESCONDE ATRÁS DO «gerir stock»: é o próprio `track_batches` que faz
+ * o artigo controlar stock, mesmo com o agregado desligado. Escondê-lo atrás
+ * do interruptor que ele dispensa deixava-o inalcançável.
+ */
+function LotesEValidade({
+    dados,
+    aoMudar,
+}: {
+    dados: ArtigoParaGravar;
+    aoMudar: (d: ArtigoParaGravar) => void;
+}) {
+    // Dentro do render, e não no topo do ficheiro: o dicionário chega depois
+    // do arranque, e um `t()` avaliado à importação saía sempre em português.
+    const marcas: Array<{ chave: ChaveDeLote; titulo: string; nota: string }> = [
+        {
+            chave: 'track_batches',
+            titulo: t('Rastrear por Lotes'),
+            nota: t('Controlar produto por números de lote'),
+        },
+        {
+            chave: 'track_expiry',
+            titulo: t('Controlar Validade'),
+            nota: t('Gerenciar data de validade do produto'),
+        },
+        {
+            chave: 'require_batch_on_purchase',
+            titulo: t('Exigir Lote na Compra'),
+            nota: t('Obrigatório informar lote ao comprar'),
+        },
+        {
+            chave: 'require_batch_on_sale',
+            titulo: t('Exigir Lote na Venda'),
+            nota: t('Obrigatório selecionar lote ao vender'),
+        },
+    ];
+
+    return (
+        <section className={cls('sm:col-span-3 border border-slate-200 bg-slate-50 p-4', RAIO)}>
+            <h4 className="text-sm font-bold text-slate-800">
+                <i className="fas fa-layer-group mr-2 text-slate-400" aria-hidden="true" />
+                {t('Controle de Lotes e Validade')}
+            </h4>
+            <p className="mt-0.5 text-xs text-slate-500">
+                {t('Rastreabilidade e gestão de validade do produto')}
+            </p>
+
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {marcas.map((m) => (
+                    <label key={m.chave} className="flex items-start gap-2 text-sm text-slate-700">
+                        <input
+                            type="checkbox"
+                            checked={dados[m.chave]}
+                            onChange={(e) => aoMudar({ ...dados, [m.chave]: e.target.checked })}
+                            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600"
+                        />
+                        <span>
+                            {m.titulo}
+                            <span className="block text-xs text-slate-500">{m.nota}</span>
+                        </span>
+                    </label>
+                ))}
+            </div>
+        </section>
     );
 }
 

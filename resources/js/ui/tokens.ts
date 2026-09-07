@@ -21,9 +21,43 @@ import { etiquetaIntl } from '@/i18n';
 /** Um raio, e é este. */
 export const RAIO = 'rounded-xl';
 
+/** Os cartões e os modais são mais redondos do que os botões. */
+export const RAIO_GRANDE = 'rounded-2xl';
+
 /** O que separa um objecto do fundo. Sombra só onde alguma coisa flutua. */
-export const CARTAO = 'bg-white border border-slate-200 ' + RAIO;
+export const CARTAO = 'bg-white border border-slate-200 shadow-sm ' + RAIO_GRANDE;
 export const FLUTUA = 'shadow-lg';
+
+/**
+ * O MOVIMENTO DA CASA.
+ *
+ * A aplicação já tinha o seu vocabulário — `animate-fade-in`,
+ * `animate-scale-in`, `btn-press` — definido no `layouts/app.blade.php` desde
+ * antes desta migração. Os ecrãs em React tinham ficado sem ele, e por isso
+ * pareciam outro produto: tudo aparecia de repente e nada respondia ao toque.
+ *
+ * Reutiliza-se o que existe em vez de inventar um segundo conjunto: assim um
+ * modal do React abre exactamente como um modal do resto do sistema.
+ */
+export const TRANSICAO = 'transition-all duration-200';
+
+/** O carregar de um botão: levanta ao passar, afunda ao carregar. */
+export const TOQUE = 'transform hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 active:scale-[.98]';
+
+/**
+ * Os gradientes, um por cor.
+ *
+ * O ecrã em Blade usava-os nos botões principais e nos cabeçalhos dos modais,
+ * e é o que dá o ar de acabado. Um botão principal chapado ao lado de um
+ * cabeçalho com gradiente lê-se como um esboço por acabar.
+ */
+export const GRADIENTES = {
+    primaria: 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700',
+    neutra: 'bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900',
+    bom: 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700',
+    aviso: 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600',
+    perigo: 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700',
+} as const;
 
 /**
  * As cores por PAPEL e não por gosto.

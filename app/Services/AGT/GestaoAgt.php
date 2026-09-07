@@ -563,12 +563,27 @@ class GestaoAgt
     }
 
     /**
-     * A chave privada do modo antigo, sem ambiente. O ecrã de configuração
-     * AGT guarda pares POR AMBIENTE; esta fica pelo ecrã do contribuinte,
-     * que ainda a escreve.
+     * A CHAVE PRIVADA DO MODO ANTIGO, sem ambiente.
+     *
+     * O ecrã de configuração AGT guarda pares POR AMBIENTE — é o caminho de
+     * hoje. Esta fica pelo ecrã do contribuinte, para as instalações que ainda
+     * assinam com ela e que nunca correram o `agt:migrate-keys`.
+     *
+     * VALIDA-SE ANTES DE GRAVAR. Um texto que não seja um PEM RSA legível
+     * escreve-se na mesma sem queixa nenhuma, e o defeito só aparece na
+     * primeira factura que a AGT recusa — longe daqui, e sem ninguém ligar
+     * uma coisa à outra. O erro sai no campo, como sai no par por ambiente.
      */
     public function guardarChaveLegado(string $pem): void
     {
+        $pem = trim($pem) . PHP_EOL;
+
+        if (!@openssl_pkey_get_private($pem)) {
+            throw ValidationException::withMessages([
+                'contributor_private_key' => 'A chave privada não é um PEM RSA válido ou está protegida por password.',
+            ]);
+        }
+
         Storage::disk('local')->put($this->caminhoDaChaveLegado(), $pem);
     }
 
@@ -594,8 +609,14 @@ class GestaoAgt
         }
     }
 
+    /**
+     * A chave do modo antigo mora onde o resto do sistema arruma as chaves: na
+     * pasta legada do `AGTKeyStore`, que é a mesma que o assinador lê quando
+     * não encontra o par do ambiente. Escrito à mão, o caminho seguia o seu
+     * caminho no dia em que aquele mudasse.
+     */
     private function caminhoDaChaveLegado(): string
     {
-        return "agt/tenants/{$this->tenantId}/private_key.pem";
+        return AGTKeyStore::legacyDirectory($this->tenantId) . '/private_key.pem';
     }
 }

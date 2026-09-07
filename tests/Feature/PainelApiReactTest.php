@@ -60,7 +60,7 @@ class PainelApiReactTest extends TenantTestCase
 
         $doServico = app(PainelDaFacturacao::class)->numeros((int) $this->tenant->id);
 
-        foreach (['total_invoiced', 'total_pending', 'total_overdue', 'year_invoiced'] as $numero) {
+        foreach (['total_invoiced', 'total_invoiced_previous', 'total_pending', 'total_overdue'] as $numero) {
             $this->assertEqualsWithDelta(
                 (float) $doServico['stats'][$numero],
                 (float) $daApi['stats'][$numero],
@@ -112,6 +112,87 @@ class PainelApiReactTest extends TenantTestCase
         $this->assertCount(12, $d['por_mes']);
         $this->assertCount(12, $d['por_mes_ano_passado']);
         $this->assertArrayHasKey('rotulo', $d['por_mes'][0]);
+    }
+
+    /**
+     * O PERÍODO ESCOLHIDO MANDA NOS NÚMEROS.
+     *
+     * O painel de sempre tinha um selector — semana, mês, ano — e a migração
+     * para React perdeu-o: o ecrã mostrava sempre o mesmo. Um documento fora
+     * do período não pode entrar nas contas do período, e o rótulo que o
+     * título usa tem de ser o do mesmo período que os cartões contaram.
+     *
+     * @test
+     */
+    public function o_periodo_escolhido_manda_nos_cartoes_e_no_titulo(): void
+    {
+        $this->comPermissoes('invoicing.dashboard.view');
+
+        // Um dia deste ano que não é deste mês. Em Janeiro salta-se para Junho,
+        // que continua a ser este ano — um período fixo tornaria este ensaio
+        // verdadeiro onze meses por ano.
+        $foraDoMes = now()->month === 1
+            ? now()->copy()->startOfYear()->addMonths(5)
+            : now()->copy()->startOfYear();
+
+        $this->factura(['total' => 1000]);
+        $this->factura(['total' => 4000, 'invoice_date' => $foraDoMes->toDateString()]);
+
+        $mes = $this->getJson(self::ROTA . '?periodo=month')->assertOk()->json();
+        $ano = $this->getJson(self::ROTA . '?periodo=year')->assertOk()->json();
+
+        $this->assertEqualsWithDelta(1000, $mes['stats']['total_invoiced'], 0.01,
+            'a factura de outro mês não entra nas contas do mês');
+        $this->assertEqualsWithDelta(5000, $ano['stats']['total_invoiced'], 0.01,
+            'no ano entram as duas');
+
+        // As contagens seguem o mesmo intervalo dos valores: os cartões e as
+        // caixas do ecrã não podem estar a falar de períodos diferentes.
+        $this->assertSame(1, $mes['documentos']['invoices']);
+        $this->assertSame(2, $ano['documentos']['invoices']);
+
+        // E o título sai do mesmo sítio: o rótulo vem já traduzido do servidor.
+        $this->assertSame('month', $mes['periodo']['valor']);
+        $this->assertSame(__('Este mês'), $mes['periodo']['rotulo']);
+        $this->assertSame(__('Este ano'), $ano['periodo']['rotulo']);
+
+        // A lista de atalhos é uma só, e vem de lá — o ecrã não guarda outra.
+        $this->assertSame(
+            \App\Services\Invoicing\PainelDaFacturacao::PERIODOS,
+            array_column($mes['periodo']['opcoes'], 'valor')
+        );
+    }
+
+    /**
+     * O GRÁFICO SEGUE O PERÍODO — e agrupa-se de forma legível.
+     *
+     * Agrupar sempre por dia dava, numa empresa com movimento, uma linha com
+     * um ponto por cada dia do ano: ilegível, e com os rótulos por cima uns
+     * dos outros.
+     *
+     * @test
+     */
+    public function o_grafico_segue_o_periodo_pedido(): void
+    {
+        $this->comPermissoes('invoicing.dashboard.view');
+
+        $this->assertCount(12, $this->getJson(self::ROTA . '?periodo=year')->assertOk()->json('serie'),
+            'o ano são doze meses');
+
+        $semana = $this->getJson(self::ROTA . '?periodo=week')->assertOk()->json('serie');
+
+        $this->assertCount(7, $semana, 'a semana são sete dias, mesmo os que não tiveram nada');
+        $this->assertStringContainsString('/', $semana[0]['rotulo'], 'por dia o rótulo é a data');
+    }
+
+    /** Um período que não existe cai no de omissão, e não em erro. @test */
+    public function um_periodo_desconhecido_cai_no_de_omissao(): void
+    {
+        $this->comPermissoes('invoicing.dashboard.view');
+
+        $this->getJson(self::ROTA . '?periodo=quando-me-apetecer')
+            ->assertOk()
+            ->assertJsonPath('periodo.valor', \App\Services\Invoicing\PainelDaFacturacao::PERIODO_OMISSAO);
     }
 
     /** A assinatura fiscal não viaja nas listas do painel. @test */

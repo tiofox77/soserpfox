@@ -9,9 +9,25 @@ import { Botao } from '@/ui/Botao';
 import { Campo, entrada } from '@/ui/Campo';
 import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
-import { Etiqueta } from '@/ui/Etiqueta';
-import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
+import { FOCO, RAIO, cls, kz } from '@/ui/tokens';
 import { t } from '@/i18n';
+import { EscolhaDaParte } from './EscolhaDaParte';
+import { EscolhaDeArtigo, juntarArtigo } from './EscolhaDeArtigo';
+import {
+    ApagarLinha,
+    CABECALHO_DA_TABELA,
+    CELULA_DO_CABECALHO,
+    CartaoDeTotais,
+    FaixaDeDuplicado,
+    FaixaDoDocumento,
+    LINHA_DA_TABELA,
+    NaoAbriu,
+    PainelDeSucesso,
+    ParcelaDoTotal,
+    SemNada,
+    TotalGrande,
+    cascata,
+} from './PecasDoEditor';
 
 /**
  * EMITIR UMA FACTURA DE VENDA (FT ou FR) — ou abrir uma que já existe.
@@ -45,6 +61,7 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
     const [dia, porDia] = useState(() => new Date().toISOString().slice(0, 10));
     const [vencimento, porVencimento] = useState('');
     const [entrega, porEntrega] = useState('');
+    const [localDeEntrega, porLocalDeEntrega] = useState('');
     const [regiao, porRegiao] = useState('');
     const [pagamento, porPagamento] = useState('');
     const [descontoComercial, porDescontoComercial] = useState('');
@@ -52,6 +69,7 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
     const [retencaoTipo, porRetencaoTipo] = useState('');
     const [retencaoPct, porRetencaoPct] = useState('');
     const [notas, porNotas] = useState('');
+    const [condicoes, porCondicoes] = useState('');
     const [linhas, porLinhas] = useState<LinhaDaFactura[]>([{ ...LINHA_NOVA }]);
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [feito, porFeito] = useState<{ numero: string; agt: string | null; abrir: string; pdf: string; mensagem: string } | null>(null);
@@ -83,6 +101,7 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
         porDia(d.invoice_date ?? new Date().toISOString().slice(0, 10));
         porVencimento(d.due_date ?? '');
         porEntrega(d.delivery_date ?? '');
+        porLocalDeEntrega(d.delivery_location ?? '');
         porRegiao(d.tax_country_region ?? '');
         porPagamento(d.payment_method ?? '');
         porDescontoComercial(d.discount_commercial ? String(d.discount_commercial) : '');
@@ -90,6 +109,7 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
         porRetencaoTipo(d.withholding_type ?? '');
         porRetencaoPct(d.withholding_percentage ? String(d.withholding_percentage) : '');
         porNotas(d.notes ?? '');
+        porCondicoes(d.terms ?? '');
         porLinhas(carregado.linhas.length > 0 ? carregado.linhas.map((l) => ({ ...l, description: l.description ?? '' })) : [{ ...LINHA_NOVA }]);
     }, [carregado]);
 
@@ -160,6 +180,7 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
                 invoice_date: dia,
                 due_date: vencimento || null,
                 delivery_date: entrega || null,
+                delivery_location: localDeEntrega || null,
                 tax_country_region: regiao || null,
                 payment_method: tipo === 'FR' ? pagamento || null : null,
                 discount_commercial: Number(descontoComercial) || 0,
@@ -168,6 +189,7 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
                 withholding_percentage: Number(retencaoPct) || 0,
                 withholding_amount: retencaoValor,
                 notes: notas || null,
+                terms: condicoes || null,
                 status,
                 linhas: linhas.filter(comConteudo),
             };
@@ -182,26 +204,20 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
     if (opcoes.isError || aberta.isError || copia.isError) {
         const erro = opcoes.error ?? aberta.error ?? copia.error;
         return (
-            <div className={cls('border border-red-200 bg-red-50 p-6', RAIO)} role="alert">
-                <h2 className="mb-2 text-lg font-bold text-red-900">{t('Não foi possível abrir a factura')}</h2>
-                <p className="text-sm text-red-800">{erro instanceof ErroDaApi ? erro.message : t('Verifique a ligação.')}</p>
-            </div>
+            <NaoAbriu
+                titulo={t('Não foi possível abrir a factura')}
+                mensagem={erro instanceof ErroDaApi ? erro.message : t('Verifique a ligação.')}
+            />
         );
     }
 
     if (feito) {
         return (
-            <div className={cls(CARTAO, 'p-8 text-center')}>
-                <i className="fas fa-circle-check mb-3 text-4xl text-emerald-500" aria-hidden="true" />
-                <h2 className="text-xl font-bold text-slate-900">{feito.numero}</h2>
-                <p className="mt-1 text-sm text-slate-500">{feito.mensagem}</p>
-                {feito.agt && <p className="mt-1 text-xs text-slate-400">{feito.agt}</p>}
-                <div className="mt-6 flex justify-center gap-2">
-                    <Botao cor="primaria" tom="solida" icone="fa-file-pdf" onClick={() => window.open(feito.pdf, '_blank')}>{t('PDF')}</Botao>
-                    <Botao icone="fa-list" onClick={() => (window.location.href = '/invoicing/sales/invoices')}>{t('Ver as facturas')}</Botao>
-                    {id === undefined && <Botao icone="fa-plus" onClick={() => { porFeito(null); porLinhas([{ ...LINHA_NOVA }]); porClienteId(''); porNotas(''); }}>{t('Emitir outra')}</Botao>}
-                </div>
-            </div>
+            <PainelDeSucesso numero={feito.numero} mensagem={feito.mensagem} agt={feito.agt} icone="fa-file-invoice">
+                <Botao cor="primaria" tom="solida" icone="fa-file-pdf" onClick={() => window.open(feito.pdf, '_blank')}>{t('PDF')}</Botao>
+                <Botao icone="fa-list" onClick={() => (window.location.href = '/invoicing/sales/invoices')}>{t('Ver as facturas')}</Botao>
+                {id === undefined && <Botao icone="fa-plus" onClick={() => { porFeito(null); porLinhas([{ ...LINHA_NOVA }]); porClienteId(''); porNotas(''); }}>{t('Emitir outra')}</Botao>}
+            </PainelDeSucesso>
         );
     }
 
@@ -228,30 +244,29 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
             <AvisoDeErro erro={guardar.error} />
 
             {doc && (
-                <div className={cls('flex flex-wrap items-center justify-between gap-3 border px-4 py-3 text-sm', RAIO, soLeitura ? 'border-slate-200 bg-slate-50 text-slate-700' : 'border-amber-200 bg-amber-50 text-amber-900')} data-documento-aberto>
-                    <span className="flex items-center gap-2">
-                        <strong>{doc.numero ?? t('Rascunho')}</strong>
-                        <Etiqueta cor={soLeitura ? 'neutra' : 'aviso'}>{doc.estado}</Etiqueta>
-                        {soLeitura ? t('Documento emitido: só leitura. Rectifica-se com nota de crédito.') : t('Rascunho: pode alterar e emitir.')}
-                    </span>
-                    <a href={doc.pdf} target="_blank" rel="noreferrer" className={cls('inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50', RAIO)}><i className="fas fa-file-pdf" aria-hidden="true" />{t('PDF')}</a>
-                </div>
+                <FaixaDoDocumento
+                    soLeitura={soLeitura}
+                    numero={doc.numero ?? t('Rascunho')}
+                    estado={doc.estado}
+                    accao={
+                        <a href={doc.pdf} target="_blank" rel="noreferrer" className={cls('inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md', RAIO, FOCO)}><i className="fas fa-file-pdf text-red-500" aria-hidden="true" />{t('PDF')}</a>
+                    }
+                >
+                    {soLeitura ? t('Documento emitido: só leitura. Rectifica-se com nota de crédito.') : t('Rascunho: pode alterar e emitir.')}
+                </FaixaDoDocumento>
             )}
 
             {/* Duplicado: diz de onde veio, e diz que não é o mesmo documento. */}
             {copia.data && (
-                <div className={cls('flex flex-wrap items-center gap-2 border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900', RAIO)} data-duplicado-de={copia.data.origem.numero ?? ''}>
-                    <i className="fas fa-copy" aria-hidden="true" />
-                    <span>
-                        {t('Duplicado de')} <strong>{copia.data.origem.numero ?? t('documento sem número')}</strong>{' '}
-                        {t('— nasce como factura nova, sem número nem série. Confira as datas e emita.')}
-                    </span>
-                </div>
+                <FaixaDeDuplicado numeroDaOrigem={copia.data.origem.numero ?? ''}>
+                    {t('Duplicado de')} <strong className="font-bold">{copia.data.origem.numero ?? t('documento sem número')}</strong>{' '}
+                    {t('— nasce como factura nova, sem número nem série. Confira as datas e emita.')}
+                </FaixaDeDuplicado>
             )}
 
             {/* Um fieldset desligado fecha tudo o que está dentro, botões incluídos. */}
             <fieldset disabled={soLeitura} className="min-w-0 space-y-4 border-0 p-0">
-            <Cartao titulo={t('Documento')}>
+            <Cartao titulo={t('Documento')} icone="fa-circle-info">
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <Campo etiqueta={t('Tipo')} erro={erros.invoice_type} obrigatorio>
                         {/* O tipo define a série e só se fixa na criação. */}
@@ -270,14 +285,16 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
                         </select>
                     </Campo>
 
-                    <Campo etiqueta={t('Cliente')} erro={erros.client_id} obrigatorio>
-                        <select value={clienteId} onChange={(e) => porClienteId(e.target.value)} className={entrada}>
-                            <option value="">{t('Escolher…')}</option>
-                            {o.clientes.map((c) => (
-                                <option key={c.id} value={c.id}>{c.name}{c.nif ? ` · ${c.nif}` : ''}</option>
-                            ))}
-                        </select>
-                    </Campo>
+                    {/* O cliente escolhe-se com procura, e cria-se aqui mesmo
+                        quando ainda não existe — ver `EscolhaDaParte`. */}
+                    <EscolhaDaParte
+                        criar={o.criar_parte}
+                        partes={o.clientes}
+                        valor={clienteId}
+                        aoEscolher={porClienteId}
+                        erro={erros.client_id}
+                        className="lg:col-span-2"
+                    />
 
                     <Campo etiqueta={t('Data')} erro={erros.invoice_date} obrigatorio>
                         <input type="date" value={dia} onChange={(e) => porDia(e.target.value)} className={entrada} />
@@ -289,6 +306,19 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
 
                     <Campo etiqueta={t('Data de entrega')} erro={erros.delivery_date}>
                         <input type="date" value={entrega} onChange={(e) => porEntrega(e.target.value)} className={entrada} />
+                    </Campo>
+
+                    {/* ONDE os bens são entregues. O emissor já o gravava e o
+                        ecrã não o pedia — a factura saía sem morada de
+                        entrega, que é o que a guia depois precisa. */}
+                    <Campo etiqueta={t('Local de Entrega')} erro={erros.delivery_location}>
+                        <input
+                            type="text"
+                            value={localDeEntrega}
+                            onChange={(e) => porLocalDeEntrega(e.target.value)}
+                            placeholder={t('Local de entrega dos bens')}
+                            className={entrada}
+                        />
                     </Campo>
 
                     {/* O armazém só é obrigatório com artigos físicos. */}
@@ -317,22 +347,44 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
                 </div>
             </Cartao>
 
-            <Cartao titulo={t('Linhas')} accoes={!soLeitura && <Botao icone="fa-plus" onClick={() => porLinhas((ls) => [...ls, { ...LINHA_NOVA }])}>{t('Nova linha')}</Botao>} semPadding>
+            <Cartao
+                titulo={t('Linhas')}
+                icone="fa-box"
+                accoes={
+                    !soLeitura && (
+                        <>
+                            {/* O selector com procura: um `<select>` com o
+                                catálogo inteiro não se usa ao balcão. O
+                                `<select>` por linha fica — é o caminho de
+                                quem trabalha por teclado. */}
+                            <EscolhaDeArtigo
+                                catalogo={o.artigos}
+                                aoEscolher={(a) => porLinhas((ls) => juntarArtigo(ls, { ...LINHA_NOVA }, a))}
+                            />
+                            {/* A linha em branco fica discreta: quem factura
+                                escolhe do catálogo, e só descreve à mão o que
+                                lá não está. */}
+                            <Botao altura="pequeno" icone="fa-plus" onClick={() => porLinhas((ls) => [...ls, { ...LINHA_NOVA }])}>{t('Nova linha')}</Botao>
+                        </>
+                    )
+                }
+                semPadding
+            >
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                        <thead>
-                            <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500">
-                                <th className="px-4 py-3 font-semibold">{t('Artigo')}</th>
-                                <th className="px-4 py-3 font-semibold">{t('Descrição')}</th>
-                                <th className="w-24 px-4 py-3 text-right font-semibold">{t('Qtd.')}</th>
-                                <th className="w-32 px-4 py-3 text-right font-semibold">{t('Preço')}</th>
-                                <th className="w-24 px-4 py-3 text-right font-semibold">{t('Desc. %')}</th>
-                                <th className="w-12 px-4 py-3"></th>
+                        <thead className={CABECALHO_DA_TABELA}>
+                            <tr className="border-b border-slate-200">
+                                <th className={CELULA_DO_CABECALHO}>{t('Artigo')}</th>
+                                <th className={CELULA_DO_CABECALHO}>{t('Descrição')}</th>
+                                <th className={cls('w-24 text-right', CELULA_DO_CABECALHO)}>{t('Qtd.')}</th>
+                                <th className={cls('w-32 text-right', CELULA_DO_CABECALHO)}>{t('Preço')}</th>
+                                <th className={cls('w-24 text-right', CELULA_DO_CABECALHO)}>{t('Desc. %')}</th>
+                                <th className={cls('w-12', CELULA_DO_CABECALHO)}></th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {linhas.map((l, i) => (
-                                <tr key={i}>
+                                <tr key={i} className={LINHA_DA_TABELA} style={cascata(i)}>
                                     <td className="px-4 py-2">
                                         <select value={l.product_id ?? ''} onChange={(e) => mudarLinha(i, 'product_id', e.target.value)} aria-label={t('Artigo da linha :n', { n: i + 1 })} className={entrada}>
                                             <option value="">{t('Escolher…')}</option>
@@ -344,10 +396,9 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
                                     <td className="px-4 py-2"><input type="number" min="0" step="0.01" value={l.price} onChange={(e) => mudarLinha(i, 'price', e.target.value)} aria-label={t('Preço da linha :n', { n: i + 1 })} className={cls(entrada, 'text-right tabular-nums')} /></td>
                                     <td className="px-4 py-2"><input type="number" min="0" max="100" step="0.01" value={l.discount_percent} onChange={(e) => mudarLinha(i, 'discount_percent', e.target.value)} aria-label={t('Desconto da linha :n', { n: i + 1 })} className={cls(entrada, 'text-right tabular-nums')} /></td>
                                     <td className="px-4 py-2 text-right">
+                                        {/* A última linha não se apaga: um documento sem linhas não é um documento. */}
                                         {linhas.length > 1 && !soLeitura && (
-                                            <button type="button" onClick={() => porLinhas((ls) => ls.filter((_, j) => j !== i))} aria-label={t('Apagar linha :n', { n: i + 1 })} className={cls('p-2 text-red-500 transition hover:bg-red-50', RAIO, FOCO)}>
-                                                <i className="fas fa-trash" aria-hidden="true" />
-                                            </button>
+                                            <ApagarLinha aoCarregar={() => porLinhas((ls) => ls.filter((_, j) => j !== i))} rotulo={t('Apagar linha :n', { n: i + 1 })} />
                                         )}
                                     </td>
                                 </tr>
@@ -359,7 +410,7 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
             </Cartao>
 
             <div className="grid gap-4 lg:grid-cols-2">
-                <Cartao titulo={t('Descontos e retenção')}>
+                <Cartao titulo={t('Descontos e retenção')} icone="fa-tags">
                     <div className="grid gap-4 sm:grid-cols-2">
                         <Campo etiqueta={t('Desconto comercial (Kz)')} erro={erros.discount_commercial}>
                             <input type="number" min="0" step="0.01" value={descontoComercial} onChange={(e) => porDescontoComercial(e.target.value)} className={cls(entrada, 'text-right tabular-nums')} />
@@ -377,33 +428,47 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
                             <input type="number" min="0" max="100" step="0.01" value={retencaoPct} onChange={(e) => porRetencaoPct(e.target.value)} disabled={!retencaoTipo} className={cls(entrada, 'text-right tabular-nums')} />
                         </Campo>
                     </div>
-                    <div className="mt-4">
+                    <div className="mt-4 space-y-4">
                         <Campo etiqueta={t('Observações')} erro={erros.notes}>
                             <textarea rows={2} value={notas} onChange={(e) => porNotas(e.target.value)} className={cls(entrada, 'h-auto py-2')} />
+                        </Campo>
+
+                        {/* AS CONDIÇÕES SAEM NO PAPEL — prazos, garantias.
+                            Não são notas internas. */}
+                        <Campo etiqueta={t('Termos e Condições')} erro={erros.terms}>
+                            <textarea
+                                rows={2}
+                                value={condicoes}
+                                onChange={(e) => porCondicoes(e.target.value)}
+                                placeholder={t('Condições de pagamento, garantias, etc.')}
+                                className={cls(entrada, 'h-auto py-2')}
+                            />
                         </Campo>
                     </div>
                 </Cartao>
 
                 {/* OS TOTAIS SÃO OS DO SERVIDOR. */}
-                <Cartao titulo={t('Totais')}>
+                <CartaoDeTotais titulo={t('Totais')} aContar={aContar}>
                     {totais ? (
-                        <dl className={cls('space-y-1.5 text-sm', aContar && 'opacity-50')}>
-                            <Total rotulo={t('Valor bruto')} valor={totais.bruto} />
-                            {totais.desconto_comercial > 0 && <Total rotulo={t('Desconto comercial')} valor={-totais.desconto_comercial} />}
-                            <Total rotulo={t('Incidência de IVA')} valor={totais.base} />
-                            <Total rotulo={t('Imposto')} valor={totais.imposto} />
-                            {Number(descontoFinanceiro) > 0 && <Total rotulo={t('Desconto financeiro')} valor={-Number(descontoFinanceiro)} />}
-                            {retencaoValor > 0 && <Total rotulo={t('Retenção :tipo', { tipo: retencaoTipo })} valor={-retencaoValor} />}
-                            <div className="mt-2 flex items-baseline justify-between border-t border-slate-200 pt-2">
-                                <dt className="font-bold text-slate-900">{t('Total')}</dt>
-                                <dd className="text-xl font-bold tabular-nums text-slate-900">{kz(totais.total - retencaoValor)} <span className="text-sm font-normal text-slate-400">Kz</span></dd>
-                            </div>
-                            <p className="pt-1 text-xs text-slate-400">{t('Contado no servidor — é o mesmo cálculo que assina o documento.')}</p>
-                        </dl>
+                        <>
+                            <dl className={cls('px-5 pt-3', aContar && 'opacity-60')}>
+                                <ParcelaDoTotal rotulo={t('Valor bruto')} valor={kz(totais.bruto)} />
+                                {totais.desconto_comercial > 0 && <ParcelaDoTotal rotulo={t('Desconto comercial')} valor={kz(-totais.desconto_comercial)} icone="fa-scissors" />}
+                                <ParcelaDoTotal rotulo={t('Incidência de IVA')} valor={kz(totais.base)} />
+                                <ParcelaDoTotal rotulo={t('Imposto')} valor={kz(totais.imposto)} icone="fa-percent" realce="imposto" />
+                                {Number(descontoFinanceiro) > 0 && <ParcelaDoTotal rotulo={t('Desconto financeiro')} valor={kz(-Number(descontoFinanceiro))} icone="fa-scissors" />}
+                                {retencaoValor > 0 && <ParcelaDoTotal rotulo={t('Retenção :tipo', { tipo: retencaoTipo })} valor={kz(-retencaoValor)} icone="fa-hand-holding-dollar" realce="retencao" />}
+                            </dl>
+                            <TotalGrande
+                                rotulo={t('Total')}
+                                valor={<>{kz(totais.total - retencaoValor)} <span className="text-base font-normal text-emerald-800/60">Kz</span></>}
+                                nota={t('Contado no servidor — é o mesmo cálculo que assina o documento.')}
+                            />
+                        </>
                     ) : (
-                        <p className="py-6 text-center text-sm text-slate-400">{t('Escolha um artigo e uma quantidade para ver os totais.')}</p>
+                        <SemNada icone="fa-calculator">{t('Escolha um artigo e uma quantidade para ver os totais.')}</SemNada>
                     )}
-                </Cartao>
+                </CartaoDeTotais>
             </div>
             </fieldset>
 
@@ -416,15 +481,6 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
                     </Botao>
                 )}
             </div>
-        </div>
-    );
-}
-
-function Total({ rotulo, valor }: { rotulo: string; valor: number }) {
-    return (
-        <div className="flex items-baseline justify-between">
-            <dt className="text-slate-500">{rotulo}</dt>
-            <dd className="tabular-nums text-slate-800">{kz(valor)}</dd>
         </div>
     );
 }

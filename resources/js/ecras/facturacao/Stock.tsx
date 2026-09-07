@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { stock, type ArtigoParaLote, type ItemDoLote, type LinhaDeStock, type OpcoesDoStock } from '@/api/stock';
@@ -7,10 +7,11 @@ import { AvisoDeErro } from '@/ui/AvisoDeErro';
 import { Botao } from '@/ui/Botao';
 import { Campo, entrada } from '@/ui/Campo';
 import { Cartao } from '@/ui/Cartao';
+import { CartaoNumero } from '@/ui/CartaoNumero';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
-import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
+import { CARTAO, CORES, FOCO, RAIO, cls, kz, type Cor } from '@/ui/tokens';
 import { t, tPartes } from '@/i18n';
 
 /**
@@ -21,7 +22,22 @@ import { t, tPartes } from '@/i18n';
  * Os cartões e a lista saem da mesma consulta filtrada. As regras do stock
  * são do servidor (`MovimentacaoDeStock`, os ganchos do `StockMovement`):
  * este ecrã nunca soma nem subtrai — pede.
+ *
+ * O ASPECTO É O DE SEMPRE. Este era o ecrã com mais cartões de topo, e os
+ * quatro tinham gradiente: azul para o que há, verde para as unidades, roxo
+ * para o dinheiro e vermelho para o que falta. Ao passar para React tinham
+ * ficado quatro caixas brancas com números pretos — a mesma informação, e
+ * ninguém a lia. Voltam pelo `CartaoNumero`, com a tabela, o estado vazio
+ * desenhado e a cascata das linhas por cima.
  */
+
+/** O atraso da linha `i` na entrada em cascata (ver `.entra` no layout). */
+const cascata = (i: number) => ({ '--i': i }) as CSSProperties;
+
+/** O quadrado de uma acção de linha: fundo suave da cor do que ela faz. */
+const accao = (cor: Cor) =>
+    cls('grid h-9 w-9 place-items-center rounded-lg transition-all duration-200 hover:scale-110', CORES[cor].suave, FOCO);
+
 export default function Stock() {
     const cache = useQueryClient();
     const [filtros, porFiltros] = useState<{ procura: string; armazem: string; baixo: boolean; conservacao: string; page: number }>({ procura: '', armazem: '', baixo: false, conservacao: '', page: 1 });
@@ -51,6 +67,9 @@ export default function Stock() {
     const linhas = lista.data?.data ?? [];
     const contas = lista.data?.meta;
     const resumo = lista.data?.resumo;
+    /* Uma lista vazia por causa de um filtro não é a mesma coisa que um
+       armazém vazio, e a frase do estado vazio muda com isso. */
+    const filtrado = filtros.procura !== '' || filtros.armazem !== '' || filtros.baixo || filtros.conservacao !== '';
 
     return (
         <div className="space-y-4">
@@ -61,17 +80,28 @@ export default function Stock() {
                 </div>
             )}
 
+            {/* Os quatro do topo, com a cor a dizer o que o número quer dizer:
+                o que há, o que pesa, o que vale, e o que falta. */}
             {resumo && (
-                <div className="grid gap-3 sm:grid-cols-4">
-                    <Numero rotulo={t('Artigos')} valor={String(resumo.artigos)} icone="fa-boxes" />
-                    <Numero rotulo={t('Unidades')} valor={resumo.quantidade.toLocaleString('pt-PT')} icone="fa-cubes" />
-                    <Numero rotulo={t('Valor ao custo')} valor={`${kz(resumo.valor)} Kz`} icone="fa-coins" />
-                    <Numero rotulo={t('Abaixo do mínimo')} valor={String(resumo.baixo)} icone="fa-triangle-exclamation" alerta={resumo.baixo > 0} />
+                <div className={cls('grid grid-cols-2 gap-3 sm:grid-cols-4', lista.isFetching && 'opacity-70')}>
+                    <CartaoNumero rotulo={t('Artigos')} valor={resumo.artigos.toLocaleString('pt-PT')} icone="fa-box" tom="azul" />
+                    <CartaoNumero rotulo={t('Unidades')} valor={resumo.quantidade.toLocaleString('pt-PT')} icone="fa-cubes" tom="verde" />
+                    <CartaoNumero rotulo={t('Valor ao custo')} valor={kz(resumo.valor)} sufixo="Kz" icone="fa-money-bill-wave" tom="roxo" />
+                    {/* Vermelho só quando há mesmo alguma coisa em falta: um
+                        zero em vermelho é um alarme que ninguém precisa de
+                        ouvir, e o ícone diz o mesmo a quem não vê a cor. */}
+                    <CartaoNumero
+                        rotulo={t('Abaixo do mínimo')}
+                        valor={resumo.baixo.toLocaleString('pt-PT')}
+                        icone={resumo.baixo > 0 ? 'fa-triangle-exclamation' : 'fa-circle-check'}
+                        tom={resumo.baixo > 0 ? 'vermelho' : 'cinza'}
+                    />
                 </div>
             )}
 
             <Cartao
-                titulo={<span className="flex items-center gap-2"><i className="fas fa-boxes text-slate-400" aria-hidden="true" />{t('Gestão de Stock')}</span>}
+                titulo={t('Gestão de Stock')}
+                icone="fa-boxes"
                 accoes={o.permissoes.pode_editar && <Botao cor="primaria" tom="solida" icone="fa-truck-ramp-box" onClick={() => porLote(true)}>{t('Movimentação em lote')}</Botao>}
             >
                 <div className="flex flex-wrap items-end gap-3">
@@ -106,40 +136,85 @@ export default function Stock() {
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
-                            <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500">
-                                <th className="px-4 py-3 font-semibold">{t('Artigo')}</th>
-                                <th className="px-4 py-3 font-semibold">{t('Armazém')}</th>
-                                {o.mostra_conservacao && <th className="px-4 py-3 font-semibold">{t('Conservação')}</th>}
-                                <th className="px-4 py-3 text-right font-semibold">{t('Quantidade')}</th>
-                                <th className="px-4 py-3 text-right font-semibold">{t('Mínimo')}</th>
-                                <th className="px-4 py-3 text-right font-semibold">{t('Custo')}</th>
-                                <th className="px-4 py-3 text-right font-semibold">{t('Valor')}</th>
-                                <th className="w-36 px-4 py-3"></th>
+                            {/* O cabeçalho tem fundo e ícones, como sempre teve:
+                                numa tabela de oito colunas é o que dá a ler o
+                                título de relance em vez de o soletrar. */}
+                            <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-600">
+                                <th className="px-4 py-3 font-bold"><i className="fas fa-box mr-1.5 text-indigo-500" aria-hidden="true" />{t('Artigo')}</th>
+                                <th className="px-4 py-3 font-bold"><i className="fas fa-warehouse mr-1.5 text-blue-500" aria-hidden="true" />{t('Armazém')}</th>
+                                {o.mostra_conservacao && <th className="px-4 py-3 font-bold"><i className="fas fa-temperature-half mr-1.5 text-sky-500" aria-hidden="true" />{t('Conservação')}</th>}
+                                <th className="px-4 py-3 text-right font-bold"><i className="fas fa-cubes mr-1.5 text-slate-400" aria-hidden="true" />{t('Quantidade')}</th>
+                                <th className="px-4 py-3 text-right font-bold">{t('Mínimo')}</th>
+                                <th className="px-4 py-3 text-right font-bold">{t('Custo')}</th>
+                                <th className="px-4 py-3 text-right font-bold">{t('Valor')}</th>
+                                <th className="w-36 px-4 py-3 text-right font-bold">{t('Acções')}</th>
                             </tr>
                         </thead>
                         <tbody className={cls('divide-y divide-slate-100', lista.isFetching && 'opacity-60')}>
-                            {linhas.length === 0 && <tr><td colSpan={8} className="px-4 py-10 text-center text-slate-400">{lista.isPending ? t('A carregar…') : t('Sem stock com estes filtros.')}</td></tr>}
-                            {linhas.map((l) => (
-                                <tr key={l.id} className={cls(l.baixo && 'bg-amber-50/40')}>
-                                    <td className="px-4 py-2">
-                                        <div className="font-medium text-slate-900">{l.artigo}{l.conteudo && <span className="ml-1 text-xs text-slate-400">{l.conteudo}</span>}</div>
-                                        {l.codigo && <div className="font-mono text-xs text-slate-400">{l.codigo}</div>}
+                            {linhas.length === 0 && (
+                                <tr>
+                                    <td colSpan={o.mostra_conservacao ? 8 : 7} className="px-6 py-16">
+                                        {lista.isPending ? (
+                                            <p className="text-center text-slate-400">{t('A carregar…')}</p>
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center text-center">
+                                                <div className="mb-4 grid h-20 w-20 place-items-center rounded-full bg-slate-100">
+                                                    <i className="fas fa-boxes text-4xl text-slate-300" aria-hidden="true" />
+                                                </div>
+                                                <p className="text-lg font-semibold text-slate-500">{t('Nenhum stock encontrado')}</p>
+                                                {/* Duas frases diferentes, como no ecrã de sempre:
+                                                    quem filtrou tem de saber que foi o filtro, e
+                                                    quem não filtrou tem de saber o que fazer. O
+                                                    botão não se repete aqui — é o mesmo que está
+                                                    logo acima, e dois botões iguais no mesmo ecrã
+                                                    fazem hesitar em vez de ajudar. */}
+                                                <p className="mt-2 max-w-md text-sm text-slate-400">
+                                                    {filtrado ? t('Sem stock com estes filtros.') : t('Adicione uma entrada de stock para um produto novo.')}
+                                                </p>
+                                            </div>
+                                        )}
                                     </td>
-                                    <td className="px-4 py-2">{l.armazem}</td>
-                                    {o.mostra_conservacao && <td className="px-4 py-2">{l.conservacao_rotulo ?? <span className="text-slate-300">—</span>}</td>}
+                                </tr>
+                            )}
+                            {linhas.map((l, i) => (
+                                <tr
+                                    key={l.id}
+                                    style={cascata(i)}
+                                    className={cls('entra transition-all duration-200 hover:bg-indigo-50/60', l.baixo && 'bg-amber-50/40')}
+                                >
+                                    <td className="px-4 py-2">
+                                        <div className="flex items-center gap-3">
+                                            {/* O quadrado com o ícone: era a imagem do artigo no
+                                                ecrã de sempre, e sem ela a coluna do nome perdia
+                                                a âncora que a fazia encontrar de relance. */}
+                                            <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-md">
+                                                <i className="fas fa-box" aria-hidden="true" />
+                                            </span>
+                                            <span className="min-w-0">
+                                                <span className="block font-semibold text-slate-900">{l.artigo}{l.conteudo && <span className="ml-1 text-xs font-normal text-slate-500">· {l.conteudo}</span>}</span>
+                                                {l.codigo && <span className="block font-mono text-xs text-slate-400"><i className="fas fa-barcode mr-1" aria-hidden="true" />{l.codigo}</span>}
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-2">{l.armazem ? <Etiqueta cor="primaria" icone="fa-warehouse">{l.armazem}</Etiqueta> : <span className="text-slate-300">—</span>}</td>
+                                    {o.mostra_conservacao && (
+                                        <td className="px-4 py-2">
+                                            {l.conservacao_rotulo ? <Etiqueta icone="fa-temperature-half">{l.conservacao_rotulo}</Etiqueta> : <span className="text-slate-300"><i className="fas fa-minus-circle" aria-hidden="true" /></span>}
+                                        </td>
+                                    )}
                                     <td className="px-4 py-2 text-right tabular-nums">
-                                        <span className={cls('font-semibold', l.baixo ? 'text-amber-700' : 'text-slate-900')}>{l.quantidade.toLocaleString('pt-PT')}</span>
+                                        <span className={cls('text-base font-bold', l.baixo ? 'text-red-600' : 'text-slate-900')}>{l.quantidade.toLocaleString('pt-PT')}</span>
                                         {l.unidade && <span className="ml-1 text-xs text-slate-400">{l.unidade}</span>}
-                                        {l.baixo && <span className="ml-2"><Etiqueta cor="aviso">{t('baixo')}</Etiqueta></span>}
+                                        {l.baixo && <span className="ml-2"><Etiqueta cor="aviso" icone="fa-triangle-exclamation">{t('baixo')}</Etiqueta></span>}
                                     </td>
                                     <td className="px-4 py-2 text-right tabular-nums text-slate-500">{l.minimo.toLocaleString('pt-PT')}</td>
                                     <td className="px-4 py-2 text-right tabular-nums">{kz(l.custo)}</td>
                                     <td className="px-4 py-2 text-right tabular-nums font-semibold">{kz(l.valor)}</td>
                                     <td className="px-4 py-2 text-right">
-                                        <span className="flex justify-end gap-1">
-                                            <button type="button" onClick={() => porMovimentosDe(l)} title={t('Movimentos')} aria-label={t('Movimentos de :artigo', { artigo: l.artigo ?? '' })} className={cls('p-2 text-slate-400 hover:text-indigo-600', RAIO, FOCO)}><i className="fas fa-clock-rotate-left" aria-hidden="true" /></button>
-                                            {o.permissoes.pode_editar && <button type="button" onClick={() => porAAjustar(l)} title={t('Ajustar')} aria-label={t('Ajustar :artigo', { artigo: l.artigo ?? '' })} className={cls('p-2 text-slate-400 hover:text-amber-600', RAIO, FOCO)}><i className="fas fa-sliders" aria-hidden="true" /></button>}
-                                            {o.permissoes.pode_transferir && o.armazens.length > 1 && <button type="button" onClick={() => porATransferir(l)} title={t('Transferir')} aria-label={t('Transferir :artigo', { artigo: l.artigo ?? '' })} className={cls('p-2 text-slate-400 hover:text-emerald-600', RAIO, FOCO)}><i className="fas fa-right-left" aria-hidden="true" /></button>}
+                                        <span className="flex justify-end gap-1.5">
+                                            <button type="button" onClick={() => porMovimentosDe(l)} title={t('Movimentos')} aria-label={t('Movimentos de :artigo', { artigo: l.artigo ?? '' })} className={accao('neutra')}><i className="fas fa-clock-rotate-left" aria-hidden="true" /></button>
+                                            {o.permissoes.pode_editar && <button type="button" onClick={() => porAAjustar(l)} title={t('Ajustar')} aria-label={t('Ajustar :artigo', { artigo: l.artigo ?? '' })} className={accao('aviso')}><i className="fas fa-sliders" aria-hidden="true" /></button>}
+                                            {o.permissoes.pode_transferir && o.armazens.length > 1 && <button type="button" onClick={() => porATransferir(l)} title={t('Transferir')} aria-label={t('Transferir :artigo', { artigo: l.artigo ?? '' })} className={accao('bom')}><i className="fas fa-right-left" aria-hidden="true" /></button>}
                                         </span>
                                     </td>
                                 </tr>
@@ -148,7 +223,7 @@ export default function Stock() {
                     </table>
                 </div>
                 {contas && contas.last_page > 1 && (
-                    <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-sm text-slate-500">
+                    <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
                         <span>{t('Página :pagina de :ultima · :linhas linhas', { pagina: contas.current_page, ultima: contas.last_page, linhas: contas.total })}</span>
                         <span className="flex gap-1">
                             <Botao icone="fa-chevron-left" disabled={contas.current_page <= 1} onClick={() => porFiltros((f) => ({ ...f, page: contas.current_page - 1 }))}>{t('Anterior')}</Botao>
@@ -162,18 +237,6 @@ export default function Stock() {
             {aTransferir && <Transferir l={aTransferir} o={o} aoFechar={() => porATransferir(null)} aoFeito={(m) => { porATransferir(null); feito(m); }} />}
             {movimentosDe && <Movimentos l={movimentosDe} aoFechar={() => porMovimentosDe(null)} />}
             {lote && <Lote o={o} armazemInicial={filtros.armazem || (o.armazem_padrao ? String(o.armazem_padrao) : '')} aoFechar={() => porLote(false)} aoFeito={feito} />}
-        </div>
-    );
-}
-
-function Numero({ rotulo, valor, icone, alerta = false }: { rotulo: string; valor: string; icone: string; alerta?: boolean }) {
-    return (
-        <div className={cls('flex items-center gap-3 border bg-white px-4 py-3', RAIO, alerta ? 'border-amber-300' : 'border-slate-200')}>
-            <i className={cls('fas', icone, alerta ? 'text-amber-500' : 'text-slate-300')} aria-hidden="true" />
-            <div>
-                <p className="text-xs uppercase tracking-wider text-slate-500">{rotulo}</p>
-                <p className="text-lg font-bold tabular-nums text-slate-900">{valor}</p>
-            </div>
         </div>
     );
 }
@@ -192,7 +255,7 @@ function Ajustar({ l, aoFechar, aoFeito }: { l: LinhaDeStock; aoFechar: () => vo
     });
 
     return (
-        <Modal aberto aoFechar={aoFechar} titulo={t('Ajustar :artigo', { artigo: l.artigo ?? '' })} rodape={<><Botao onClick={aoFechar}>{t('Cancelar')}</Botao><Botao cor="primaria" tom="solida" icone="fa-sliders" aTrabalhar={gravar.isPending} onClick={() => gravar.mutate()}>{t('Ajustar')}</Botao></>}>
+        <Modal aberto aoFechar={aoFechar} titulo={t('Ajustar :artigo', { artigo: l.artigo ?? '' })} subtitulo={l.armazem ?? undefined} icone="fa-sliders" cor="aviso" rodape={<><Botao onClick={aoFechar}>{t('Cancelar')}</Botao><Botao cor="primaria" tom="solida" icone="fa-sliders" aTrabalhar={gravar.isPending} onClick={() => gravar.mutate()}>{t('Ajustar')}</Botao></>}>
             <AvisoDeErro erro={gravar.error} />
             <p className="mb-4 text-sm text-slate-600">{tPartes('No armazém :armazem há :quantidade. O ajuste fica registado como movimento.', { armazem: <strong>{l.armazem}</strong>, quantidade: <strong>{l.quantidade.toLocaleString('pt-PT')}</strong> })}</p>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -222,7 +285,7 @@ function Transferir({ l, o, aoFechar, aoFeito }: { l: LinhaDeStock; o: OpcoesDoS
     });
 
     return (
-        <Modal aberto aoFechar={aoFechar} titulo={t('Transferir :artigo', { artigo: l.artigo ?? '' })} rodape={<><Botao onClick={aoFechar}>{t('Cancelar')}</Botao><Botao cor="primaria" tom="solida" icone="fa-right-left" aTrabalhar={gravar.isPending} onClick={() => gravar.mutate()}>{t('Transferir')}</Botao></>}>
+        <Modal aberto aoFechar={aoFechar} titulo={t('Transferir :artigo', { artigo: l.artigo ?? '' })} subtitulo={l.armazem ?? undefined} icone="fa-right-left" cor="bom" rodape={<><Botao onClick={aoFechar}>{t('Cancelar')}</Botao><Botao cor="primaria" tom="solida" icone="fa-right-left" aTrabalhar={gravar.isPending} onClick={() => gravar.mutate()}>{t('Transferir')}</Botao></>}>
             <AvisoDeErro erro={gravar.error} />
             <p className="mb-4 text-sm text-slate-600">{tPartes('De :armazem, onde há :disponivel disponível.', { armazem: <strong>{l.armazem}</strong>, disponivel: <strong>{l.disponivel.toLocaleString('pt-PT')}</strong> })}</p>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -249,25 +312,36 @@ function Movimentos({ l, aoFechar }: { l: LinhaDeStock; aoFechar: () => void }) 
     const q = useQuery({ queryKey: ['stock', 'movimentos', l.product_id], queryFn: () => stock.movimentos(l.product_id) });
 
     return (
-        <Modal aberto aoFechar={aoFechar} titulo={t('Movimentos de :artigo', { artigo: l.artigo ?? '' })} largura="lg" rodape={<Botao onClick={aoFechar}>{t('Fechar')}</Botao>}>
+        <Modal aberto aoFechar={aoFechar} titulo={t('Movimentos de :artigo', { artigo: l.artigo ?? '' })} icone="fa-clock-rotate-left" largura="lg" rodape={<Botao onClick={aoFechar}>{t('Fechar')}</Botao>}>
             {q.isPending ? <Carregando linhas={5} /> : q.isError ? <AvisoDeErro erro={q.error} /> : (
                 <table className="w-full text-sm">
                     <thead>
-                        <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500">
-                            <th className="px-3 py-2 font-semibold">{t('Quando')}</th>
-                            <th className="px-3 py-2 font-semibold">{t('Tipo')}</th>
-                            <th className="px-3 py-2 font-semibold">{t('Armazém')}</th>
-                            <th className="px-3 py-2 text-right font-semibold">{t('Qtd.')}</th>
-                            <th className="px-3 py-2 text-right font-semibold">{t('Saldo')}</th>
-                            <th className="px-3 py-2 font-semibold">{t('Notas')}</th>
+                        <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-600">
+                            <th className="px-3 py-2 font-bold">{t('Quando')}</th>
+                            <th className="px-3 py-2 font-bold">{t('Tipo')}</th>
+                            <th className="px-3 py-2 font-bold">{t('Armazém')}</th>
+                            <th className="px-3 py-2 text-right font-bold">{t('Qtd.')}</th>
+                            <th className="px-3 py-2 text-right font-bold">{t('Saldo')}</th>
+                            <th className="px-3 py-2 font-bold">{t('Notas')}</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                        {q.data.data.length === 0 && <tr><td colSpan={6} className="px-3 py-6 text-center text-slate-400">{t('Sem movimentos.')}</td></tr>}
-                        {q.data.data.map((m) => (
-                            <tr key={m.id}>
+                        {q.data.data.length === 0 && (
+                            <tr>
+                                <td colSpan={6} className="px-3 py-10">
+                                    <div className="flex flex-col items-center justify-center text-center">
+                                        <div className="mb-3 grid h-20 w-20 place-items-center rounded-full bg-slate-100">
+                                            <i className="fas fa-clock-rotate-left text-3xl text-slate-300" aria-hidden="true" />
+                                        </div>
+                                        <p className="text-sm font-semibold text-slate-500">{t('Sem movimentos.')}</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        )}
+                        {q.data.data.map((m, i) => (
+                            <tr key={m.id} style={cascata(i)} className="entra transition-all duration-200 hover:bg-indigo-50/60">
                                 <td className="px-3 py-2 tabular-nums text-slate-600">{m.quando}</td>
-                                <td className="px-3 py-2"><Etiqueta cor={m.tipo === 'in' ? 'bom' : m.tipo === 'out' ? 'perigo' : 'neutra'}>{m.tipo_rotulo}</Etiqueta></td>
+                                <td className="px-3 py-2"><Etiqueta cor={m.tipo === 'in' ? 'bom' : m.tipo === 'out' ? 'perigo' : 'neutra'} icone={m.tipo === 'in' ? 'fa-arrow-down' : m.tipo === 'out' ? 'fa-arrow-up' : 'fa-sliders'}>{m.tipo_rotulo}</Etiqueta></td>
                                 <td className="px-3 py-2">{m.armazem}</td>
                                 <td className="px-3 py-2 text-right tabular-nums">{m.quantidade.toLocaleString('pt-PT')}</td>
                                 <td className="px-3 py-2 text-right tabular-nums text-slate-500">{m.saldo_depois?.toLocaleString('pt-PT') ?? ''}</td>
@@ -323,19 +397,25 @@ function Lote({ o, armazemInicial, aoFechar, aoFeito }: { o: OpcoesDoStock; arma
 
     if (resultado) {
         return (
-            <Modal aberto aoFechar={aoFechar} titulo={t('Movimentação registada')} rodape={<><Botao onClick={aoFechar}>{t('Fechar')}</Botao><Botao icone="fa-plus" onClick={() => { porResultado(null); porItens([]); porNotas(''); }}>{t('Outra')}</Botao><Botao cor="primaria" tom="solida" icone="fa-file-pdf" onClick={() => window.open(resultado.pdf, '_blank')}>{t('PDF do lote')}</Botao></>}>
-                <div className={cls(CARTAO, 'p-6 text-center')}>
-                    <i className="fas fa-circle-check mb-2 text-3xl text-emerald-500" aria-hidden="true" />
-                    <p className="font-mono text-lg font-bold text-slate-900" data-referencia>{resultado.referencia}</p>
-                    <p className="mt-1 text-sm text-slate-500">{t(':quantos produto(s) actualizado(s).', { quantos: resultado.ok })}</p>
-                    {resultado.erros.length > 0 && <ul className="mt-3 text-left text-sm text-red-700">{resultado.erros.map((e, i) => <li key={i}>{e}</li>)}</ul>}
+            <Modal aberto aoFechar={aoFechar} titulo={t('Movimentação registada')} icone="fa-circle-check" cor="bom" rodape={<><Botao onClick={aoFechar}>{t('Fechar')}</Botao><Botao icone="fa-plus" onClick={() => { porResultado(null); porItens([]); porNotas(''); }}>{t('Outra')}</Botao><Botao cor="primaria" tom="solida" icone="fa-file-pdf" onClick={() => window.open(resultado.pdf, '_blank')}>{t('PDF do lote')}</Botao></>}>
+                <div className={cls(CARTAO, 'animate-scale-in p-6 text-center')}>
+                    {/* O visto num círculo verde, como no ecrã de sempre: é o
+                        sinal de que acabou, antes de se ler a referência. */}
+                    <div className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-full bg-emerald-100">
+                        <i className="fas fa-check text-2xl text-emerald-600" aria-hidden="true" />
+                    </div>
+                    <p className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-1 font-mono text-lg font-bold text-slate-900" data-referencia>
+                        <i className="fas fa-hashtag text-xs text-slate-400" aria-hidden="true" />{resultado.referencia}
+                    </p>
+                    <p className="mt-2 text-sm text-slate-500">{t(':quantos produto(s) actualizado(s).', { quantos: resultado.ok })}</p>
+                    {resultado.erros.length > 0 && <ul className={cls('mt-3 list-inside list-disc border border-amber-200 bg-amber-50 p-3 text-left text-sm text-amber-800', RAIO)}>{resultado.erros.map((e, i) => <li key={i}>{e}</li>)}</ul>}
                 </div>
             </Modal>
         );
     }
 
     return (
-        <Modal aberto aoFechar={aoFechar} titulo={t('Movimentação em lote')} largura="lg" rodape={<><Botao onClick={aoFechar}>{t('Cancelar')}</Botao><Botao cor="primaria" tom="solida" icone="fa-truck-ramp-box" aTrabalhar={gravar.isPending} disabled={itens.length === 0} onClick={() => gravar.mutate()}>{t('Registar')}</Botao></>}>
+        <Modal aberto aoFechar={aoFechar} titulo={t('Movimentação em lote')} icone="fa-truck-ramp-box" cor="bom" largura="lg" rodape={<><Botao onClick={aoFechar}>{t('Cancelar')}</Botao><Botao cor="primaria" tom="solida" icone="fa-truck-ramp-box" aTrabalhar={gravar.isPending} disabled={itens.length === 0} onClick={() => gravar.mutate()}>{t('Registar')}</Botao></>}>
             <AvisoDeErro erro={gravar.error} />
             <div className="grid gap-4 sm:grid-cols-2">
                 <Campo etiqueta={t('Armazém')} erro={erros.armazem_id} obrigatorio>
@@ -353,9 +433,9 @@ function Lote({ o, armazemInicial, aoFechar, aoFeito }: { o: OpcoesDoStock; arma
                     </Campo>
                     {sugestoes.length > 0 && (
                         <ul className={cls('absolute z-10 mt-1 max-h-60 w-full overflow-auto border border-slate-200 bg-white shadow-lg', RAIO)} role="listbox">
-                            {sugestoes.map((a) => (
-                                <li key={a.id}>
-                                    <button type="button" onClick={() => juntar(a)} className={cls('flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-slate-50', FOCO)}>
+                            {sugestoes.map((a, i) => (
+                                <li key={a.id} style={cascata(i)} className="entra border-b border-slate-100 last:border-0">
+                                    <button type="button" onClick={() => juntar(a)} className={cls('flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-all duration-200 hover:bg-indigo-50/60', FOCO)}>
                                         <span>{a.name}{a.net_content && <span className="ml-1 text-xs text-slate-400">{a.net_content}</span>}{a.code && <span className="ml-2 font-mono text-xs text-slate-400">{a.code}</span>}</span>
                                         <span className="text-xs text-slate-500">{t('tem :quanto', { quanto: a.actual.toLocaleString('pt-PT') })}</span>
                                     </button>
@@ -366,13 +446,20 @@ function Lote({ o, armazemInicial, aoFechar, aoFeito }: { o: OpcoesDoStock; arma
                 </div>
             </div>
 
-            <div className={cls('mt-4 border border-slate-200', RAIO)}>
-                {itens.length === 0 ? <p className="px-3 py-4 text-center text-sm text-slate-400">{t('Sem artigos. Procure e junte.')}</p> : (
+            <div className={cls('mt-4 overflow-hidden border border-slate-200', RAIO)}>
+                {itens.length === 0 ? (
+                    /* A caixa a tracejado do ecrã de sempre: diz que falta
+                       alguma coisa sem parecer um erro. */
+                    <div className={cls('m-2 border-2 border-dashed border-slate-200 p-6 text-center text-slate-400', RAIO)}>
+                        <i className="fas fa-inbox mb-2 text-3xl" aria-hidden="true" />
+                        <p className="text-sm">{t('Sem artigos. Procure e junte.')}</p>
+                    </div>
+                ) : (
                     <table className="w-full text-sm">
-                        <thead><tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500"><th className="px-3 py-2">{t('Artigo')}</th><th className="px-3 py-2">{t('Tem')}</th><th className="px-3 py-2">{t('Op.')}</th><th className="px-3 py-2 text-right">{t('Qtd.')}</th><th className="px-3 py-2 text-right">{t('Custo')}</th><th className="w-10 px-3 py-2"></th></tr></thead>
+                        <thead><tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-600"><th className="px-3 py-2 font-bold">{t('Artigo')}</th><th className="px-3 py-2 font-bold">{t('Tem')}</th><th className="px-3 py-2 font-bold">{t('Op.')}</th><th className="px-3 py-2 text-right font-bold">{t('Qtd.')}</th><th className="px-3 py-2 text-right font-bold">{t('Custo')}</th><th className="w-10 px-3 py-2"></th></tr></thead>
                         <tbody className="divide-y divide-slate-100">
                             {itens.map((i, k) => (
-                                <tr key={i.product_id}>
+                                <tr key={i.product_id} style={cascata(k)} className="entra transition-all duration-200 hover:bg-indigo-50/60">
                                     <td className="px-3 py-2">{i.product_name}{i.code && <span className="ml-2 font-mono text-xs text-slate-400">{i.code}</span>}</td>
                                     <td className="px-3 py-2 tabular-nums text-slate-500">{i.actual.toLocaleString('pt-PT')}</td>
                                     <td className="px-3 py-2">
@@ -383,7 +470,7 @@ function Lote({ o, armazemInicial, aoFechar, aoFeito }: { o: OpcoesDoStock; arma
                                     </td>
                                     <td className="px-3 py-2"><input type="number" min="0.01" step="0.01" value={i.quantity} onChange={(e) => porItens((ls) => ls.map((x, j) => (j === k ? { ...x, quantity: e.target.value } : x)))} aria-label={t('Quantidade de :artigo', { artigo: i.product_name })} className={cls(entrada, 'h-8 py-0 text-right tabular-nums')} /></td>
                                     <td className="px-3 py-2"><input type="number" min="0" step="0.01" value={i.unit_cost} onChange={(e) => porItens((ls) => ls.map((x, j) => (j === k ? { ...x, unit_cost: e.target.value } : x)))} aria-label={t('Custo de :artigo', { artigo: i.product_name })} className={cls(entrada, 'h-8 py-0 text-right tabular-nums')} /></td>
-                                    <td className="px-3 py-2 text-right"><button type="button" onClick={() => porItens((ls) => ls.filter((_, j) => j !== k))} aria-label={t('Tirar :artigo', { artigo: i.product_name })} className={cls('p-1 text-red-500 hover:bg-red-50', RAIO, FOCO)}><i className="fas fa-trash" aria-hidden="true" /></button></td>
+                                    <td className="px-3 py-2 text-right"><button type="button" onClick={() => porItens((ls) => ls.filter((_, j) => j !== k))} aria-label={t('Tirar :artigo', { artigo: i.product_name })} className={accao('perigo')}><i className="fas fa-trash" aria-hidden="true" /></button></td>
                                 </tr>
                             ))}
                         </tbody>

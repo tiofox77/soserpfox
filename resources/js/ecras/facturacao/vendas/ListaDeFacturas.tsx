@@ -8,7 +8,8 @@ import {
     type SomasDasFacturas,
 } from '@/api/facturacao';
 import { ErroDaApi } from '@/api/cliente';
-import { t } from '@/i18n';
+import { etiquetaIntl, t } from '@/i18n';
+import { CartaoNumero, type TomDoCartao } from '@/ui/CartaoNumero';
 import { RegistarPagamento } from '@/ecras/facturacao/RegistarPagamento';
 import { Botao } from '@/ui/Botao';
 import { Cartao } from '@/ui/Cartao';
@@ -116,7 +117,7 @@ export default function ListaDeFacturas({ tipo }: { tipo?: 'FT' | 'FR' }) {
                 />
             )}
 
-            <Cartao titulo={t('Filtros')}>
+            <Cartao titulo={t('Filtros')} icone="fa-filter">
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <Campo etiqueta={t('Procurar')}>
                         <input
@@ -241,7 +242,7 @@ export default function ListaDeFacturas({ tipo }: { tipo?: 'FT' | 'FR' }) {
             ) : facturas.length === 0 ? (
                 <SemNada aoLimpar={() => porFiltros(FILTROS_VAZIOS)} />
             ) : (
-                <Cartao titulo={t('Facturas de venda')} semPadding>
+                <Cartao titulo={t('Facturas de venda')} icone="fa-list" semPadding>
                     <Tabela facturas={facturas} podeDuplicar={podeDuplicar} aoPagar={porAPagar} />
                 </Cartao>
             )}
@@ -280,10 +281,10 @@ function Totais({
 }) {
     return (
         <div className={cls('grid gap-3 sm:grid-cols-2 lg:grid-cols-4', aActualizar && 'opacity-70')}>
-            <Total rotulo={t('Documentos')} valor={contas?.total} contagem cor="primaria" icone="fa-file-invoice" />
-            <Total rotulo={t('Facturado')} valor={somas?.facturado} cor="bom" icone="fa-money-bill-wave" />
-            <Total rotulo={t('Por receber')} valor={somas?.por_receber} cor="aviso" icone="fa-clock" />
-            <Total rotulo={t('Vencido')} valor={somas?.vencido} cor="perigo" icone="fa-triangle-exclamation" />
+            <Total rotulo={t('Documentos')} valor={contas?.total} contagem tom="indigo" icone="fa-file-invoice" />
+            <Total rotulo={t('Facturado')} valor={somas?.facturado} tom="verde" icone="fa-money-bill-wave" />
+            <Total rotulo={t('Por receber')} valor={somas?.por_receber} tom="ambar" icone="fa-clock" />
+            <Total rotulo={t('Vencido')} valor={somas?.vencido} tom="vermelho" icone="fa-triangle-exclamation" />
         </div>
     );
 }
@@ -292,44 +293,34 @@ function Total({
     rotulo,
     valor,
     contagem = false,
-    cor,
+    tom,
     icone,
 }: {
     rotulo: string;
     valor?: number;
     /** Uma contagem escreve-se inteira e sem moeda; um valor leva «Kz». */
     contagem?: boolean;
-    cor: 'primaria' | 'bom' | 'aviso' | 'perigo';
+    tom: TomDoCartao;
     icone: string;
 }) {
-    const risca = {
-        primaria: 'border-l-indigo-500',
-        bom: 'border-l-emerald-500',
-        aviso: 'border-l-amber-500',
-        perigo: 'border-l-red-500',
-    } as const;
-
     return (
-        <div className={cls(CARTAO, 'border-l-4 p-4', risca[cor])}>
-            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                <i className={`fas ${icone}`} aria-hidden="true" />
-                {rotulo}
-            </p>
-            <p className="mt-1.5 text-2xl font-bold tabular-nums text-slate-900">
-                {/* Enquanto não há resposta escreve-se um traço, não um zero:
-                    um zero é uma afirmação, e ainda ninguém contou nada. */}
-                {valor === undefined ? (
-                    <span className="text-slate-300">—</span>
+        <CartaoNumero
+            rotulo={rotulo}
+            tom={tom}
+            icone={icone}
+            sufixo={valor !== undefined && !contagem ? 'Kz' : undefined}
+            valor={
+                /* Enquanto não há resposta escreve-se um traço, não um zero:
+                   um zero é uma afirmação, e ainda ninguém contou nada. */
+                valor === undefined ? (
+                    <span className="text-white/50">—</span>
                 ) : contagem ? (
-                    valor.toLocaleString('pt-PT')
+                    valor.toLocaleString(etiquetaIntl())
                 ) : (
-                    <>
-                        {kz(valor)}
-                        <span className="ml-1 text-sm font-normal text-slate-400">Kz</span>
-                    </>
-                )}
-            </p>
-        </div>
+                    kz(valor)
+                )
+            }
+        />
     );
 }
 
@@ -349,21 +340,29 @@ function Tabela({
         // PÁGINA a rolar de lado e o menu foge com ela.
         <div className="overflow-x-auto">
             <table className="w-full text-sm">
-                <thead>
-                    <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500">
-                        <th className="px-4 py-3 font-semibold">{t('Número')}</th>
-                        <th className="px-4 py-3 font-semibold">{t('Cliente')}</th>
-                        <th className="px-4 py-3 font-semibold">{t('Data')}</th>
-                        <th className="px-4 py-3 font-semibold">{t('Vencimento')}</th>
-                        <th className="px-4 py-3 font-semibold">{t('Estado')}</th>
-                        <th className="px-4 py-3 font-semibold">AGT</th>
-                        <th className="px-4 py-3 text-right font-semibold">{t('Total')}</th>
-                        <th className="px-4 py-3 text-right font-semibold">{t('Acções')}</th>
+                {/* O CABEÇALHO DA TABELA de sempre: fundo cinzento claro,
+                    maiúsculas pequenas e um ícone por coluna. Os ícones vão
+                    todos no mesmo tom — no Blade cada um tinha a sua cor, e
+                    oito cores num cabeçalho não ajudam a encontrar nada. */}
+                <thead className="bg-slate-50">
+                    <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-600">
+                        <Cabecalho icone="fa-hashtag">{t('Número')}</Cabecalho>
+                        <Cabecalho icone="fa-user">{t('Cliente')}</Cabecalho>
+                        <Cabecalho icone="fa-calendar">{t('Data')}</Cabecalho>
+                        <Cabecalho icone="fa-calendar-check">{t('Vencimento')}</Cabecalho>
+                        <Cabecalho icone="fa-circle-info">{t('Estado')}</Cabecalho>
+                        <Cabecalho icone="fa-landmark">AGT</Cabecalho>
+                        <Cabecalho icone="fa-money-bill" direita>{t('Total')}</Cabecalho>
+                        <Cabecalho icone="fa-gear" direita>{t('Acções')}</Cabecalho>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                    {facturas.map((f) => (
-                        <tr key={f.id} className="transition hover:bg-slate-50">
+                    {facturas.map((f, i) => (
+                        <tr
+                            key={f.id}
+                            className="entra transition-all duration-200 hover:bg-indigo-50/60"
+                            style={cascata(i)}
+                        >
                             <td className="px-4 py-3">
                                 <a
                                     href={`/invoicing/sales/invoices/${f.id}`}
@@ -441,7 +440,11 @@ function Accoes({
                     onClick={aoPagar}
                     title={t('Pagar')}
                     aria-label={t('Pagar :numero', { numero: factura.numero })}
-                    className={cls('p-2 text-emerald-600 transition hover:bg-emerald-50', RAIO, FOCO)}
+                    className={cls(
+                        'p-2 text-emerald-600 transition-all duration-200 hover:scale-110 hover:bg-emerald-50 active:scale-100',
+                        RAIO,
+                        FOCO,
+                    )}
                 >
                     <i className="fas fa-money-bill-wave" aria-hidden="true" />
                 </button>
@@ -537,7 +540,14 @@ function Accao({
             title={titulo}
             aria-label={titulo}
             {...(novoSeparador ? { target: '_blank', rel: 'noopener' } : {})}
-            className={cls('p-2 transition', RAIO, cor, FOCO)}
+            // Levanta ao passar e afunda ao carregar: é o que dizia, no ecrã de
+            // sempre, que um ícone de 34px é mesmo um botão.
+            className={cls(
+                'inline-block p-2 transition-all duration-200 hover:scale-110 active:scale-100',
+                RAIO,
+                cor,
+                FOCO,
+            )}
         >
             <i className={`fas ${icone}`} aria-hidden="true" />
         </a>
@@ -595,12 +605,54 @@ function Paginacao({
     );
 }
 
+/**
+ * A ENTRADA EM CASCATA das linhas.
+ *
+ * O `--i` é o atraso da linha; a animação `entra` está no layout, com a guarda
+ * de `prefers-reduced-motion`. O índice tem tecto: com 100 linhas por página,
+ * 22ms cada dava dois segundos a ver a tabela a montar-se, que é o contrário
+ * do que a cascata serve.
+ */
+function cascata(i: number): React.CSSProperties {
+    return { '--i': Math.min(i, 12) } as React.CSSProperties;
+}
+
+/** Uma coluna do cabeçalho: o rótulo com o seu ícone, sempre no mesmo tom. */
+function Cabecalho({
+    icone,
+    direita = false,
+    children,
+}: {
+    icone: string;
+    direita?: boolean;
+    children: React.ReactNode;
+}) {
+    return (
+        <th className={cls('px-4 py-3 font-bold', direita && 'text-right')}>
+            <i className={`fas ${icone} mr-1.5 text-slate-400`} aria-hidden="true" />
+            {children}
+        </th>
+    );
+}
+
+/**
+ * O ESTADO VAZIO COM DESENHO — o círculo de 80px com o ícone lá dentro, como
+ * o ecrã em Blade tinha. Uma linha de texto solta no meio de uma caixa branca
+ * lê-se como um erro de carregamento; isto lê-se como uma resposta.
+ *
+ * O TEXTO É O CORRECTO, e não o do Blade. Lá dizia «Nenhuma proforma
+ * encontrada / Crie a sua primeira proforma de compra» — numa lista de
+ * FACTURAS DE VENDA, copiado de outro ecrã. E fala de FILTROS porque é o que
+ * quase sempre está a acontecer: o período começa no mês corrente.
+ */
 function SemNada({ aoLimpar }: { aoLimpar: () => void }) {
     return (
-        <div className={cls(CARTAO, 'px-6 py-14 text-center')}>
-            <i className="fas fa-file-invoice mb-3 text-4xl text-slate-300" aria-hidden="true" />
-            <p className="font-semibold text-slate-700">{t('Nenhuma factura com estes filtros')}</p>
-            <p className="mt-1 text-sm text-slate-500">
+        <div className={cls(CARTAO, 'animate-fade-in px-6 py-16 text-center')}>
+            <div className="mx-auto mb-4 grid h-20 w-20 place-items-center rounded-full bg-slate-100">
+                <i className="fas fa-file-invoice text-4xl text-slate-300" aria-hidden="true" />
+            </div>
+            <p className="text-lg font-bold text-slate-800">{t('Nenhuma factura com estes filtros')}</p>
+            <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
                 {t('Alargue as datas ou limpe os filtros para ver mais.')}
             </p>
             <div className="mt-5 flex justify-center">

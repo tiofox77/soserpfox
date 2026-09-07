@@ -152,4 +152,65 @@ class ApiDaFacturaParaReactTest extends TenantTestCase
 
         $this->postJson(self::RAIZ, $this->corpo(['linhas' => []]))->assertJsonValidationErrors('linhas');
     }
+
+    /**
+     * O CLIENTE RÁPIDO: AS OPÇÕES DIZEM SE ELE SE PODE CRIAR AQUI.
+     *
+     * Emitir facturas e criar clientes são duas permissões diferentes. O ecrã
+     * não pode adivinhar a segunda a partir da primeira: sem ela o botão «Novo
+     * cliente» não aparece — e a `/clients` recusa na mesma, porque um botão
+     * escondido nunca foi uma guarda.
+     *
+     * O país por omissão vem daqui e não de uma constante escrita em
+     * TypeScript: é o mesmo `Geografia::PAIS_PADRAO` que o formulário completo
+     * de clientes usa.
+     *
+     * @test
+     */
+    public function as_opcoes_dizem_se_o_cliente_se_pode_criar_aqui(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.create');
+
+        $this->getJson(self::RAIZ . '/opcoes')
+            ->assertOk()
+            ->assertJsonPath('criar_parte.tipo', 'cliente')
+            ->assertJsonPath('criar_parte.pode', false)
+            ->assertJsonPath('criar_parte.pais_padrao', 'AO');
+
+        $this->comPermissoes('invoicing.clients.create');
+
+        $this->getJson(self::RAIZ . '/opcoes')
+            ->assertOk()
+            ->assertJsonPath('criar_parte.pode', true);
+    }
+
+    /**
+     * O LOCAL DE ENTREGA E AS CONDIÇÕES GRAVAM E VOLTAM NO ABRIR.
+     *
+     * O `EmissorDeFacturas` sempre os gravou e o editor em React não os pedia
+     * nem os devolvia: uma factura passada por aqui saía sem morada de
+     * entrega, e reabrir um rascunho apagava as condições que já lá estavam.
+     *
+     * @test
+     */
+    public function o_local_de_entrega_e_as_condicoes_gravam_e_voltam_no_abrir(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.create', 'invoicing.sales.invoices.view');
+
+        $r = $this->postJson(self::RAIZ, $this->corpo([
+            'status' => 'draft',
+            'delivery_location' => 'Armazém do cliente, Viana',
+            'terms' => 'Pagamento a 30 dias. Garantia de 12 meses.',
+        ]))->assertCreated();
+
+        $f = SalesInvoice::findOrFail($r->json('id'));
+
+        $this->assertSame('Armazém do cliente, Viana', $f->delivery_location);
+        $this->assertSame('Pagamento a 30 dias. Garantia de 12 meses.', $f->terms);
+
+        $aberta = $this->getJson(self::RAIZ . '/' . $f->id)->assertOk();
+
+        $this->assertSame('Armazém do cliente, Viana', $aberta->json('documento.delivery_location'));
+        $this->assertSame('Pagamento a 30 dias. Garantia de 12 meses.', $aberta->json('documento.terms'));
+    }
 }

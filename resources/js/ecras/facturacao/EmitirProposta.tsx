@@ -8,9 +8,25 @@ import { Campo, entrada } from '@/ui/Campo';
 import { Botao } from '@/ui/Botao';
 import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
-import { Etiqueta } from '@/ui/Etiqueta';
-import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
+import { FOCO, RAIO, cls, kz } from '@/ui/tokens';
 import { t } from '@/i18n';
+import { EscolhaDaParte } from './EscolhaDaParte';
+import { EscolhaDeArtigo, juntarArtigo } from './EscolhaDeArtigo';
+import {
+    ApagarLinha,
+    CABECALHO_DA_TABELA,
+    CELULA_DO_CABECALHO,
+    CartaoDeTotais,
+    FaixaDeDuplicado,
+    FaixaDoDocumento,
+    LINHA_DA_TABELA,
+    NaoAbriu,
+    PainelDeSucesso,
+    ParcelaDoTotal,
+    SemNada,
+    TotalGrande,
+    cascata,
+} from './PecasDoEditor';
 
 /**
  * EMITIR UMA PROPOSTA — proforma de venda, orçamento ou proforma de compra —
@@ -41,10 +57,15 @@ const LINHA_NOVA: LinhaDoEditor = {
 
 export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string; id?: number; duplicarDe?: number }) {
     const [parteId, porParteId] = useState('');
+    const [armazemId, porArmazemId] = useState('');
     const [data, porData] = useState(() => new Date().toISOString().slice(0, 10));
     const [validoAte, porValidoAte] = useState('');
     const [regiao, porRegiao] = useState('');
+    const [eServico, porEServico] = useState(false);
     const [notas, porNotas] = useState('');
+    const [condicoes, porCondicoes] = useState('');
+    const [modeloId, porModeloId] = useState('');
+    const [campos, porCampos] = useState<Record<string, string>>({});
     const [linhas, porLinhas] = useState<LinhaDoEditor[]>([{ ...LINHA_NOVA }]);
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [gravado, porGravado] = useState<{ numero: string; abrir: string; mensagem: string } | null>(null);
@@ -68,12 +89,31 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
         const d = carregado?.documento;
         if (!d) return;
         porParteId(d.parte_id ? String(d.parte_id) : '');
+        porArmazemId(d.warehouse_id ? String(d.warehouse_id) : '');
         porData(d.data ?? new Date().toISOString().slice(0, 10));
         porValidoAte(d.valido_ate ?? '');
         porRegiao(d.tax_country_region ?? '');
+        porEServico(Boolean(d.is_service));
         porNotas(d.notas ?? '');
+        porCondicoes(d.condicoes ?? '');
+        porModeloId(d.quote_template_id ? String(d.quote_template_id) : '');
+        porCampos({ ...(d.campos_proposta ?? {}) });
         porLinhas(carregado.linhas.length > 0 ? carregado.linhas : [{ ...LINHA_NOVA }]);
     }, [carregado]);
+
+    /*
+     * UMA PROPOSTA NOVA NASCE COM O ARMAZÉM E O MODELO POR OMISSÃO DA EMPRESA.
+     *
+     * Era o que o `mount` do Livewire fazia: ninguém se lembra de escolher o
+     * modelo, e sem ele o orçamento saía pelo desenho antigo mesmo com um
+     * modelo desenhado à espera. Uma proposta aberta ou duplicada traz os
+     * seus, e por isso não passa por aqui.
+     */
+    useEffect(() => {
+        if (!opcoes.data || id !== undefined || duplicarDe !== undefined) return;
+        porArmazemId(opcoes.data.armazem_padrao ? String(opcoes.data.armazem_padrao) : '');
+        porModeloId(opcoes.data.modelo_padrao ? String(opcoes.data.modelo_padrao) : '');
+    }, [opcoes.data, id, duplicarDe]);
 
     const [totais, porTotais] = useState<Totais | null>(null);
     const [aContar, porAContar] = useState(false);
@@ -103,7 +143,9 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
 
         const pausa = setTimeout(() => {
             emissor
-                .calcular(tipo, { linhas: comLinhas })
+                // `is_service` vai junto porque muda os totais: uma prestação
+                // de serviço retém 6,5% de IRT.
+                .calcular(tipo, { linhas: comLinhas, is_service: eServico })
                 .then((r) => {
                     if (!cancelado) porTotais(r.totais);
                 })
@@ -119,16 +161,21 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
             cancelado = true;
             clearTimeout(pausa);
         };
-    }, [linhas, tipo]);
+    }, [linhas, tipo, eServico]);
 
     const guardar = useMutation({
         mutationFn: () => {
             const corpo = {
                 parte_id: Number(parteId),
+                warehouse_id: Number(armazemId) || null,
                 data,
                 valido_ate: validoAte || null,
                 tax_country_region: regiao || null,
+                is_service: eServico,
                 notas: notas || null,
+                condicoes: condicoes || null,
+                quote_template_id: Number(modeloId) || null,
+                campos_proposta: campos,
                 linhas: linhas.filter(comConteudo),
             };
             return id !== undefined ? emissor.actualizar(tipo, id, corpo) : emissor.guardar(tipo, corpo);
@@ -152,39 +199,44 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
     const doc = aberta.data?.documento ?? null;
     const soLeitura = doc !== null && !doc.pode_editar;
 
+    /* Mercadoria no documento: é isso que torna o armazém obrigatório. Uma
+       proposta marcada como prestação de serviço dispensa-o na mesma. */
+    const temFisicos = linhas.some((l) => l.product_id !== null && o.artigos.find((a) => a.id === l.product_id)?.type !== 'servico');
+    const precisaDeArmazem = temFisicos && !eServico;
+
+    /* O modelo escolhido, e os campos livres que ele pede a quem escreve. */
+    const modelo = o.modelos.find((m) => String(m.id) === modeloId) ?? null;
+
     /* Gravado: o ecrã dá o número e sai da frente. */
     if (gravado) {
         return (
-            <div className={cls(CARTAO, 'p-8 text-center')}>
-                <i className="fas fa-circle-check mb-3 text-4xl text-emerald-500" aria-hidden="true" />
-                <h2 className="text-xl font-bold text-slate-900">{gravado.numero}</h2>
-                <p className="mt-1 text-sm text-slate-500">{gravado.mensagem}</p>
-                <div className="mt-6 flex justify-center gap-2">
-                    {/* ABRIR O QUE SE ACABOU DE GRAVAR.
-                        O servidor sempre devolveu a morada do documento, e o
-                        ecrã nunca a usava: quem grava um rascunho para o
-                        continuar tinha de ir procurá-lo à lista. */}
-                    <Botao cor="primaria" tom="solida" icone="fa-up-right-from-square" onClick={() => (window.location.href = gravado.abrir)}>
-                        {t('Abrir o documento')}
+            <PainelDeSucesso numero={gravado.numero} mensagem={gravado.mensagem} icone="fa-file-signature">
+                {/* ABRIR O QUE SE ACABOU DE GRAVAR.
+                    O servidor sempre devolveu a morada do documento, e o
+                    ecrã nunca a usava: quem grava um rascunho para o
+                    continuar tinha de ir procurá-lo à lista. */}
+                <Botao cor="primaria" tom="solida" icone="fa-up-right-from-square" onClick={() => (window.location.href = gravado.abrir)}>
+                    {t('Abrir o documento')}
+                </Botao>
+                <Botao icone="fa-list" onClick={() => (window.location.href = o.rota)}>
+                    {t('Ver a lista')}
+                </Botao>
+                {id === undefined && (
+                    <Botao
+                        icone="fa-plus"
+                        onClick={() => {
+                            porGravado(null);
+                            porLinhas([{ ...LINHA_NOVA }]);
+                            porParteId('');
+                            porNotas('');
+                            porCondicoes('');
+                            porCampos({});
+                        }}
+                    >
+                        {t('Emitir outro')}
                     </Botao>
-                    <Botao icone="fa-list" onClick={() => (window.location.href = o.rota)}>
-                        {t('Ver a lista')}
-                    </Botao>
-                    {id === undefined && (
-                        <Botao
-                            icone="fa-plus"
-                            onClick={() => {
-                                porGravado(null);
-                                porLinhas([{ ...LINHA_NOVA }]);
-                                porParteId('');
-                                porNotas('');
-                            }}
-                        >
-                            {t('Emitir outro')}
-                        </Botao>
-                    )}
-                </div>
-            </div>
+                )}
+            </PainelDeSucesso>
         );
     }
 
@@ -214,45 +266,40 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
             <AvisoDeErro erro={guardar.error} />
 
             {doc && (
-                <div className={cls('flex flex-wrap items-center justify-between gap-3 border px-4 py-3 text-sm', RAIO, soLeitura ? 'border-slate-200 bg-slate-50 text-slate-700' : 'border-amber-200 bg-amber-50 text-amber-900')} data-documento-aberto>
-                    <span className="flex items-center gap-2">
-                        <strong>{doc.numero ?? t('Rascunho')}</strong>
-                        <Etiqueta cor={soLeitura ? 'neutra' : 'aviso'}>{doc.estado}</Etiqueta>
-                        {soLeitura ? t('Este documento já seguiu: só leitura.') : t('Rascunho: pode alterar.')}
-                    </span>
-                    <a href={doc.pdf} target="_blank" rel="noreferrer" className={cls('inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50', RAIO)}><i className="fas fa-file-pdf" aria-hidden="true" />{t('PDF')}</a>
-                </div>
+                <FaixaDoDocumento
+                    soLeitura={soLeitura}
+                    numero={doc.numero ?? t('Rascunho')}
+                    estado={doc.estado}
+                    accao={
+                        <a href={doc.pdf} target="_blank" rel="noreferrer" className={cls('inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md', RAIO, FOCO)}><i className="fas fa-file-pdf text-red-500" aria-hidden="true" />{t('PDF')}</a>
+                    }
+                >
+                    {soLeitura ? t('Este documento já seguiu: só leitura.') : t('Rascunho: pode alterar.')}
+                </FaixaDoDocumento>
             )}
 
             {/* Duplicado: diz de onde veio, e diz que não é o mesmo documento. */}
             {copia.data && (
-                <div className={cls('flex flex-wrap items-center gap-2 border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900', RAIO)} data-duplicado-de={copia.data.origem.numero ?? ''}>
-                    <i className="fas fa-copy" aria-hidden="true" />
-                    <span>
-                        {t('Duplicado de')} <strong>{copia.data.origem.numero ?? t('documento sem número')}</strong>{' '}
-                        {t('— nasce como documento novo, sem número. Confira a data e a validade.')}
-                    </span>
-                </div>
+                <FaixaDeDuplicado numeroDaOrigem={copia.data.origem.numero ?? ''}>
+                    {t('Duplicado de')} <strong className="font-bold">{copia.data.origem.numero ?? t('documento sem número')}</strong>{' '}
+                    {t('— nasce como documento novo, sem número. Confira a data e a validade.')}
+                </FaixaDeDuplicado>
             )}
 
             <fieldset disabled={soLeitura} className="min-w-0 space-y-4 border-0 p-0">
-            <Cartao titulo={t('Dados do documento')}>
+            <Cartao titulo={t('Dados do documento')} icone="fa-circle-info">
                 <div className="grid gap-4 sm:grid-cols-3">
-                    <Campo
-                        etiqueta={o.parte === 'fornecedor' ? t('Fornecedor') : t('Cliente')}
+                    {/* A outra parte escolhe-se com procura, e cria-se aqui
+                        mesmo quando ainda não existe — cliente numa proposta
+                        de venda, fornecedor numa de compra. */}
+                    <EscolhaDaParte
+                        criar={o.criar_parte}
+                        partes={o.partes}
+                        valor={parteId}
+                        aoEscolher={porParteId}
                         erro={erros.parte_id}
-                        obrigatorio
-                    >
-                        <select value={parteId} onChange={(e) => porParteId(e.target.value)} className={entrada}>
-                            <option value="">{t('Escolher…')}</option>
-                            {o.partes.map((p) => (
-                                <option key={p.id} value={p.id}>
-                                    {p.name}
-                                    {p.nif ? ` · ${p.nif}` : ''}
-                                </option>
-                            ))}
-                        </select>
-                    </Campo>
+                        className="sm:col-span-2"
+                    />
 
                     <Campo etiqueta={t('Data')} erro={erros.data} obrigatorio>
                         <input type="date" value={data} onChange={(e) => porData(e.target.value)} className={entrada} />
@@ -265,6 +312,19 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
                             onChange={(e) => porValidoAte(e.target.value)}
                             className={entrada}
                         />
+                    </Campo>
+
+                    {/* O armazém só é obrigatório havendo mercadoria — um
+                        documento só de serviços dispensa-o. */}
+                    <Campo etiqueta={t('Armazém')} erro={erros.warehouse_id} obrigatorio={precisaDeArmazem}>
+                        <select value={armazemId} onChange={(e) => porArmazemId(e.target.value)} className={entrada}>
+                            <option value="">{precisaDeArmazem ? t('Escolher…') : t('Só serviços — não é preciso')}</option>
+                            {o.armazens.map((a) => (
+                                <option key={a.id} value={a.id}>
+                                    {a.name}
+                                </option>
+                            ))}
+                        </select>
                     </Campo>
 
                     {/* Cabinda tem regime próprio, e é o LOCAL DA OPERAÇÃO que
@@ -280,34 +340,99 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
                         </select>
                     </Campo>
                 </div>
+
+                {/* PRESTAÇÃO DE SERVIÇO: retém-se IRT a 6,5% e o armazém
+                    deixa de fazer falta. A conta é do servidor — marcar isto
+                    volta a perguntar-lhe os totais. */}
+                <label className="mt-4 flex items-center gap-2 text-sm text-slate-700">
+                    <input
+                        type="checkbox"
+                        checked={eServico}
+                        onChange={(e) => porEServico(e.target.checked)}
+                        className="h-4 w-4 rounded border-slate-300"
+                    />
+                    {t('É Prestação de Serviço (IRT 6.5%)')}
+                </label>
             </Cartao>
+
+            {/* O MODELO POR QUE A PROPOSTA É DESENHADA.
+                Só o orçamento tem modelos — nos outros documentos o servidor
+                manda a lista vazia e isto nem aparece. */}
+            {o.modelos.length > 0 && (
+                <Cartao titulo={t('Proposta')} icone="fa-swatchbook">
+                    <Campo etiqueta={t('Modelo')} erro={erros.quote_template_id}>
+                        <select value={modeloId} onChange={(e) => porModeloId(e.target.value)} className={entrada}>
+                            <option value="">{t('Sem modelo — documento simples')}</option>
+                            {o.modelos.map((m) => (
+                                <option key={m.id} value={m.id}>
+                                    {m.nome}
+                                    {m.is_default ? ` · ${t('padrão')}` : ''}
+                                </option>
+                            ))}
+                        </select>
+                    </Campo>
+
+                    {/* Os campos que o modelo escolhido deixou por preencher.
+                        É aqui que a proposta deixa de ser genérica. */}
+                    {modelo && modelo.campos.length > 0 && (
+                        <div className="mt-4 space-y-4">
+                            {modelo.campos.map((c) => (
+                                <Campo key={c.chave} etiqueta={c.rotulo}>
+                                    <textarea
+                                        rows={c.linhas || 4}
+                                        value={campos[c.chave] ?? ''}
+                                        onChange={(e) => porCampos((v) => ({ ...v, [c.chave]: e.target.value }))}
+                                        placeholder={c.ajuda || c.rotulo}
+                                        className={cls(entrada, 'h-auto py-2')}
+                                    />
+                                </Campo>
+                            ))}
+                        </div>
+                    )}
+
+                    {modelo && modelo.campos.length === 0 && (
+                        <p className="mt-3 text-xs text-slate-400">
+                            {t('Este modelo não tem campos a preencher — sai sempre igual.')}
+                        </p>
+                    )}
+                </Cartao>
+            )}
 
             <Cartao
                 titulo={t('Linhas')}
+                icone="fa-box"
                 accoes={
                     !soLeitura && (
-                        <Botao icone="fa-plus" onClick={() => porLinhas((ls) => [...ls, { ...LINHA_NOVA }])}>
-                            {t('Nova linha')}
-                        </Botao>
+                        <>
+                            {/* O selector com procura, ao lado da linha em
+                                branco — como o editor de sempre tinha. */}
+                            <EscolhaDeArtigo
+                                catalogo={o.artigos}
+                                aoEscolher={(a) => porLinhas((ls) => juntarArtigo(ls, { ...LINHA_NOVA }, a))}
+                            />
+                            <Botao altura="pequeno" icone="fa-plus" onClick={() => porLinhas((ls) => [...ls, { ...LINHA_NOVA }])}>
+                                {t('Nova linha')}
+                            </Botao>
+                        </>
                     )
                 }
                 semPadding
             >
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                        <thead>
-                            <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500">
-                                <th className="px-4 py-3 font-semibold">{t('Artigo')}</th>
-                                <th className="px-4 py-3 font-semibold">{t('Descrição')}</th>
-                                <th className="w-24 px-4 py-3 text-right font-semibold">{t('Qtd.')}</th>
-                                <th className="w-32 px-4 py-3 text-right font-semibold">{t('Preço')}</th>
-                                <th className="w-24 px-4 py-3 text-right font-semibold">{t('Desc. %')}</th>
-                                <th className="w-12 px-4 py-3"></th>
+                        <thead className={CABECALHO_DA_TABELA}>
+                            <tr className="border-b border-slate-200">
+                                <th className={CELULA_DO_CABECALHO}>{t('Artigo')}</th>
+                                <th className={CELULA_DO_CABECALHO}>{t('Descrição')}</th>
+                                <th className={cls('w-24 text-right', CELULA_DO_CABECALHO)}>{t('Qtd.')}</th>
+                                <th className={cls('w-32 text-right', CELULA_DO_CABECALHO)}>{t('Preço')}</th>
+                                <th className={cls('w-24 text-right', CELULA_DO_CABECALHO)}>{t('Desc. %')}</th>
+                                <th className={cls('w-12', CELULA_DO_CABECALHO)}></th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {linhas.map((l, i) => (
-                                <tr key={i}>
+                                <tr key={i} className={LINHA_DA_TABELA} style={cascata(i)}>
                                     <td className="px-4 py-2">
                                         <select
                                             value={l.product_id ?? ''}
@@ -369,14 +494,10 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
                                         {/* A última linha não se apaga: um documento
                                             sem linhas não é um documento. */}
                                         {linhas.length > 1 && !soLeitura && (
-                                            <button
-                                                type="button"
-                                                onClick={() => porLinhas((ls) => ls.filter((_, j) => j !== i))}
-                                                aria-label={t('Apagar linha :n', { n: i + 1 })}
-                                                className={cls('p-2 text-red-500 transition hover:bg-red-50', RAIO, FOCO)}
-                                            >
-                                                <i className="fas fa-trash" aria-hidden="true" />
-                                            </button>
+                                            <ApagarLinha
+                                                aoCarregar={() => porLinhas((ls) => ls.filter((_, j) => j !== i))}
+                                                rotulo={t('Apagar linha :n', { n: i + 1 })}
+                                            />
                                         )}
                                     </td>
                                 </tr>
@@ -393,44 +514,60 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
             </Cartao>
 
             <div className="grid gap-4 lg:grid-cols-2">
-                <Cartao titulo={t('Observações')}>
-                    <textarea
-                        rows={4}
-                        value={notas}
-                        onChange={(e) => porNotas(e.target.value)}
-                        aria-label={t('Observações')}
-                        className={cls(entrada, 'h-auto py-2')}
-                    />
+                <Cartao titulo={t('Observações')} icone="fa-pen">
+                    <div className="space-y-4">
+                        <Campo etiqueta={t('Notas')} erro={erros.notas}>
+                            <textarea
+                                rows={4}
+                                value={notas}
+                                onChange={(e) => porNotas(e.target.value)}
+                                aria-label={t('Observações')}
+                                className={cls(entrada, 'h-auto py-2')}
+                            />
+                        </Campo>
+
+                        {/* AS CONDIÇÕES SAEM NO DOCUMENTO — prazos de
+                            pagamento, garantias. Não são notas internas. */}
+                        <Campo etiqueta={t('Termos e Condições')} erro={erros.condicoes}>
+                            <textarea
+                                rows={3}
+                                value={condicoes}
+                                onChange={(e) => porCondicoes(e.target.value)}
+                                placeholder={t('Condições de pagamento, garantias, etc.')}
+                                className={cls(entrada, 'h-auto py-2')}
+                            />
+                        </Campo>
+                    </div>
                 </Cartao>
 
                 {/* OS TOTAIS SÃO OS DO SERVIDOR. Este bloco não calcula nada. */}
-                <Cartao titulo={t('Totais')}>
+                <CartaoDeTotais titulo={t('Totais')} aContar={aContar}>
                     {totais ? (
-                        <dl className={cls('space-y-1.5 text-sm', aContar && 'opacity-50')}>
-                            <Total rotulo={t('Valor bruto')} valor={totais.bruto} />
-                            {totais.desconto_por_linha > 0 && (
-                                <Total rotulo={t('Desconto nas linhas')} valor={-totais.desconto_por_linha} />
-                            )}
-                            <Total rotulo={t('Valor líquido')} valor={totais.liquido} />
-                            <Total rotulo={t('Incidência de IVA')} valor={totais.base} />
-                            <Total rotulo={t('Imposto')} valor={totais.imposto} />
-                            {totais.retencao > 0 && <Total rotulo={t('Retenção')} valor={-totais.retencao} />}
-                            <div className="mt-2 flex items-baseline justify-between border-t border-slate-200 pt-2">
-                                <dt className="font-bold text-slate-900">{t('Total')}</dt>
-                                <dd className="text-xl font-bold tabular-nums text-slate-900">
-                                    {kz(totais.total)} <span className="text-sm font-normal text-slate-400">Kz</span>
-                                </dd>
-                            </div>
-                            <p className="pt-1 text-xs text-slate-400">
-                                {t('Contado no servidor — é o mesmo cálculo que vai para o documento.')}
-                            </p>
-                        </dl>
+                        <>
+                            <dl className={cls('px-5 pt-3', aContar && 'opacity-60')}>
+                                <ParcelaDoTotal rotulo={t('Valor bruto')} valor={kz(totais.bruto)} />
+                                {totais.desconto_por_linha > 0 && (
+                                    <ParcelaDoTotal rotulo={t('Desconto nas linhas')} valor={kz(-totais.desconto_por_linha)} icone="fa-scissors" />
+                                )}
+                                <ParcelaDoTotal rotulo={t('Valor líquido')} valor={kz(totais.liquido)} />
+                                <ParcelaDoTotal rotulo={t('Incidência de IVA')} valor={kz(totais.base)} />
+                                <ParcelaDoTotal rotulo={t('Imposto')} valor={kz(totais.imposto)} icone="fa-percent" realce="imposto" />
+                                {totais.retencao > 0 && (
+                                    <ParcelaDoTotal rotulo={t('Retenção')} valor={kz(-totais.retencao)} icone="fa-hand-holding-dollar" realce="retencao" />
+                                )}
+                            </dl>
+                            <TotalGrande
+                                rotulo={t('Total')}
+                                valor={<>{kz(totais.total)} <span className="text-base font-normal text-emerald-800/60">Kz</span></>}
+                                nota={t('Contado no servidor — é o mesmo cálculo que vai para o documento.')}
+                            />
+                        </>
                     ) : (
-                        <p className="py-6 text-center text-sm text-slate-400">
+                        <SemNada icone="fa-calculator">
                             {t('Escolha um artigo e uma quantidade para ver os totais.')}
-                        </p>
+                        </SemNada>
                     )}
-                </Cartao>
+                </CartaoDeTotais>
             </div>
             </fieldset>
 
@@ -456,22 +593,10 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
 
 /* ─── Peças ───────────────────────────────────────────────────────────── */
 
-function Total({ rotulo, valor }: { rotulo: string; valor: number }) {
-    return (
-        <div className="flex items-baseline justify-between">
-            <dt className="text-slate-500">{rotulo}</dt>
-            <dd className="tabular-nums text-slate-800">{kz(valor)}</dd>
-        </div>
-    );
-}
-
 function Falhou({ erro }: { erro: unknown }) {
     const daApi = erro instanceof ErroDaApi ? erro : null;
 
     return (
-        <div className={cls('border border-red-200 bg-red-50 p-6', RAIO)} role="alert">
-            <h2 className="mb-2 text-lg font-bold text-red-900">{t('Não foi possível abrir o emissor')}</h2>
-            <p className="text-sm text-red-800">{daApi?.message ?? t('Verifique a ligação.')}</p>
-        </div>
+        <NaoAbriu titulo={t('Não foi possível abrir o emissor')} mensagem={daApi?.message ?? t('Verifique a ligação.')} />
     );
 }

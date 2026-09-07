@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Client;
 use App\Models\Invoicing\SalesInvoice;
+use App\Services\Invoicing\PainelDaFacturacao;
 use Tests\TenantTestCase;
 
 /**
@@ -169,7 +170,106 @@ class PainelDaFacturacaoTest extends TenantTestCase
         // E OS DADOS VÊM DO SERVIDOR, não de números escritos no ecrã: trocar
         // de período tem de mudar mesmo a linha do gráfico.
         $this->assertStringContainsString("from '@/api/painel'", $painel);
-        $this->assertStringContainsString('por_mes', $painel);
+        $this->assertStringContainsString('d.serie', $painel);
+    }
+
+    /**
+     * O SELECTOR DE PERÍODO, que a migração para React tinha perdido.
+     *
+     * O painel em Blade tinha-o — semana, mês, ano — e trocá-lo mudava os
+     * cartões, o gráfico e o título ao mesmo tempo. O ecrã em React mostrava
+     * sempre a mesma coisa. Voltou, e volta pelo sítio certo: o PERÍODO É
+     * ARGUMENTO DO SERVIÇO. Enquanto for ele a decidir o intervalo, os cartões
+     * e o gráfico não podem estar a falar de períodos diferentes — que é o que
+     * aconteceria se cada um o calculasse por si.
+     *
+     * @test
+     */
+    public function o_periodo_e_argumento_do_servico_e_manda_em_tudo(): void
+    {
+        $servico = app(PainelDaFacturacao::class);
+        $empresa = (int) $this->tenant->id;
+
+        // Um dia deste ano que não é deste mês. Em Janeiro salta-se para Junho.
+        $foraDoMes = now()->month === 1
+            ? now()->copy()->startOfYear()->addMonths(5)
+            : now()->copy()->startOfYear();
+
+        $this->factura('sent', 1000);
+        $this->factura('sent', 4000)->forceFill(['invoice_date' => $foraDoMes])->save();
+
+        $mes = $servico->numeros($empresa, 'month');
+        $ano = $servico->numeros($empresa, 'year');
+
+        $this->assertEqualsWithDelta(1000, $mes['stats']['total_invoiced'], 0.01,
+            'a factura de outro mês não entra nas contas do mês');
+        $this->assertEqualsWithDelta(5000, $ano['stats']['total_invoiced'], 0.01,
+            'no ano entram as duas');
+
+        // As contagens e as caixas seguem o mesmo intervalo dos valores.
+        $this->assertSame(1, $mes['documents']['invoices']);
+        $this->assertSame(2, $ano['documents']['invoices']);
+        $this->assertSame(1, $mes['invoiceStatus']['pending']);
+        $this->assertSame(2, $ano['invoiceStatus']['pending']);
+
+        // E o título: o rótulo sai do serviço, já traduzido, com o mesmo
+        // período que os cartões contaram.
+        $this->assertSame(__('Este mês'), $mes['periodo']['rotulo']);
+        $this->assertSame(__('Este ano'), $ano['periodo']['rotulo']);
+
+        // O gráfico do mesmo período: o ano por mês, a semana por dia.
+        $this->assertCount(12, $servico->serie($empresa, 'year'));
+        $this->assertCount(7, $servico->serie($empresa, 'week'));
+    }
+
+    /**
+     * O ECRÃ ESCOLHE O PERÍODO; NÃO O INVENTA.
+     *
+     * A caixa de escolha existe, o título sai do rótulo que veio na resposta e
+     * já não há um ano escrito à mão dentro do ecrã. Se voltasse a haver, o
+     * título diria uma coisa e os cartões contariam outra — que foi o estado
+     * em que a migração deixou este painel.
+     *
+     * @test
+     */
+    public function o_ecra_tem_a_caixa_de_escolha_e_o_titulo_segue_a_resposta(): void
+    {
+        $painel = file_get_contents(resource_path('js/ecras/facturacao/Painel.tsx'));
+
+        $this->assertStringContainsString('data-periodo', $painel,
+            'sem caixa de escolha não há período nenhum para escolher');
+        $this->assertStringContainsString('d.periodo.rotulo', $painel,
+            'o título usa o rótulo que veio do servidor');
+        $this->assertStringNotContainsString("periodo: t('Este Ano')", $painel,
+            'o título deixou de ser um ano escrito à mão dentro do ecrã');
+    }
+
+    /**
+     * O QUE SE DEVE NÃO É UMA GRANDEZA DE PERÍODO.
+     *
+     * Uma factura de Janeiro por pagar continua por pagar em Dezembro. Filtrar
+     * a dívida pelo período escolhido esconderia precisamente o que estes
+     * cartões existem para mostrar — foi assim que um deles dizia 76 mil
+     * quando havia 15 milhões.
+     *
+     * @test
+     */
+    public function a_divida_nao_encolhe_com_o_periodo(): void
+    {
+        $velha = $this->factura('sent', 2500, 0, now()->subMonths(6)->toDateString());
+        $velha->forceFill(['invoice_date' => now()->subMonths(6)])->save();
+
+        $servico = app(PainelDaFacturacao::class);
+        $empresa = (int) $this->tenant->id;
+
+        foreach (['today', 'week', 'month', 'year'] as $periodo) {
+            $this->assertEqualsWithDelta(
+                2500,
+                $servico->numeros($empresa, $periodo)['stats']['total_pending'],
+                0.01,
+                "com o período «{$periodo}» a dívida de há seis meses desapareceu do cartão"
+            );
+        }
     }
 
     /**

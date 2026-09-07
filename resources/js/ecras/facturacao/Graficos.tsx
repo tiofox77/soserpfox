@@ -3,14 +3,14 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { relatorios } from '@/api/relatorios';
 import { ErroDaApi } from '@/api/cliente';
-import { Botao } from '@/ui/Botao';
 import { Campo, entrada } from '@/ui/Campo';
 import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
 import { GraficoDeBarras } from '@/ui/GraficoDeBarras';
 import { RAIO, cls } from '@/ui/tokens';
 import { t } from '@/i18n';
-import { formatar, valor } from './Relatorio';
+import { CartaoDoMapa, valor } from './Relatorio';
+import { ACCAO_DA_FAIXA, Faixa, SemNada, cascata } from './faixa';
 
 /**
  * O RELATÓRIO EM GRÁFICOS: a mesma facturação dos outros mapas, vista de
@@ -43,6 +43,8 @@ export default function Graficos() {
     const { esquema: e, dados, atalhos } = q.data;
     const g = (dados.g ?? {}) as Record<string, unknown>;
     const intervalo = dados.intervalo;
+    // O mesmo teste do ecrã de sempre: zero documentos, nada para desenhar.
+    const semNumeros = Number(valor(dados, 'g.resumo.documentos') ?? 0) === 0;
 
     const paineis: Array<{ titulo: string; dados: Array<{ rotulo: string; valor: number }> }> = [
         { titulo: t('Evolução das vendas'), dados: serie(g.evolucao) },
@@ -62,10 +64,19 @@ export default function Graficos() {
 
     return (
         <div className={cls('space-y-4', q.isFetching && 'opacity-70')} data-relatorio="charts">
-            <Cartao
-                titulo={<span className="flex items-center gap-2"><i className="fas fa-chart-area text-slate-400" aria-hidden="true" />{e.titulo}</span>}
-                accoes={<span className="flex gap-2"><a href="/invoicing/reports" className={cls('inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50', RAIO)}><i className="fas fa-arrow-left" aria-hidden="true" />{t('Todos os relatórios')}</a><Botao icone="fa-print" onClick={() => window.print()}>{t('Imprimir')}</Botao></span>}
-            >
+            <Faixa
+                icone="fa-chart-line"
+                titulo={e.titulo}
+                subtitulo={e.descricao ?? t('A facturação vista de relance')}
+                accoes={
+                    <>
+                        <a href="/invoicing/reports" className={ACCAO_DA_FAIXA}><i className="fas fa-arrow-left" aria-hidden="true" />{t('Todos os relatórios')}</a>
+                        <button type="button" onClick={() => window.print()} className={ACCAO_DA_FAIXA}><i className="fas fa-print" aria-hidden="true" />{t('Imprimir')}</button>
+                    </>
+                }
+            />
+
+            <Cartao titulo={t('Filtros')} icone="fa-filter">
                 <div className="grid gap-3 sm:grid-cols-3">
                     <Campo etiqueta={t('Período')}>
                         <select value={filtros.period ?? 'year'} onChange={(ev) => porFiltros({ period: ev.target.value })} className={entrada}>
@@ -78,20 +89,34 @@ export default function Graficos() {
             </Cartao>
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5" data-cartoes>
-                {e.cartoes.map((c) => (
-                    <div key={c.chave} className={cls('border-l-4 border-indigo-500 bg-white p-4 shadow-sm', RAIO)}>
-                        <p className="text-xs font-bold uppercase tracking-wider text-slate-500">{c.rotulo}</p>
-                        <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{formatar(valor(dados, c.chave), c.formato ?? 'dinheiro')}</p>
+                {e.cartoes.map((c, i) => (
+                    <div key={c.chave} className="entra" style={cascata(i)}>
+                        <CartaoDoMapa rotulo={c.rotulo} cor={c.cor} formato={c.formato} valor={valor(dados, c.chave)} />
                     </div>
                 ))}
             </div>
 
             <div className="grid gap-4 lg:grid-cols-2" data-graficos>
-                {paineis.map((p) => (
-                    <Cartao key={p.titulo} titulo={p.titulo}>
-                        <GraficoDeBarras dados={p.dados} titulo={p.titulo} />
-                    </Cartao>
-                ))}
+                {/* Sem um único documento no período não há série nenhuma para
+                    desenhar: treze caixas com um eixo vazio não dizem isso —
+                    dizem que a página está avariada. */}
+                {semNumeros ? (
+                    <div className={cls('bg-white shadow-sm lg:col-span-2', RAIO)}>
+                        <SemNada
+                            icone="fa-chart-simple"
+                            titulo={t('Sem facturação neste período')}
+                            frase={t('Escolha outro intervalo de datas acima.')}
+                        />
+                    </div>
+                ) : (
+                    paineis.map((p, i) => (
+                        <div key={p.titulo} className="entra" style={cascata(i)}>
+                            <Cartao titulo={p.titulo} icone="fa-chart-column">
+                                <GraficoDeBarras dados={p.dados} titulo={p.titulo} />
+                            </Cartao>
+                        </div>
+                    ))
+                )}
             </div>
         </div>
     );

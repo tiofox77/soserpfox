@@ -3,13 +3,14 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { relatorios, type Coluna, type Dados, type Esquema, type Filtro, type Formato, type Tabela } from '@/api/relatorios';
 import { ErroDaApi } from '@/api/cliente';
-import { Botao } from '@/ui/Botao';
 import { Campo, entrada } from '@/ui/Campo';
 import { Cartao } from '@/ui/Cartao';
+import { CartaoNumero, type TomDoCartao } from '@/ui/CartaoNumero';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { RAIO, cls } from '@/ui/tokens';
 import { t } from '@/i18n';
+import { ACCAO_DA_FAIXA, Faixa, SemNada, cascata } from './faixa';
 
 /**
  * UM RELATÓRIO QUALQUER DA FACTURAÇÃO.
@@ -42,11 +43,47 @@ const ESTADOS: Record<string, { rotulo: string; cor: 'neutra' | 'primaria' | 'bo
     transfer: { rotulo: 'Transferência', cor: 'primaria' },
 };
 
-const CORES: Record<string, string> = {
-    blue: 'border-blue-500 text-blue-700', gray: 'border-slate-500 text-slate-700', purple: 'border-purple-500 text-purple-700',
-    green: 'border-emerald-500 text-emerald-700', red: 'border-red-500 text-red-700', orange: 'border-orange-500 text-orange-700',
-    yellow: 'border-amber-500 text-amber-700', pink: 'border-pink-500 text-pink-700', indigo: 'border-indigo-500 text-indigo-700',
+/**
+ * O TOM DE CADA CARTÃO DE TOPO — pelo SIGNIFICADO, que já vem do servidor.
+ *
+ * Cada mapa diz a cor dos seus números (`Relatorios\Base::cartao`), e é uma
+ * escolha com sentido: o pendente é vermelho, o lucro é verde, o subtotal é
+ * cinzento porque não é conclusão nenhuma. Aqui só se traduz o nome que o
+ * servidor usa para o tom do `CartaoNumero` — a paleta é a da casa, e não há
+ * uma segunda.
+ */
+const TONS: Record<string, TomDoCartao> = {
+    blue: 'azul', gray: 'cinza', purple: 'roxo', green: 'verde', red: 'vermelho',
+    orange: 'laranja', yellow: 'ambar', pink: 'roxo', indigo: 'indigo',
 };
+
+/**
+ * E O ÍCONE, PELO FORMATO.
+ *
+ * Vai porque a cor não pode andar sozinha: quem não distingue o âmbar do
+ * verde tem de conseguir ler o cartão à mesma. O formato é o que se sabe de
+ * cada número sem saber de que mapa ele é.
+ */
+const ICONES: Record<string, string> = {
+    dinheiro: 'fa-money-bill-wave',
+    inteiro: 'fa-hashtag',
+    numero: 'fa-calculator',
+    percentagem: 'fa-percent',
+    dias: 'fa-clock',
+    data: 'fa-calendar-day',
+};
+
+/** Um cartão de topo de um mapa — o mesmo nos 23 e nos gráficos. */
+export function CartaoDoMapa({ rotulo, cor, formato, valor: v }: { rotulo: string; cor?: string; formato?: Formato; valor: unknown }) {
+    return (
+        <CartaoNumero
+            rotulo={rotulo}
+            tom={TONS[cor ?? 'gray'] ?? 'cinza'}
+            icone={ICONES[formato ?? 'dinheiro'] ?? 'fa-chart-simple'}
+            valor={formatar(v, formato ?? 'dinheiro')}
+        />
+    );
+}
 
 const numero = (v: unknown, casas: number) => new Intl.NumberFormat('pt-PT', { minimumFractionDigits: casas, maximumFractionDigits: casas }).format(Number(v) || 0);
 
@@ -126,17 +163,20 @@ export default function Relatorio({ slug, filtrosIniciais }: { slug: string; fil
 
     return (
         <div className={cls('space-y-4', q.isFetching && 'opacity-70')} data-relatorio={e.slug}>
-            <Cartao
-                titulo={<span className="flex items-center gap-2"><i className="fas fa-chart-bar text-slate-400" aria-hidden="true" />{e.titulo}</span>}
+            <Faixa
+                icone="fa-chart-bar"
+                titulo={e.titulo}
+                subtitulo={e.descricao}
                 accoes={
-                    <span className="flex flex-wrap gap-2">
-                        <a href="/invoicing/reports" className={cls('inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50', RAIO)}><i className="fas fa-arrow-left" aria-hidden="true" />{t('Todos os relatórios')}</a>
-                        {csvUrl && <a href={csvUrl} className={cls('inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50', RAIO)} data-csv><i className="fas fa-file-csv" aria-hidden="true" />CSV</a>}
-                        <Botao icone="fa-print" onClick={() => window.print()}>{t('Imprimir')}</Botao>
-                    </span>
+                    <>
+                        <a href="/invoicing/reports" className={ACCAO_DA_FAIXA}><i className="fas fa-arrow-left" aria-hidden="true" />{t('Todos os relatórios')}</a>
+                        {csvUrl && <a href={csvUrl} className={ACCAO_DA_FAIXA} data-csv><i className="fas fa-file-csv" aria-hidden="true" />CSV</a>}
+                        <button type="button" onClick={() => window.print()} className={ACCAO_DA_FAIXA}><i className="fas fa-print" aria-hidden="true" />{t('Imprimir')}</button>
+                    </>
                 }
-            >
-                {e.descricao && <p className="mb-4 text-sm text-slate-500">{e.descricao}</p>}
+            />
+
+            <Cartao titulo={t('Filtros')} icone="fa-filter">
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     {e.periodo && (
                         <>
@@ -155,10 +195,9 @@ export default function Relatorio({ slug, filtrosIniciais }: { slug: string; fil
 
             {e.cartoes.length > 0 && (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-cartoes>
-                    {e.cartoes.map((c) => (
-                        <div key={c.chave + c.rotulo} className={cls('border-l-4 bg-white p-4 shadow-sm', RAIO, CORES[c.cor ?? 'gray'] ?? CORES.gray)}>
-                            <p className="text-xs font-bold uppercase tracking-wider">{c.rotulo}</p>
-                            <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{formatar(valor(dados, c.chave), c.formato ?? 'dinheiro')}</p>
+                    {e.cartoes.map((c, i) => (
+                        <div key={c.chave + c.rotulo} className="entra" style={cascata(i)}>
+                            <CartaoDoMapa rotulo={c.rotulo} cor={c.cor} formato={c.formato} valor={valor(dados, c.chave)} />
                         </div>
                     ))}
                 </div>
@@ -226,6 +265,7 @@ function TabelaDoMapa({ tabela, dados, csv }: { tabela: Tabela; dados: Dados; cs
     return (
         <Cartao
             titulo={tabela.titulo}
+            icone="fa-list"
             semPadding
             accoes={csv ? (
                 <a
@@ -247,9 +287,19 @@ function TabelaDoMapa({ tabela, dados, csv }: { tabela: Tabela; dados: Dados; cs
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                        {linhas.length === 0 && <tr><td colSpan={tabela.colunas.length + (tabela.numerada ? 1 : 0)} className="px-3 py-8 text-center text-slate-400">{tabela.vazio ?? t('Nada a mostrar neste período.')}</td></tr>}
+                        {linhas.length === 0 && (
+                            <tr>
+                                <td colSpan={tabela.colunas.length + (tabela.numerada ? 1 : 0)}>
+                                    <SemNada icone="fa-table-list" titulo={tabela.vazio ?? t('Nada a mostrar neste período.')} frase={t('Alargue as datas ou mude os filtros lá em cima.')} />
+                                </td>
+                            </tr>
+                        )}
                         {linhas.map((l, i) => (
-                            <tr key={i}>
+                            /* A linha entra um instante depois da anterior, e
+                               acende ao passar o rato: é o que o mapa em Blade
+                               fazia, e é o que diz onde está o cursor numa
+                               tabela de trinta colunas. */
+                            <tr key={i} className="entra transition-all duration-200 hover:bg-indigo-50/60" style={cascata(i)}>
                                 {tabela.numerada && <td className="px-3 py-2 text-slate-400">{i + 1}</td>}
                                 {tabela.colunas.map((c) => <td key={c.chave + c.rotulo} className={cls('px-3 py-2', alinhar(c), (c.formato === 'dinheiro' || c.formato === 'inteiro' || c.formato === 'numero' || c.formato === 'percentagem') && 'tabular-nums')}><Valor v={valor(l, c.chave)} formato={c.formato} /></td>)}
                             </tr>

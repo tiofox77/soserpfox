@@ -66,4 +66,11 @@ export const agt = {
     consultar: (corpo: Record<string, unknown>, empresa?: number) => api.criar<{ data: Record<string, unknown> }>('/agt/consulta', com(empresa, corpo)),
     contribuinte: (empresa?: number) => api.ler<{ data: Contribuinte; permissoes: { pode_editar: boolean } }>('/agt/contribuinte', com(empresa)),
     guardarContribuinte: (corpo: Record<string, unknown>, empresa?: number) => api.criar<Resposta & { data: Contribuinte }>('/agt/contribuinte', com(empresa, corpo)),
+
+    /*
+     * A chave privada «do modo antigo». Sobe, nunca desce: a resposta traz a
+     * ficha do contribuinte, onde `chave_legado` diz apenas se está instalada.
+     */
+    guardarChaveLegado: (pem: string, empresa?: number) => api.criar<Resposta & { data: Contribuinte }>('/agt/contribuinte/chave', com(empresa, { contributor_private_key: pem })),
+    removerChaveLegado: (empresa?: number) => api.criar<Resposta & { data: Contribuinte }>('/agt/contribuinte/chave/remover', com(empresa)),
 };

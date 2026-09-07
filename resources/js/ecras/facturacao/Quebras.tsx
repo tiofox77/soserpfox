@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { quebras, type Quebra } from '@/api/quebras';
@@ -7,10 +7,11 @@ import { AvisoDeErro } from '@/ui/AvisoDeErro';
 import { Botao } from '@/ui/Botao';
 import { Campo, entrada } from '@/ui/Campo';
 import { Cartao } from '@/ui/Cartao';
+import { CartaoNumero } from '@/ui/CartaoNumero';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { GraficoDeBarras } from '@/ui/GraficoDeBarras';
-import { FOCO, RAIO, cls, kz } from '@/ui/tokens';
+import { CORES, FOCO, RAIO, cls, kz } from '@/ui/tokens';
 import { t } from '@/i18n';
 
 /**
@@ -21,7 +22,16 @@ import { t } from '@/i18n';
  * período, e PORQUÊ. Registar faz o stock descer e anular fá-lo voltar pelo
  * movimento contrário; é o `QuebraDeStock` que o garante, o mesmo que o
  * ecrã Livewire chama.
+ *
+ * O ASPECTO É O DE SEMPRE: o dinheiro perdido no período era o número grande
+ * do cabeçalho rosa deste ecrã, e volta como cartão de gradiente — vermelho,
+ * porque é uma perda. A lista recupera a cascata, o passar do rato e o
+ * estado vazio desenhado.
  */
+
+/** O atraso da linha `i` na entrada em cascata (ver `.entra` no layout). */
+const cascata = (i: number) => ({ '--i': i }) as CSSProperties;
+
 export default function Quebras() {
     const cache = useQueryClient();
     const [filtros, porFiltros] = useState({ de: primeiroDoMes(), ate: hoje(), motivo: 'todos', page: 1 });
@@ -63,7 +73,7 @@ export default function Quebras() {
 
             {o.permissoes.pode_registar && <Registo o={o} aoFeito={feito} />}
 
-            <Cartao titulo={t('O período')}>
+            <Cartao titulo={t('O período')} icone="fa-calendar-days">
                 <div className="flex flex-wrap items-end gap-3">
                     <Campo etiqueta={t('De')}><input type="date" value={filtros.de} onChange={(e) => porFiltros((f) => ({ ...f, de: e.target.value, page: 1 }))} className={entrada} /></Campo>
                     <Campo etiqueta={t('Até')}><input type="date" value={filtros.ate} onChange={(e) => porFiltros((f) => ({ ...f, ate: e.target.value, page: 1 }))} className={entrada} /></Campo>
@@ -78,21 +88,27 @@ export default function Quebras() {
 
             {resumo && (
                 <div className="grid gap-4 lg:grid-cols-3">
-                    <div className={cls('border border-slate-200 bg-white p-4', RAIO)}>
-                        <p className="text-xs uppercase tracking-wider text-slate-500">{t('Perdido no período')}</p>
-                        <p className="text-2xl font-bold tabular-nums text-red-700" data-custo>{kz(resumo.custo)} <span className="text-sm font-normal text-slate-400">Kz</span></p>
-                        <p className="text-sm text-slate-500">{t(':quantos registo(s)', { quantos: resumo.registos })}</p>
-                    </div>
-                    <Cartao titulo={t('Porquê')}>
+                    {/* O número que este ecrã existe para dar. Vermelho porque é
+                        dinheiro que se perdeu, e com o caixote a arder ao lado
+                        para quem não distingue o vermelho do resto. */}
+                    <CartaoNumero
+                        rotulo={t('Perdido no período')}
+                        valor={<span data-custo>{kz(resumo.custo)}</span>}
+                        sufixo="Kz"
+                        icone="fa-dumpster-fire"
+                        tom={resumo.custo > 0 ? 'vermelho' : 'cinza'}
+                        nota={t(':quantos registo(s)', { quantos: resumo.registos })}
+                    />
+                    <Cartao titulo={t('Porquê')} icone="fa-chart-pie">
                         {resumo.por_motivo.length === 0 ? <p className="text-sm text-slate-400">{t('Nada perdido neste período.')}</p> : (
                             <GraficoDeBarras titulo={t('Custo perdido por motivo')} dados={resumo.por_motivo.map((m) => ({ rotulo: m.rotulo, valor: m.custo }))} />
                         )}
                     </Cartao>
-                    <Cartao titulo={t('Onde')}>
+                    <Cartao titulo={t('Onde')} icone="fa-boxes-stacked">
                         {resumo.por_produto.length === 0 ? <p className="text-sm text-slate-400">—</p> : (
                             <ul className="divide-y divide-slate-100 text-sm">
                                 {resumo.por_produto.map((p, i) => (
-                                    <li key={i} className="flex items-center justify-between py-1.5">
+                                    <li key={i} style={cascata(i)} className="entra -mx-2 flex items-center justify-between rounded-lg px-2 py-1.5 transition-all duration-200 hover:bg-rose-50/60">
                                         <span>{p.artigo} <span className="text-xs text-slate-400">{p.quantidade.toLocaleString('pt-PT')} {p.unidade}</span></span>
                                         <span className="tabular-nums font-semibold">{kz(p.custo)}</span>
                                     </li>
@@ -107,31 +123,61 @@ export default function Quebras() {
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
-                            <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500">
-                                <th className="px-4 py-3 font-semibold">{t('Quando')}</th>
-                                <th className="px-4 py-3 font-semibold">{t('Artigo')}</th>
-                                <th className="px-4 py-3 font-semibold">{t('Armazém')}</th>
-                                <th className="px-4 py-3 text-right font-semibold">{t('Qtd.')}</th>
-                                <th className="px-4 py-3 text-right font-semibold">{t('Custo')}</th>
-                                <th className="px-4 py-3 font-semibold">{t('Motivo')}</th>
-                                <th className="px-4 py-3 font-semibold">{t('Quem')}</th>
-                                <th className="w-24 px-4 py-3"></th>
+                            <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-600">
+                                <th className="px-4 py-3 font-bold"><i className="fas fa-clock mr-1.5 text-slate-400" aria-hidden="true" />{t('Quando')}</th>
+                                <th className="px-4 py-3 font-bold"><i className="fas fa-box mr-1.5 text-indigo-500" aria-hidden="true" />{t('Artigo')}</th>
+                                <th className="px-4 py-3 font-bold"><i className="fas fa-warehouse mr-1.5 text-blue-500" aria-hidden="true" />{t('Armazém')}</th>
+                                <th className="px-4 py-3 text-right font-bold">{t('Qtd.')}</th>
+                                <th className="px-4 py-3 text-right font-bold">{t('Custo')}</th>
+                                <th className="px-4 py-3 font-bold"><i className="fas fa-circle-question mr-1.5 text-rose-500" aria-hidden="true" />{t('Motivo')}</th>
+                                <th className="px-4 py-3 font-bold">{t('Quem')}</th>
+                                <th className="w-24 px-4 py-3 text-right font-bold">{t('Acções')}</th>
                             </tr>
                         </thead>
                         <tbody className={cls('divide-y divide-slate-100', lista.isFetching && 'opacity-60')}>
-                            {linhas.length === 0 && <tr><td colSpan={8} className="px-4 py-10 text-center text-slate-400">{lista.isPending ? t('A carregar…') : t('Nenhuma quebra neste período.')}</td></tr>}
-                            {linhas.map((q) => (
-                                <tr key={q.id} className={cls(q.anulada && 'text-slate-400 line-through')}>
+                            {linhas.length === 0 && (
+                                <tr>
+                                    <td colSpan={8} className="px-6 py-16">
+                                        {lista.isPending ? (
+                                            <p className="text-center text-slate-400">{t('A carregar…')}</p>
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center text-center">
+                                                <div className="mb-4 grid h-20 w-20 place-items-center rounded-full bg-slate-100">
+                                                    <i className="fas fa-dumpster-fire text-3xl text-slate-400" aria-hidden="true" />
+                                                </div>
+                                                <p className="text-lg font-semibold text-slate-500">{t('Nenhuma quebra neste período.')}</p>
+                                                <p className="mt-2 max-w-md text-sm text-slate-400">{t('Quando um artigo expirar, se estragar ou partir, registe-o acima — sai do stock e fica no relatório.')}</p>
+                                            </div>
+                                        )}
+                                    </td>
+                                </tr>
+                            )}
+                            {linhas.map((q, i) => (
+                                <tr key={q.id} style={cascata(i)} className={cls('entra transition-all duration-200 hover:bg-rose-50/60', q.anulada && 'text-slate-400 line-through opacity-60')}>
                                     <td className="px-4 py-2 tabular-nums">{q.quando}</td>
-                                    <td className="px-4 py-2">{q.artigo}{q.notas && <span className="block text-xs no-underline text-slate-400">{q.notas}</span>}</td>
-                                    <td className="px-4 py-2">{q.armazem}</td>
-                                    <td className="px-4 py-2 text-right tabular-nums">{q.quantidade.toLocaleString('pt-PT')} {q.unidade}</td>
-                                    <td className="px-4 py-2 text-right tabular-nums">{kz(q.custo)}</td>
-                                    <td className="px-4 py-2"><Etiqueta cor={q.anulada ? 'neutra' : 'aviso'}>{q.motivo_rotulo}</Etiqueta></td>
+                                    <td className="px-4 py-2 font-medium text-slate-800">
+                                        {q.artigo}
+                                        {/* A anulada continua a dizer POR QUE foi
+                                            registada; o que muda é ganhar aqui a
+                                            marca de anulada, como no ecrã de
+                                            sempre — o risco por cima do texto
+                                            sozinho não chega a quem lê letra a
+                                            letra. */}
+                                        {q.anulada && <span className="ml-2 inline-block no-underline"><Etiqueta cor="neutra" icone="fa-rotate-left">{t('Anulada')}</Etiqueta></span>}
+                                        {q.notas && <span className="block text-xs font-normal text-slate-400 no-underline">{q.notas}</span>}
+                                    </td>
+                                    <td className="px-4 py-2">{q.armazem ? <Etiqueta cor="neutra" icone="fa-warehouse">{q.armazem}</Etiqueta> : <span className="text-slate-300">—</span>}</td>
+                                    <td className="px-4 py-2 text-right tabular-nums">{q.quantidade.toLocaleString('pt-PT')} <span className="text-xs text-slate-400">{q.unidade}</span></td>
+                                    <td className={cls('px-4 py-2 text-right font-bold tabular-nums', !q.anulada && 'text-red-600')}>{kz(q.custo)}</td>
+                                    <td className="px-4 py-2">
+                                        <Etiqueta cor={q.anulada ? 'neutra' : 'aviso'} icone="fa-triangle-exclamation" ponto>
+                                            {q.motivo_rotulo}
+                                        </Etiqueta>
+                                    </td>
                                     <td className="px-4 py-2">{q.quem}</td>
                                     <td className="px-4 py-2 text-right">
                                         {!q.anulada && o.permissoes.pode_registar && (
-                                            <button type="button" onClick={() => anular.mutate(q)} title={t('Anular')} aria-label={t('Anular quebra de :artigo', { artigo: q.artigo ?? '' })} className={cls('p-2 text-slate-400 hover:text-red-600', RAIO, FOCO)}><i className="fas fa-rotate-left" aria-hidden="true" /></button>
+                                            <button type="button" onClick={() => anular.mutate(q)} title={t('Anular')} aria-label={t('Anular quebra de :artigo', { artigo: q.artigo ?? '' })} className={cls('grid h-9 w-9 place-items-center rounded-lg transition-all duration-200 hover:scale-110', CORES.aviso.suave, FOCO)}><i className="fas fa-rotate-left" aria-hidden="true" /></button>
                                         )}
                                     </td>
                                 </tr>
@@ -140,7 +186,7 @@ export default function Quebras() {
                     </table>
                 </div>
                 {contas && contas.last_page > 1 && (
-                    <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-sm text-slate-500">
+                    <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
                         <span>{t('Página :pagina de :ultima', { pagina: contas.current_page, ultima: contas.last_page })}</span>
                         <span className="flex gap-1">
                             <Botao icone="fa-chevron-left" disabled={contas.current_page <= 1} onClick={() => porFiltros((f) => ({ ...f, page: contas.current_page - 1 }))}>{t('Anterior')}</Botao>
@@ -182,7 +228,7 @@ function Registo({ o, aoFeito }: { o: { motivos: Array<{ valor: string; rotulo: 
     });
 
     return (
-        <Cartao titulo={t('Registar uma quebra')}>
+        <Cartao titulo={t('Registar uma quebra')} icone="fa-dumpster-fire">
             <AvisoDeErro erro={registar.error} />
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
                 <div className="relative lg:col-span-2">
@@ -190,9 +236,9 @@ function Registo({ o, aoFeito }: { o: { motivos: Array<{ valor: string; rotulo: 
                         <input value={artigo ? artigo.name : procura} onChange={(e) => { porArtigo(null); porProcura(e.target.value); }} placeholder={t('Nome, código ou código de barras')} className={entrada} />
                     </Campo>
                     {sugestoes.length > 0 && (
-                        <ul className={cls('absolute z-10 mt-1 w-full border border-slate-200 bg-white shadow-lg', RAIO)} role="listbox">
-                            {sugestoes.map((s) => (
-                                <li key={s.id}><button type="button" onClick={() => { porArtigo(s); porSugestoes([]); }} className={cls('block w-full px-3 py-2 text-left text-sm hover:bg-slate-50', FOCO)}>{s.name}{s.code && <span className="ml-2 font-mono text-xs text-slate-400">{s.code}</span>}</button></li>
+                        <ul className={cls('absolute z-10 mt-1 w-full overflow-hidden border border-slate-200 bg-white shadow-xl', RAIO)} role="listbox">
+                            {sugestoes.map((s, i) => (
+                                <li key={s.id} style={cascata(i)} className="entra border-b border-slate-100 last:border-0"><button type="button" onClick={() => { porArtigo(s); porSugestoes([]); }} className={cls('block w-full px-3 py-2 text-left text-sm transition-all duration-200 hover:bg-rose-50/60', FOCO)}><span className="font-semibold text-slate-900">{s.name}</span>{s.code && <span className="ml-2 font-mono text-xs text-slate-400">{s.code}</span>}{s.unit && <span className="ml-1 text-xs text-slate-400">· {s.unit}</span>}</button></li>
                             ))}
                         </ul>
                     )}

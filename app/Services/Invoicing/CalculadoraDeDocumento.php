@@ -57,6 +57,31 @@ class CalculadoraDeDocumento
     }
 
     /**
+     * HÁ ARTIGOS FÍSICOS NESTAS LINHAS?
+     *
+     * É o que decide se o armazém é obrigatório: um documento só de serviços
+     * dispensa-o, um que leve mercadoria não. A pergunta vive aqui — no
+     * serviço que já sabe ler as linhas de um pedido — para o ecrã e o
+     * servidor responderem o mesmo. Uma linha livre (sem artigo) não é
+     * mercadoria: não há stock por trás dela.
+     *
+     * @param  array<int, array{product_id?: int|null}>  $linhas
+     */
+    public static function temArtigosFisicos(array $linhas, ?int $tenantId = null): bool
+    {
+        $ids = collect($linhas)->pluck('product_id')->filter()->unique()->all();
+
+        if ($ids === []) {
+            return false;
+        }
+
+        return Product::where('tenant_id', $tenantId ?: activeTenantId())
+            ->whereIn('id', $ids)
+            ->where(fn ($q) => $q->where('type', '!=', 'servico')->orWhereNull('type'))
+            ->exists();
+    }
+
+    /**
      * As linhas do pedido, com a taxa RESOLVIDA e no formato que o helper
      * espera (objectos com `price`, `quantity` e `attributes`).
      */

@@ -225,6 +225,69 @@ test('um valor gravado continua a ver-se com o perfil desligado', async ({ page 
     await expect(edicao.getByLabel(/Exige receita médica/)).toBeChecked();
 });
 
+/**
+ * A MARCA, O FORNECEDOR E O CONTROLO DE LOTES.
+ *
+ * Os seis campos que a migração para React tinha deixado para trás. Os quatro
+ * de lote são o que liga o artigo ao módulo de Lotes e Validades — sem eles o
+ * artigo nunca lá entra.
+ */
+test('a marca, o fornecedor e o controlo de lotes estao no formulario', async ({ page }) => {
+    await page.getByRole('button', { name: /Novo artigo/ }).click();
+
+    const janela = page.getByRole('dialog');
+
+    await expect(janela.getByLabel(/^Marca/)).toBeVisible();
+    await expect(janela.getByLabel(/^Fornecedor/)).toBeVisible();
+
+    await expect(janela.getByLabel(/Rastrear por Lotes/)).toBeVisible();
+    await expect(janela.getByLabel(/Controlar Validade/)).toBeVisible();
+    await expect(janela.getByLabel(/Exigir Lote na Compra/)).toBeVisible();
+    await expect(janela.getByLabel(/Exigir Lote na Venda/)).toBeVisible();
+
+    // Um serviço não tem remessa nem prazo de validade: os lotes desaparecem
+    // com o stock. A marca e o fornecedor ficam — um serviço também se compra.
+    await janela.getByLabel(/^Tipo\b/).selectOption('servico');
+
+    await expect(janela.getByLabel(/Rastrear por Lotes/)).toHaveCount(0);
+    await expect(janela.getByLabel(/Exigir Lote na Venda/)).toHaveCount(0);
+    await expect(janela.getByLabel(/^Marca/)).toBeVisible();
+});
+
+/** E gravam: um artigo marcado volta a abrir marcado. */
+test('o controlo de lotes grava e a ficha volta a abrir marcada', async ({ page }) => {
+    const nome = 'Lote React ' + String(Date.now()).slice(-6);
+
+    await page.getByRole('button', { name: /Novo artigo/ }).click();
+
+    const janela = page.getByRole('dialog');
+
+    await janela.getByLabel(/^Nome\b/).fill(nome);
+    await janela.getByLabel(/^Preço\b/).fill('3500');
+    await janela.getByLabel(/^Categoria\b/).selectOption({ index: 1 });
+    await janela.getByLabel(/^Imposto\b/).selectOption('isento');
+    await janela.getByLabel(/^Motivo da isenção\b/).fill('M99');
+
+    await janela.getByLabel(/Rastrear por Lotes/).check();
+    await janela.getByLabel(/Controlar Validade/).check();
+
+    await janela.getByRole('button', { name: 'Guardar' }).click();
+
+    await expect(page.getByRole('status')).toContainText('Artigo criado', { timeout: 20_000 });
+
+    await page.getByPlaceholder('Nome, código, SKU ou código de barras').fill(nome);
+
+    const linha = page.locator('tbody tr').filter({ hasText: nome }).first();
+    await expect(linha).toBeVisible({ timeout: 20_000 });
+
+    await linha.getByRole('button', { name: /^Editar / }).click();
+
+    const edicao = page.getByRole('dialog');
+    await expect(edicao.getByLabel(/Rastrear por Lotes/)).toBeChecked();
+    await expect(edicao.getByLabel(/Controlar Validade/)).toBeChecked();
+    await expect(edicao.getByLabel(/Exigir Lote na Venda/)).not.toBeChecked();
+});
+
 /** As imagens: escolher uma mostra a pré-visualização antes de ela subir. */
 test('a imagem de destaque mostra-se antes de subir', async ({ page }) => {
     await page.getByRole('button', { name: /Novo artigo/ }).click();

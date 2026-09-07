@@ -1,11 +1,14 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { painel, type NumerosDoPainel } from '@/api/painel';
 import { ErroDaApi } from '@/api/cliente';
 import { Botao } from '@/ui/Botao';
 import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
+import { entrada } from '@/ui/Campo';
 import { Etiqueta } from '@/ui/Etiqueta';
+import { CartaoNumero } from '@/ui/CartaoNumero';
 import { GraficoDeBarras } from '@/ui/GraficoDeBarras';
 import { CARTAO, RAIO, cls, data, kz } from '@/ui/tokens';
 import { etiquetaIntl, t } from '@/i18n';
@@ -28,19 +31,29 @@ declare global {
 /**
  * O PAINEL DA FACTURAÇÃO.
  *
- * Não faz contas nenhumas: os números vêm do `PainelDaFacturacao`, o mesmo
- * serviço que o painel em Blade usa. Era essa a condição para os dois
- * existirem ao mesmo tempo sem se contradizerem.
+ * Não faz contas nenhumas: os números vêm do `PainelDaFacturacao`, a fonte
+ * única destas somas. Era essa a condição para o painel e os relatórios não se
+ * contradizerem.
  *
  * E a regra que esses números guardam: conta-se pelo SALDO, nunca pelo nome do
  * estado. Nomear os estados que contam foi o que partiu o painel de origem —
  * dizia 76 mil por cobrar quando havia 15 milhões.
+ *
+ * O PERÍODO É DO SERVIDOR, não deste ecrã. Aqui escolhe-se e pede-se outra
+ * vez; os cartões, o gráfico e o título vêm todos da mesma resposta, e por
+ * isso não podem discordar sobre o período que estão a mostrar — era isso que
+ * o selector do painel de sempre garantia e a migração tinha perdido.
  */
 export default function Painel() {
+    const [periodo, porPeriodo] = useState<string | undefined>(undefined);
+
     const numeros = useQuery({
-        queryKey: ['painel'],
-        queryFn: painel.numeros,
+        queryKey: ['painel', periodo ?? 'omissao'],
+        queryFn: () => painel.numeros(periodo),
         staleTime: 60_000,
+        // Trocar de período não deve apagar o painel inteiro: os números
+        // anteriores ficam à vista até os novos chegarem.
+        placeholderData: keepPreviousData,
     });
 
     if (numeros.isPending) {
@@ -52,15 +65,49 @@ export default function Painel() {
     }
 
     const d = numeros.data;
-    const anoActual = new Date().getFullYear();
+
+    /*
+     * O RÓTULO DO PRIMEIRO CARTÃO SEGUE O PERÍODO.
+     *
+     * O mês tem frase própria — «Faturação do Mês», que o dicionário conhece
+     * nas três línguas e que se lê melhor do que a forma genérica. Os outros
+     * períodos usam a forma com o rótulo por dentro, que o servidor manda já
+     * traduzido. O que não pode acontecer é o cartão dizer «do Mês» com um ano
+     * inteiro somado lá dentro.
+     */
+    const rotuloDoFacturado = d.periodo.valor === 'month'
+        ? t('Faturação do Mês')
+        : t('Faturação :ano', { ano: d.periodo.rotulo });
 
     return (
         <div className="space-y-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-slate-500">
+                    {t('Visão geral do módulo de faturação - :periodo', { periodo: d.periodo.rotulo })}
+                </p>
+                <select
+                    aria-label={t('Período')}
+                    data-periodo
+                    value={d.periodo.valor}
+                    onChange={(ev) => porPeriodo(ev.target.value)}
+                    className={cls(entrada, 'sm:w-56')}
+                >
+                    {/* Os rótulos vêm traduzidos do servidor: uma segunda lista
+                        de períodos aqui acabaria a divergir da dos relatórios. */}
+                    {d.periodo.opcoes.map((o) => (
+                        <option key={o.valor} value={o.valor}>
+                            {o.rotulo}
+                        </option>
+                    ))}
+                </select>
+            </div>
+
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <Numero
-                    rotulo={t('Faturação do Mês')}
+                    rotulo={rotuloDoFacturado}
                     valor={d.stats.total_invoiced}
                     variacao={d.stats.growth}
+                    comparacao={d.periodo.rotulo_anterior}
                 />
                 <Numero
                     rotulo={t('Recebimentos')}
@@ -68,6 +115,8 @@ export default function Painel() {
                     nota={t('Pagamentos recebidos')}
                     cor="bom"
                 />
+                {/* O que se deve não é uma grandeza de período: estes dois são o
+                    retrato de hoje, e a lista lá em baixo segue-os. */}
                 <Numero
                     rotulo={t('Valores Pendentes')}
                     valor={d.stats.total_pending}
@@ -82,28 +131,28 @@ export default function Painel() {
                 />
             </div>
 
-            {/* ANO A ANO, ATÉ AO MESMO DIA. Comparar um ano a meio com um ano
-                inteiro daria sempre uma queda que não existe. */}
+            {/* O PERÍODO ANTERIOR EQUIVALENTE, e o ano até ao mesmo dia.
+                Comparar um ano a meio com um ano inteiro daria sempre uma queda
+                que não existe. */}
             <Cartao
-                titulo={t('Evolução de Vendas - :periodo', { periodo: t('Este Ano') })}
+                titulo={t('Evolução de Vendas - :periodo', { periodo: d.periodo.rotulo })}
                 accoes={<Exportar />}
             >
                 <div className="mb-5 flex flex-wrap items-baseline gap-x-6 gap-y-2">
                     <div>
                         <span className="text-2xl font-bold tabular-nums text-slate-900">
-                            {kz(d.stats.year_invoiced)}
+                            {kz(d.stats.total_invoiced)}
                         </span>
-                        <span className="ml-1 text-sm text-slate-500">Kz · {anoActual}</span>
+                        <span className="ml-1 text-sm text-slate-500">Kz · {d.periodo.rotulo}</span>
                     </div>
                     <div className="text-sm text-slate-500">
-                        {t('Comparação Ano a Ano')}:{' '}
-                        <span className="tabular-nums">{kz(d.stats.year_invoiced_previous)}</span>{' '}
-                        ({t('até hoje')})
+                        {d.periodo.rotulo_anterior}:{' '}
+                        <span className="tabular-nums">{kz(d.stats.total_invoiced_previous)}</span>
                     </div>
-                    <Variacao valor={d.stats.year_growth} />
+                    <Variacao valor={d.stats.growth} />
                 </div>
 
-                <GraficoDeBarras dados={d.por_mes} titulo={t('Vendas (AOA)')} />
+                <GraficoDeBarras dados={d.serie} titulo={t('Vendas (AOA)')} />
             </Cartao>
 
             <div className="grid gap-4 lg:grid-cols-2">
@@ -275,7 +324,11 @@ function TextosDaExportacao({ numeros }: { numeros: NumerosDoPainel }) {
             // Sem substituição: o `:data` é o exportador que o preenche, com
             // a data do dia em que se carregou no botão.
             geradoEm: t('Gerado em: :data'),
-            facturado: t('Faturação do Mês'),
+            // O mesmo rótulo do cartão: o PDF exporta o período que está no
+            // ecrã, e não um mês fixo que já não é o que se está a ver.
+            facturado: numeros.periodo.valor === 'month'
+                ? t('Faturação do Mês')
+                : t('Faturação :ano', { ano: numeros.periodo.rotulo }),
             recebido: t('Recebimentos'),
             pendente: t('Valores Pendentes'),
             vencido: t('Valores Vencidos'),
@@ -296,13 +349,17 @@ function TextosDaExportacao({ numeros }: { numeros: NumerosDoPainel }) {
     };
 
     /*
-     * O ano mês a mês, na forma que o exportador já sabe ler: uma data e um
-     * total. A hora vai escrita para a data ser lida na zona de quem está a
-     * olhar — sem ela, `2026-01-01` é meia-noite em UTC e a Ocidente do
-     * meridiano lê-se 31 de Dezembro.
+     * A MESMA LINHA QUE ESTÁ NO GRÁFICO, na forma que o exportador já sabe
+     * ler: uma data e um total. Exportar o ano enquanto o ecrã mostra a semana
+     * seria dar à folha de cálculo números que ninguém pediu.
+     *
+     * A data vem do servidor — é ele que sabe se o balde é um dia ou um mês. A
+     * hora vai escrita para a data ser lida na zona de quem está a olhar: sem
+     * ela, `2026-01-01` é meia-noite em UTC e a Ocidente do meridiano lê-se 31
+     * de Dezembro.
      */
-    const linhas = numeros.por_mes.map((m, i) => ({
-        date: `${new Date().getFullYear()}-${String(i + 1).padStart(2, '0')}-01T00:00:00`,
+    const linhas = numeros.serie.map((m) => ({
+        date: `${m.data}T00:00:00`,
         total: m.valor,
         rotulo: m.rotulo,
     }));
@@ -322,54 +379,75 @@ function emJson(valor: unknown): { __html: string } {
 
 /* ─── Peças ───────────────────────────────────────────────────────────── */
 
+/**
+ * OS QUATRO NÚMEROS DO TOPO — os cartões de gradiente de sempre.
+ *
+ * Eram assim no painel em Blade (`bg-gradient-to-br from-…-500 to-…-600`, com
+ * o ícone num círculo translúcido) e foi o que mais se notou a faltar quando
+ * o ecrã passou a React: quatro caixas brancas dizem os mesmos números e
+ * parecem outro produto. A cor segue o significado — recebido é verde,
+ * pendente é âmbar, vencido é vermelho — e leva ícone, porque a cor sozinha
+ * não serve a quem não a distingue.
+ */
 function Numero({
     rotulo,
     valor,
     variacao,
+    comparacao,
     nota,
     cor = 'primaria',
 }: {
     rotulo: string;
     valor: number;
     variacao?: number;
+    comparacao?: string;
     nota?: string;
     cor?: 'primaria' | 'bom' | 'aviso' | 'perigo';
 }) {
-    const risca = {
-        primaria: 'border-l-indigo-500',
-        bom: 'border-l-emerald-500',
-        aviso: 'border-l-amber-500',
-        perigo: 'border-l-red-500',
+    const tons = { primaria: 'indigo', bom: 'verde', aviso: 'ambar', perigo: 'vermelho' } as const;
+    const icones = {
+        primaria: 'fa-file-invoice-dollar',
+        bom: 'fa-hand-holding-dollar',
+        aviso: 'fa-clock',
+        perigo: 'fa-triangle-exclamation',
     } as const;
 
     return (
-        <div className={cls(CARTAO, 'border-l-4 p-4', risca[cor])}>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{rotulo}</p>
-            <p className="mt-1.5 text-2xl font-bold tabular-nums text-slate-900">
-                {kz(valor)}
-                <span className="ml-1 text-sm font-normal text-slate-400">Kz</span>
-            </p>
-            {variacao !== undefined && (
-                <p className="mt-1 flex items-center gap-1.5 text-xs">
-                    <Variacao valor={variacao} frase="mes" />
-                </p>
-            )}
-            {nota !== undefined && <p className="mt-1 text-xs text-slate-400">{nota}</p>}
-        </div>
+        <CartaoNumero
+            rotulo={rotulo}
+            valor={kz(valor)}
+            sufixo="Kz"
+            tom={tons[cor]}
+            icone={icones[cor]}
+            nota={
+                variacao !== undefined ? (
+                    <span className="flex items-center gap-1.5">
+                        <Variacao valor={variacao} claro />
+                        {/* Contra o quê: o rótulo do período anterior vem do
+                            servidor, já na língua de quem está a olhar. */}
+                        {comparacao && <span className="text-white/60">· {comparacao}</span>}
+                    </span>
+                ) : (
+                    nota
+                )
+            }
+        />
     );
 }
 
 /**
- * A percentagem e a frase que a acompanha SÃO UMA CHAVE SÓ.
+ * A VARIAÇÃO É SÓ O NÚMERO, e quem diz contra o quê é o rótulo ao lado.
  *
- * «12,3% vs mês anterior» partido em dois pedaços obrigava o tradutor a
- * adivinhar a ordem das palavras, e há línguas onde ela não é a portuguesa.
- * Por isso a frase inteira vai ao dicionário com o `:pct` lá dentro.
+ * Tinha a frase inteira no dicionário — «:pct% vs mês anterior» — porque
+ * partida em dois pedaços obrigava o tradutor a adivinhar a ordem das
+ * palavras. Deixou de servir quando o período passou a ser escolhido: a mesma
+ * frase dizia «vs mês anterior» com uma semana ou um ano à frente. O rótulo do
+ * período anterior vem agora do servidor, que é quem sabe qual é.
  */
-function Variacao({ valor, frase }: { valor: number; frase?: 'mes' }) {
+function Variacao({ valor, claro = false }: { valor: number; claro?: boolean }) {
     // Zero não é subida nem descida, e pintá-lo de verde seria dizer que sim.
     if (Math.abs(valor) < 0.05) {
-        return <span className="text-xs font-semibold text-slate-400">{t('Sem alteração')}</span>;
+        return <span className={cls('text-xs font-semibold', claro ? 'text-white/70' : 'text-slate-400')}>{t('Sem alteração')}</span>;
     }
 
     const sobe = valor > 0;
@@ -379,11 +457,13 @@ function Variacao({ valor, frase }: { valor: number; frase?: 'mes' }) {
         <span
             className={cls(
                 'text-xs font-semibold tabular-nums',
-                sobe ? 'text-emerald-600' : 'text-red-600',
+                claro
+                    ? 'rounded-full bg-white/20 px-1.5 py-0.5 text-white'
+                    : sobe ? 'text-emerald-600' : 'text-red-600',
             )}
         >
             <i className={`fas fa-arrow-${sobe ? 'up' : 'down'} mr-1`} aria-hidden="true" />
-            {frase === 'mes' ? t(':pct% vs mês anterior', { pct }) : `${pct}%`}
+            {pct}%
         </span>
     );
 }

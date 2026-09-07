@@ -7,9 +7,11 @@ import { AvisoDeErro } from '@/ui/AvisoDeErro';
 import { Botao } from '@/ui/Botao';
 import { Campo, entrada } from '@/ui/Campo';
 import { Cartao } from '@/ui/Cartao';
+import { CartaoNumero, type TomDoCartao } from '@/ui/CartaoNumero';
 import { Carregando } from '@/ui/Carregando';
 import { RAIO, cls } from '@/ui/tokens';
 import { t } from '@/i18n';
+import { EstadoNaFaixa, Faixa, cascata } from './faixa';
 
 /**
  * O GERADOR SAFT-AO.
@@ -50,26 +52,40 @@ function Gerador({ o }: { o: OpcoesDoSaft }) {
     };
 
     const e = stats.data?.data;
-    const cartoes = e
+    /*
+     * A COR DE CADA CONTAGEM SEGUE O QUE ELA É, e é sempre a mesma: as
+     * facturas no azul da casa, o dinheiro em verde, o que se credita em
+     * vermelho. Assim quem vê o mesmo mapa todos os meses reconhece o cartão
+     * antes de ler o rótulo — que era o que os cartões do Blade faziam.
+     */
+    const cartoes: Array<{ rotulo: string; valor: string; icone: string; tom: TomDoCartao }> = e
         ? [
-            { rotulo: 'Facturas', valor: String(e.totalInvoices), icone: 'fa-file-invoice' },
-            { rotulo: 'Valor facturado', valor: kz(e.totalValue), icone: 'fa-coins' },
-            { rotulo: 'Notas de crédito', valor: String(e.totalCreditNotes), icone: 'fa-file-circle-minus' },
-            { rotulo: 'Notas de débito', valor: String(e.totalDebitNotes), icone: 'fa-file-circle-plus' },
-            { rotulo: 'Recibos', valor: String(e.totalReceipts), icone: 'fa-receipt' },
-            { rotulo: 'Movimentos de stock', valor: String(e.totalMovements), icone: 'fa-boxes-stacked' },
-            { rotulo: 'Clientes', valor: String(e.totalCustomers), icone: 'fa-users' },
-            { rotulo: 'Fornecedores', valor: String(e.totalSuppliers), icone: 'fa-truck' },
-            { rotulo: 'Produtos', valor: String(e.totalProducts), icone: 'fa-box' },
+            { rotulo: 'Facturas', valor: String(e.totalInvoices), icone: 'fa-file-invoice', tom: 'azul' },
+            { rotulo: 'Valor facturado', valor: kz(e.totalValue), icone: 'fa-coins', tom: 'verde' },
+            { rotulo: 'Notas de crédito', valor: String(e.totalCreditNotes), icone: 'fa-file-circle-minus', tom: 'vermelho' },
+            { rotulo: 'Notas de débito', valor: String(e.totalDebitNotes), icone: 'fa-file-circle-plus', tom: 'laranja' },
+            { rotulo: 'Recibos', valor: String(e.totalReceipts), icone: 'fa-receipt', tom: 'verde' },
+            { rotulo: 'Movimentos de stock', valor: String(e.totalMovements), icone: 'fa-boxes-stacked', tom: 'ambar' },
+            { rotulo: 'Clientes', valor: String(e.totalCustomers), icone: 'fa-users', tom: 'indigo' },
+            { rotulo: 'Fornecedores', valor: String(e.totalSuppliers), icone: 'fa-truck', tom: 'cinza' },
+            { rotulo: 'Produtos', valor: String(e.totalProducts), icone: 'fa-box', tom: 'roxo' },
         ]
         : [];
 
     return (
         <div className="space-y-4">
+            <Faixa
+                icone="fa-file-code"
+                titulo={t('Gerador SAFT-AO')}
+                subtitulo={t('Standard Audit File for Tax — Angola (AGT)')}
+                accoes={<EstadoNaFaixa icone="fa-code-branch">{t('Versão SAFT')} <strong>1.01_01</strong></EstadoNaFaixa>}
+            />
+
             <AvisoDeErro erro={stats.error} />
 
             <Cartao
-                titulo={<span className="flex items-center gap-2"><i className="fas fa-file-code text-slate-400" aria-hidden="true" />{t('SAFT-AO do período')}</span>}
+                titulo={t('SAFT-AO do período')}
+                icone="fa-calendar-days"
                 accoes={o.permissoes.pode_gerar && <Botao cor="primaria" tom="solida" icone="fa-download" disabled={!completo || stats.isPending} onClick={descarregar}>{t('Gerar e descarregar')}</Botao>}
             >
                 <div className="grid gap-4 sm:grid-cols-3">
@@ -95,15 +111,11 @@ function Gerador({ o }: { o: OpcoesDoSaft }) {
                 {!o.permissoes.pode_gerar && <p className="mt-4 text-sm text-slate-500">{t('Pode ver as contagens; gerar o ficheiro é permissão à parte.')}</p>}
             </Cartao>
 
-            <div data-estatisticas className={cls('grid gap-3 sm:grid-cols-3', stats.isFetching && 'opacity-60')}>
-                {stats.isPending && <div className="sm:col-span-3"><Carregando linhas={3} /></div>}
-                {cartoes.map((c) => (
-                    <div key={c.rotulo} className={cls('flex items-center gap-3 border border-slate-200 bg-white p-4', RAIO)}>
-                        <i className={cls('fas text-xl text-slate-300', c.icone)} aria-hidden="true" />
-                        <div>
-                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t(c.rotulo)}</p>
-                            <p className="text-lg font-bold tabular-nums text-slate-900">{c.valor}</p>
-                        </div>
+            <div data-estatisticas className={cls('grid gap-3 sm:grid-cols-2 lg:grid-cols-3', stats.isFetching && 'opacity-60')}>
+                {stats.isPending && <div className="lg:col-span-3"><Carregando linhas={3} /></div>}
+                {cartoes.map((c, i) => (
+                    <div key={c.rotulo} className="entra" style={cascata(i)}>
+                        <CartaoNumero rotulo={t(c.rotulo)} valor={c.valor} icone={c.icone} tom={c.tom} />
                     </div>
                 ))}
             </div>

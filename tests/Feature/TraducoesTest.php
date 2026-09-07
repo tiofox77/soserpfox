@@ -259,9 +259,23 @@ class TraducoesTest extends TenantTestCase
 
             $fonte = file_get_contents($ficheiro);
 
-            // Um ecrã sem frase nenhuma escrita (só monta peças) não precisa
-            // de tradutor; o que se persegue é o que tem texto e o ignora.
-            if (! str_contains($fonte, "from '@/i18n'")) {
+            if (str_contains($fonte, "from '@/i18n'")) {
+                continue;
+            }
+
+            /*
+             * UM ECRÃ SEM FRASE NENHUMA NÃO PRECISA DE TRADUTOR.
+             *
+             * Há peças que só desenham — a faixa do topo, o cartão de número —
+             * e recebem o texto todo de fora. Exigir-lhes o `t()` era exigir
+             * um import por usar, e o ensaio passava a mentir sobre o que
+             * guarda. O que se persegue é o ficheiro que ESCREVE texto e o
+             * deixa fora do dicionário.
+             */
+            $escreveTexto = preg_match('/>[A-ZÀ-Ú][a-zà-úçãõéíóâêô ]{3,}</u', $fonte)
+                || preg_match('/(etiqueta|titulo|placeholder|aria-label|rotulo)="[A-ZÀ-Ú][^"]{3,}"/u', $fonte);
+
+            if ($escreveTexto) {
                 $semTradutor[] = basename($ficheiro);
             }
         }

@@ -13,13 +13,19 @@ import { FOCO, RAIO, cls } from '@/ui/tokens';
 import { t } from '@/i18n';
 
 /**
- * A FICHA DO CONTRIBUINTE NA AGT: o NIF, o estabelecimento, os avisos e o
- * comportamento ao emitir. É a mesma ficha que o ecrã de sempre grava,
- * pela mesma `GestaoAgt`.
+ * A FICHA DO CONTRIBUINTE NA AGT: o NIF, o estabelecimento, os avisos, o
+ * comportamento ao emitir e a chave privada «do modo antigo». É a mesma ficha
+ * que o ecrã de sempre gravava, pela mesma `GestaoAgt`.
  *
- * O que fica de fora, de propósito: a chave privada «do modo antigo», sem
- * ambiente. As chaves gerem-se por ambiente em AGT Angola — e mudar o
- * ambiente que emite também é lá, com a regra das chaves.
+ * A CHAVE NUNCA DESCE. O que este ecrã mostra dela é se está instalada ou não:
+ * a resposta da API traz um sim ou não, nunca o PEM nem um pedaço dele. Uma
+ * chave privada que sai numa resposta fica no registo do navegador, na cache e
+ * em qualquer intermediário pelo caminho — e a partir daí qualquer um assina
+ * documentos fiscais em nome da empresa.
+ *
+ * O par POR AMBIENTE — o caminho de hoje — e o ambiente que emite gerem-se em
+ * AGT Angola, com a regra das chaves. Esta é a de trás, sem ambiente, para
+ * quem ainda assina com ela.
  */
 export default function CredenciaisAgt() {
     const q = useQuery({ queryKey: ['agt', 'contribuinte'], queryFn: () => agt.contribuinte() });
@@ -53,9 +59,27 @@ function Ficha({ inicial, podeEditar, cae }: { inicial: Contribuinte; podeEditar
     const [recado, porRecado] = useState('');
     const [ligacao, porLigacao] = useState<{ success?: boolean; error?: string } | null>(null);
 
+    const [chave, porChave] = useState('');
+
     const gravar = useMutation({
         mutationFn: () => agt.guardarContribuinte(forma),
         onSuccess: (r) => { porRecado(r.message); porErros({}); void cache.invalidateQueries({ queryKey: ['agt'] }); },
+        onError: (e) => porErros(e instanceof ErroDaApi ? e.erros : {}),
+    });
+
+    /*
+     * A chave sobe e some-se da caixa: deixá-la escrita no ecrã depois de
+     * gravada é guardá-la no sítio onde ela não devia estar.
+     */
+    const gravarChave = useMutation({
+        mutationFn: () => agt.guardarChaveLegado(chave),
+        onSuccess: (r) => { porRecado(r.message); porErros({}); porChave(''); void cache.invalidateQueries({ queryKey: ['agt'] }); },
+        onError: (e) => porErros(e instanceof ErroDaApi ? e.erros : {}),
+    });
+
+    const removerChave = useMutation({
+        mutationFn: () => agt.removerChaveLegado(),
+        onSuccess: (r) => { porRecado(r.message); porErros({}); porChave(''); void cache.invalidateQueries({ queryKey: ['agt'] }); },
         onError: (e) => porErros(e instanceof ErroDaApi ? e.erros : {}),
     });
     const testar = useMutation({ mutationFn: () => agt.testarLigacao(inicial.agt_environment), onSuccess: (r) => porLigacao(r.data), onError: (e) => porLigacao({ success: false, error: e instanceof ErroDaApi ? e.message : t('Não foi possível testar.') }) });
@@ -102,6 +126,83 @@ function Ficha({ inicial, podeEditar, cae }: { inicial: Contribuinte; podeEditar
                 </div>
                 <p className="mt-4 text-sm text-slate-500">{t('As chaves RSA e o ambiente que emite gerem-se em')} <a href="/invoicing/agt-settings" className="font-semibold text-indigo-700 underline">AGT Angola</a>, {t('por ambiente.')}</p>
             </Cartao>
+
+            <ChaveDoModoAntigo
+                instalada={inicial.chave_legado}
+                podeEditar={podeEditar}
+                chave={chave}
+                porChave={porChave}
+                erro={erros.contributor_private_key}
+                aGravar={gravarChave.isPending}
+                aRemover={removerChave.isPending}
+                gravar={() => gravarChave.mutate()}
+                remover={() => removerChave.mutate()}
+            />
         </div>
+    );
+}
+
+/**
+ * A CHAVE PRIVADA «DO MODO ANTIGO» — colar e remover, e mais nada.
+ *
+ * O ecrã de sempre deixava colá-la aqui e há empresas que ainda assinam com
+ * ela; a migração para React tinha-a deixado de fora. O que se vê dela é a
+ * etiqueta de instalada ou por instalar: o PEM sobe e nunca mais desce.
+ */
+function ChaveDoModoAntigo({
+    instalada, podeEditar, chave, porChave, erro, aGravar, aRemover, gravar, remover,
+}: {
+    instalada: boolean;
+    podeEditar: boolean;
+    chave: string;
+    porChave: (v: string) => void;
+    erro?: string[];
+    aGravar: boolean;
+    aRemover: boolean;
+    gravar: () => void;
+    remover: () => void;
+}) {
+    return (
+        <Cartao
+            titulo={<span className="flex items-center gap-2"><i className="fas fa-key text-slate-400" aria-hidden="true" />{t('Chave privada do contribuinte (modo antigo)')}</span>}
+            accoes={
+                <Etiqueta cor={instalada ? 'bom' : 'aviso'} icone={instalada ? 'fa-lock' : 'fa-lock-open'}>
+                    <span data-chave-legado>{instalada ? t('Instalada') : t('Por instalar')}</span>
+                </Etiqueta>
+            }
+        >
+            <p className="mb-4 text-sm text-slate-500">
+                {t('Só para as empresas que ainda assinam sem ambiente. Hoje as chaves instalam-se aos pares, por ambiente, em AGT Angola. A chave nunca volta a aparecer neste ecrã: guardada, fica só a indicação de que está instalada.')}
+            </p>
+
+            {podeEditar ? (
+                <>
+                    <Campo etiqueta={t('Chave privada em PEM')} erro={erro}>
+                        <textarea
+                            value={chave}
+                            onChange={(ev) => porChave(ev.target.value)}
+                            rows={6}
+                            spellCheck={false}
+                            placeholder="-----BEGIN PRIVATE KEY-----"
+                            // `entrada` traz a altura de uma linha; uma chave
+                            // são vinte e cinco, e cortadas não se conferem.
+                            className={cls(entrada, 'h-auto py-2 font-mono text-xs')}
+                        />
+                    </Campo>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                        <Botao cor="primaria" tom="solida" icone="fa-floppy-disk" aTrabalhar={aGravar} onClick={gravar}>
+                            {t('Guardar chave')}
+                        </Botao>
+                        {instalada && (
+                            <Botao cor="perigo" icone="fa-trash" aTrabalhar={aRemover} onClick={remover}>
+                                {t('Remover chave')}
+                            </Botao>
+                        )}
+                    </div>
+                </>
+            ) : (
+                <p className="text-sm text-slate-400">{t('Sem permissão para alterar a chave.')}</p>
+            )}
+        </Cartao>
     );
 }

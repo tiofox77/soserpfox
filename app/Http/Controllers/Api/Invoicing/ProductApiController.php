@@ -4,15 +4,18 @@ namespace App\Http\Controllers\Api\Invoicing;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Invoicing\ProductResource;
+use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Invoicing\InvoicingSettings;
 use App\Models\Invoicing\Tax;
 use App\Models\Product;
+use App\Models\Supplier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -353,6 +356,24 @@ class ProductApiController extends Controller
                 ->orderBy('name')
                 ->get(['id', 'name']),
 
+            /*
+             * MARCAS E FORNECEDORES — as duas listas que o formulário de
+             * sempre montava DENTRO da vista, com um `Model::where(...)` no
+             * meio do Blade. Vêm com o resto das opções, numa viagem só.
+             *
+             * As marcas desligadas não se oferecem (era o que a lista de
+             * sempre fazia); os fornecedores vão todos, porque um artigo
+             * comprado a um fornecedor que já ninguém usa continua a ser dele.
+             */
+            'marcas' => Brand::where('tenant_id', activeTenantId())
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name']),
+
+            'fornecedores' => Supplier::where('tenant_id', activeTenantId())
+                ->orderBy('name')
+                ->get(['id', 'name']),
+
             // As taxas do catálogo da empresa. O regime fiscal já as afinou —
             // nunca se escreve uma percentagem à mão.
             'taxas' => Tax::where('tenant_id', activeTenantId())
@@ -458,6 +479,20 @@ class ProductApiController extends Controller
             'cost' => ['nullable', 'numeric', 'min:0'],
             'unit' => ['required', 'string', 'max:20'],
             'category_id' => ['required', 'integer', 'exists:invoicing_categories,id'],
+
+            /*
+             * A MARCA E O FORNECEDOR CONFIRMAM-SE CONTRA ESTA EMPRESA.
+             *
+             * A regra de sempre era um `exists:invoicing_brands,id` seco: um
+             * número escrito à mão no pedido punha a marca de outra empresa
+             * num artigo nosso, e o nome dela aparecia depois na ficha. Um
+             * `id` que venha do pedido confirma-se — e sem os apagados, que
+             * as duas tabelas têm SoftDeletes.
+             */
+            'brand_id' => ['nullable', 'integer', Rule::exists('invoicing_brands', 'id')
+                ->where('tenant_id', activeTenantId())->whereNull('deleted_at')],
+            'supplier_id' => ['nullable', 'integer', Rule::exists('invoicing_suppliers', 'id')
+                ->where('tenant_id', activeTenantId())->whereNull('deleted_at')],
             'tax_type' => ['required', 'in:iva,isento'],
             'tax_rate_id' => ['required_if:tax_type,iva', 'nullable', 'integer', 'exists:invoicing_taxes,id'],
             'exemption_reason' => ['required_if:tax_type,isento', 'nullable', 'string', 'max:255'],
@@ -467,6 +502,17 @@ class ProductApiController extends Controller
             'stock_min' => ['nullable', 'integer', 'min:0'],
             'stock_max' => ['nullable', 'integer', 'min:0', 'gte:stock_min'],
             'is_active' => ['nullable', 'boolean'],
+
+            /*
+             * LOTES E VALIDADES — é isto que liga o artigo ao módulo dos
+             * lotes. Sem estes quatro interruptores o artigo nunca lá entra:
+             * é o `track_batches` que o `Product::controlaStock()` lê para
+             * saber que este artigo desconta lote a lote.
+             */
+            'track_batches' => ['nullable', 'boolean'],
+            'track_expiry' => ['nullable', 'boolean'],
+            'require_batch_on_purchase' => ['nullable', 'boolean'],
+            'require_batch_on_sale' => ['nullable', 'boolean'],
 
             // FARMÁCIA — nenhum obrigatório. Um artigo comum não preenche
             // nada disto e tem de continuar a poder ser gravado.
@@ -501,7 +547,12 @@ class ProductApiController extends Controller
          * que só sabe ligar-se é pior do que não existir — o artigo ficava
          * marcado como sujeito a receita para sempre.
          */
-        foreach (['requires_prescription', 'is_controlled'] as $marca) {
+        $booleanos = [
+            'requires_prescription', 'is_controlled',
+            'track_batches', 'track_expiry', 'require_batch_on_purchase', 'require_batch_on_sale',
+        ];
+
+        foreach ($booleanos as $marca) {
             if (array_key_exists($marca, $dados)) {
                 $dados[$marca] = (bool) $dados[$marca];
             }
@@ -534,6 +585,20 @@ class ProductApiController extends Controller
          * sempre; isto é só do balcão (`App\Livewire\POS\POSSystem`).
          */
         $dados['preco_no_pos'] = (bool) ($dados['preco_no_pos'] ?? $actual?->preco_no_pos ?? false);
+
+        /*
+         * E UM SERVIÇO TAMBÉM NÃO TEM LOTES.
+         *
+         * É a mesma regra do stock, continuada: um lote é uma remessa de
+         * mercadoria com número e validade, e uma hora de trabalho não tem
+         * remessa nenhuma. Deixar as marcas ligadas num serviço punha o POS
+         * a pedir um lote que nunca ninguém iria dar, e a venda encravava.
+         */
+        if ($dados['type'] === 'servico') {
+            foreach (['track_batches', 'track_expiry', 'require_batch_on_purchase', 'require_batch_on_sale'] as $marca) {
+                $dados[$marca] = false;
+            }
+        }
 
         // Um dos dois, nunca os dois.
         $dados['tax_rate_id'] = $dados['tax_type'] === 'iva' ? ($dados['tax_rate_id'] ?? null) : null;
