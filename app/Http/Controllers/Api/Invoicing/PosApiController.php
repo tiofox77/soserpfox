@@ -380,6 +380,9 @@ class PosApiController extends Controller
 
         $factura->loadMissing(['client', 'items', 'tenant']);
 
+        // O papel configurado lê-se AGORA e não ao abrir o ecrã: a definição
+        // pode mudar entre duas vendas e o balcão não recarrega a página.
+        $definicoes = InvoicingSettings::forTenant($tenantId);
         $qr = function_exists('getAGTQRData') ? getAGTQRData($factura, 100) : [];
 
         return response()->json([
@@ -399,7 +402,21 @@ class PosApiController extends Controller
              */
             'qr' => $qr['image'] ?? null,
             'atcud' => $qr['atcud'] ?? $factura->atcud,
-            'preview' => "/invoicing/sales/invoices/{$factura->id}/preview",
+            /*
+             * O PAPEL EM QUE A EMPRESA IMPRIME, e as duas moradas.
+             *
+             * O modal abre já no formato configurado — talão ou A4 — com a
+             * pré-visualização à vista e a impressão pronta. Ao balcão, dois
+             * cliques para ver o que se acabou de vender são dois a mais.
+             *
+             * `?imprimir=1` faz a página mandar imprimir sozinha, depois de as
+             * imagens carregarem.
+             */
+            'formato' => ($definicoes->pos_formato_impressao ?? 'talao') === 'a4' ? 'a4' : 'talao',
+            'papeis' => [
+                'talao' => "/invoicing/sales/invoices/{$factura->id}/talao",
+                'a4' => "/invoicing/sales/invoices/{$factura->id}/preview",
+            ],
             'message' => __('Venda :numero registada.', ['numero' => $factura->invoice_number]),
         ], 201);
     }

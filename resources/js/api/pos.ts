@@ -63,7 +63,10 @@ export type VendaFechada = {
     /** O QR da AGT, já como data-URI: o helper devolve um array e isto é a imagem. */
     qr: string | null;
     atcud: string | null;
-    preview: string;
+    /** O papel que a empresa configurou: o modal abre neste. */
+    formato: 'talao' | 'a4';
+    /** As duas moradas do documento verdadeiro, geradas pelo servidor. */
+    papeis: { talao: string; a4: string };
     message: string;
 };
 

@@ -49,6 +49,23 @@ class SalesInvoiceController extends Controller
         return $pdf->stream($filename);
     }
     
+    /**
+     * O TALÃO DE 80 mm, como página que se pode meter num `iframe`.
+     *
+     * O mesmo escopo e a mesma empresa do `previewHtml`: quem não pode ver a
+     * factura também não vê o talão dela. O corpo é a parcial partilhada com
+     * o modal do POS em Livewire — o talão desenha-se num sítio só.
+     */
+    public function talao($id)
+    {
+        $invoice = SalesInvoice::with(['client', 'items.product', 'warehouse', 'creator', 'series'])
+            ->where('tenant_id', activeTenantId())
+            ->tap(fn ($q) => $this->escoparAoAutor($q))
+            ->findOrFail($id);
+
+        return view('pdf.invoicing.sales-invoice-ticket', ['invoice' => $invoice]);
+    }
+
     public function previewHtml($id)
     {
         // Buscar fatura com relacionamentos

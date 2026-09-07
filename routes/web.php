@@ -785,6 +785,16 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
         Route::get('/invoices/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-factura', 'Fatura de Venda'))->name('invoices.edit');
         Route::get('/invoices/{id}/pdf', [\App\Http\Controllers\Invoicing\SalesInvoiceController::class, 'generatePdf'])->name('invoices.pdf');
         Route::get('/invoices/{id}/preview', [\App\Http\Controllers\Invoicing\SalesInvoiceController::class, 'previewHtml'])->name('invoices.preview');
+        /*
+         * O TALÃO DE 80 mm COMO PÁGINA.
+         *
+         * O balcão em React mostra-o dentro de um `iframe` e manda-o
+         * imprimir sem abrir separador nenhum. O corpo é a mesma parcial que
+         * o modal do POS inclui — um documento fiscal desenha-se num sítio só.
+         */
+        Route::get('/invoices/{id}/talao', [\App\Http\Controllers\Invoicing\SalesInvoiceController::class, 'talao'])
+            ->whereNumber('id')
+            ->name('invoices.talao');
         Route::get('/invoices/{id}/download', [\App\Http\Controllers\Invoicing\InvoiceController::class, 'downloadPdf'])->name('invoices.download');
         
         // TESTE - Template simplificado

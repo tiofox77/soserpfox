@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from 'react';
+
 import type { VendaFechada } from '@/api/pos';
 import { t } from '@/i18n';
 import { Botao } from '@/ui/Botao';
@@ -5,25 +7,57 @@ import { Modal } from '@/ui/Modal';
 import { FOCO, RAIO, cls, kz } from '@/ui/tokens';
 
 /**
- * A VENDA FECHOU — e o que se faz a seguir.
+ * A VENDA FECHOU — e o papel já está à vista.
  *
- * Ao balcão isto é meio segundo: o operador vê que passou, arranca o talão e
- * chama o próximo. Por isso a peça grande deste modal é o NÚMERO e o TOTAL, e
- * não os botões.
+ * O ecrã de sempre dava dois botões que abriam um separador novo. Ao balcão
+ * isso são dois gestos e uma janela a mais entre a venda e o talão na mão do
+ * cliente. Aqui o modal abre JÁ com a pré-visualização do papel que a empresa
+ * tem configurado — talão de 80 mm ou factura A4 — e o botão de imprimir só
+ * manda imprimir o que está à frente.
  *
- * A IMPRESSÃO NÃO SE REESCREVE AQUI. O talão de 80 mm e a factura A4 saem das
- * páginas que o servidor já gera — as mesmas que a lista de facturas usa, com
- * o cabeçalho da empresa, o QR da AGT e o rodapé legal. Um talão desenhado de
- * novo no browser seria um segundo documento a dizer o mesmo, e são
- * precisamente os documentos fiscais que não podem ter duas versões.
+ * A IMPRESSÃO NÃO SE REESCREVE. O talão e a factura saem das páginas que o
+ * servidor gera, com o cabeçalho da empresa, o QR da AGT e o rodapé legal.
+ * O talão de 80 mm até é a MESMA parcial que o modal do POS em Livewire
+ * inclui: um documento fiscal desenha-se num sítio só.
  */
 export function ModalDoTalao({ venda, aoFechar }: { venda: VendaFechada | null; aoFechar: () => void }) {
+    const [papel, porPapel] = useState<'talao' | 'a4'>('talao');
+    const folha = useRef<HTMLIFrameElement>(null);
+
+    // Abre no papel configurado. Muda-se aqui se esta venda pedir o outro.
+    useEffect(() => {
+        if (venda) porPapel(venda.formato);
+    }, [venda]);
+
     if (!venda) return null;
 
-    function abrirEImprimir(url: string) {
-        const janela = window.open(url, '_blank', 'noopener');
+    const morada = venda.papeis[papel];
 
-        if (!janela) {
+    /*
+     * IMPRIMIR O QUE ESTÁ À FRENTE.
+     *
+     * `iframe.contentWindow.print()` imprime só o conteúdo da folha, sem o
+     * ecrã à volta. Quando o browser o recusa — acontece em alguns, por o
+     * documento vir de outra rota — abre-se a página com `?imprimir=1`, que
+     * manda imprimir sozinha depois de as imagens carregarem.
+     */
+    function imprimir() {
+        try {
+            const janela = folha.current?.contentWindow;
+
+            if (janela) {
+                janela.focus();
+                janela.print();
+
+                return;
+            }
+        } catch {
+            /* segue para o plano B */
+        }
+
+        const nova = window.open(`${morada}?imprimir=1`, '_blank', 'noopener');
+
+        if (!nova) {
             window.alert(t('O navegador bloqueou a janela de impressão. Permita pop-ups para este site.'));
         }
     }
@@ -33,74 +67,95 @@ export function ModalDoTalao({ venda, aoFechar }: { venda: VendaFechada | null; 
             aberto
             aoFechar={aoFechar}
             titulo={t('Venda registada')}
+            subtitulo={`${venda.numero_interno} · ${kz(venda.total)}`}
             icone="fa-circle-check"
             cor="bom"
-            largura="md"
+            largura="lg"
             rodape={
-                <Botao cor="primaria" tom="solida" icone="fa-cart-plus" onClick={aoFechar}>
-                    {t('Nova venda')}
-                </Botao>
+                <>
+                    <Botao onClick={aoFechar} icone="fa-cart-plus">{t('Nova venda')}</Botao>
+                    <button
+                        type="button"
+                        onClick={imprimir}
+                        className={cls(
+                            'inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-3',
+                            'text-base font-bold text-white shadow-lg transition-all duration-200',
+                            'hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0',
+                            RAIO,
+                            FOCO,
+                        )}
+                    >
+                        <i className="fas fa-print text-lg" aria-hidden="true" />
+                        {t('Imprimir')}
+                    </button>
+                </>
             }
         >
-            <div className="space-y-4">
-                <div className={cls('bg-gradient-to-br from-emerald-50 to-teal-50 p-6 text-center', RAIO)}>
-                    <div className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-full bg-emerald-100">
-                        <i className="fas fa-check text-2xl text-emerald-600" aria-hidden="true" />
-                    </div>
-                    <p className="text-sm text-emerald-700">{t('Documento')}</p>
-                    <p className="text-2xl font-bold text-emerald-900">{venda.numero_interno}</p>
-                    {venda.numero_interno !== venda.numero && (
-                        <p className="mt-0.5 font-mono text-xs text-emerald-600">
-                            <i className="fas fa-landmark mr-1" aria-hidden="true" />
-                            {venda.numero}
-                        </p>
+            <div className="space-y-3">
+                {/* O QUE SE VENDEU, numa linha. O papel logo a seguir diz o
+                    resto — repeti-lo aqui era ocupar o ecrã duas vezes. */}
+                <div
+                    className={cls(
+                        'flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-emerald-50 to-teal-50 px-4 py-3',
+                        RAIO,
                     )}
-                    <p className="mt-3 text-4xl font-bold tabular-nums text-emerald-700">{kz(venda.total)}</p>
-                    <p className="mt-1 text-sm text-emerald-600">{venda.cliente}</p>
+                >
+                    <span className="flex items-center gap-3">
+                        <span className="grid h-10 w-10 place-items-center rounded-full bg-emerald-100">
+                            <i className="fas fa-check text-emerald-600" aria-hidden="true" />
+                        </span>
+                        <span>
+                            <span className="block text-lg font-bold text-emerald-900">{venda.numero_interno}</span>
+                            <span className="block text-xs text-emerald-600">
+                                {venda.cliente}
+                                {venda.atcud && ` · ATCUD: ${venda.atcud}`}
+                            </span>
+                        </span>
+                    </span>
+                    <span className="text-2xl font-bold tabular-nums text-emerald-700">{kz(venda.total)}</span>
                 </div>
-                {/* O QR DA AGT vem do servidor. Montá-lo no browser era inventar
-                    um selo fiscal a partir de dados que o browser não certifica. */}
-                {venda.qr && (
-                    <div className="flex flex-col items-center gap-1.5">
-                        <img
-                            src={venda.qr}
-                            alt={t('Código QR da AGT')}
-                            className={cls('h-28 w-28 border border-slate-200 bg-white p-1', RAIO)}
-                        />
-                        {venda.atcud && (
-                            <p className="font-mono text-[11px] text-slate-500">ATCUD: {venda.atcud}</p>
-                        )}
-                    </div>
-                )}
 
-                <div className="grid gap-2 sm:grid-cols-2">
-                    <button
-                        type="button"
-                        onClick={() => abrirEImprimir(`${venda.preview}?formato=talao`)}
-                        className={cls(
-                            'flex items-center justify-center gap-2 border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700',
-                            'transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md',
-                            RAIO,
-                            FOCO,
-                        )}
-                    >
-                        <i className="fas fa-receipt text-indigo-500" aria-hidden="true" />
-                        {t('Talão 80 mm')}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => abrirEImprimir(venda.preview)}
-                        className={cls(
-                            'flex items-center justify-center gap-2 border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700',
-                            'transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md',
-                            RAIO,
-                            FOCO,
-                        )}
-                    >
-                        <i className="fas fa-file-lines text-red-500" aria-hidden="true" />
-                        {t('Factura A4')}
-                    </button>
+                {/* O PAPEL. Abre no que a empresa configurou; o outro está aqui
+                    ao lado para quem, nesta venda, precisa do outro. */}
+                <div className={cls('flex overflow-hidden border border-slate-200 bg-white', RAIO)}>
+                    {(
+                        [
+                            ['talao', t('Talão 80 mm'), 'fa-receipt'],
+                            ['a4', t('Factura A4'), 'fa-file-lines'],
+                        ] as const
+                    ).map(([qual, rotulo, icone]) => (
+                        <button
+                            key={qual}
+                            type="button"
+                            onClick={() => porPapel(qual)}
+                            aria-pressed={papel === qual}
+                            className={cls(
+                                'flex flex-1 items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold transition-colors',
+                                papel === qual
+                                    ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white'
+                                    : 'text-slate-600 hover:bg-slate-50',
+                                FOCO,
+                            )}
+                        >
+                            <i className={cls('fas', icone)} aria-hidden="true" />
+                            {rotulo}
+                            {venda.formato === qual && (
+                                <span className="ml-1 text-[10px] opacity-70">({t('configurado')})</span>
+                            )}
+                        </button>
+                    ))}
                 </div>
+
+                {/* A PRÉ-VISUALIZAÇÃO. É a página verdadeira do servidor dentro
+                    de um `iframe` — o que se vê é exactamente o que sai na
+                    impressora, e não um desenho parecido feito no browser. */}
+                <iframe
+                    ref={folha}
+                    key={morada}
+                    src={morada}
+                    title={t('Pré-visualização do documento')}
+                    className={cls('h-[26rem] w-full border border-slate-200 bg-white', RAIO)}
+                />
             </div>
         </Modal>
     );
