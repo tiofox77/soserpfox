@@ -230,4 +230,107 @@ class PainelApiReactTest extends TenantTestCase
                 "as contas vivem no serviço; «{$conta}» aqui é uma segunda cópia à espera de divergir");
         }
     }
+
+    /* ─── O que o painel em Blade tinha e a migração deixou para trás ─── */
+
+    /**
+     * OS TRÊS GRÁFICOS DO PERÍODO.
+     *
+     * O painel de sempre tinha-os por baixo dos cartões: como recebemos, que
+     * artigos vendem, e a folga entre vendas e compras. Vêm do MESMO serviço
+     * que desenha o ecrã de gráficos — dois sítios a somar a mesma coisa
+     * acabam sempre a dar números diferentes.
+     *
+     * @test
+     */
+    public function o_painel_traz_os_tres_graficos_do_periodo(): void
+    {
+        $this->comPermissoes('invoicing.dashboard.view');
+
+        $resposta = $this->getJson(self::ROTA)->assertOk()
+            ->assertJsonStructure([
+                'graficos' => ['meios_de_pagamento', 'top_produtos', 'vendas_contra_compras'],
+            ]);
+
+        // As séries saem em PARES prontos a desenhar, e não em duas listas
+        // paralelas: paralelas, dessincronizam-se e uma barra fica com o nome
+        // de outra.
+        foreach ($resposta->json('graficos.vendas_contra_compras') as $ponto) {
+            $this->assertArrayHasKey('rotulo', $ponto);
+            $this->assertArrayHasKey('vendas', $ponto);
+            $this->assertArrayHasKey('compras', $ponto);
+
+            // A FOLGA vem contada de cá: é uma conta a menos fora do servidor.
+            $this->assertEqualsWithDelta(
+                $ponto['vendas'] - $ponto['compras'],
+                $ponto['folga'],
+                0.01,
+                'a folga tem de ser vendas menos compras'
+            );
+        }
+    }
+
+    /**
+     * OS TOP PRODUTOS DO PERÍODO SÃO OS QUE SE VENDERAM.
+     *
+     * Não basta a chave existir: uma venda feita tem de aparecer na lista, ou
+     * o cartão fica bonito e vazio para sempre.
+     *
+     * @test
+     */
+    public function os_top_produtos_contam_o_que_se_vendeu(): void
+    {
+        $this->comPermissoes('invoicing.dashboard.view');
+
+        $factura = $this->factura();
+
+        \App\Models\Invoicing\SalesInvoiceItem::create([
+            'sales_invoice_id' => $factura->id,
+            'product_id' => $this->produtoComStock()->id,
+            'product_name' => 'Artigo do painel',
+            'quantity' => 2,
+            'unit_price' => 500,
+            'total' => 1000,
+        ]);
+
+        $produtos = collect($this->getJson(self::ROTA)->assertOk()->json('graficos.top_produtos'));
+
+        $this->assertTrue(
+            $produtos->contains('rotulo', 'Artigo do painel'),
+            'o artigo vendido tinha de aparecer nos top produtos do período'
+        );
+    }
+
+    /**
+     * AS ACTIVIDADES RECENTES.
+     *
+     * É com esta lista que o painel de sempre fechava. O serviço já as
+     * contava; a API é que não as entregava, e por isso nenhum ecrã as
+     * mostrava.
+     *
+     * @test
+     */
+    public function o_painel_traz_as_actividades_recentes(): void
+    {
+        $this->comPermissoes('invoicing.dashboard.view');
+
+        $factura = $this->factura();
+
+        $linhas = collect($this->getJson(self::ROTA)->assertOk()->json('actividades'));
+
+        $minha = $linhas->firstWhere('id', $factura->id);
+
+        $this->assertNotNull($minha, 'a factura criada tinha de aparecer nas actividades recentes');
+
+        // Sai ENXUTA: número, cliente, quando e estado. O modelo inteiro numa
+        // resposta publicava a assinatura fiscal a quem não precisa dela.
+        $this->assertSame(['id', 'numero', 'cliente', 'quando', 'estado', 'cor'], array_keys($minha));
+        $this->assertNotEmpty($minha['estado']);
+    }
+
+    /** Sem permissão de ver o painel, nada disto sai. @test */
+    public function os_graficos_e_as_actividades_seguem_a_permissao_do_painel(): void
+    {
+        $this->getJson(self::ROTA)->assertForbidden();
+    }
 }

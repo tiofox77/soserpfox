@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Invoicing;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Invoicing\ClientResource;
 use App\Models\Client;
+use App\Models\Invoicing\PaymentTerm;
 use App\Rules\PaisIso;
 use App\Rules\ValidateNIF;
 use App\Services\Clientes\AcessoAoPortal;
@@ -12,6 +13,8 @@ use App\Support\Geografia;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 /**
@@ -41,6 +44,7 @@ class ClientApiController extends Controller
         ]);
 
         $query = Client::where('tenant_id', activeTenantId())
+            ->with('paymentTerm')
             ->withCount('facturas');
 
         if ($procura = ($filtros['procura'] ?? null)) {
@@ -72,7 +76,7 @@ class ClientApiController extends Controller
 
         $this->tratarDoPortal($request, $cliente);
 
-        return (new ClientResource($cliente->fresh()->loadCount('facturas')))
+        return (new ClientResource($cliente->fresh()->load('paymentTerm')->loadCount('facturas')))
             ->response()
             ->setStatusCode(201);
     }
@@ -86,7 +90,7 @@ class ClientApiController extends Controller
 
         $this->tratarDoPortal($request, $cliente);
 
-        return new ClientResource($cliente->fresh()->loadCount('facturas'));
+        return new ClientResource($cliente->fresh()->load('paymentTerm')->loadCount('facturas'));
     }
 
     public function destroy(Request $request, int $id): JsonResponse
@@ -108,6 +112,15 @@ class ClientApiController extends Controller
             return response()->json([
                 'message' => __('Este cliente tem :n documento(s) e não pode ser apagado. Um documento fiscal não pode ficar sem cliente.', ['n' => $quantos]),
             ], 422);
+        }
+
+        // A PASTA DO CLIENTE VAI COM ELE. O ecrã de sempre apagava-a; sem
+        // isto, os logótipos de clientes apagados ficavam no disco para
+        // sempre, e um deles é uma imagem de uma empresa que já não é cliente.
+        $pasta = 'clients/' . $cliente->id;
+
+        if (Storage::disk('public')->exists($pasta)) {
+            Storage::disk('public')->deleteDirectory($pasta);
         }
 
         $cliente->delete();
@@ -148,11 +161,88 @@ class ClientApiController extends Controller
                 ['valor' => 'pessoa_juridica', 'rotulo' => __('Empresa')],
                 ['valor' => 'pessoa_fisica', 'rotulo' => __('Particular')],
             ],
+
+            /*
+             * AS CONDIÇÕES DE PAGAMENTO DESTA EMPRESA.
+             *
+             * É delas que sai o vencimento das facturas do cliente. Só as
+             * activas: uma condição desligada não se atribui de novo, mas
+             * quem já a tem continua a vê-la escrita na ficha (o nome vem no
+             * próprio cliente, não desta lista).
+             *
+             * `dias` viaja para o ecrã poder escrever «(30 dias)» ao lado do
+             * nome, como o ecrã de sempre fazia.
+             */
+            'condicoes_pagamento' => PaymentTerm::where('tenant_id', activeTenantId())
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get(['id', 'name', 'days', 'is_default'])
+                ->map(fn ($c) => [
+                    'id' => $c->id,
+                    'nome' => $c->name,
+                    'dias' => (int) $c->days,
+                    'padrao' => (bool) $c->is_default,
+                ])->all(),
+
+            // O atalho para as gerir só se mostra a quem pode abrir as
+            // definições — era assim no ecrã de sempre (`@can`).
+            'pode_gerir_condicoes' => (bool) $request->user()?->can('invoicing.settings.view'),
+            'url_condicoes' => route('invoicing.payment-terms'),
+
             'permissoes' => [
                 'pode_criar' => (bool) $request->user()?->can('invoicing.clients.create'),
                 'pode_editar' => (bool) $request->user()?->can('invoicing.clients.edit'),
                 'pode_apagar' => (bool) $request->user()?->can('invoicing.clients.delete'),
             ],
+        ]);
+    }
+
+    /**
+     * O LOGÓTIPO DO CLIENTE — um ficheiro na pasta dele, como sempre.
+     *
+     * Vai à parte da ficha, em multipart, porque um ficheiro não viaja em
+     * JSON: é o mesmo caminho do logótipo dos catálogos e das imagens do
+     * artigo. Ao criar, o ecrã grava primeiro a ficha e envia a imagem a
+     * seguir — antes disso não há `id` nem pasta onde a pôr.
+     */
+    public function logotipo(Request $request, int $id): JsonResponse
+    {
+        $this->exigir($request, 'invoicing.clients.edit');
+
+        $request->validate(['logotipo' => ['required', 'image', 'max:2048']]);
+
+        $cliente = $this->doTenant($id);
+
+        // A que lá estava sai: são um logótipo, não um histórico deles.
+        $this->apagarFicheiro($cliente->logo);
+
+        $extensao = $request->file('logotipo')->getClientOriginalExtension();
+        $nome = 'logo_' . Str::slug($cliente->name) . '.' . $extensao;
+
+        $cliente->update([
+            'logo' => $request->file('logotipo')->storeAs('clients/' . $cliente->id, $nome, 'public'),
+        ]);
+
+        return response()->json([
+            'data' => new ClientResource($cliente->fresh()->load('paymentTerm')->loadCount('facturas')),
+            'message' => __('Logótipo guardado.'),
+        ]);
+    }
+
+    /** Tirar o logótipo: apaga o ficheiro e limpa a coluna. */
+    public function apagarLogotipo(Request $request, int $id): JsonResponse
+    {
+        $this->exigir($request, 'invoicing.clients.edit');
+
+        $cliente = $this->doTenant($id);
+
+        $this->apagarFicheiro($cliente->logo);
+        $cliente->update(['logo' => null]);
+
+        return response()->json([
+            'data' => new ClientResource($cliente->fresh()->load('paymentTerm')->loadCount('facturas')),
+            'message' => __('Logótipo removido.'),
         ]);
     }
 
@@ -197,6 +287,24 @@ class ClientApiController extends Controller
         abort_unless($request->user()?->can($permissao), 403, __('Sem permissão para esta operação.'));
     }
 
+    /**
+     * Apagar um ficheiro guardado, se existir e se for nosso.
+     *
+     * Uma ficha importada pode trazer um endereço completo em vez de um
+     * caminho no disco — chamar `delete()` com um `https://…` não apaga nada
+     * mas também não pode rebentar a operação.
+     */
+    private function apagarFicheiro(?string $caminho): void
+    {
+        if (! filled($caminho) || str_starts_with($caminho, 'http')) {
+            return;
+        }
+
+        if (Storage::disk('public')->exists($caminho)) {
+            Storage::disk('public')->delete($caminho);
+        }
+    }
+
     /** Só o que é desta empresa. Um id de outra dá 404, não 403. */
     private function doTenant(int $id): Client
     {
@@ -236,6 +344,16 @@ class ClientApiController extends Controller
             'country' => ['required', 'string', 'size:2', new PaisIso()],
 
             /*
+             * A CONDIÇÃO DE PAGAMENTO — o catálogo é POR EMPRESA, e por isso
+             * o id confirma-se contra esta empresa e não com um `exists` seco:
+             * um número escrito à mão no pedido punha o prazo de outra empresa
+             * neste cliente, e era esse prazo que passava a dar o vencimento
+             * às facturas dele.
+             */
+            'payment_term_id' => ['nullable', 'integer', Rule::exists('invoicing_payment_terms', 'id')
+                ->where(fn ($q) => $q->where('tenant_id', activeTenantId()))],
+
+            /*
              * O ACESSO AO PORTAL vem no mesmo formulário, como vinha no ecrã
              * de sempre. Sem email não se liga: é por lá que o cliente se
              * autentica, e um acesso que ninguém pode usar só engana quem o
@@ -256,6 +374,24 @@ class ClientApiController extends Controller
         // localidade nenhuma.
         if (empty($dados['city']) && !empty($dados['municipality'])) {
             $dados['city'] = $dados['municipality'];
+        }
+
+        /*
+         * `payment_term_days` FICA EM SINCRONIA COM A CONDIÇÃO ESCOLHIDA.
+         *
+         * São duas colunas para a mesma coisa — a condição é o catálogo novo,
+         * os dias são o valor legado que o cálculo do vencimento ainda lê. O
+         * ecrã de sempre sincronizava-as ao gravar; sem isto, mudar a condição
+         * de «pronto pagamento» para «30 dias» não mexia no vencimento de
+         * nenhuma factura, e ninguém percebia porquê.
+         */
+        if (array_key_exists('payment_term_id', $dados)) {
+            $dados['payment_term_id'] = $dados['payment_term_id'] ?: null;
+
+            $dados['payment_term_days'] = $dados['payment_term_id']
+                ? (int) (PaymentTerm::where('tenant_id', activeTenantId())
+                    ->find($dados['payment_term_id'])?->days ?? 0)
+                : 0;
         }
 
         // Estes não são colunas do cliente — são uma ordem para o serviço do

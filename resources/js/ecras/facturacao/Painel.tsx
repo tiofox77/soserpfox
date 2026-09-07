@@ -10,8 +10,10 @@ import { entrada } from '@/ui/Campo';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { CartaoNumero } from '@/ui/CartaoNumero';
 import { GraficoDeBarras } from '@/ui/GraficoDeBarras';
+import { GraficoDeDuasSeries } from '@/ui/GraficoDeDuasSeries';
+import { GraficoHorizontal } from '@/ui/GraficoHorizontal';
 import { CARTAO, RAIO, cls, data, kz } from '@/ui/tokens';
-import { etiquetaIntl, t } from '@/i18n';
+import { etiquetaIntl, t, tPartes } from '@/i18n';
 
 /**
  * O PDF e o CSV vivem em `/js/painel-facturacao.js`, carregado pelo layout.
@@ -155,6 +157,68 @@ export default function Painel() {
                 <GraficoDeBarras dados={d.serie} titulo={t('Vendas (AOA)')} />
             </Cartao>
 
+            {/* OS TRÊS GRÁFICOS DO PERÍODO — os que o painel em Blade tinha por
+                baixo dos cartões e a migração deixou para trás. Vêm do mesmo
+                serviço que desenha o ecrã de gráficos, para os dois nunca
+                divergirem. */}
+            <div className="grid gap-4 lg:grid-cols-2">
+                <Cartao
+                    titulo={t('Como Recebemos')}
+                    icone="fa-money-check-dollar"
+                    subtitulo={t('Recebimentos por forma de pagamento')}
+                >
+                    <GraficoHorizontal
+                        dados={d.graficos.meios_de_pagamento}
+                        titulo={t('Como Recebemos')}
+                        vazio={t('Sem recebimentos no período.')}
+                    />
+                </Cartao>
+
+                <Cartao titulo={t('Top Produtos')} icone="fa-star" subtitulo={t('Por valor vendido')}>
+                    <GraficoHorizontal
+                        dados={d.graficos.top_produtos}
+                        titulo={t('Top Produtos')}
+                        vazio={t('Sem vendas no período.')}
+                    />
+                </Cartao>
+            </div>
+
+            <Cartao
+                titulo={t('Vendas vs. Compras')}
+                icone="fa-scale-balanced"
+                subtitulo={t('A folga entre o que entra e o que sai')}
+                accoes={
+                    <a
+                        href="/invoicing/reports/charts"
+                        className="group inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 transition-colors hover:text-indigo-800"
+                    >
+                        {t('Ver todos os gráficos')}
+                        <i
+                            className="fas fa-arrow-right transition-transform duration-300 group-hover:translate-x-1"
+                            aria-hidden="true"
+                        />
+                    </a>
+                }
+            >
+                <GraficoDeDuasSeries
+                    dados={d.graficos.vendas_contra_compras.map((p) => ({
+                        rotulo: p.rotulo,
+                        a: p.vendas,
+                        b: p.compras,
+                    }))}
+                    titulo={t('Vendas vs. Compras')}
+                    primeira={t('Vendas')}
+                    segunda={t('Compras')}
+                />
+
+                <Folga pontos={d.graficos.vendas_contra_compras} />
+            </Cartao>
+
+            {/* A COMPARAÇÃO ANO A ANO. Os dois anos já vinham na resposta e
+                ninguém os desenhava — o painel de sempre fechava o mês com
+                este confronto, e é ele que diz se o ano está a correr melhor. */}
+            <ComparacaoAnoAAno esteAno={d.por_mes} anoPassado={d.por_mes_ano_passado} />
+
             <div className="grid gap-4 lg:grid-cols-2">
                 <Cartao titulo={t('Estado das Faturas')}>
                     {/* Não se sobrepõem: uma factura cai numa caixa e numa só. */}
@@ -255,9 +319,201 @@ export default function Painel() {
                 )}
             </Cartao>
 
+            <ActividadesRecentes linhas={d.actividades} />
+
             <TextosDaExportacao numeros={d} />
         </div>
     );
+}
+
+/* ─── As peças que faltavam ao painel ─────────────────────────────────── */
+
+/**
+ * A FOLGA, POR EXTENSO.
+ *
+ * O gráfico mostra as duas barras; isto diz o que elas somam e a diferença
+ * entre elas — que é o número que se procura quando se abre este cartão. Uma
+ * folga negativa não é um erro (comprou-se para stock), mas assinala-se.
+ */
+function Folga({ pontos }: { pontos: NumerosDoPainel['graficos']['vendas_contra_compras'] }) {
+    if (pontos.length === 0) {
+        return null;
+    }
+
+    const vendas = pontos.reduce((s, p) => s + p.vendas, 0);
+    const compras = pontos.reduce((s, p) => s + p.compras, 0);
+    const folga = vendas - compras;
+
+    return (
+        <div className="mt-4 flex flex-wrap items-baseline gap-x-6 gap-y-2 border-t border-slate-100 pt-4 text-sm">
+            <span className="text-slate-500">
+                {t('Vendas')}: <strong className="tabular-nums text-slate-800">{kz(vendas)}</strong>
+            </span>
+            <span className="text-slate-500">
+                {t('Compras')}: <strong className="tabular-nums text-slate-800">{kz(compras)}</strong>
+            </span>
+            <span
+                className={cls(
+                    'flex items-center gap-1.5 font-bold tabular-nums',
+                    folga >= 0 ? 'text-emerald-600' : 'text-red-600',
+                )}
+            >
+                <i className={`fas ${folga >= 0 ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'}`} aria-hidden="true" />
+                {t('Folga')}: {kz(folga)}
+            </span>
+        </div>
+    );
+}
+
+/**
+ * O ANO A ANO — este ano contra o passado, mês a mês.
+ *
+ * Os dois anos já vinham na resposta desde o primeiro dia e nenhum ecrã os
+ * desenhava. O crescimento tem TRÊS estados e não dois: zero não é uma queda, e
+ * pintá-lo de vermelho fazia parecer mau um mês igual ao do ano passado.
+ */
+function ComparacaoAnoAAno({
+    esteAno,
+    anoPassado,
+}: {
+    esteAno: NumerosDoPainel['por_mes'];
+    anoPassado: NumerosDoPainel['por_mes_ano_passado'];
+}) {
+    const total = esteAno.reduce((s, m) => s + m.valor, 0);
+    const totalPassado = anoPassado.reduce((s, m) => s + m.valor, 0);
+
+    // Sem base de comparação não há percentagem que signifique alguma coisa:
+    // «+∞%» sobre zero não se escreve.
+    const crescimento = totalPassado > 0 ? ((total - totalPassado) / totalPassado) * 100 : null;
+
+    const pontos = esteAno.map((m, i) => ({
+        rotulo: m.rotulo,
+        a: m.valor,
+        b: anoPassado[i]?.valor ?? 0,
+    }));
+
+    const anoActual = new Date().getFullYear();
+
+    return (
+        <Cartao
+            titulo={t('Comparação Ano a Ano')}
+            icone="fa-calendar-days"
+            subtitulo={t('Mês a mês, este ano contra o passado')}
+        >
+            <div className="mb-4 flex flex-wrap items-baseline gap-x-6 gap-y-2 text-sm">
+                <span className="text-slate-500">
+                    {anoActual}: <strong className="tabular-nums text-slate-800">{kz(total)}</strong>
+                </span>
+                <span className="text-slate-500">
+                    {anoActual - 1}: <strong className="tabular-nums text-slate-800">{kz(totalPassado)}</strong>
+                </span>
+                {crescimento === null ? (
+                    <span className="text-xs text-slate-400">{t('Sem ano anterior para comparar')}</span>
+                ) : (
+                    <span className="flex items-center gap-1.5 text-sm font-bold">
+                        <span className="text-slate-500">{t('Crescimento')}:</span>
+                        <Variacao valor={crescimento} />
+                    </span>
+                )}
+            </div>
+
+            <GraficoDeDuasSeries
+                dados={pontos}
+                titulo={t('Comparação Ano a Ano')}
+                primeira={String(anoActual)}
+                segunda={String(anoActual - 1)}
+            />
+        </Cartao>
+    );
+}
+
+/**
+ * AS ACTIVIDADES RECENTES — as últimas facturas criadas.
+ *
+ * É com esta lista que o painel de sempre fechava, e é ela que responde a «o
+ * que é que se andou a fazer aqui hoje». O serviço já as contava; a API é que
+ * não as entregava.
+ */
+function ActividadesRecentes({ linhas }: { linhas: NumerosDoPainel['actividades'] }) {
+    return (
+        <Cartao titulo={t('Atividades Recentes')} icone="fa-clock-rotate-left">
+            {linhas.length === 0 ? (
+                <div className="py-10 text-center">
+                    <div className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-full bg-slate-100">
+                        <i className="fas fa-inbox text-3xl text-slate-300" aria-hidden="true" />
+                    </div>
+                    <p className="text-sm text-slate-400">{t('Sem atividades recentes')}</p>
+                </div>
+            ) : (
+                <ul className="max-h-96 space-y-2 overflow-y-auto">
+                    {linhas.map((a, i) => (
+                        <li
+                            key={a.id}
+                            className="entra flex items-center gap-3 rounded-xl bg-slate-50 p-3 transition-all duration-200 hover:bg-indigo-50/70"
+                            style={{ '--i': Math.min(i, 12) } as React.CSSProperties}
+                        >
+                            <span
+                                className="grid h-10 w-10 flex-none place-items-center rounded-full bg-indigo-100 text-indigo-600"
+                                aria-hidden="true"
+                            >
+                                <i className="fas fa-file-invoice" />
+                            </span>
+
+                            <div className="min-w-0 flex-1">
+                                {/* A ordem «Fatura X criada» não se mantém noutras
+                                    línguas: a frase viaja inteira e o número é
+                                    substituído dentro dela, nunca colado de fora. */}
+                                <p className="text-sm text-slate-800">
+                                    {tPartes('Fatura :numero criada', {
+                                        numero: (
+                                            <a
+                                                key="n"
+                                                href={`/invoicing/sales/invoices/${a.id}`}
+                                                className="font-bold text-indigo-700 hover:underline"
+                                            >
+                                                {a.numero}
+                                            </a>
+                                        ),
+                                    })}
+                                </p>
+                                <p className="truncate text-xs text-slate-500">
+                                    {t('Cliente: :nome', { nome: a.cliente })}
+                                    {a.quando && ` • ${a.quando}`}
+                                </p>
+                            </div>
+
+                            <Etiqueta cor={corDoEstado(a.cor)}>{a.estado}</Etiqueta>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </Cartao>
+    );
+}
+
+/**
+ * A cor do estado, do servidor para a paleta das etiquetas.
+ *
+ * O modelo devolve nomes de cor do Tailwind («yellow», «indigo») porque era
+ * assim que o Blade os interpolava numa classe. Aqui traduz-se para os tons da
+ * `Etiqueta` — interpolar uma classe em Tailwind não funciona sem build, e um
+ * tom desconhecido cai no neutro em vez de sair sem cor nenhuma.
+ */
+function corDoEstado(cor: string): 'bom' | 'aviso' | 'perigo' | 'primaria' | 'neutra' {
+    switch (cor) {
+        case 'green':
+            return 'bom';
+        case 'yellow':
+            return 'aviso';
+        case 'red':
+            return 'perigo';
+        case 'blue':
+        case 'indigo':
+        case 'purple':
+            return 'primaria';
+        default:
+            return 'neutra';
+    }
 }
 
 /* ─── Exportar ────────────────────────────────────────────────────────── */

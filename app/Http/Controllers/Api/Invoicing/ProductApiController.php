@@ -473,6 +473,21 @@ class ProductApiController extends Controller
             'name' => ['required', 'string', 'min:3', 'max:200'],
             'type' => ['required', 'in:produto,servico'],
             'description' => ['nullable', 'string', 'max:2000'],
+
+            /*
+             * O CÓDIGO DO ARTIGO — gerado automaticamente, mas editável.
+             *
+             * É assim desde sempre: o `Product::creating` põe um `PROD000001`
+             * a quem vier sem código, e o ecrã mostra-o para quem quiser usar
+             * o código que já tem no armazém. Aqui é `nullable` de propósito —
+             * quem não o mandar continua a receber o gerado — mas é ÚNICO POR
+             * EMPRESA, que é o que a coluna promete e o que o gerador presume
+             * ao procurar o maior número usado.
+             */
+            'code' => ['nullable', 'string', 'max:50', Rule::unique('invoicing_products', 'code')
+                ->where(fn ($q) => $q->where('tenant_id', activeTenantId())->whereNull('deleted_at'))
+                ->ignore($exceptoId)],
+
             'sku' => ['nullable', 'string', 'max:255'],
             'barcode' => ['nullable', 'string', 'max:255'],
             'price' => ['required', 'numeric', 'min:0'],
@@ -575,6 +590,18 @@ class ProductApiController extends Controller
         $dados['manage_stock'] = $dados['type'] === 'servico'
             ? false
             : (bool) ($dados['manage_stock'] ?? $actual?->manage_stock ?? true);
+
+        /*
+         * UM CÓDIGO EM BRANCO NÃO SE GRAVA.
+         *
+         * A criar, tira-se do pedido e o `Product::creating` gera-o — era o
+         * que o ecrã de sempre fazia quando o campo era limpo. A editar, um
+         * campo vazio apagaria o código de um artigo que já anda em facturas
+         * emitidas, e um artigo sem código deixa de se encontrar por ele.
+         */
+        if (array_key_exists('code', $dados) && ! filled(trim((string) $dados['code']))) {
+            unset($dados['code']);
+        }
 
         /*
          * PERGUNTAR O PREÇO NO POS.

@@ -38,6 +38,7 @@ const VAZIO: ClienteParaGravar = {
     email: '',
     phone: '',
     mobile: '',
+    payment_term_id: null,
     address: '',
     city: '',
     province: '',
@@ -62,6 +63,8 @@ export default function Clientes() {
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [aApagar, porAApagar] = useState<Cliente | null>(null);
     const [recado, porRecado] = useState<string>('');
+    /** O ficheiro escolhido no formulário — sobe DEPOIS da ficha gravar. */
+    const [logotipo, porLogotipo] = useState<File | null>(null);
 
     const opcoes = useQuery({
         queryKey: ['clientes', 'opcoes'],
@@ -76,19 +79,72 @@ export default function Clientes() {
     });
 
     const gravar = useMutation({
-        mutationFn: (dados: ClienteParaGravar) =>
-            aEditar ? clientes.guardar(aEditar.id, dados) : clientes.criar(dados),
-        onSuccess: () => {
+        /*
+         * DUAS VIAGENS, E POR ESTA ORDEM: a ficha primeiro, o logótipo a
+         * seguir. Um ficheiro não cabe em JSON, e ao CRIAR nem sequer há
+         * ainda `id` nem pasta onde o pôr — só depois de a ficha existir.
+         *
+         * SE A IMAGEM FALHAR, O QUE SE PERDEU FOI A IMAGEM. Rebentar a
+         * gravação inteira por causa dela mandava reescrever a ficha toda,
+         * que é a parte que já estava certa — é a mesma regra do ecrã dos
+         * artigos.
+         */
+        mutationFn: async (dados: ClienteParaGravar) => {
+            const resposta = aEditar ? await clientes.guardar(aEditar.id, dados) : await clientes.criar(dados);
+
+            if (!logotipo) {
+                return { cliente: resposta.data, avisoDoLogotipo: '' };
+            }
+
+            try {
+                const comLogo = await clientes.logotipo(resposta.data.id, logotipo);
+
+                return { cliente: comLogo.data, avisoDoLogotipo: '' };
+            } catch (e) {
+                return {
+                    cliente: resposta.data,
+                    avisoDoLogotipo:
+                        e instanceof ErroDaApi
+                            ? (e.erros.logotipo?.[0] ?? e.message)
+                            : t('Não foi possível enviar o logótipo.'),
+                };
+            }
+        },
+        onSuccess: ({ avisoDoLogotipo }) => {
             void cache.invalidateQueries({ queryKey: ['clientes'] });
             porFormulario(null);
             porAEditar(null);
             porErros({});
-            porRecado(aEditar ? t('Cliente guardado.') : t('Cliente criado.'));
+            porLogotipo(null);
+
+            const feito = aEditar ? t('Cliente guardado.') : t('Cliente criado.');
+
+            porRecado(
+                avisoDoLogotipo
+                    ? t(':feito, mas o logótipo ficou por enviar: :aviso', { feito, aviso: avisoDoLogotipo })
+                    : feito,
+            );
         },
         onError: (e) => {
             // Os erros do servidor vão para o campo a que pertencem. Um
             // «não foi possível gravar» sem dizer onde obriga a adivinhar.
             porErros(e instanceof ErroDaApi ? e.erros : {});
+        },
+    });
+
+    /**
+     * TIRAR O LOGÓTIPO QUE JÁ LÁ ESTÁ é uma ordem à parte, e imediata.
+     *
+     * Não espera pelo «Guardar»: o ficheiro está no disco e a coluna aponta
+     * para ele — quem carrega em «Remover» quer vê-lo desaparecer, e não
+     * descobrir que continuava lá porque fechou o modal sem gravar.
+     */
+    const removerLogotipo = useMutation({
+        mutationFn: (c: Cliente) => clientes.apagarLogotipo(c.id),
+        onSuccess: ({ data }) => {
+            void cache.invalidateQueries({ queryKey: ['clientes'] });
+            porAEditar(data);
+            porLogotipo(null);
         },
     });
 
@@ -106,12 +162,25 @@ export default function Clientes() {
     function abrirNovo() {
         porAEditar(null);
         porErros({});
-        porFormulario({ ...VAZIO, country: opcoes.data?.pais_padrao ?? 'AO' });
+        porLogotipo(null);
+        porFormulario({
+            ...VAZIO,
+            country: opcoes.data?.pais_padrao ?? 'AO',
+            /*
+             * UM CLIENTE NOVO NASCE COM A CONDIÇÃO PADRÃO DA EMPRESA — é o que
+             * o formulário de sempre pré-seleccionava. O modelo também a põe
+             * a quem vier sem nenhuma, mas mostrá-la aqui deixa a pessoa
+             * TROCÁ-LA antes de gravar, em vez de descobrir o prazo depois,
+             * na primeira factura.
+             */
+            payment_term_id: opcoes.data?.condicoes_pagamento.find((c) => c.padrao)?.id ?? null,
+        });
     }
 
     function abrirEdicao(c: Cliente) {
         porAEditar(c);
         porErros({});
+        porLogotipo(null);
         porFormulario({
             type: c.type,
             name: c.name,
@@ -119,6 +188,7 @@ export default function Clientes() {
             email: c.email ?? '',
             phone: c.phone ?? '',
             mobile: c.mobile ?? '',
+            payment_term_id: c.payment_term_id,
             address: c.address ?? '',
             city: c.city ?? '',
             province: c.province ?? '',
@@ -272,8 +342,22 @@ export default function Clientes() {
                                                     acessibilidade: o nome está escrito ao
                                                     lado, e «GA» lido em voz alta não
                                                     acrescenta nada. */}
-                                                <Medalha nome={c.name} />
-                                                <span className="font-semibold text-slate-800">{c.name}</span>
+                                                <Medalha nome={c.name} logo={c.logo} />
+                                                <div className="min-w-0">
+                                                    <span className="font-semibold text-slate-800">{c.name}</span>
+                                                    {/* A CONDIÇÃO DE PAGAMENTO à vista, debaixo do
+                                                        nome: é dela que sai o vencimento das
+                                                        facturas deste cliente, e ver «30 dias» na
+                                                        lista poupa abrir a ficha para o saber. Vai
+                                                        aqui, e não numa coluna nova, para a tabela
+                                                        não engordar mais uma. */}
+                                                    {c.condicao_pagamento && (
+                                                        <span className="mt-0.5 flex items-center gap-1 text-xs text-slate-400">
+                                                            <i className="fas fa-calendar-check" aria-hidden="true" />
+                                                            {c.condicao_pagamento}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="px-4 py-3 font-mono text-xs text-slate-600">{c.nif}</td>
@@ -391,11 +475,16 @@ export default function Clientes() {
                 aGravar={gravar.isPending}
                 erroDeGravar={gravar.error}
                 opcoes={opcoes.data}
+                logotipo={logotipo}
+                aRemoverLogotipo={removerLogotipo.isPending}
+                aoEscolherLogotipo={porLogotipo}
+                aoRemoverLogotipo={() => aEditar && removerLogotipo.mutate(aEditar)}
                 aoMudar={porFormulario}
                 aoFechar={() => {
                     porFormulario(null);
                     porAEditar(null);
                     porErros({});
+                    porLogotipo(null);
                 }}
                 aoGravar={(d) => gravar.mutate(d)}
             />
@@ -467,13 +556,29 @@ function Cabecalho({
     );
 }
 
-/** O círculo com as duas primeiras letras, como no ecrã de sempre. */
-function Medalha({ nome }: { nome: string }) {
+/**
+ * O círculo com as duas primeiras letras, como no ecrã de sempre — ou o
+ * LOGÓTIPO do cliente, se ele tiver um. Quem se dá ao trabalho de carregar o
+ * logótipo quer vê-lo, e é por ele que se encontra a linha numa lista longa.
+ */
+function Medalha({ nome, logo }: { nome: string; logo?: string | null }) {
+    if (logo) {
+        return (
+            <img
+                src={logo}
+                alt=""
+                aria-hidden="true"
+                loading="lazy"
+                className="h-10 w-10 flex-none rounded-full object-cover shadow-sm ring-2 ring-white transition-transform duration-200 hover:scale-110"
+            />
+        );
+    }
+
     return (
         <span
             aria-hidden="true"
             className={cls(
-                'grid h-10 w-10 flex-none place-items-center rounded-full text-xs font-bold text-white shadow-sm',
+                'grid h-10 w-10 flex-none place-items-center rounded-full text-xs font-bold text-white shadow-sm transition-transform duration-200 hover:scale-110',
                 GRADIENTES.primaria,
             )}
         >
@@ -570,6 +675,178 @@ function Cartoes({
     );
 }
 
+/* ─── As peças do formulário ──────────────────────────────────────────── */
+
+/**
+ * A CONDIÇÃO DE PAGAMENTO DO CLIENTE.
+ *
+ * É daqui que sai o VENCIMENTO das facturas dele: o catálogo é por empresa e
+ * cada condição tem os seus dias. A migração para React deixou o campo cair, e
+ * sem ele todo o cliente novo ficava com a condição padrão sem hipótese de a
+ * trocar — o prazo só se descobria na primeira factura.
+ *
+ * O atalho para gerir o catálogo só aparece a quem pode abrir as definições,
+ * como o `@can` do ecrã de sempre fazia.
+ */
+function CondicaoDePagamento({
+    dados,
+    erros,
+    opcoes,
+    aoMudar,
+}: {
+    dados: ClienteParaGravar;
+    erros: Record<string, string[]>;
+    opcoes: OpcoesDosClientes | undefined;
+    aoMudar: (d: ClienteParaGravar) => void;
+}) {
+    const condicoes = opcoes?.condicoes_pagamento ?? [];
+
+    return (
+        // O ATALHO FICA FORA DO `Campo`, que é um `<label>`: um link dentro de
+        // um rótulo rouba-lhe o clique — carregar em «Gerir» abria a página E
+        // punha o cursor no select.
+        <div className="sm:col-span-2">
+            <Campo etiqueta={t('Condição de Pagamento')} erro={erros.payment_term_id}>
+                <select
+                    value={dados.payment_term_id === null ? '' : String(dados.payment_term_id)}
+                    onChange={(e) =>
+                        aoMudar({ ...dados, payment_term_id: e.target.value ? Number(e.target.value) : null })
+                    }
+                    className={entrada}
+                >
+                    <option value="">{t('— Sem condição —')}</option>
+                    {condicoes.map((c) => (
+                        <option key={c.id} value={c.id}>
+                            {c.nome}
+                            {c.dias > 0 ? ` (${t(':n dias', { n: c.dias })})` : ''}
+                        </option>
+                    ))}
+                </select>
+            </Campo>
+
+            {opcoes?.pode_gerir_condicoes && (
+                <a
+                    href={opcoes.url_condicoes}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="group mt-1.5 inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 transition-colors hover:text-indigo-800 hover:underline"
+                >
+                    <i
+                        className="fas fa-gear transition-transform duration-500 group-hover:rotate-180"
+                        aria-hidden="true"
+                    />
+                    {t('Gerir condições de pagamento')}
+                </a>
+            )}
+        </div>
+    );
+}
+
+/**
+ * O LOGÓTIPO DO CLIENTE.
+ *
+ * O que está gravado à esquerda, o que se acabou de escolher à direita — em
+ * verde, como o ecrã de sempre assinalava a imagem nova. O ficheiro sobe
+ * DEPOIS de a ficha gravar (ao criar não há ainda `id` nem pasta), e por isso
+ * aqui só se escolhe: quem grava é o `gravar` lá em cima.
+ */
+function Logotipo({
+    actual,
+    escolhido,
+    erro,
+    aRemover,
+    aoEscolher,
+    aoRemover,
+}: {
+    actual: string | null;
+    escolhido: File | null;
+    erro?: string[];
+    aRemover: boolean;
+    aoEscolher: (f: File | null) => void;
+    aoRemover?: () => void;
+}) {
+    // A pré-visualização é do ficheiro em memória: não passa pelo servidor, e
+    // some quando o ficheiro muda.
+    const espreitar = escolhido ? URL.createObjectURL(escolhido) : null;
+
+    return (
+        // TAMBÉM FORA DO `Campo`: aqui há botões, e um botão dentro de um
+        // `<label>` faz o clique cair no `<input type="file">` — carregar em
+        // «Remover» abria o explorador de ficheiros.
+        <div className="sm:col-span-2">
+            <Rotulo>{t('Logótipo')}</Rotulo>
+
+            <div className="flex flex-wrap items-center gap-4">
+                {actual && !espreitar && (
+                    <figure className="animate-fade-in text-center">
+                        <img
+                            src={actual}
+                            alt={t('Logótipo actual')}
+                            className="h-20 w-20 rounded-xl object-cover shadow-md ring-1 ring-slate-200"
+                        />
+                        <figcaption className="mt-1 text-[11px] text-slate-400">{t('Actual')}</figcaption>
+                    </figure>
+                )}
+
+                {espreitar && (
+                    <figure className="animate-scale-in text-center">
+                        <img
+                            src={espreitar}
+                            alt={t('Nova imagem')}
+                            className="h-20 w-20 rounded-xl object-cover shadow-lg ring-2 ring-emerald-400"
+                        />
+                        <figcaption className="mt-1 text-[11px] font-semibold text-emerald-600">
+                            <i className="fas fa-circle-check mr-1" aria-hidden="true" />
+                            {t('Nova')}
+                        </figcaption>
+                    </figure>
+                )}
+
+                <div className="min-w-[12rem] flex-1 space-y-2">
+                    <input
+                        type="file"
+                        accept="image/*"
+                        aria-label={t('Logótipo')}
+                        onChange={(e) => aoEscolher(e.target.files?.[0] ?? null)}
+                        className={cls(
+                            'w-full text-sm text-slate-600 file:mr-3 file:cursor-pointer file:rounded-lg file:border-0',
+                            'file:bg-indigo-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-indigo-700',
+                            'file:transition-colors hover:file:bg-indigo-100',
+                        )}
+                    />
+
+                    <div className="flex flex-wrap gap-2">
+                        {escolhido && (
+                            <Botao altura="pequeno" icone="fa-rotate-left" onClick={() => aoEscolher(null)}>
+                                {t('Cancelar escolha')}
+                            </Botao>
+                        )}
+                        {aoRemover && !escolhido && (
+                            <Botao
+                                cor="perigo"
+                                altura="pequeno"
+                                icone="fa-trash"
+                                aTrabalhar={aRemover}
+                                onClick={aoRemover}
+                            >
+                                {t('Remover logótipo')}
+                            </Botao>
+                        )}
+                    </div>
+
+                    <p className="text-xs text-slate-400">{t('Máximo 2MB — PNG, JPG ou GIF')}</p>
+
+                    {erro?.[0] && (
+                        <p role="alert" className="text-xs font-medium text-red-600">
+                            {erro[0]}
+                        </p>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 /* ─── O formulário ────────────────────────────────────────────────────── */
 
 function Formulario({
@@ -579,6 +856,10 @@ function Formulario({
     aGravar,
     erroDeGravar,
     opcoes,
+    logotipo,
+    aRemoverLogotipo,
+    aoEscolherLogotipo,
+    aoRemoverLogotipo,
     aoMudar,
     aoFechar,
     aoGravar,
@@ -589,6 +870,10 @@ function Formulario({
     aGravar: boolean;
     erroDeGravar: unknown;
     opcoes: OpcoesDosClientes | undefined;
+    logotipo: File | null;
+    aRemoverLogotipo: boolean;
+    aoEscolherLogotipo: (f: File | null) => void;
+    aoRemoverLogotipo: () => void;
     aoMudar: (d: ClienteParaGravar) => void;
     aoFechar: () => void;
     aoGravar: (d: ClienteParaGravar) => void;
@@ -676,6 +961,31 @@ function Formulario({
                         autoComplete="off"
                     />
                 </Campo>
+
+                {/* O CELULAR. Estava na ficha de sempre e a lista já o mostra
+                    quando não há telefone — mas não havia por onde o escrever:
+                    a migração deixou-o no tipo e no carregamento da edição, sem
+                    campo nenhum. Em Angola é o número que a maioria dos
+                    clientes atende. */}
+                <Campo etiqueta={t('Celular')} erro={erros.mobile}>
+                    <input
+                        value={dados.mobile ?? ''}
+                        onChange={(e) => campo('mobile', e.target.value)}
+                        className={entrada}
+                        autoComplete="off"
+                    />
+                </Campo>
+
+                <CondicaoDePagamento dados={dados} erros={erros} opcoes={opcoes} aoMudar={aoMudar} />
+
+                <Logotipo
+                    actual={aEditar?.logo ?? null}
+                    escolhido={logotipo}
+                    erro={erros.logotipo}
+                    aRemover={aRemoverLogotipo}
+                    aoEscolher={aoEscolherLogotipo}
+                    aoRemover={aEditar?.logo ? aoRemoverLogotipo : undefined}
+                />
 
                 <Campo etiqueta={t('Morada')} erro={erros.address} className="sm:col-span-2">
                     <input

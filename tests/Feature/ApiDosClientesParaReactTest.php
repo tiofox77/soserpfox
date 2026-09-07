@@ -3,7 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\Client;
+use App\Models\Invoicing\PaymentTerm;
 use App\Models\Invoicing\SalesInvoice;
+use App\Models\Tenant;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TenantTestCase;
 
 /**
@@ -437,5 +441,214 @@ class ApiDosClientesParaReactTest extends TenantTestCase
             $clientes->contains('id', $id),
             'o cliente criado do emissor tem de aparecer nas opções da factura'
         );
+    }
+
+    /* ─── O que a migração para React tinha deixado cair ──────────────── */
+
+    /**
+     * A CONDIÇÃO DE PAGAMENTO.
+     *
+     * É dela que sai o VENCIMENTO das facturas deste cliente. Sem o campo, todo
+     * o cliente novo ficava com a condição padrão da empresa (o modelo põe-na à
+     * nascença) sem ninguém poder trocá-la, e o prazo só se descobria na
+     * primeira factura emitida.
+     */
+    /** @test */
+    public function a_condicao_de_pagamento_grava_se_e_arrasta_os_dias(): void
+    {
+        $this->comPermissoes('invoicing.clients.view', 'invoicing.clients.create', 'invoicing.clients.edit');
+
+        $trinta = PaymentTerm::create([
+            'tenant_id' => $this->tenant->id,
+            'name' => 'Pagamento a 30 dias',
+            'days' => 30,
+            'is_active' => true,
+        ]);
+
+        $id = $this->postJson(self::RAIZ, $this->corpo(['payment_term_id' => $trinta->id]))
+            ->assertCreated()
+            ->json('data.id');
+
+        /*
+         * `payment_term_days` FICA EM SINCRONIA — são duas colunas para a
+         * mesma coisa: a condição é o catálogo, os dias são o valor legado que
+         * o cálculo do vencimento ainda lê. Sem esta sincronia, escolher «30
+         * dias» não mexia no vencimento de factura nenhuma.
+         */
+        $this->assertDatabaseHas('invoicing_clients', [
+            'id' => $id,
+            'payment_term_id' => $trinta->id,
+            'payment_term_days' => 30,
+        ]);
+
+        // E sai na lista com o NOME já feito, para o ecrã não cruzar listas.
+        $this->getJson(self::RAIZ . '?procura=Empresa de Ensaio')->assertOk()
+            ->assertJsonPath('data.0.payment_term_id', $trinta->id)
+            ->assertJsonPath('data.0.condicao_pagamento', 'Pagamento a 30 dias');
+
+        // Tirada a condição, os dias voltam a zero: senão ficava um prazo de 30
+        // dias a dar vencimentos a um cliente que já não tem condição nenhuma.
+        $this->putJson(self::RAIZ . '/' . $id, $this->corpo(['payment_term_id' => null]))->assertOk();
+
+        $this->assertDatabaseHas('invoicing_clients', [
+            'id' => $id,
+            'payment_term_id' => null,
+            'payment_term_days' => 0,
+        ]);
+    }
+
+    /**
+     * A CONDIÇÃO DE OUTRA EMPRESA NÃO ENTRA.
+     *
+     * O catálogo é por empresa. Um `exists` seco deixava passar um número
+     * escrito à mão no pedido, e era o prazo de outra empresa que passava a
+     * dar o vencimento às facturas deste cliente.
+     */
+    /** @test */
+    public function a_condicao_de_outra_empresa_e_recusada(): void
+    {
+        $this->comPermissoes('invoicing.clients.create');
+
+        $vizinha = Tenant::create([
+            'name' => 'Empresa Vizinha',
+            'slug' => 'vizinha-' . uniqid(),
+            'nif' => (string) random_int(500000000, 599999999),
+            'email' => 'vizinha' . uniqid() . '@exemplo.ao',
+            'is_active' => true,
+        ]);
+
+        $outra = PaymentTerm::create([
+            'tenant_id' => $vizinha->id,
+            'name' => 'Condição alheia',
+            'days' => 90,
+            'is_active' => true,
+        ]);
+
+        $this->postJson(self::RAIZ, $this->corpo(['payment_term_id' => $outra->id]))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('payment_term_id');
+    }
+
+    /** As opções trazem o catálogo desta empresa, para o formulário o mostrar. */
+    /** @test */
+    public function as_opcoes_trazem_as_condicoes_de_pagamento(): void
+    {
+        $this->comPermissoes('invoicing.clients.view');
+
+        PaymentTerm::create([
+            'tenant_id' => $this->tenant->id,
+            'name' => 'Condição de bancada',
+            'days' => 0,
+            'is_default' => true,
+            'is_active' => true,
+        ]);
+
+        // Uma DESLIGADA não se oferece: não se atribui de novo o que a empresa
+        // já retirou do catálogo.
+        PaymentTerm::create([
+            'tenant_id' => $this->tenant->id,
+            'name' => 'Condição desligada',
+            'days' => 45,
+            'is_default' => false,
+            'is_active' => false,
+        ]);
+
+        $opcoes = $this->getJson(self::RAIZ . '/opcoes')->assertOk()->json();
+
+        $nomes = collect($opcoes['condicoes_pagamento'])->pluck('nome');
+
+        $this->assertTrue($nomes->contains('Condição de bancada'));
+        $this->assertFalse($nomes->contains('Condição desligada'));
+
+        // O padrão vem marcado: é com ele que o formulário abre um cliente novo.
+        $this->assertTrue(
+            collect($opcoes['condicoes_pagamento'])->firstWhere('nome', 'Condição de bancada')['padrao']
+        );
+    }
+
+    /**
+     * O LOGÓTIPO DO CLIENTE.
+     *
+     * Vai à parte da ficha, em multipart, porque um ficheiro não viaja em
+     * JSON. E EXIGE A PERMISSÃO DE EDITAR: quem só pode ver não troca a imagem
+     * de uma ficha.
+     */
+    /** @test */
+    public function o_logotipo_grava_se_e_apaga_se(): void
+    {
+        Storage::fake('public');
+
+        $this->comPermissoes('invoicing.clients.view', 'invoicing.clients.create');
+
+        $id = $this->postJson(self::RAIZ, $this->corpo())->assertCreated()->json('data.id');
+
+        // SEM A PERMISSÃO DE EDITAR, não passa.
+        $this->postJson(self::RAIZ . "/{$id}/logotipo", [
+            'logotipo' => UploadedFile::fake()->image('marca.png'),
+        ])->assertForbidden();
+
+        $this->comPermissoes('invoicing.clients.edit');
+
+        $resposta = $this->postJson(self::RAIZ . "/{$id}/logotipo", [
+            'logotipo' => UploadedFile::fake()->image('marca.png'),
+        ])->assertOk();
+
+        $caminho = $resposta->json('data.logo_caminho');
+
+        $this->assertNotNull($caminho, 'o logótipo tinha de ficar gravado na ficha');
+        Storage::disk('public')->assertExists($caminho);
+
+        // A URL sai pronta a mostrar — o ecrã não tem de a montar.
+        $this->assertNotNull($resposta->json('data.logo'));
+
+        // E tira-se: o ficheiro sai do disco e a coluna fica limpa.
+        $this->deleteJson(self::RAIZ . "/{$id}/logotipo")->assertOk()
+            ->assertJsonPath('data.logo', null);
+
+        Storage::disk('public')->assertMissing($caminho);
+    }
+
+    /** O que não é imagem, ou é grande de mais, não entra. */
+    /** @test */
+    public function o_logotipo_tem_de_ser_uma_imagem(): void
+    {
+        Storage::fake('public');
+
+        $this->comPermissoes('invoicing.clients.create', 'invoicing.clients.edit');
+
+        $id = $this->postJson(self::RAIZ, $this->corpo())->assertCreated()->json('data.id');
+
+        $this->postJson(self::RAIZ . "/{$id}/logotipo", [
+            'logotipo' => UploadedFile::fake()->create('conta.pdf', 10, 'application/pdf'),
+        ])->assertStatus(422)->assertJsonValidationErrors('logotipo');
+
+        $this->postJson(self::RAIZ . "/{$id}/logotipo", [
+            'logotipo' => UploadedFile::fake()->image('enorme.png')->size(3000),
+        ])->assertStatus(422)->assertJsonValidationErrors('logotipo');
+    }
+
+    /**
+     * O CELULAR.
+     *
+     * Estava no tipo e no carregamento da edição, e a lista até o mostrava
+     * quando não havia telefone — mas o formulário não tinha campo nenhum por
+     * onde o escrever. Em Angola é o número que a maioria dos clientes atende.
+     */
+    /** @test */
+    public function o_celular_grava_se(): void
+    {
+        $this->comPermissoes('invoicing.clients.view', 'invoicing.clients.create');
+
+        $id = $this->postJson(self::RAIZ, $this->corpo(['mobile' => '923111222']))
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->assertDatabaseHas('invoicing_clients', ['id' => $id, 'mobile' => '923111222']);
+
+        // A procura é pelos mesmos quatro campos de sempre (nome, NIF, email e
+        // telefone) — o celular grava-se e mostra-se, não se procura por ele.
+        $this->getJson(self::RAIZ . '?procura=Empresa de Ensaio')
+            ->assertOk()
+            ->assertJsonPath('data.0.mobile', '923111222');
     }
 }

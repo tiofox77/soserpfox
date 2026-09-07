@@ -16,12 +16,19 @@ import { t } from '@/i18n';
 export function Campo({
     etiqueta,
     erro,
+    ajuda,
     obrigatorio = false,
     className,
     children,
 }: {
     etiqueta: string;
     erro?: string[];
+    /**
+     * Uma linha de explicação por baixo do controlo — o formato aceite, o que
+     * acontece se ficar vazio. TEXTO, nunca um botão ou um link: isto vive
+     * dentro do `<label>`, e um controlo dentro de outro rouba-lhe o clique.
+     */
+    ajuda?: ReactNode;
     obrigatorio?: boolean;
     className?: string;
     children: ReactNode;
@@ -41,6 +48,8 @@ export function Campo({
             </span>
 
             {children}
+
+            {ajuda && <span className="mt-1 block text-xs text-slate-400">{ajuda}</span>}
 
             {erro?.[0] && (
                 <span role="alert" className="mt-1 block text-xs font-medium text-red-600">

@@ -633,6 +633,13 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::delete('/clients/{id}', [\App\Http\Controllers\Api\Invoicing\ClientApiController::class, 'destroy'])
             ->whereNumber('id')->name('clients.destroy');
 
+        // O logótipo do cliente. Um ficheiro não viaja em JSON — vai em
+        // multipart, como o logótipo dos catálogos e as imagens do artigo.
+        Route::post('/clients/{id}/logotipo', [\App\Http\Controllers\Api\Invoicing\ClientApiController::class, 'logotipo'])
+            ->whereNumber('id')->name('clients.logotipo');
+        Route::delete('/clients/{id}/logotipo', [\App\Http\Controllers\Api\Invoicing\ClientApiController::class, 'apagarLogotipo'])
+            ->whereNumber('id')->name('clients.logotipo.apagar');
+
         // Artigos.
         Route::get('/products/opcoes', [\App\Http\Controllers\Api\Invoicing\ProductApiController::class, 'opcoes'])
             ->name('products.opcoes');

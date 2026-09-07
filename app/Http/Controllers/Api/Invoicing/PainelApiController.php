@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api\Invoicing;
 
 use App\Http\Controllers\Controller;
+use App\Services\Invoicing\Analytics\GraficosDeFacturacao;
 use App\Services\Invoicing\PainelDaFacturacao;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 /**
  * Os números do painel da facturação.
@@ -35,6 +37,22 @@ class PainelApiController extends Controller
         $periodo = PainelDaFacturacao::periodo($request->query('periodo'));
 
         $dados = $painel->numeros($empresa, $periodo);
+
+        /*
+         * OS TRÊS GRÁFICOS DO PERÍODO, do MESMO serviço que desenha o ecrã de
+         * gráficos.
+         *
+         * O painel de sempre tinha-os por baixo dos cartões — como recebemos,
+         * que artigos vendem e a folga entre vendas e compras — e a migração
+         * deixou-os para trás. Vêm daqui e não de contas próprias: dois sítios
+         * a somar a mesma coisa acabam sempre a dar números diferentes, e
+         * ninguém sabe qual acreditar.
+         */
+        $g = GraficosDeFacturacao::para(
+            $empresa,
+            Carbon::parse($dados['periodo']['de']),
+            Carbon::parse($dados['periodo']['ate'])
+        );
 
         return response()->json([
             // O período escolhido, com o rótulo já traduzido e a lista para a
@@ -69,6 +87,74 @@ class PainelApiController extends Controller
                 'total' => round((float) $l->total_amount, 2),
                 'documentos' => (int) $l->invoice_count,
             ])->values(),
+
+            /*
+             * OS GRÁFICOS DO PERÍODO. Saem em pares rótulo/valor, já prontos a
+             * desenhar — o ecrã não volta a cruzar duas listas paralelas, que
+             * é onde uma barra acaba com o nome de outra.
+             */
+            'graficos' => [
+                'meios_de_pagamento' => $this->emPares($g->recebimentosPorMeio()),
+                'top_produtos' => $this->emPares($g->topProdutos(5)),
+                'vendas_contra_compras' => $this->vendasContraCompras($g->vendasContraCompras()),
+            ],
+
+            /*
+             * AS ACTIVIDADES RECENTES — as últimas facturas criadas.
+             *
+             * O serviço já as contava e a API não as entregava: o painel de
+             * sempre fechava com esta lista, e é ela que responde a «o que é
+             * que se andou a fazer aqui hoje». Sai enxuta, como as outras.
+             */
+            'actividades' => $dados['recentActivities']->map(fn ($f) => [
+                'id' => $f->id,
+                'numero' => $f->numeroInterno(),
+                'cliente' => $f->client?->name ?? __('Sem cliente'),
+                'quando' => $f->created_at?->diffForHumans(),
+                'estado' => $f->status_label,
+                'cor' => $f->status_color,
+            ])->values(),
         ]);
+    }
+
+    /**
+     * Uma série do serviço de gráficos em pares rótulo/valor.
+     *
+     * O serviço devolve duas listas paralelas (`rotulos` e `valores`) porque é
+     * o que o Chart.js come. O ecrã em React desenha de pares — e duas listas
+     * paralelas que se dessincronizam põem uma barra com o nome de outra.
+     *
+     * @param  array{rotulos?: list<string>, valores?: list<float>}  $serie
+     * @return list<array{rotulo: string, valor: float}>
+     */
+    private function emPares(array $serie): array
+    {
+        $valores = $serie['valores'] ?? [];
+
+        return collect($serie['rotulos'] ?? [])
+            ->map(fn ($r, $i) => ['rotulo' => (string) $r, 'valor' => round((float) ($valores[$i] ?? 0), 2)])
+            ->all();
+    }
+
+    /**
+     * Vendas contra compras: três listas paralelas viram uma lista de pontos.
+     *
+     * @param  array{rotulos?: list<string>, vendas?: list<float>, compras?: list<float>}  $serie
+     * @return list<array{rotulo: string, vendas: float, compras: float, folga: float}>
+     */
+    private function vendasContraCompras(array $serie): array
+    {
+        $vendas = $serie['vendas'] ?? [];
+        $compras = $serie['compras'] ?? [];
+
+        return collect($serie['rotulos'] ?? [])->map(function ($r, $i) use ($vendas, $compras) {
+            $v = round((float) ($vendas[$i] ?? 0), 2);
+            $c = round((float) ($compras[$i] ?? 0), 2);
+
+            // A FOLGA vem contada de cá: é o que o painel de sempre dizia por
+            // extenso («a folga entre o que entra e o que sai»), e uma
+            // subtracção feita no ecrã é uma conta a mais fora do servidor.
+            return ['rotulo' => (string) $r, 'vendas' => $v, 'compras' => $c, 'folga' => round($v - $c, 2)];
+        })->all();
     }
 }

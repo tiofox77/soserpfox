@@ -47,6 +47,7 @@ const VAZIO: ArtigoParaGravar = {
     name: '',
     type: 'produto',
     description: '',
+    code: '',
     sku: '',
     barcode: '',
     price: '',
@@ -218,6 +219,7 @@ export default function Produtos() {
             name: a.name,
             type: a.type,
             description: a.description ?? '',
+            code: a.code ?? '',
             sku: a.sku ?? '',
             barcode: a.barcode ?? '',
             price: a.price,
@@ -1110,6 +1112,28 @@ function Formulario({
                     </select>
                 </Campo>
 
+                {/* O CÓDIGO DO ARTIGO. Gerado automaticamente e editável, como
+                    sempre foi: quem já tem códigos no armazém escreve o seu, e
+                    quem não tem deixa em branco e recebe um `PROD000001`. A
+                    migração para React tinha-o deixado só na lista, sem
+                    caminho para o mudar. */}
+                <Campo
+                    etiqueta={t('Código')}
+                    erro={erros.code}
+                    ajuda={
+                        aEditar
+                            ? t('Único nesta empresa.')
+                            : t('Em branco, é gerado automaticamente.')
+                    }
+                >
+                    <input
+                        value={dados.code ?? ''}
+                        onChange={(e) => campo('code', e.target.value)}
+                        placeholder={aEditar ? '' : t('Ex.: PROD000001')}
+                        className={cls(entrada, 'font-mono font-semibold')}
+                    />
+                </Campo>
+
                 <Campo etiqueta="SKU" erro={erros.sku}>
                     <input value={dados.sku ?? ''} onChange={(e) => campo('sku', e.target.value)} className={entrada} />
                 </Campo>
@@ -1215,7 +1239,39 @@ function Formulario({
                 )}
 
                 {!eServico && (
-                    <>
+                    <section className={cls('sm:col-span-3 border border-slate-200 bg-slate-50 p-4', RAIO)}>
+                        {/* GERENCIAR STOCK — a caixa que o ecrã em Blade tinha à
+                            cabeça deste bloco, e que abre ou fecha o resto.
+
+                            Nasce LIGADO: a caixa desmarcada por omissão deixou
+                            farmácias inteiras com artigos que se vendiam e nunca
+                            desciam, e o sintoma só aparecia semanas depois, com
+                            as contagens já fora. Mas há artigos que de facto não
+                            se contam (a taxa de entrega, o serviço facturado como
+                            produto), e sem este interruptor não havia como o
+                            dizer — o ecrã em React ligava-o pelo tipo e mais
+                            nada. Desligado, o POS deixa de esconder o artigo
+                            quando o stock está a zero. */}
+                        <label className="flex items-start gap-3">
+                            <input
+                                type="checkbox"
+                                checked={dados.manage_stock}
+                                onChange={(e) => campo('manage_stock', e.target.checked)}
+                                className="mt-0.5 h-5 w-5 rounded border-slate-300 text-indigo-600 transition-transform duration-150 hover:scale-110"
+                            />
+                            <span>
+                                <span className="text-sm font-bold text-slate-800">
+                                    <i className="fas fa-warehouse mr-2 text-slate-400" aria-hidden="true" />
+                                    {t('Gerenciar Stock')}
+                                </span>
+                                <span className="mt-0.5 block text-xs text-slate-500">
+                                    {t('Desligado, o artigo vende-se sem descontar e não se esconde do POS a zero.')}
+                                </span>
+                            </span>
+                        </label>
+
+                        {dados.manage_stock && (
+                    <div className="animate-fade-in mt-4 grid gap-4 sm:grid-cols-3">
                         <Campo etiqueta={t('Stock mínimo')} erro={erros.stock_min}>
                             <input
                                 type="number"
@@ -1261,9 +1317,17 @@ function Formulario({
                                 />
                             </Campo>
                         )}
+                    </div>
+                        )}
 
-                        <LotesEValidade dados={dados} aoMudar={aoMudar} />
-                    </>
+                        {/* OS LOTES FICAM SEMPRE À VISTA, mesmo com o agregado
+                            desligado: o `track_batches` é o que faz o artigo
+                            descontar lote a lote, e escondê-lo atrás do
+                            interruptor que ele dispensa deixava-o inalcançável. */}
+                        <div className="mt-4">
+                            <LotesEValidade dados={dados} aoMudar={aoMudar} />
+                        </div>
+                    </section>
                 )}
 
                 <Campo etiqueta={t('Descrição')} erro={erros.description} className="sm:col-span-3">
@@ -1383,7 +1447,7 @@ function LotesEValidade({
     ];
 
     return (
-        <section className={cls('sm:col-span-3 border border-slate-200 bg-slate-50 p-4', RAIO)}>
+        <section className={cls('border border-slate-200 bg-white p-4', RAIO)}>
             <h4 className="text-sm font-bold text-slate-800">
                 <i className="fas fa-layer-group mr-2 text-slate-400" aria-hidden="true" />
                 {t('Controle de Lotes e Validade')}

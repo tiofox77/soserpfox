@@ -908,4 +908,78 @@ class ApiDosProdutosParaReactTest extends TenantTestCase
         $this->assertNull($linha['imagem']);
         $this->assertSame([], $linha['galeria']);
     }
+
+    /* ─── O código do artigo ──────────────────────────────────────────── */
+
+    /**
+     * O CÓDIGO É GERADO — mas quem quiser escreve o seu.
+     *
+     * É assim desde sempre: o ecrã em Blade mostrava o código com um «gerado
+     * automaticamente — editável» ao lado, e quem já tem códigos no armazém
+     * punha lá o seu. A API em React nem sequer o aceitava: o campo entrava
+     * pela porta do modelo e não havia caminho nenhum para o mudar.
+     */
+    /** @test */
+    public function o_codigo_gera_se_sozinho_e_aceita_se_escrito(): void
+    {
+        $this->comPermissoes('invoicing.products.view', 'invoicing.products.create', 'invoicing.products.edit');
+
+        // SEM CÓDIGO, o servidor gera-o.
+        $gerado = $this->postJson(self::RAIZ, $this->corpo())->assertCreated()->json('data');
+
+        $this->assertNotEmpty($gerado['code']);
+        $this->assertStringStartsWith('PROD', $gerado['code']);
+
+        // COM CÓDIGO, fica o que se escreveu.
+        $meu = $this->postJson(self::RAIZ, $this->corpo([
+            'name' => 'Artigo com código próprio',
+            'code' => 'ARM-0042',
+        ]))->assertCreated()->json('data');
+
+        $this->assertSame('ARM-0042', $meu['code']);
+
+        // E muda-se a editar.
+        $this->putJson(self::RAIZ . '/' . $meu['id'], $this->corpo([
+            'name' => 'Artigo com código próprio',
+            'code' => 'ARM-0043',
+        ]))->assertOk()->assertJsonPath('data.code', 'ARM-0043');
+    }
+
+    /**
+     * O MESMO CÓDIGO NÃO SE REPETE NA EMPRESA.
+     *
+     * É o que a coluna promete e o que o gerador presume ao procurar o maior
+     * número usado: dois artigos com `PROD000007` deixavam o gerador a repetir
+     * códigos para sempre, e o artigo deixava de se encontrar por ele.
+     */
+    /** @test */
+    public function o_codigo_nao_se_repete_na_mesma_empresa(): void
+    {
+        $this->comPermissoes('invoicing.products.create');
+
+        $this->postJson(self::RAIZ, $this->corpo(['code' => 'REPETIDO']))->assertCreated();
+
+        $this->postJson(self::RAIZ, $this->corpo(['name' => 'Outro artigo', 'code' => 'REPETIDO']))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('code');
+    }
+
+    /**
+     * UM CÓDIGO EM BRANCO A EDITAR NÃO APAGA O QUE LÁ ESTAVA.
+     *
+     * O campo limpo por engano deixaria um artigo sem código — e esse artigo
+     * anda em facturas já emitidas, onde o código é o que o liga à linha.
+     */
+    /** @test */
+    public function o_codigo_em_branco_nao_apaga_o_que_estava(): void
+    {
+        $this->comPermissoes('invoicing.products.create', 'invoicing.products.edit');
+
+        $artigo = $this->postJson(self::RAIZ, $this->corpo(['code' => 'FICA-ASSIM']))
+            ->assertCreated()->json('data');
+
+        $this->putJson(self::RAIZ . '/' . $artigo['id'], $this->corpo(['code' => '']))
+            ->assertOk()
+            ->assertJsonPath('data.code', 'FICA-ASSIM');
+    }
 }

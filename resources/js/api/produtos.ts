@@ -94,6 +94,11 @@ export type ArtigoParaGravar = {
     name: string;
     type: 'produto' | 'servico';
     description: string | null;
+    /**
+     * O código do artigo. Em branco, o servidor gera-o (`PROD000001`) — é por
+     * isso que aqui pode ir vazio e não é `required` do lado de lá.
+     */
+    code: string | null;
     sku: string | null;
     barcode: string | null;
     price: number | string;

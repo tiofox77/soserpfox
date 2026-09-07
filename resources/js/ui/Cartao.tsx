@@ -14,6 +14,7 @@ import { CARTAO, TRANSICAO, cls } from './tokens';
  */
 export function Cartao({
     titulo,
+    subtitulo,
     icone,
     accoes,
     children,
@@ -21,6 +22,12 @@ export function Cartao({
     className,
 }: {
     titulo?: ReactNode;
+    /**
+     * A linha pequena por baixo do título — o que o cartão mede, em palavras.
+     * Os cartões do painel em Blade tinham-na («Vencidas contadas à parte»,
+     * «Por valor vendido»), e é ela que evita ler o número ao contrário.
+     */
+    subtitulo?: string;
     icone?: string;
     accoes?: ReactNode;
     children: ReactNode;
@@ -32,14 +39,17 @@ export function Cartao({
             {(titulo || accoes) && (
                 <header className="flex items-center justify-between gap-4 border-b border-slate-100 bg-slate-50/60 px-5 py-3.5">
                     {typeof titulo === 'string' ? (
-                        <h2 className="flex items-center gap-2 text-sm font-bold tracking-tight text-slate-800">
+                        <div className="flex min-w-0 items-center gap-2">
                             {icone && (
-                                <span className="grid h-7 w-7 place-items-center rounded-lg bg-indigo-50 text-indigo-600">
+                                <span className="grid h-7 w-7 flex-none place-items-center rounded-lg bg-indigo-50 text-indigo-600">
                                     <i className={`fas ${icone} text-xs`} aria-hidden="true" />
                                 </span>
                             )}
-                            {titulo}
-                        </h2>
+                            <div className="min-w-0">
+                                <h2 className="text-sm font-bold tracking-tight text-slate-800">{titulo}</h2>
+                                {subtitulo && <p className="text-xs text-slate-500">{subtitulo}</p>}
+                            </div>
+                        </div>
                     ) : (
                         titulo
                     )}

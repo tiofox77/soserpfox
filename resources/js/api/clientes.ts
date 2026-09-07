@@ -10,6 +10,14 @@ export type Cliente = {
     email: string | null;
     phone: string | null;
     mobile: string | null;
+    /** A morada do logótipo, já pronta a mostrar. */
+    logo: string | null;
+    /** O que está gravado na coluna — a chave que não muda com o domínio. */
+    logo_caminho: string | null;
+    /** A condição de pagamento: é dela que sai o vencimento das facturas. */
+    payment_term_id: number | null;
+    /** O nome da condição, já feito — para a lista não cruzar duas listas. */
+    condicao_pagamento: string | null;
     address: string | null;
     city: string | null;
     province: string | null;
@@ -32,7 +40,17 @@ export type Cliente = {
  */
 export type ClienteParaGravar = Omit<
     Cliente,
-    'id' | 'tipo_rotulo' | 'pais_nome' | 'documentos' | 'pode_apagar'
+    | 'id'
+    | 'tipo_rotulo'
+    | 'pais_nome'
+    | 'documentos'
+    | 'pode_apagar'
+    // O LOGÓTIPO NÃO VIAJA NO CORPO: é um ficheiro, vai em multipart pela
+    // rota própria, depois de a ficha estar gravada (antes disso não há id
+    // nem pasta onde o pôr). O nome da condição também não — grava-se o id.
+    | 'logo'
+    | 'logo_caminho'
+    | 'condicao_pagamento'
 > & {
     portal_password?: string;
     portal_repor_senha?: boolean;
@@ -61,6 +79,11 @@ export type OpcoesDosClientes = {
     /** Onde o cliente entra, para o formulário o poder dizer. */
     portal_url: string;
     tipos: Array<{ valor: string; rotulo: string }>;
+    /** O catálogo de condições desta empresa — só as activas. */
+    condicoes_pagamento: Array<{ id: number; nome: string; dias: number; padrao: boolean }>;
+    /** Se este utilizador pode abrir as definições para as gerir. */
+    pode_gerir_condicoes: boolean;
+    url_condicoes: string;
     permissoes: { pode_criar: boolean; pode_editar: boolean; pode_apagar: boolean };
 };
 
@@ -98,4 +121,19 @@ export const clientes = {
     guardar: (id: number, dados: ClienteParaGravar) =>
         api.guardar<{ data: Cliente }>(`/clients/${id}`, paraGravar(dados)),
     apagar: (id: number) => api.apagar<{ message: string }>(`/clients/${id}`),
+
+    /**
+     * O LOGÓTIPO VAI À PARTE, em multipart — um ficheiro não cabe em JSON.
+     *
+     * A nova substitui a que lá estava: é um logótipo, não um histórico deles.
+     */
+    logotipo: (id: number, ficheiro: File) => {
+        const corpo = new FormData();
+        corpo.append('logotipo', ficheiro);
+
+        return api.enviar<{ data: Cliente; message: string }>(`/clients/${id}/logotipo`, corpo);
+    },
+
+    apagarLogotipo: (id: number) =>
+        api.apagar<{ data: Cliente; message: string }>(`/clients/${id}/logotipo`),
 };

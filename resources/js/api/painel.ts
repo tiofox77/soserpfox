@@ -46,6 +46,29 @@ export type NumerosDoPainel = {
         saldo: number;
     }>;
     melhores_clientes: Array<{ cliente: string; total: number; documentos: number }>;
+
+    /** Os três gráficos do período, já em pares prontos a desenhar. */
+    graficos: {
+        meios_de_pagamento: Array<{ rotulo: string; valor: number }>;
+        top_produtos: Array<{ rotulo: string; valor: number }>;
+        /** A folga vem contada do servidor: vendas − compras, ponto a ponto. */
+        vendas_contra_compras: Array<{
+            rotulo: string;
+            vendas: number;
+            compras: number;
+            folga: number;
+        }>;
+    };
+
+    /** As últimas facturas criadas — com que o painel de sempre fechava. */
+    actividades: Array<{
+        id: number;
+        numero: string;
+        cliente: string;
+        quando: string | null;
+        estado: string;
+        cor: string;
+    }>;
 };
 
 export const painel = {
