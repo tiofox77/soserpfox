@@ -11,6 +11,7 @@ use App\Models\Product;
 use App\Models\Invoicing\Warehouse;
 use App\Models\Treasury\PaymentMethod as TreasuryPaymentMethod;
 use App\Services\POS\PosSaleService;
+use App\Services\POS\PosSalesReportQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -419,5 +420,74 @@ class PosApiController extends Controller
             ],
             'message' => __('Venda :numero registada.', ['numero' => $factura->invoice_number]),
         ], 201);
+    }
+
+    /**
+     * O MAPA DE VENDAS DO BALCÃO.
+     *
+     * A consulta é a do `PosSalesReportQuery` — o MESMO serviço que o ecrã em
+     * Livewire, o PDF e o Excel já usavam. Montar aqui uma consulta própria
+     * era ter quatro relatórios a dizer números diferentes sobre o mesmo dia.
+     */
+    public function relatorio(Request $request): JsonResponse
+    {
+        $tenantId = (int) activeTenantId();
+
+        abort_unless($tenantId, 403, __('Sem empresa activa.'));
+        abort_unless(
+            $request->user()?->can('invoicing.pos.reports.view')
+                || $request->user()?->can('invoicing.sales.invoices.view'),
+            403,
+            __('Sem permissão para ver os relatórios do POS.')
+        );
+
+        $filtros = $request->validate([
+            'start_date' => ['nullable', 'date'],
+            'end_date' => ['nullable', 'date'],
+            'search' => ['nullable', 'string', 'max:120'],
+            'status' => ['nullable', 'string', 'max:30'],
+            'payment_method' => ['nullable', 'string', 'max:30'],
+            'document_type' => ['nullable', 'string', 'max:20'],
+            'por_pagina' => ['nullable', 'integer', 'min:5', 'max:100'],
+        ]);
+
+        $consulta = new PosSalesReportQuery($tenantId, $filtros);
+
+        $pagina = $consulta->listagem()->paginate($filtros['por_pagina'] ?? 20)->withQueryString();
+
+        return response()->json([
+            'data' => collect($pagina->items())->map(fn ($d) => [
+                'tipo' => $d->doc_tipo,
+                'subtipo' => $d->doc_subtipo,
+                'id' => (int) $d->doc_id,
+                'numero' => $d->numero,
+                'numero_interno' => $d->numero_interno ?? $d->numero,
+                'data' => (string) $d->data,
+                'cliente' => $d->cliente_nome ?: __('Consumidor Final'),
+                'cliente_nif' => $d->cliente_nif,
+                'subtotal' => round((float) $d->subtotal, 2),
+                'imposto' => round((float) $d->tax_amount, 2),
+                'desconto' => round((float) $d->desconto, 2),
+                'total' => round((float) $d->total, 2),
+                'forma' => $d->payment_method,
+                'estado' => $d->status,
+                'motivo' => $d->motivo,
+                'factura_origem' => $d->factura_origem,
+                // As duas moradas do papel, como no fecho da venda.
+                'papeis' => $d->doc_tipo === 'factura' ? [
+                    'talao' => "/invoicing/sales/invoices/{$d->doc_id}/talao",
+                    'a4' => "/invoicing/sales/invoices/{$d->doc_id}/preview",
+                ] : null,
+            ])->values(),
+
+            'meta' => [
+                'total' => $pagina->total(),
+                'pagina' => $pagina->currentPage(),
+                'paginas' => $pagina->lastPage(),
+                // Os totais contam sobre o PERÍODO, não sobre a página: uma
+                // soma que mudasse ao carregar em «Seguinte» não é uma soma.
+                'totais' => $consulta->totais(),
+            ],
+        ]);
     }
 }
