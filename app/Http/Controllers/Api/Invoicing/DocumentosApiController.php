@@ -69,14 +69,23 @@ class DocumentosApiController extends Controller
              * lista toda e fazia acreditar que filtrava.
              */
             'motivo' => [empty($def['motivo']) ? 'prohibited' : 'nullable', 'string', 'max:40'],
+            /*
+             * O LADO — só onde o documento tem dois. Recusado onde não tem,
+             * pela mesma razão do motivo: um filtro ignorado em silêncio
+             * devolve a lista toda e faz acreditar que filtrou.
+             */
+            'lado' => [empty($def['lados']) ? 'prohibited' : 'nullable', 'string', 'max:20'],
             'por_pagina' => ['nullable', 'integer', 'min:5', 'max:100'],
         ]);
 
         $data = $def['data'];
 
+        // AS RELAÇÕES DA PARTE, no plural: o recibo tem duas (cliente e
+        // fornecedor) e é preciso carregar as duas de uma vez — ir buscá-las
+        // por linha eram tantas consultas quantos os recibos da página.
         $comRelacoes = $this->temNumeracaoDupla($def['modelo'])
-            ? [$def['relacao'], 'series']
-            : [$def['relacao']];
+            ? [...$this->relacoesDaParte($def), 'series']
+            : $this->relacoesDaParte($def);
 
         // A FACTURA DE ORIGEM das notas vem na mesma consulta: a lista mostra o
         // número dela em coluna própria, e ir buscá-la por linha eram tantas
@@ -145,6 +154,9 @@ class DocumentosApiController extends Controller
             // Criar é outra permissão: quem só vê a lista não a cria.
             'pode_criar' => (bool) $request->user()?->can(str_replace('.view', '.create', $def['permissao'])),
             'parte' => $def['parte'],
+            // Onde o documento tem dois lados, o cabeçalho da coluna diz os
+            // dois: um recibo de compra não tem cliente nenhum.
+            'parte_rotulo' => ! empty($def['lados']['parte']) ? __($def['lados']['parte']) : null,
             'rota' => $def['rota'],
             'tem_saldo' => $def['tem_saldo'],
             // O que a coluna do Portal AGT diz neste tipo de documento.
@@ -173,6 +185,24 @@ class DocumentosApiController extends Controller
              * daqui porque é o esquema que sabe de que documento se trata.
              */
             'prazo' => ! empty($def['prazo']) ? __($def['prazo']['rotulo']) : null,
+
+            /*
+             * OS LADOS — só os recibos os têm: venda e compra.
+             *
+             * Vai também o rótulo da coluna, para o ecrã não ter de saber que
+             * o cabeçalho de um recibo se chama «Tipo».
+             */
+            'lados' => ! empty($def['lados']) ? [
+                'rotulo' => __($def['lados']['rotulo']),
+                'opcoes' => collect($def['lados']['opcoes'])
+                    ->map(fn ($o, $v) => [
+                        'valor' => $v,
+                        'rotulo' => __($o['rotulo']),
+                        'cor' => $o['cor'] ?? 'neutra',
+                        'icone' => $o['icone'] ?? 'fa-circle',
+                    ])
+                    ->values(),
+            ] : null,
 
             // A FACTURA DE ORIGEM das notas, e o cabeçalho da coluna dela.
             'origem' => ! empty($def['origem']) ? __($def['origem']['rotulo']) : null,
@@ -215,7 +245,7 @@ class DocumentosApiController extends Controller
 
         $d = $this->baseDoAutor()->findOrFail($id);
 
-        $parte = $d->{$def['relacao']};
+        $parte = $d->{$this->relacaoDaParte($d, $def)};
         $temLinhas = method_exists($d, 'items');
 
         $linhas = $temLinhas
@@ -535,13 +565,19 @@ class DocumentosApiController extends Controller
     {
         $numero = $def['numero'];
         $data = $def['data'];
-        $relacao = $def['relacao'];
+        // Todas as relações por onde a procura tem de passar: num recibo de
+        // compra o nome está no fornecedor, e procurar só pelo cliente não
+        // encontrava nenhum deles.
+        $relacoes = $this->relacoesDaParte($def);
         $comSerie = $this->temNumeracaoDupla($def['modelo']);
 
         return $this->baseDoAutor()
-            ->when($filtros['procura'] ?? null, fn ($q, $procura) => $q->where(function ($w) use ($procura, $numero, $relacao, $comSerie) {
-                $w->where($numero, 'like', "%{$procura}%")
-                    ->orWhereHas($relacao, fn ($p) => $p->where('name', 'like', "%{$procura}%"));
+            ->when($filtros['procura'] ?? null, fn ($q, $procura) => $q->where(function ($w) use ($procura, $numero, $relacoes, $comSerie) {
+                $w->where($numero, 'like', "%{$procura}%");
+
+                foreach ($relacoes as $r) {
+                    $w->orWhereHas($r, fn ($p) => $p->where('name', 'like', "%{$procura}%"));
+                }
 
                 /*
                  * PROCURA-SE PELA SÉRIE INTERNA — é a que aparece primeiro.
@@ -562,7 +598,10 @@ class DocumentosApiController extends Controller
             ->when($filtros['de'] ?? null, fn ($q, $v) => $q->where($data, '>=', $v))
             ->when($filtros['ate'] ?? null, fn ($q, $v) => $q->where($data, '<=', $v))
             // O motivo, nas notas: a coluna chama-se `reason` nas duas.
-            ->when($filtros['motivo'] ?? null, fn ($q, $v) => $q->where('reason', $v));
+            ->when($filtros['motivo'] ?? null, fn ($q, $v) => $q->where('reason', $v))
+            // O LADO, nos recibos: venda ou compra. A coluna vem do esquema,
+            // que é quem sabe como o documento se chama por dentro.
+            ->when($filtros['lado'] ?? null, fn ($q, $v) => $q->where($def['lados']['coluna'], $v));
     }
 
     /** Resolve o tipo, exige a permissão dele, e arma o trait do escopo. */
@@ -617,9 +656,44 @@ class DocumentosApiController extends Controller
         return method_exists($modelo, 'numeroInterno');
     }
 
+    /**
+     * A RELAÇÃO DA PARTE NESTA LINHA.
+     *
+     * Quase todos os documentos têm um lado só, e a resposta é o `relacao` do
+     * esquema. O recibo tem dois: o de venda lê o cliente, o de compra lê o
+     * fornecedor. É aqui, num sítio só, que a escolha se faz — a lista, a
+     * ficha e a procura passam todas por cá.
+     */
+    private function relacaoDaParte($d, array $def): string
+    {
+        if (empty($def['lados'])) {
+            return $def['relacao'];
+        }
+
+        $valor = $d->{$def['lados']['coluna']};
+
+        return $def['lados']['opcoes'][$valor]['relacao'] ?? $def['relacao'];
+    }
+
+    /** Todas as relações que este tipo pode usar para a parte — para o `with()`. */
+    private function relacoesDaParte(array $def): array
+    {
+        if (empty($def['lados'])) {
+            return [$def['relacao']];
+        }
+
+        return collect($def['lados']['opcoes'])
+            ->pluck('relacao')
+            ->filter()
+            ->push($def['relacao'])
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     private function linha($d, array $def): array
     {
-        $parte = $d->{$def['relacao']};
+        $parte = $d->{$this->relacaoDaParte($d, $def)};
         $valor = round((float) ($d->{$def['valor']} ?? 0), 2);
         $duplo = $this->temNumeracaoDupla($def['modelo']);
 
@@ -638,6 +712,26 @@ class DocumentosApiController extends Controller
             'estado_cor' => $this->corDoEstado($d->status),
             'valor' => $valor,
         ];
+
+        /*
+         * O LADO, em coluna própria — a etiqueta «Venda» ou «Compra» que a
+         * lista em Blade tinha logo a seguir ao número. Sem ela, dois recibos
+         * do mesmo valor e do mesmo dia são indistinguíveis, e um deles é
+         * dinheiro que entrou e o outro dinheiro que saiu.
+         */
+        if (! empty($def['lados'])) {
+            // Nome próprio: $valor já é o do documento, e reaproveitá-lo aqui
+            // era deixar uma armadilha para quem mexesse a seguir.
+            $lado = $d->{$def['lados']['coluna']};
+            $opcao = $def['lados']['opcoes'][$lado] ?? null;
+
+            $linha['lado'] = [
+                'valor' => $lado,
+                'rotulo' => __($opcao['rotulo'] ?? ($lado ?? '')),
+                'cor' => $opcao['cor'] ?? 'neutra',
+                'icone' => $opcao['icone'] ?? 'fa-circle',
+            ];
+        }
 
         /*
          * O PRAZO: vencimento nas facturas de compra, validade nas propostas.

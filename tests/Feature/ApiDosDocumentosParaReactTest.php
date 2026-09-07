@@ -494,4 +494,125 @@ class ApiDosDocumentosParaReactTest extends TenantTestCase
         $this->deleteJson($this->rota('facturas-compra') . '/' . $c->id)->assertNotFound();
         $this->assertNotNull(PurchaseInvoice::find($c->id));
     }
+
+    /*
+     * ─── O RECIBO TEM DOIS LADOS ───────────────────────────────────────────
+     *
+     * Um recibo de venda recebe de um CLIENTE; um de compra paga a um
+     * FORNECEDOR, e nesse o `client_id` fica vazio. A lista lia sempre o
+     * cliente — e metade dos recibos aparecia sem nome nenhum.
+     */
+
+    private function recibo(string $lado, array $por = []): \App\Models\Invoicing\Receipt
+    {
+        $de = $lado === 'purchase'
+            ? ['supplier_id' => $this->fornecedor()->id, 'client_id' => null]
+            : ['client_id' => $this->clienteEmpresa()->id, 'supplier_id' => null];
+
+        return \App\Models\Invoicing\Receipt::create(array_merge([
+            'tenant_id' => $this->tenant->id,
+            'type' => $lado,
+            'receipt_number' => 'RC/' . random_int(1000, 9999),
+            'payment_date' => now()->toDateString(),
+            'payment_method' => 'cash',
+            'amount_paid' => 2500,
+            'status' => 'issued',
+            'created_by' => $this->user->id,
+        ], $de, $por));
+    }
+
+    /** @test */
+    public function o_recibo_de_compra_mostra_o_fornecedor_e_nao_fica_sem_nome(): void
+    {
+        $this->comPermissoes('invoicing.receipts.view');
+
+        $this->recibo('purchase');
+
+        $linha = $this->getJson($this->rota('recibos'))->assertOk()->json('data.0');
+
+        $this->assertSame('Fornecedor de Ensaio', $linha['parte'], 'a parte de um recibo de compra é o fornecedor');
+        $this->assertSame('purchase', $linha['lado']['valor']);
+        $this->assertSame('Compra', $linha['lado']['rotulo']);
+    }
+
+    /** @test */
+    public function o_recibo_de_venda_continua_a_mostrar_o_cliente(): void
+    {
+        $this->comPermissoes('invoicing.receipts.view');
+
+        $this->recibo('sale');
+
+        $linha = $this->getJson($this->rota('recibos'))->assertOk()->json('data.0');
+
+        $this->assertSame($this->clienteEmpresa()->name, $linha['parte']);
+        $this->assertSame('sale', $linha['lado']['valor']);
+        $this->assertSame('Venda', $linha['lado']['rotulo']);
+    }
+
+    /** @test */
+    public function o_filtro_do_lado_separa_o_que_entrou_do_que_saiu(): void
+    {
+        $this->comPermissoes('invoicing.receipts.view');
+
+        $this->recibo('sale');
+        $this->recibo('purchase');
+        $this->recibo('purchase');
+
+        $this->assertCount(3, $this->getJson($this->rota('recibos'))->json('data'));
+        $this->assertCount(1, $this->getJson($this->rota('recibos') . '?lado=sale')->json('data'));
+        $this->assertCount(2, $this->getJson($this->rota('recibos') . '?lado=purchase')->json('data'));
+    }
+
+    /** A procura tem de passar pelo fornecedor, senão não acha o de compra. @test */
+    public function procurar_pelo_nome_encontra_tambem_o_recibo_de_compra(): void
+    {
+        $this->comPermissoes('invoicing.receipts.view');
+
+        $this->recibo('purchase');
+
+        $achados = $this->getJson($this->rota('recibos') . '?procura=Fornecedor de Ensaio')->assertOk()->json('data');
+
+        $this->assertCount(1, $achados);
+    }
+
+    /** Onde o documento tem um lado só, o filtro é RECUSADO e não ignorado. @test */
+    public function o_filtro_do_lado_e_recusado_onde_o_documento_nao_tem_dois(): void
+    {
+        $this->comPermissoes('invoicing.sales.quotes.view');
+
+        $this->orcamento();
+
+        $this->getJson($this->rota('orcamentos') . '?lado=sale')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('lado');
+    }
+
+    /** @test */
+    public function as_opcoes_dos_recibos_trazem_os_lados_e_o_cabecalho_da_parte(): void
+    {
+        $this->comPermissoes('invoicing.receipts.view');
+
+        $o = $this->getJson($this->rota('recibos') . '/opcoes')->assertOk();
+
+        $this->assertSame('Tipo', $o->json('lados.rotulo'));
+        $this->assertSame(['sale', 'purchase'], array_column($o->json('lados.opcoes'), 'valor'));
+        $this->assertSame('Cliente/Fornecedor', $o->json('parte_rotulo'));
+
+        // E nos outros não há lados nenhuns — o ecrã não desenha a coluna.
+        $this->comPermissoes('invoicing.sales.quotes.view');
+        $this->assertNull($this->getJson($this->rota('orcamentos') . '/opcoes')->json('lados'));
+        $this->assertNull($this->getJson($this->rota('orcamentos') . '/opcoes')->json('parte_rotulo'));
+    }
+
+    /** A ficha do recibo de compra também mostra o fornecedor. @test */
+    public function a_ficha_do_recibo_de_compra_mostra_o_fornecedor(): void
+    {
+        $this->comPermissoes('invoicing.receipts.view');
+
+        $r = $this->recibo('purchase');
+
+        $this->getJson($this->rota('recibos') . '/' . $r->id)
+            ->assertOk()
+            ->assertJsonPath('parte.nome', 'Fornecedor de Ensaio');
+    }
 }

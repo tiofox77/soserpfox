@@ -146,6 +146,31 @@ class TiposDeDocumento
                 'agt' => 'propria',
                 'descricao' => 'Recebimentos dos clientes',
                 'novo' => 'Novo Recibo',
+
+                /*
+                 * O RECIBO TEM DOIS LADOS, e é o único documento que os tem.
+                 *
+                 * Um recibo de VENDA recebe de um cliente; um de COMPRA paga a
+                 * um fornecedor — e nesse o `client_id` fica vazio, porque a
+                 * parte está em `supplier_id`. Ler sempre `client` deixava
+                 * metade dos recibos SEM NOME NENHUM na lista, e sem maneira
+                 * de os separar: o ecrã de sempre tinha a coluna e o filtro.
+                 *
+                 * Fica no esquema e não no controlador para que o dia em que
+                 * outro documento tenha dois lados não precise de um `if` com
+                 * o nome de um tipo lá dentro.
+                 */
+                'lados' => [
+                    'coluna' => 'type',
+                    'rotulo' => 'Tipo',
+                    // O cabeçalho da coluna da parte, que aqui não é só o
+                    // cliente. Era o que a lista em Blade tinha por cima dela.
+                    'parte' => 'Cliente/Fornecedor',
+                    'opcoes' => [
+                        'sale' => ['rotulo' => 'Venda', 'cor' => 'bom', 'icone' => 'fa-cart-shopping', 'relacao' => 'client'],
+                        'purchase' => ['rotulo' => 'Compra', 'cor' => 'aviso', 'icone' => 'fa-box', 'relacao' => 'supplier'],
+                    ],
+                ],
             ],
 
             // As notas e os adiantamentos listam-se da mesma maneira; o que

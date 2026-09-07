@@ -147,6 +147,8 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
     const prazo = opcoes.data?.prazo ?? null;
     const origem = opcoes.data?.origem ?? null;
     const motivos = (opcoes.data?.motivos.length ?? 0) > 0;
+    // Os lados: só os recibos os têm — venda e compra.
+    const lados = opcoes.data?.lados ?? null;
 
     return (
         <div className="space-y-4">
@@ -213,7 +215,10 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
                             type="search"
                             value={filtros.procura ?? ''}
                             onChange={(e) => porFiltros((f) => ({ ...f, procura: e.target.value, page: 1 }))}
-                            placeholder={t('Número ou :parte', { parte: opcoes.data?.parte ?? t('nome') })}
+                            /* Nos recibos a procura passa pelas duas partes, e o texto
+                               da caixa tem de o dizer: procurar «cliente» num recibo de
+                               compra não encontrava nada. */
+                            placeholder={t('Número ou :parte', { parte: (opcoes.data?.parte_rotulo ?? opcoes.data?.parte ?? t('nome')).toLocaleLowerCase() })}
                             className={entrada}
                         />
                     </label>
@@ -250,6 +255,28 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
                                 {opcoes.data?.motivos.map((m) => (
                                     <option key={m.valor} value={m.valor}>
                                         {m.rotulo}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                    )}
+
+                    {/* O LADO, nos recibos: um de venda é dinheiro que entrou,
+                        um de compra é dinheiro que saiu. A lista de sempre
+                        tinha-o em caixa própria, e sem ele os dois misturam-se
+                        na mesma tabela sem maneira de os separar. */}
+                    {opcoes.data?.lados && (
+                        <label className="block">
+                            <Rotulo>{opcoes.data.lados.rotulo}</Rotulo>
+                            <select
+                                value={filtros.lado ?? ''}
+                                onChange={(e) => porFiltros((f) => ({ ...f, lado: e.target.value, page: 1 }))}
+                                className={entrada}
+                            >
+                                <option value="">{t('Todos')}</option>
+                                {opcoes.data.lados.opcoes.map((l) => (
+                                    <option key={l.valor} value={l.valor}>
+                                        {l.rotulo}
                                     </option>
                                 ))}
                             </select>
@@ -310,8 +337,12 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
                             <thead className="bg-slate-50">
                                 <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-600">
                                     <Cabecalho icone="fa-hashtag">{t('Número')}</Cabecalho>
+                                    {/* O TIPO, nos recibos: Venda ou Compra. Vem logo a
+                                        seguir ao número, como na lista de sempre — é o
+                                        que diz se o dinheiro entrou ou saiu. */}
+                                    {lados && <Cabecalho icone="fa-tag">{lados.rotulo}</Cabecalho>}
                                     <Cabecalho icone="fa-user">
-                                        {opcoes.data?.parte === 'fornecedor' ? t('Fornecedor') : t('Cliente')}
+                                        {opcoes.data?.parte_rotulo ?? (opcoes.data?.parte === 'fornecedor' ? t('Fornecedor') : t('Cliente'))}
                                     </Cabecalho>
                                     {/* A FACTURA DE ORIGEM das notas: uma nota de
                                         crédito sem saber de que factura é não se
@@ -457,6 +488,7 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
                 tipo={tipo}
                 documento={aVer}
                 rota={rota}
+                rotuloDaParte={opcoes.data?.parte_rotulo ?? (opcoes.data?.parte === 'fornecedor' ? t('Fornecedor') : t('Cliente'))}
                 aoFechar={() => porAVer(null)}
             />
         </div>
@@ -476,11 +508,14 @@ function FichaDoDocumento({
     tipo,
     documento,
     rota,
+    rotuloDaParte,
     aoFechar,
 }: {
     tipo: string;
     documento: LinhaDeDocumento | null;
     rota: string;
+    /** «Cliente», «Fornecedor» ou «Cliente/Fornecedor» — o mesmo da tabela. */
+    rotuloDaParte: string;
     aoFechar: () => void;
 }) {
     const q = useQuery({
@@ -530,7 +565,7 @@ function FichaDoDocumento({
                         <section className={cls('border border-slate-200 bg-slate-50 p-4', RAIO)}>
                             <h4 className="mb-2 text-sm font-bold text-slate-800">
                                 <i className="fas fa-user mr-2 text-slate-400" aria-hidden="true" />
-                                {t('Informações do Cliente')}
+                                {t('Informações do :parte', { parte: rotuloDaParte })}
                             </h4>
                             <p className="font-bold text-slate-900">{f.parte.nome}</p>
                             {f.parte.nif && <p className="text-sm text-slate-600">NIF: {f.parte.nif}</p>}
@@ -933,6 +968,14 @@ function Linha({
                     <div className="mt-0.5 font-mono text-[11px] text-slate-400">{d.numero_agt}</div>
                 )}
             </td>
+            {/* O TIPO — a etiqueta que diz se o recibo é de venda ou de
+                compra. Só aparece onde o documento tem dois lados: o
+                servidor manda o `lado` decidido, com cor e ícone. */}
+            {d.lado && (
+                <td className="px-4 py-3">
+                    <Etiqueta cor={d.lado.cor} icone={d.lado.icone}>{d.lado.rotulo}</Etiqueta>
+                </td>
+            )}
             <td className="px-4 py-3 text-slate-700">{d.parte}</td>
 
             {/* A FACTURA DE ORIGEM, nas notas: leva ao documento que a nota

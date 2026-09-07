@@ -15,6 +15,15 @@ export type LinhaDeDocumento = {
         cor: 'primaria' | 'neutra' | 'bom' | 'aviso' | 'perigo';
     };
     parte: string;
+
+    /**
+     * O LADO — só os recibos o têm: venda ou compra.
+     *
+     * Não é decoração: um recibo de venda é dinheiro que entrou, um de
+     * compra é dinheiro que saiu, e dois do mesmo valor e do mesmo dia
+     * são indistinguíveis sem isto.
+     */
+    lado?: { valor: string; rotulo: string; cor: 'primaria' | 'neutra' | 'bom' | 'aviso' | 'perigo'; icone: string } | null;
     data: string | null;
     estado: string;
     estado_rotulo: string;
@@ -80,6 +89,8 @@ export type OpcoesDosDocumentos = {
     pode_criar: boolean;
     /** 'cliente' ou 'fornecedor' — é o cabeçalho da coluna. */
     parte: string;
+    /** O cabeçalho da coluna da parte, quando o documento tem dois lados. */
+    parte_rotulo: string | null;
     rota: string;
     tem_saldo: boolean;
     /** O que a coluna «Portal AGT» diz neste documento. */
@@ -103,6 +114,15 @@ export type OpcoesDosDocumentos = {
     origem: string | null;
     /** Os motivos que ESTE tipo de nota tem. Vazio nos outros documentos. */
     motivos: Array<{ valor: string; rotulo: string }>;
+
+    /**
+     * OS LADOS deste documento — venda e compra, nos recibos. Nulo onde o
+     * documento tem um lado só, que é em todos os outros.
+     */
+    lados: {
+        rotulo: string;
+        opcoes: Array<{ valor: string; rotulo: string; cor: 'primaria' | 'neutra' | 'bom' | 'aviso' | 'perigo'; icone: string }>;
+    } | null;
     estados: Array<{ valor: string; rotulo: string }>;
 };
 
@@ -113,6 +133,8 @@ export type FiltrosDeDocumentos = {
     ate?: string;
     /** Só nas notas: devolução, desconto, juros, multa… */
     motivo?: string;
+    /** O lado, nos recibos: `sale` ou `purchase`. */
+    lado?: string;
     por_pagina?: number;
     page?: number;
 };
