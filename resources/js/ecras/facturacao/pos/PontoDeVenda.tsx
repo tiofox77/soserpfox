@@ -13,6 +13,7 @@ import { ModalDeCliente } from './ModalDeCliente';
 import { ModalDePreco } from './ModalDePreco';
 import { ModalDoTalao } from './ModalDoTalao';
 import { somDoBalcao } from './som';
+import { identificadorDaVenda } from './uuid';
 
 /**
  * O BALCÃO.
@@ -496,8 +497,8 @@ function Balcao({ o }: { o: Opcoes }) {
                 aTrabalhar={vender.isPending}
                 aoConfirmar={(p) =>
                     vender.mutate({
-                        // Um por tentativa de venda: é o que a torna idempotente.
-                        local_uuid: crypto.randomUUID(),
+                        // Um por tentativa: é o que torna a venda idempotente.
+                        local_uuid: identificadorDaVenda(),
                         client_id: cliente?.id ?? null,
                         payment_method: p.payment_method,
                         payments: p.payments,

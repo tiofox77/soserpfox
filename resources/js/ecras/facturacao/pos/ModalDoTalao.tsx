@@ -58,16 +58,18 @@ export function ModalDoTalao({ venda, aoFechar }: { venda: VendaFechada | null; 
                     <p className="mt-3 text-4xl font-bold tabular-nums text-emerald-700">{kz(venda.total)}</p>
                     <p className="mt-1 text-sm text-emerald-600">{venda.cliente}</p>
                 </div>
-
                 {/* O QR DA AGT vem do servidor. Montá-lo no browser era inventar
                     um selo fiscal a partir de dados que o browser não certifica. */}
                 {venda.qr && (
-                    <div className="flex justify-center">
+                    <div className="flex flex-col items-center gap-1.5">
                         <img
                             src={venda.qr}
                             alt={t('Código QR da AGT')}
                             className={cls('h-28 w-28 border border-slate-200 bg-white p-1', RAIO)}
                         />
+                        {venda.atcud && (
+                            <p className="font-mono text-[11px] text-slate-500">ATCUD: {venda.atcud}</p>
+                        )}
                     </div>
                 )}
 

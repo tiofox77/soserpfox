@@ -60,7 +60,9 @@ export type VendaFechada = {
     total: number;
     data: string | null;
     cliente: string;
+    /** O QR da AGT, já como data-URI: o helper devolve um array e isto é a imagem. */
     qr: string | null;
+    atcud: string | null;
     preview: string;
     message: string;
 };

@@ -380,6 +380,8 @@ class PosApiController extends Controller
 
         $factura->loadMissing(['client', 'items', 'tenant']);
 
+        $qr = function_exists('getAGTQRData') ? getAGTQRData($factura, 100) : [];
+
         return response()->json([
             'id' => (int) $factura->id,
             'numero' => $factura->invoice_number,
@@ -387,9 +389,16 @@ class PosApiController extends Controller
             'total' => round((float) $factura->total, 2),
             'data' => optional($factura->invoice_date)->toDateString(),
             'cliente' => $factura->client?->name ?? __('Consumidor Final'),
-            // O QR da AGT vem do servidor, como no PWA: desenhá-lo no ecrã a
-            // partir de dados montados no browser era inventar um documento.
-            'qr' => function_exists('getAGTQRData') ? getAGTQRData($factura, 100) : null,
+            /*
+             * O QR DA AGT vem do servidor, como no PWA.
+             *
+             * O helper devolve um ARRAY (`data`, `image`, `atcud`) e não uma
+             * imagem: mandar o array inteiro para o `src` do ecrã dava uma
+             * imagem partida no talão. O que o ecrã desenha é o `image`, que é
+             * um data-URI; o `atcud` vai à parte, porque é texto que se lê.
+             */
+            'qr' => $qr['image'] ?? null,
+            'atcud' => $qr['atcud'] ?? $factura->atcud,
             'preview' => "/invoicing/sales/invoices/{$factura->id}/preview",
             'message' => __('Venda :numero registada.', ['numero' => $factura->invoice_number]),
         ], 201);
