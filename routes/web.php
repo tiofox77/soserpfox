@@ -977,7 +977,7 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
         ->name('agt-adquirente');
     
     // POS
-    Route::get('/pos', \App\Livewire\POS\POSSystem::class)->name('pos');
+    Route::get('/pos', \App\Support\EcraReact::pagina('facturacao/pos', 'POS — Ponto de Venda'))->name('pos');
     Route::get('/pos/shifts', \App\Support\EcraReact::pagina('facturacao/turnos', 'POS - Ponto de Venda'))->name('pos.shifts');
     Route::get('/pos/shift-history', \App\Support\EcraReact::pagina('facturacao/historico-de-turnos', 'Histórico de Turnos'))->name('pos.shift-history');
     Route::get('/pos/reports', \App\Livewire\POS\SalesReport::class)->name('pos.reports');
