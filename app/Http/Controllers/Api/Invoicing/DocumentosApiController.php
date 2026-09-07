@@ -39,6 +39,12 @@ class DocumentosApiController extends Controller
      */
     private array $podeNaCompra = ['anular' => false, 'marcar_paga' => false];
 
+    /** Se ESTE utilizador pode apagar documentos deste tipo. Decidido uma vez. */
+    private bool $podeApagar = false;
+
+    /** Se pode converter em factura. Também uma vez, e não por linha. */
+    private bool $podeConverter = false;
+
     protected function modeloDoDocumento(): string
     {
         return $this->modeloActual;
@@ -53,55 +59,69 @@ class DocumentosApiController extends Controller
             'estado' => ['nullable', 'string', 'max:30'],
             'de' => ['nullable', 'date'],
             'ate' => ['nullable', 'date'],
+            /*
+             * O MOTIVO — só nas notas, que são as únicas que o têm.
+             *
+             * A lista em Blade tinha-o em caixa própria: uma nota de crédito
+             * de devolução e uma de correcção contam histórias diferentes, e
+             * é por aqui que se separam. Onde o tipo não o declara, o filtro é
+             * RECUSADO em vez de ignorado — ignorado em silêncio, devolvia a
+             * lista toda e fazia acreditar que filtrava.
+             */
+            'motivo' => [empty($def['motivo']) ? 'prohibited' : 'nullable', 'string', 'max:40'],
             'por_pagina' => ['nullable', 'integer', 'min:5', 'max:100'],
         ]);
 
-        $numero = $def['numero'];
         $data = $def['data'];
-        $relacao = $def['relacao'];
 
-        // A série vem na mesma consulta: é dela que sai o número INTERNO, o
-        // que a empresa reconhece. Sem isto era uma ida à base por linha.
-        $comSerie = $this->temNumeracaoDupla($def['modelo']);
+        $comRelacoes = $this->temNumeracaoDupla($def['modelo'])
+            ? [$def['relacao'], 'series']
+            : [$def['relacao']];
 
-        $query = $this->baseDoAutor()->with($comSerie ? [$relacao, 'series'] : $relacao);
-
-        if ($procura = ($filtros['procura'] ?? null)) {
-            $query->where(function ($q) use ($procura, $numero, $relacao, $comSerie) {
-                $q->where($numero, 'like', "%{$procura}%")
-                    ->orWhereHas($relacao, fn ($p) => $p->where('name', 'like', "%{$procura}%"));
-
-                /*
-                 * PROCURA-SE PELA SÉRIE INTERNA — é a que aparece primeiro.
-                 *
-                 * O `..._number` gravado leva a série da AGT (NC4226S46906N),
-                 * e ninguém procura um documento por aquilo: escreve-se SOSNC.
-                 * A lista de facturas já procurava pelas duas; esta, que serve
-                 * outros oito documentos, procurava só pelo número gravado e
-                 * não encontrava nada pela série da casa.
-                 */
-                if ($comSerie) {
-                    $q->orWhereHas('series', function ($s) use ($procura) {
-                        $s->where('series_code', 'like', "%{$procura}%")
-                            ->orWhere('agt_series_id', 'like', "%{$procura}%");
-                    });
-                }
-            });
+        // A FACTURA DE ORIGEM das notas vem na mesma consulta: a lista mostra o
+        // número dela em coluna própria, e ir buscá-la por linha eram tantas
+        // consultas quantas as notas na página.
+        if (! empty($def['origem'])) {
+            $comRelacoes[] = $def['origem']['relacao'];
         }
 
-        $query
-            ->when($filtros['estado'] ?? null, fn ($q, $v) => $q->where('status', $v))
-            // Comparação directa e não whereDate: uma função sobre a coluna
-            // impede o MySQL de usar o índice.
-            ->when($filtros['de'] ?? null, fn ($q, $v) => $q->where($data, '>=', $v))
-            ->when($filtros['ate'] ?? null, fn ($q, $v) => $q->where($data, '<=', $v));
+        $query = $this->filtrada($def, $filtros)->with($comRelacoes);
 
         $pagina = $query->orderByDesc($data)->orderByDesc('id')
             ->paginate($filtros['por_pagina'] ?? 15)
             ->withQueryString();
 
+        /*
+         * OS CARTÕES DO TOPO CONTAM A LISTA FILTRADA INTEIRA, não a página.
+         *
+         * A lista em Blade tinha cinco — total, rascunhos, os emitidos, os
+         * pagos e o valor — e contava a tabela toda. Ao migrar, ficaram dois a
+         * somar as quinze linhas à vista e a dizê-lo em letra pequena: um
+         * «valor» que muda ao virar a página não é um valor.
+         *
+         * O AGRUPAMENTO POR ESTADO vem de cá porque é o servidor que sabe
+         * quais existem mesmo nesta tabela — a lista de estados de uma
+         * proforma não é a de uma nota de crédito.
+         */
+        $resumo = $this->filtrada($def, $filtros)
+            ->toBase()
+            ->selectRaw("status, COUNT(*) as quantos, SUM({$def['valor']}) as valor")
+            ->groupBy('status')
+            ->get();
+
         return response()->json([
             'data' => collect($pagina->items())->map(fn ($d) => $this->linha($d, $def))->values(),
+            'resumo' => [
+                'total' => (int) $resumo->sum('quantos'),
+                'valor' => round((float) $resumo->sum('valor'), 2),
+                'por_estado' => $resumo->map(fn ($l) => [
+                    'estado' => $l->status,
+                    'rotulo' => $this->rotuloDoEstado($l->status),
+                    'cor' => $this->corDoEstado($l->status),
+                    'quantos' => (int) $l->quantos,
+                    'valor' => round((float) $l->valor, 2),
+                ])->sortByDesc('quantos')->values(),
+            ],
             'meta' => [
                 'current_page' => $pagina->currentPage(),
                 'last_page' => $pagina->lastPage(),
@@ -117,6 +137,13 @@ class DocumentosApiController extends Controller
 
         return response()->json([
             'titulo' => $def['titulo'],
+            // A frase por baixo do título e o rótulo do botão de criar, como
+            // a faixa em Blade os tinha: «Devoluções, descontos e correções»
+            // diz o que uma nota de crédito é a quem nunca emitiu nenhuma.
+            'descricao' => __($def['descricao'] ?? ''),
+            'novo' => __($def['novo'] ?? 'Novo documento'),
+            // Criar é outra permissão: quem só vê a lista não a cria.
+            'pode_criar' => (bool) $request->user()?->can(str_replace('.view', '.create', $def['permissao'])),
             'parte' => $def['parte'],
             'rota' => $def['rota'],
             'tem_saldo' => $def['tem_saldo'],
@@ -133,6 +160,29 @@ class DocumentosApiController extends Controller
             'pode_duplicar' => TiposDeDocumento::eDuplicavel($tipo)
                 && (bool) $request->user()?->can(str_replace('.view', '.create', $def['permissao'])),
 
+            // APAGAR e CONVERTER: o ecrã só desenha o botão onde ele existe e
+            // este utilizador o pode usar.
+            'pode_apagar' => $this->podeApagar,
+            'pode_converter' => $this->podeConverter,
+            // Onde há histórico de conversões há também o botão que o abre.
+            'tem_historico' => ! empty($def['historico']),
+
+            /*
+             * A COLUNA DO PRAZO — vencimento nas facturas de compra, validade
+             * nas propostas, nenhuma nos recibos e nas notas. O rótulo vem
+             * daqui porque é o esquema que sabe de que documento se trata.
+             */
+            'prazo' => ! empty($def['prazo']) ? __($def['prazo']['rotulo']) : null,
+
+            // A FACTURA DE ORIGEM das notas, e o cabeçalho da coluna dela.
+            'origem' => ! empty($def['origem']) ? __($def['origem']['rotulo']) : null,
+
+            // Os motivos que ESTE tipo de nota tem. Lista fechada, do esquema:
+            // uma nota de crédito não se justifica com «juros».
+            'motivos' => collect($def['motivo'] ?? [])
+                ->map(fn ($rotulo, $valor) => ['valor' => $valor, 'rotulo' => __($rotulo)])
+                ->values(),
+
             // Os estados que existem MESMO nesta tabela, e não uma lista
             // inventada: cada documento tem os seus, e um filtro com opções
             // que nunca devolvem nada é pior do que não ter filtro.
@@ -147,7 +197,176 @@ class DocumentosApiController extends Controller
         ]);
     }
 
+    /**
+     * APAGAR UM DOCUMENTO — só onde o esquema o permite, e só o que ainda dá.
+     *
+     * Uma proposta convertida em factura não se elimina: a factura aponta para
+     * ela e ficaria a referir um documento que já não existe. É a mesma regra
+     * do ecrã em Blade, dita aqui porque é aqui que se cumpre — esconder o
+     * botão é conveniência, nunca segurança.
+     *
+     * As FACTURAS DE COMPRA não passam por aqui: anulam-se (que é o eliminar
+     * delas) para o stock que entrou ser revertido.
+     */
+    public function destroy(Request $request, string $tipo, int $id): JsonResponse
+    {
+        $def = $this->definicao($request, $tipo);
+
+        abort_unless(! empty($def['apaga']), 404, __('Este documento não se elimina por aqui.'));
+        abort_unless($this->podeApagar, 403, __('Sem permissão para eliminar este documento.'));
+
+        $d = $this->baseDoAutor()->findOrFail($id);
+
+        if (in_array($d->status, ['converted', 'cancelled'], true)) {
+            return response()->json([
+                'message' => __('Este documento já foi convertido ou anulado e não pode ser eliminado.'),
+            ], 422);
+        }
+
+        $d->delete();
+
+        return response()->json(['message' => __('Documento eliminado.')]);
+    }
+
+    /**
+     * CONVERTER UMA PROPOSTA EM FACTURA.
+     *
+     * A conta é do MODELO (`convertToInvoice`), que é onde sempre esteve e
+     * onde já está resolvido o que interessa: a taxa é a de HOJE e não a que
+     * ficou gravada na proposta — uma proforma feita antes de a empresa mudar
+     * de regime tem a taxa antiga na linha, e copiá-la fazia nascer hoje uma
+     * factura a liquidar IVA que a empresa já não pode cobrar.
+     *
+     * A factura nasce em RASCUNHO. Converter não é emitir: quem converte
+     * confere e emite depois, no editor.
+     */
+    public function converter(Request $request, string $tipo, int $id): JsonResponse
+    {
+        $def = $this->definicao($request, $tipo);
+
+        abort_unless(! empty($def['converte']), 404, __('Este documento não se converte em factura.'));
+        abort_unless($this->podeConverter, 403, __('Sem permissão para emitir facturas.'));
+
+        $d = $this->baseDoAutor()->findOrFail($id);
+
+        try {
+            $factura = $d->convertToInvoice();
+        } catch (\Throwable $e) {
+            // O modelo recusa por razões que a pessoa tem de ler — «proforma
+            // já convertida», por exemplo. Um 500 mandava-a adivinhar.
+            return response()->json([
+                'message' => __('Não foi possível converter: :erro', ['erro' => $e->getMessage()]),
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => __('Convertido em factura :numero. Fica em rascunho até ser emitida.', [
+                'numero' => $factura->invoice_number,
+            ]),
+            'factura' => [
+                'id' => $factura->id,
+                'numero' => $factura->invoice_number,
+                'rota' => $tipo === 'proformas-compra'
+                    ? '/invoicing/purchases/invoices'
+                    : '/invoicing/sales/invoices',
+            ],
+        ]);
+    }
+
+    /**
+     * O HISTÓRICO DE CONVERSÕES: que facturas já saíram desta proposta.
+     *
+     * A mesma proposta pode ser convertida MAIS DO QUE UMA VEZ — o ecrã de
+     * sempre não bloqueava a segunda conversão, de propósito (um fornecimento
+     * repetido factura-se a partir da mesma proforma). Este ecrã é o que evita
+     * a duplicação por engano: mostra o que já saiu antes de se converter
+     * outra vez.
+     */
+    public function historico(Request $request, string $tipo, int $id): JsonResponse
+    {
+        $def = $this->definicao($request, $tipo);
+
+        abort_unless(! empty($def['historico']), 404, __('Este documento não tem histórico de conversões.'));
+
+        $d = $this->baseDoAutor()->findOrFail($id);
+
+        $relacao = $d->{$def['historico']};
+
+        // `hasOne` na proforma de compra, `hasMany` nas de venda: normaliza-se
+        // para uma lista, e o ecrã não tem de saber a diferença.
+        $facturas = $relacao instanceof \Illuminate\Support\Collection
+            ? $relacao
+            : collect($relacao ? [$relacao] : []);
+
+        return response()->json([
+            'documento' => [
+                'numero' => $this->temNumeracaoDupla($def['modelo'])
+                    ? $d->numeroInterno()
+                    : $d->{$def['numero']},
+                'parte' => $d->{$def['relacao']}?->name ?? __('Consumidor Final'),
+                'data' => optional($d->{$def['data']})->toDateString(),
+                'valor' => round((float) $d->{$def['valor']}, 2),
+                'estado_rotulo' => $this->rotuloDoEstado($d->status),
+                'estado_cor' => $this->corDoEstado($d->status),
+            ],
+            'facturas' => $facturas->map(fn ($f) => [
+                'id' => $f->id,
+                'numero' => method_exists($f, 'numeroInterno') ? $f->numeroInterno() : $f->invoice_number,
+                'data' => optional($f->invoice_date)->toDateString(),
+                'vencimento' => optional($f->due_date)->toDateString(),
+                'total' => round((float) $f->total, 2),
+                'estado_rotulo' => $this->rotuloDoEstado($f->status),
+                'estado_cor' => $this->corDoEstado($f->status),
+                'rota' => $tipo === 'proformas-compra'
+                    ? '/invoicing/purchases/invoices'
+                    : '/invoicing/sales/invoices',
+            ])->values(),
+        ]);
+    }
+
     /* ─── Por dentro ──────────────────────────────────────────────────── */
+
+    /**
+     * A consulta com os filtros postos, e SEM as relações da listagem.
+     *
+     * Serve duas vezes: a lista (que lhe junta o cliente, a série e a factura
+     * de origem) e o resumo dos cartões (que só agrupa por estado). Escrita
+     * uma vez, os dois falam sempre do mesmo conjunto — com o filtro «pagas»
+     * posto, os cartões falam das pagas.
+     */
+    private function filtrada(array $def, array $filtros): \Illuminate\Database\Eloquent\Builder
+    {
+        $numero = $def['numero'];
+        $data = $def['data'];
+        $relacao = $def['relacao'];
+        $comSerie = $this->temNumeracaoDupla($def['modelo']);
+
+        return $this->baseDoAutor()
+            ->when($filtros['procura'] ?? null, fn ($q, $procura) => $q->where(function ($w) use ($procura, $numero, $relacao, $comSerie) {
+                $w->where($numero, 'like', "%{$procura}%")
+                    ->orWhereHas($relacao, fn ($p) => $p->where('name', 'like', "%{$procura}%"));
+
+                /*
+                 * PROCURA-SE PELA SÉRIE INTERNA — é a que aparece primeiro.
+                 *
+                 * O `..._number` gravado leva a série da AGT (NC4226S46906N),
+                 * e ninguém procura um documento por aquilo: escreve-se SOSNC.
+                 */
+                if ($comSerie) {
+                    $w->orWhereHas('series', function ($s) use ($procura) {
+                        $s->where('series_code', 'like', "%{$procura}%")
+                            ->orWhere('agt_series_id', 'like', "%{$procura}%");
+                    });
+                }
+            }))
+            ->when($filtros['estado'] ?? null, fn ($q, $v) => $q->where('status', $v))
+            // Comparação directa e não whereDate: uma função sobre a coluna
+            // impede o MySQL de usar o índice.
+            ->when($filtros['de'] ?? null, fn ($q, $v) => $q->where($data, '>=', $v))
+            ->when($filtros['ate'] ?? null, fn ($q, $v) => $q->where($data, '<=', $v))
+            // O motivo, nas notas: a coluna chama-se `reason` nas duas.
+            ->when($filtros['motivo'] ?? null, fn ($q, $v) => $q->where('reason', $v));
+    }
 
     /** Resolve o tipo, exige a permissão dele, e arma o trait do escopo. */
     private function definicao(Request $request, string $tipo): array
@@ -174,6 +393,23 @@ class DocumentosApiController extends Controller
                 'marcar_paga' => (bool) $request->user()?->can('invoicing.purchases.invoices.edit'),
             ];
         }
+
+        // Apagar e converter: decididos uma vez por pedido, não por linha —
+        // são centenas de linhas e a permissão é a mesma para todas.
+        $this->podeApagar = ! empty($def['apaga']) && (bool) $request->user()?->can($def['apaga']);
+
+        /*
+         * CONVERTER EM FACTURA É CRIAR UMA FACTURA.
+         *
+         * A permissão não é a de ver a proposta nem a de a editar: nasce um
+         * documento novo, e quem não pode facturar não pode fazer nascer uma
+         * factura por este atalho.
+         */
+        $this->podeConverter = ! empty($def['converte']) && (bool) $request->user()?->can(
+            str_starts_with($tipo, 'proformas-compra')
+                ? 'invoicing.purchases.invoices.create'
+                : 'invoicing.sales.invoices.create'
+        );
 
         return $def;
     }
@@ -206,6 +442,46 @@ class DocumentosApiController extends Controller
             'valor' => $valor,
         ];
 
+        /*
+         * O PRAZO: vencimento nas facturas de compra, validade nas propostas.
+         *
+         * A lista em Blade tinha-o em coluna própria, e não é decoração: uma
+         * proforma caducada não se converte, e uma factura de compra vencida é
+         * dinheiro em atraso. `expirado` vem decidido de cá — a comparação com
+         * «hoje» é a do servidor, e não a do relógio de quem está a ver.
+         */
+        if (! empty($def['prazo'])) {
+            $prazo = $d->{$def['prazo']['coluna']};
+
+            $linha['prazo'] = optional($prazo)->toDateString() ?? ($prazo ? (string) $prazo : null);
+            $linha['expirado'] = $prazo
+                && \Illuminate\Support\Carbon::parse($prazo)->isPast()
+                && ! in_array($d->status, ['paid', 'cancelled', 'converted'], true);
+        }
+
+        // A FACTURA DE ORIGEM das notas, com o número que a empresa reconhece.
+        if (! empty($def['origem'])) {
+            $origem = $d->{$def['origem']['relacao']};
+
+            $linha['origem'] = $origem
+                ? [
+                    'id' => $origem->id,
+                    'numero' => method_exists($origem, 'numeroInterno')
+                        ? $origem->numeroInterno()
+                        : ($origem->invoice_number ?? (string) $origem->id),
+                ]
+                : null;
+        }
+
+        // O MOTIVO da nota, com o rótulo já traduzido: o ecrã não guarda uma
+        // segunda lista de motivos para os escrever por extenso.
+        if (! empty($def['motivo'])) {
+            $linha['motivo'] = $d->reason;
+            $linha['motivo_rotulo'] = isset($def['motivo'][$d->reason])
+                ? __($def['motivo'][$d->reason])
+                : ($d->reason ?: null);
+        }
+
         if ($def['tem_saldo']) {
             $pago = round((float) ($d->paid_amount ?? 0), 2);
             $linha['pago'] = $pago;
@@ -225,6 +501,19 @@ class DocumentosApiController extends Controller
         if ($this->tipoActual === 'facturas-compra') {
             $linha['pode_anular'] = $this->podeNaCompra['anular'] && EmissorDeCompras::podeAnular($d);
             $linha['pode_marcar_paga'] = $this->podeNaCompra['marcar_paga'] && EmissorDeCompras::podeMarcarPaga($d);
+        }
+
+        /*
+         * APAGAR — e só o que AINDA se pode apagar.
+         *
+         * Uma proposta convertida em factura não se elimina: a factura aponta
+         * para ela, e ficaria a referir um documento que já não existe. É a
+         * mesma regra que o ecrã em Blade aplicava, decidida do lado de cá
+         * porque um botão que aparece e depois recusa é pior do que um botão
+         * que não aparece.
+         */
+        if ($this->podeApagar) {
+            $linha['pode_apagar'] = ! in_array($d->status, ['converted', 'cancelled'], true);
         }
 
         return $linha;

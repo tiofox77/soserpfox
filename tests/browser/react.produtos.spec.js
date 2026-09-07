@@ -41,6 +41,20 @@ async function definirPerfis(page, perfis) {
     await expect(page.getByRole('status')).toBeVisible({ timeout: 20_000 });
 }
 
+/**
+ * ESCOLHE O REGIME DE IVA.
+ *
+ * Deixou de ser uma caixa de escolha e passou a dois CARTÕES, como o ecrã em
+ * Blade tinha: são duas opções, e um `<select>` esconde a segunda atrás de um
+ * clique. Por baixo continuam a ser `radio` a sério — mas com o input em
+ * `sr-only`, quem se carrega é no rótulo.
+ */
+async function escolherRegime(janela, qual) {
+    const rotulo = qual === 'iva' ? 'Sujeito a IVA' : 'Isento de IVA';
+
+    await janela.getByText(rotulo, { exact: true }).click();
+}
+
 test.beforeEach(async ({ page }) => {
     await entrar(page);
     await page.goto(ECRA);
@@ -95,13 +109,15 @@ test('o imposto troca entre taxa do catalogo e motivo de isencao', async ({ page
 
     const janela = page.getByRole('dialog');
 
-    await janela.getByLabel(/^Imposto\b/).selectOption('iva');
-    await expect(janela.getByLabel('Taxa')).toBeVisible();
-    await expect(janela.getByLabel(/^Motivo da isenção\b/)).toHaveCount(0);
+    await escolherRegime(janela, 'iva');
+    // `/^Taxa/` e não 'Taxa': o cartão «Sujeito a IVA» explica-se com
+    // «Produto com taxa de IVA», e um selector por substring apanhava os dois.
+    await expect(janela.getByLabel(/^Taxa/)).toBeVisible();
+    await expect(janela.getByLabel(/^Motivo de Isenção/)).toHaveCount(0);
 
-    await janela.getByLabel(/^Imposto\b/).selectOption('isento');
-    await expect(janela.getByLabel(/^Motivo da isenção\b/)).toBeVisible();
-    await expect(janela.getByLabel('Taxa')).toHaveCount(0);
+    await escolherRegime(janela, 'isento');
+    await expect(janela.getByLabel(/^Motivo de Isenção/)).toBeVisible();
+    await expect(janela.getByLabel(/^Taxa/)).toHaveCount(0);
 });
 
 test('cria um artigo e ele aparece na lista', async ({ page }) => {
@@ -114,8 +130,8 @@ test('cria um artigo e ele aparece na lista', async ({ page }) => {
     await janela.getByLabel(/^Nome\b/).fill(nome);
     await janela.getByLabel(/^Preço\b/).fill('1500');
     await janela.getByLabel(/^Categoria\b/).selectOption({ index: 1 });
-    await janela.getByLabel(/^Imposto\b/).selectOption('isento');
-    await janela.getByLabel(/^Motivo da isenção\b/).fill('M99');
+    await escolherRegime(janela, 'isento');
+    await janela.getByLabel(/^Motivo de Isenção/).selectOption('M04');
     await janela.getByRole('button', { name: 'Guardar' }).click();
 
     await expect(page.getByRole('status')).toContainText('Artigo criado', { timeout: 20_000 });
@@ -204,8 +220,8 @@ test('um valor gravado continua a ver-se com o perfil desligado', async ({ page 
     await janela.getByLabel(/^Nome\b/).fill(nome);
     await janela.getByLabel(/^Preço\b/).fill('2500');
     await janela.getByLabel(/^Categoria\b/).selectOption({ index: 1 });
-    await janela.getByLabel(/^Imposto\b/).selectOption('isento');
-    await janela.getByLabel(/^Motivo da isenção\b/).fill('M99');
+    await escolherRegime(janela, 'isento');
+    await janela.getByLabel(/^Motivo de Isenção/).selectOption('M04');
     await janela.getByRole('button', { name: 'Guardar' }).click();
 
     await expect(page.getByRole('status')).toContainText('Artigo criado', { timeout: 20_000 });
@@ -265,8 +281,8 @@ test('o controlo de lotes grava e a ficha volta a abrir marcada', async ({ page 
     await janela.getByLabel(/^Nome\b/).fill(nome);
     await janela.getByLabel(/^Preço\b/).fill('3500');
     await janela.getByLabel(/^Categoria\b/).selectOption({ index: 1 });
-    await janela.getByLabel(/^Imposto\b/).selectOption('isento');
-    await janela.getByLabel(/^Motivo da isenção\b/).fill('M99');
+    await escolherRegime(janela, 'isento');
+    await janela.getByLabel(/^Motivo de Isenção/).selectOption('M04');
 
     await janela.getByLabel(/Rastrear por Lotes/).check();
     await janela.getByLabel(/Controlar Validade/).check();
@@ -384,7 +400,7 @@ test('o motivo da isencao vem da lista oficial da AGT', async ({ page }) => {
     await expect(janela).toBeVisible();
 
     // O regime escolhe-se em dois cartões, e não numa caixa de escolha.
-    await janela.getByText('Isento de IVA').click();
+    await escolherRegime(janela, 'isento');
 
     const motivo = janela.getByLabel(/^Motivo de Isenção/);
     await expect(motivo).toBeVisible();

@@ -23,16 +23,25 @@ export function IntervaloDeDatas({
     ate,
     aoMudar,
     className,
+    rotulo,
 }: {
     de?: string;
     ate?: string;
     aoMudar: (campo: 'de' | 'ate', valor: string) => void;
     className?: string;
+    /**
+     * O QUE ESTAS DATAS FILTRAM, e por omissão é a criação da ficha.
+     *
+     * Numa lista de documentos filtram a data do DOCUMENTO — a da factura, a
+     * do orçamento — e não a da ficha: dizer «Criado de» numa lista de
+     * facturas manda procurar pela data errada.
+     */
+    rotulo?: string;
 }) {
     return (
         <>
             <label className={cls('block', className)}>
-                <Rotulo>{t('Criado de')}</Rotulo>
+                <Rotulo>{rotulo ?? t('Criado de')}</Rotulo>
                 <input
                     type="date"
                     value={de ?? ''}

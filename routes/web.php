@@ -390,6 +390,17 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
          */
         Route::get('/documentos/{tipo}/opcoes', [\App\Http\Controllers\Api\Invoicing\DocumentosApiController::class, 'opcoes'])
             ->where('tipo', '[a-z-]+')->name('documentos.opcoes');
+        // O HISTÓRICO DE CONVERSÕES vem ANTES do `{tipo}` genérico: uma rota
+        // mais larga declarada primeiro apanharia `/orcamentos/12/historico`.
+        Route::get('/documentos/{tipo}/{id}/historico', [\App\Http\Controllers\Api\Invoicing\DocumentosApiController::class, 'historico'])
+            ->where('tipo', '[a-z-]+')->whereNumber('id')->name('documentos.historico');
+        // Converter uma proposta em factura — nasce em rascunho.
+        Route::post('/documentos/{tipo}/{id}/converter', [\App\Http\Controllers\Api\Invoicing\DocumentosApiController::class, 'converter'])
+            ->where('tipo', '[a-z-]+')->whereNumber('id')->name('documentos.converter');
+        // Eliminar. As facturas de compra não passam por aqui: anulam-se.
+        Route::delete('/documentos/{tipo}/{id}', [\App\Http\Controllers\Api\Invoicing\DocumentosApiController::class, 'destroy'])
+            ->where('tipo', '[a-z-]+')->whereNumber('id')->name('documentos.destroy');
+
         Route::get('/documentos/{tipo}', [\App\Http\Controllers\Api\Invoicing\DocumentosApiController::class, 'index'])
             ->where('tipo', '[a-z-]+')->name('documentos.index');
 

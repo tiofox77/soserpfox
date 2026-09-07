@@ -1188,7 +1188,14 @@ function Formulario({
                     <input value={dados.name} onChange={(e) => campo('name', e.target.value)} className={entrada} />
                 </Campo>
 
-                <Campo etiqueta={t('Tipo')} erro={erros.type} obrigatorio>
+                <Campo
+                    etiqueta={t('Tipo')}
+                    erro={erros.type}
+                    obrigatorio
+                    // O tipo manda no PREFIXO do código gerado, e é a única
+                    // pista de que ele muda ao trocar de produto para serviço.
+                    ajuda={aEditar ? undefined : t('O código gerado usa PROD nos produtos e SVC nos serviços.')}
+                >
                     <select
                         value={dados.type}
                         onChange={(e) => {

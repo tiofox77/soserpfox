@@ -60,6 +60,15 @@ class TiposDeDocumento
                 'rota' => '/invoicing/sales/proformas',
                 'tem_saldo' => false,
                 'agt' => 'nao-fiscal',
+                // A VALIDADE, que a lista em Blade mostrava: uma proforma
+                // caducada não se converte, e a coluna é o que o diz.
+                'prazo' => ['coluna' => 'valid_until', 'rotulo' => 'Validade'],
+                // Converter em factura e ver as que já saíram desta.
+                'converte' => 'factura',
+                'historico' => 'invoices',
+                'apaga' => 'invoicing.sales.proformas.delete',
+                'descricao' => 'Orçamentos e propostas comerciais',
+                'novo' => 'Nova Proforma',
             ],
 
             'orcamentos' => [
@@ -74,6 +83,12 @@ class TiposDeDocumento
                 'rota' => '/invoicing/sales/quotes',
                 'tem_saldo' => false,
                 'agt' => 'nao-fiscal',
+                'prazo' => ['coluna' => 'valid_until', 'rotulo' => 'Validade'],
+                'converte' => 'factura',
+                'historico' => 'invoices',
+                'apaga' => 'invoicing.sales.quotes.delete',
+                'descricao' => 'Propostas comerciais detalhadas',
+                'novo' => 'Novo Orçamento',
             ],
 
             'facturas-compra' => [
@@ -89,6 +104,9 @@ class TiposDeDocumento
                 // A única com pagamentos: mostra quanto falta pagar.
                 'tem_saldo' => true,
                 'agt' => 'fornecedor',
+                'prazo' => ['coluna' => 'due_date', 'rotulo' => 'Vencimento'],
+                'descricao' => 'Faturas e compras de fornecedores',
+                'novo' => 'Nova Fatura',
             ],
 
             'proformas-compra' => [
@@ -103,6 +121,14 @@ class TiposDeDocumento
                 'rota' => '/invoicing/purchases/proformas',
                 'tem_saldo' => false,
                 'agt' => 'nao-fiscal',
+                'prazo' => ['coluna' => 'valid_until', 'rotulo' => 'Validade'],
+                'converte' => 'factura',
+                // `hasOne` e não `hasMany`: a proforma de compra dá UMA factura,
+                // e o `convertToInvoice` dela recusa converter duas vezes.
+                'historico' => 'purchaseInvoice',
+                'apaga' => 'invoicing.purchases.proformas.delete',
+                'descricao' => 'Orçamentos e propostas de fornecedores',
+                'novo' => 'Nova Proforma',
             ],
 
             'recibos' => [
@@ -118,6 +144,8 @@ class TiposDeDocumento
                 'rota' => '/invoicing/receipts',
                 'tem_saldo' => false,
                 'agt' => 'propria',
+                'descricao' => 'Recebimentos dos clientes',
+                'novo' => 'Novo Recibo',
             ],
 
             // As notas e os adiantamentos listam-se da mesma maneira; o que
@@ -135,6 +163,17 @@ class TiposDeDocumento
                 'rota' => '/invoicing/credit-notes',
                 'tem_saldo' => false,
                 'agt' => 'propria',
+                // A FACTURA DE ORIGEM e o MOTIVO, que a lista em Blade tinha
+                // em coluna própria: uma nota de crédito sem saber de que
+                // factura é não se lê.
+                'origem' => ['relacao' => 'invoice', 'rotulo' => 'Fatura Origem'],
+                'motivo' => [
+                    'return' => 'Devolução', 'discount' => 'Desconto',
+                    'correction' => 'Correção', 'other' => 'Outro',
+                ],
+                'apaga' => 'invoicing.credit-notes.delete',
+                'descricao' => 'Devoluções, descontos e correções',
+                'novo' => 'Nova Nota de Crédito',
             ],
 
             'notas-debito' => [
@@ -149,6 +188,15 @@ class TiposDeDocumento
                 'rota' => '/invoicing/debit-notes',
                 'tem_saldo' => false,
                 'agt' => 'propria',
+                'origem' => ['relacao' => 'invoice', 'rotulo' => 'Fatura Ref.'],
+                'motivo' => [
+                    'interest' => 'Juros', 'penalty' => 'Multa',
+                    'additional_charge' => 'Cobrança Adicional',
+                    'correction' => 'Correção', 'other' => 'Outro',
+                ],
+                'apaga' => 'invoicing.debit-notes.delete',
+                'descricao' => 'Juros, multas e cobranças adicionais',
+                'novo' => 'Nova Nota de Débito',
             ],
 
             'adiantamentos' => [
@@ -163,6 +211,8 @@ class TiposDeDocumento
                 'rota' => '/invoicing/advances',
                 'tem_saldo' => false,
                 'agt' => 'nao-fiscal',
+                'descricao' => 'Sinais recebidos por conta de facturas futuras',
+                'novo' => 'Novo Adiantamento',
             ],
         ];
     }

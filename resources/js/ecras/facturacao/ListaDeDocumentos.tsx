@@ -5,6 +5,7 @@ import {
     documentos,
     type FiltrosDeDocumentos,
     type LinhaDeDocumento,
+    type ResumoDosDocumentos,
 } from '@/api/documentos';
 import { compra } from '@/api/compra';
 import { ErroDaApi } from '@/api/cliente';
@@ -13,10 +14,14 @@ import { RegistarPagamento } from '@/ecras/facturacao/RegistarPagamento';
 import { Campo, Rotulo, entrada } from '@/ui/Campo';
 import { Botao } from '@/ui/Botao';
 import { Cartao } from '@/ui/Cartao';
-import { CartaoNumero } from '@/ui/CartaoNumero';
+import { CartaoNumero, type TomDoCartao } from '@/ui/CartaoNumero';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { PdfDoEcra } from '@/ui/PdfDoEcra';
+import { Modal } from '@/ui/Modal';
+import { IntervaloDeDatas, PorPagina } from '@/ui/FiltrosComuns';
+import { Dado } from './ExtratoDaParte';
+import { ACCAO_DA_FAIXA, Faixa } from './faixa';
 import { CARTAO, FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
 
 /**
@@ -39,6 +44,10 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
     const [aPagar, porAPagar] = useState<LinhaDeDocumento | null>(null);
     const [recado, porRecado] = useState('');
     const [aviso, porAviso] = useState('');
+    /** O documento que se está a eliminar, a converter, ou cujo histórico se vê. */
+    const [aApagar, porAApagar] = useState<LinhaDeDocumento | null>(null);
+    const [aConverter, porAConverter] = useState<LinhaDeDocumento | null>(null);
+    const [aVerHistorico, porAVerHistorico] = useState<LinhaDeDocumento | null>(null);
 
     /*
      * ANULAR e MARCAR COMO PAGA — só nas facturas de compra.
@@ -57,6 +66,41 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
             void cache.invalidateQueries({ queryKey: ['documentos', tipo] });
         },
         onError: (e) => porAviso(e instanceof ErroDaApi ? e.message : t('Não foi possível concluir a operação.')),
+    });
+
+    /**
+     * ELIMINAR — o que a lista em Blade tinha e a migração deixou cair.
+     *
+     * Pergunta-se antes: apagar um documento não se desfaz. Quem pode e o que
+     * ainda se pode apagar vem decidido do servidor, linha a linha.
+     */
+    const apagar = useMutation({
+        mutationFn: (d: LinhaDeDocumento) => documentos.apagar(tipo, d.id),
+        onSuccess: (r) => {
+            porAviso('');
+            porAApagar(null);
+            porRecado(r.message);
+            void cache.invalidateQueries({ queryKey: ['documentos', tipo] });
+        },
+        onError: (e) => porAviso(e instanceof ErroDaApi ? e.message : t('Não foi possível eliminar.')),
+    });
+
+    /**
+     * CONVERTER EM FACTURA.
+     *
+     * A conta é do modelo — a mesma de sempre, com a taxa de HOJE e não a que
+     * ficou gravada na proposta. A factura nasce em rascunho, e o recado diz o
+     * número para se ir lá confirmar.
+     */
+    const converter = useMutation({
+        mutationFn: (d: LinhaDeDocumento) => documentos.converter(tipo, d.id),
+        onSuccess: (r) => {
+            porAviso('');
+            porAConverter(null);
+            porRecado(r.message);
+            void cache.invalidateQueries({ queryKey: ['documentos', tipo] });
+        },
+        onError: (e) => porAviso(e instanceof ErroDaApi ? e.message : t('Não foi possível converter.')),
     });
 
     function anular(d: LinhaDeDocumento): void {
@@ -90,8 +134,42 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
     const temSaldo = opcoes.data?.tem_saldo ?? false;
     const rota = opcoes.data?.rota ?? '';
 
+    /*
+     * AS COLUNAS QUE SÓ ALGUNS DOCUMENTOS TÊM.
+     *
+     * Quem decide é o servidor (`TiposDeDocumento`): o prazo chama-se
+     * «Vencimento» na factura de compra e «Validade» na proposta, a factura de
+     * origem só existe nas notas, e o motivo idem. O ecrã desenha o que lhe
+     * disserem — é o mesmo princípio que faz um ecrã servir nove listas.
+     */
+    const prazo = opcoes.data?.prazo ?? null;
+    const origem = opcoes.data?.origem ?? null;
+    const motivos = (opcoes.data?.motivos.length ?? 0) > 0;
+
     return (
         <div className="space-y-4">
+            {/* O CABEÇALHO DE SEMPRE: título, a frase que diz o que este
+                documento é («Devoluções, descontos e correções» explica uma
+                nota de crédito a quem nunca emitiu nenhuma) e o botão de criar.
+                A migração deixou a página a começar por uma fila de cartões. */}
+            <Faixa
+                titulo={opcoes.data?.titulo ?? ''}
+                subtitulo={opcoes.data?.descricao || undefined}
+                icone="fa-file-lines"
+                cor="primaria"
+                accoes={
+                    opcoes.data?.pode_criar && (
+                        <a href={`${rota}/create`} className={cls(ACCAO_DA_FAIXA, 'group')}>
+                            <i
+                                className="fas fa-plus transition-transform duration-300 group-hover:rotate-90"
+                                aria-hidden="true"
+                            />
+                            {opcoes.data.novo}
+                        </a>
+                    )
+                }
+            />
+
             {recado && (
                 <div role="status" className={cls('flex items-center justify-between gap-3 border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900', RAIO)}>
                     <span><i className="fas fa-circle-check mr-2" aria-hidden="true" />{recado}</span>
@@ -118,7 +196,12 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
 
             {/* OS CARTÕES DO TOPO, como no ecrã de sempre.
                 Ver o `Cartoes` mais abaixo: diz-se de onde vem cada número. */}
-            <Cartoes total={contas?.total} linhas={linhas} temSaldo={temSaldo} aActualizar={lista.isFetching} />
+            <Cartoes
+                resumo={lista.data?.resumo}
+                linhas={linhas}
+                temSaldo={temSaldo}
+                aActualizar={lista.isFetching}
+            />
 
             <Cartao titulo={t('Filtros')} icone="fa-filter">
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -149,38 +232,54 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
                         </select>
                     </label>
 
-                    <div className="grid grid-cols-2 gap-2">
+                    {/* O MOTIVO — só nas notas, que são as únicas que o têm. A
+                        lista em Blade tinha-o em caixa própria: uma nota de
+                        crédito de devolução e uma de correcção contam histórias
+                        diferentes, e é por aqui que se separam. */}
+                    {(opcoes.data?.motivos.length ?? 0) > 0 && (
                         <label className="block">
-                            <Rotulo>{t('De')}</Rotulo>
-                            <input
-                                type="date"
-                                value={filtros.de ?? ''}
-                                onChange={(e) => porFiltros((f) => ({ ...f, de: e.target.value, page: 1 }))}
+                            <Rotulo>{t('Motivo')}</Rotulo>
+                            <select
+                                value={filtros.motivo ?? ''}
+                                onChange={(e) => porFiltros((f) => ({ ...f, motivo: e.target.value, page: 1 }))}
                                 className={entrada}
-                            />
+                            >
+                                <option value="">{t('Todos')}</option>
+                                {opcoes.data?.motivos.map((m) => (
+                                    <option key={m.valor} value={m.valor}>
+                                        {m.rotulo}
+                                    </option>
+                                ))}
+                            </select>
                         </label>
-                        <label className="block">
-                            <Rotulo>{t('Até')}</Rotulo>
-                            <input
-                                type="date"
-                                value={filtros.ate ?? ''}
-                                onChange={(e) => porFiltros((f) => ({ ...f, ate: e.target.value, page: 1 }))}
-                                className={entrada}
-                            />
-                        </label>
-                    </div>
+                    )}
+
+                    {/* Aqui as datas são as do DOCUMENTO — a do orçamento, a da
+                        factura — e não as da criação da ficha. */}
+                    <IntervaloDeDatas
+                        de={filtros.de}
+                        ate={filtros.ate}
+                        rotulo={t('De')}
+                        aoMudar={(campo, valor) => porFiltros((f) => ({ ...f, [campo]: valor, page: 1 }))}
+                    />
                 </div>
 
-                <div className="mt-4 flex items-center justify-between gap-4">
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                     <p className="text-sm text-slate-500">
                         {contas
                             ? t(':quantos documento(s)', { quantos: contas.total.toLocaleString('pt-PT') })
                             : t('A contar…')}
                         {lista.isFetching && <span className="ml-2 text-xs">{t('a actualizar…')}</span>}
                     </p>
-                    <Botao icone="fa-eraser" onClick={() => porFiltros({ procura: '', page: 1 })}>
-                        {t('Limpar')}
-                    </Botao>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <PorPagina
+                            valor={filtros.por_pagina}
+                            aoMudar={(n) => porFiltros((f) => ({ ...f, por_pagina: n, page: 1 }))}
+                        />
+                        <Botao altura="pequeno" icone="fa-eraser" onClick={() => porFiltros({ procura: '', page: 1 })}>
+                            {t('Limpar')}
+                        </Botao>
+                    </div>
                 </div>
             </Cartao>
 
@@ -212,7 +311,16 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
                                     <Cabecalho icone="fa-user">
                                         {opcoes.data?.parte === 'fornecedor' ? t('Fornecedor') : t('Cliente')}
                                     </Cabecalho>
+                                    {/* A FACTURA DE ORIGEM das notas: uma nota de
+                                        crédito sem saber de que factura é não se
+                                        lê. O cabeçalho vem do servidor porque
+                                        muda («Fatura Origem» / «Fatura Ref.»). */}
+                                    {origem && <Cabecalho icone="fa-file-invoice">{origem}</Cabecalho>}
                                     <Cabecalho icone="fa-calendar">{t('Data')}</Cabecalho>
+                                    {/* O PRAZO: vencimento nas facturas de compra,
+                                        validade nas propostas. */}
+                                    {prazo && <Cabecalho icone="fa-calendar-check">{prazo}</Cabecalho>}
+                                    {motivos && <Cabecalho icone="fa-tag">{t('Motivo')}</Cabecalho>}
                                     <Cabecalho icone="fa-circle-info">{t('Estado')}</Cabecalho>
                                     <Cabecalho icone="fa-landmark">{t('Portal AGT')}</Cabecalho>
                                     <Cabecalho icone="fa-money-bill" direita>{t('Valor')}</Cabecalho>
@@ -231,10 +339,18 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
                                         rota={rota}
                                         temSaldo={temSaldo}
                                         podeDuplicar={opcoes.data?.pode_duplicar ?? false}
-                                        aTrabalhar={accao.isPending}
+                                        prazo={prazo}
+                                        origem={origem}
+                                        motivos={motivos}
+                                        aTrabalhar={accao.isPending || apagar.isPending || converter.isPending}
                                         aoPagar={opcoes.data?.pode_pagar ? () => porAPagar(d) : undefined}
                                         aoAnular={() => anular(d)}
                                         aoMarcarPaga={() => marcarPaga(d)}
+                                        aoApagar={opcoes.data?.pode_apagar ? () => porAApagar(d) : undefined}
+                                        aoConverter={opcoes.data?.pode_converter ? () => porAConverter(d) : undefined}
+                                        aoVerHistorico={
+                                            opcoes.data?.tem_historico ? () => porAVerHistorico(d) : undefined
+                                        }
                                     />
                                 ))}
                             </tbody>
@@ -266,9 +382,222 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
                     </Botao>
                 </nav>
             )}
+
+            {/* ELIMINAR — pergunta-se antes: não se desfaz. */}
+            <Modal
+                aberto={aApagar !== null}
+                aoFechar={() => porAApagar(null)}
+                titulo={t('Eliminar documento')}
+                icone="fa-trash"
+                cor="perigo"
+                largura="sm"
+                rodape={
+                    <>
+                        <Botao onClick={() => porAApagar(null)}>{t('Cancelar')}</Botao>
+                        <Botao
+                            cor="perigo"
+                            tom="solida"
+                            icone="fa-trash"
+                            aTrabalhar={apagar.isPending}
+                            onClick={() => aApagar && apagar.mutate(aApagar)}
+                        >
+                            {t('Eliminar')}
+                        </Botao>
+                    </>
+                }
+            >
+                <p className="text-sm text-slate-700">
+                    {t('Vai eliminar :numero. Não há volta.', { numero: aApagar?.numero ?? '' })}
+                </p>
+            </Modal>
+
+            {/* CONVERTER — diz-se o que vai acontecer antes de acontecer. */}
+            <Modal
+                aberto={aConverter !== null}
+                aoFechar={() => porAConverter(null)}
+                titulo={t('Converter em factura')}
+                icone="fa-file-circle-plus"
+                cor="bom"
+                largura="sm"
+                rodape={
+                    <>
+                        <Botao onClick={() => porAConverter(null)}>{t('Cancelar')}</Botao>
+                        <Botao
+                            cor="bom"
+                            tom="solida"
+                            icone="fa-file-circle-plus"
+                            aTrabalhar={converter.isPending}
+                            onClick={() => aConverter && converter.mutate(aConverter)}
+                        >
+                            {t('Converter')}
+                        </Botao>
+                    </>
+                }
+            >
+                <p className="text-sm text-slate-700">
+                    {t('Vai nascer uma factura a partir de :numero.', { numero: aConverter?.numero ?? '' })}
+                </p>
+                <p className="mt-2 text-sm text-slate-500">
+                    {/* As duas coisas que quem converte tem de saber: fica em
+                        rascunho, e a taxa é a de hoje. */}
+                    {t('Fica em RASCUNHO até ser emitida, e as taxas são as de hoje — não as que ficaram gravadas na proposta.')}
+                </p>
+            </Modal>
+
+            <HistoricoDeConversoes
+                tipo={tipo}
+                documento={aVerHistorico}
+                aoFechar={() => porAVerHistorico(null)}
+            />
         </div>
     );
 }
+
+/**
+ * O HISTÓRICO DE CONVERSÕES — que facturas já saíram desta proposta.
+ *
+ * A mesma proposta pode ser convertida MAIS DO QUE UMA VEZ, e é de propósito:
+ * um fornecimento repetido factura-se a partir da mesma proforma. Este ecrã é
+ * o que evita a duplicação por engano — mostra o que já saiu antes de se
+ * converter outra vez.
+ */
+function HistoricoDeConversoes({
+    tipo,
+    documento,
+    aoFechar,
+}: {
+    tipo: string;
+    documento: LinhaDeDocumento | null;
+    aoFechar: () => void;
+}) {
+    const q = useQuery({
+        queryKey: ['documentos', tipo, 'historico', documento?.id],
+        queryFn: () => documentos.historico(tipo, documento!.id),
+        enabled: documento !== null,
+    });
+
+    if (!documento) {
+        return null;
+    }
+
+    const h = q.data;
+
+    return (
+        <Modal
+            aberto
+            aoFechar={aoFechar}
+            titulo={t('Histórico de Conversões')}
+            subtitulo={documento.numero}
+            icone="fa-clock-rotate-left"
+            cor="primaria"
+            largura="lg"
+            rodape={<Botao onClick={aoFechar}>{t('Fechar')}</Botao>}
+        >
+            {q.isPending || !h ? (
+                <Carregando />
+            ) : (
+                <div className="space-y-4">
+                    <div className={cls('grid gap-3 border border-slate-200 bg-slate-50 p-4 sm:grid-cols-4', RAIO)}>
+                        <Dado rotulo={t('Cliente')} valor={h.documento.parte} />
+                        <Dado rotulo={t('Data')} valor={data(h.documento.data)} />
+                        <Dado rotulo={t('Total')} valor={`${kz(h.documento.valor)} Kz`} />
+                        <div>
+                            <p className="text-xs font-semibold text-slate-500">{t('Estado')}</p>
+                            <Etiqueta cor={h.documento.estado_cor}>{h.documento.estado_rotulo}</Etiqueta>
+                        </div>
+                    </div>
+
+                    <section>
+                        <h4 className="mb-2 text-sm font-bold text-slate-700">
+                            <i className="fas fa-file-invoice mr-1.5 text-slate-400" aria-hidden="true" />
+                            {t('Faturas Geradas (:quantas)', { quantas: h.facturas.length })}
+                        </h4>
+
+                        {h.facturas.length === 0 ? (
+                            <div className="py-10 text-center">
+                                <div className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-full bg-slate-100">
+                                    <i className="fas fa-file-circle-question text-3xl text-slate-300" aria-hidden="true" />
+                                </div>
+                                <p className="text-sm font-semibold text-slate-600">
+                                    {t('Nenhuma fatura gerada ainda')}
+                                </p>
+                                <p className="mt-1 text-xs text-slate-400">
+                                    {t('Use «Converter em factura» para criar a primeira.')}
+                                </p>
+                            </div>
+                        ) : (
+                            <div className={cls('overflow-x-auto border border-slate-200', RAIO)}>
+                                <table className="w-full min-w-[560px] text-sm">
+                                    <thead className="bg-slate-50 text-xs text-slate-600">
+                                        <tr>
+                                            <th className="px-3 py-2 text-left font-semibold">{t('Número')}</th>
+                                            <th className="px-3 py-2 text-left font-semibold">{t('Data Fatura')}</th>
+                                            <th className="px-3 py-2 text-left font-semibold">{t('Vencimento')}</th>
+                                            <th className="px-3 py-2 text-right font-semibold">{t('Total')}</th>
+                                            <th className="px-3 py-2 text-left font-semibold">{t('Estado')}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {h.facturas.map((f) => (
+                                            <tr key={f.id} className="transition-colors hover:bg-indigo-50/50">
+                                                <td className="px-3 py-2 font-semibold">
+                                                    <a
+                                                        href={`${f.rota}/${f.id}/preview`}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="text-indigo-600 hover:underline"
+                                                    >
+                                                        {f.numero}
+                                                    </a>
+                                                </td>
+                                                <td className="whitespace-nowrap px-3 py-2 text-slate-500">
+                                                    {data(f.data)}
+                                                </td>
+                                                <td className="whitespace-nowrap px-3 py-2 text-slate-500">
+                                                    {data(f.vencimento)}
+                                                </td>
+                                                <td className="px-3 py-2 text-right font-semibold tabular-nums">
+                                                    {kz(f.total)}
+                                                </td>
+                                                <td className="px-3 py-2">
+                                                    <Etiqueta cor={f.estado_cor}>{f.estado_rotulo}</Etiqueta>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </section>
+                </div>
+            )}
+        </Modal>
+    );
+}
+
+/**
+ * A cor de um estado, traduzida para o tom do cartão e para um ícone.
+ *
+ * O servidor devolve o PAPEL da cor («bom», «aviso»), e não uma classe: sem
+ * build, o Tailwind do browser não gera uma classe montada em tempo de
+ * execução. E o ícone acompanha sempre — cor sozinha não chega a quem não a
+ * distingue.
+ */
+const TOM_DO_ESTADO: Record<string, TomDoCartao> = {
+    bom: 'verde',
+    primaria: 'azul',
+    aviso: 'ambar',
+    perigo: 'vermelho',
+    neutra: 'cinza',
+};
+
+const SINAL_DO_ESTADO: Record<string, string> = {
+    bom: 'fa-circle-check',
+    primaria: 'fa-paper-plane',
+    aviso: 'fa-clock',
+    perigo: 'fa-triangle-exclamation',
+    neutra: 'fa-file',
+};
 
 /** O ícone acompanha a cor do selo — nunca só a cor. */
 const SINAL_AGT: Record<string, string> = {
@@ -285,10 +614,16 @@ function Linha({
     rota,
     temSaldo,
     podeDuplicar,
+    prazo,
+    origem,
+    motivos,
     aTrabalhar,
     aoPagar,
     aoAnular,
     aoMarcarPaga,
+    aoApagar,
+    aoConverter,
+    aoVerHistorico,
 }: {
     /** A ordem na lista, só para a entrada em cascata. */
     i: number;
@@ -296,10 +631,18 @@ function Linha({
     rota: string;
     temSaldo: boolean;
     podeDuplicar: boolean;
+    /** As colunas que só alguns documentos têm — decididas pelo servidor. */
+    prazo: string | null;
+    origem: string | null;
+    motivos: boolean;
     aTrabalhar: boolean;
     aoPagar?: () => void;
     aoAnular: () => void;
     aoMarcarPaga: () => void;
+    /** Eliminar, converter e ver o histórico: `undefined` onde não existem. */
+    aoApagar?: () => void;
+    aoConverter?: () => void;
+    aoVerHistorico?: () => void;
 }) {
     return (
         <tr className="entra transition-all duration-200 hover:bg-indigo-50/60" style={cascata(i)}>
@@ -311,7 +654,58 @@ function Linha({
                 )}
             </td>
             <td className="px-4 py-3 text-slate-700">{d.parte}</td>
+
+            {/* A FACTURA DE ORIGEM, nas notas: leva ao documento que a nota
+                corrige — é a primeira coisa que se quer ver a seguir. */}
+            {origem && (
+                <td className="px-4 py-3">
+                    {d.origem ? (
+                        <a
+                            href={`/invoicing/sales/invoices/${d.origem.id}/preview`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-semibold text-indigo-600 hover:underline"
+                        >
+                            {d.origem.numero}
+                        </a>
+                    ) : (
+                        <span className="text-slate-300">—</span>
+                    )}
+                </td>
+            )}
+
             <td className="px-4 py-3 tabular-nums text-slate-600">{data(d.data)}</td>
+
+            {/* O PRAZO, e a marca de EXPIRADO — quem decide que já passou é o
+                servidor, com o relógio dele. Uma proposta caducada não se
+                converte, e uma compra vencida é dinheiro em atraso. */}
+            {prazo && (
+                <td className="px-4 py-3 tabular-nums">
+                    {d.prazo ? (
+                        <span className={d.expirado ? 'font-semibold text-red-600' : 'text-slate-600'}>
+                            {data(d.prazo)}
+                            {d.expirado && (
+                                <i className="fas fa-triangle-exclamation ml-1.5" title={t('Prazo ultrapassado')} />
+                            )}
+                        </span>
+                    ) : (
+                        <span className="text-slate-300">—</span>
+                    )}
+                </td>
+            )}
+
+            {motivos && (
+                <td className="px-4 py-3">
+                    {d.motivo_rotulo ? (
+                        <Etiqueta cor="neutra" icone="fa-tag">
+                            {d.motivo_rotulo}
+                        </Etiqueta>
+                    ) : (
+                        <span className="text-slate-300">—</span>
+                    )}
+                </td>
+            )}
+
             <td className="px-4 py-3">
                 <Etiqueta cor={d.estado_cor}>{d.estado_rotulo}</Etiqueta>
             </td>
@@ -436,6 +830,53 @@ function Linha({
                             <i className="fas fa-ban" aria-hidden="true" />
                         </button>
                     )}
+
+                    {/* CONVERTER EM FACTURA — só nas propostas. A factura nasce
+                        em RASCUNHO: converter não é emitir, e quem converte
+                        confere e emite depois, no editor. */}
+                    {aoConverter && (
+                        <button
+                            type="button"
+                            onClick={aoConverter}
+                            disabled={aTrabalhar}
+                            title={t('Converter em factura')}
+                            aria-label={t('Converter :numero em factura', { numero: d.numero })}
+                            className={cls('p-2 text-emerald-600 transition-all duration-200 hover:scale-110 active:scale-100 hover:bg-emerald-50 disabled:opacity-40', RAIO, FOCO)}
+                        >
+                            <i className="fas fa-file-circle-plus" aria-hidden="true" />
+                        </button>
+                    )}
+
+                    {/* O HISTÓRICO DE CONVERSÕES: a mesma proposta pode ser
+                        convertida mais do que uma vez (um fornecimento repetido
+                        factura-se da mesma proforma), e é isto que evita a
+                        duplicação por engano — mostra o que já saiu. */}
+                    {aoVerHistorico && (
+                        <button
+                            type="button"
+                            onClick={aoVerHistorico}
+                            title={t('Histórico de conversões')}
+                            aria-label={t('Histórico de :numero', { numero: d.numero })}
+                            className={cls('p-2 text-slate-500 transition-all duration-200 hover:scale-110 active:scale-100 hover:bg-slate-100', RAIO, FOCO)}
+                        >
+                            <i className="fas fa-clock-rotate-left" aria-hidden="true" />
+                        </button>
+                    )}
+
+                    {/* ELIMINAR. Um documento já convertido ou anulado não se
+                        elimina — quem o diz é o servidor, linha a linha. */}
+                    {aoApagar && d.pode_apagar && (
+                        <button
+                            type="button"
+                            onClick={aoApagar}
+                            disabled={aTrabalhar}
+                            title={t('Eliminar')}
+                            aria-label={t('Eliminar :numero', { numero: d.numero })}
+                            className={cls('p-2 text-red-500 transition-all duration-200 hover:scale-110 active:scale-100 hover:bg-red-50 disabled:opacity-40', RAIO, FOCO)}
+                        >
+                            <i className="fas fa-trash" aria-hidden="true" />
+                        </button>
+                    )}
                 </div>
             </td>
         </tr>
@@ -519,45 +960,66 @@ function EstadoVazio({
  * servidor, e este lote não mexe na API.
  */
 function Cartoes({
-    total,
+    resumo,
     linhas,
     temSaldo,
     aActualizar,
 }: {
-    total?: number;
+    resumo?: ResumoDosDocumentos;
     linhas: LinhaDeDocumento[];
     temSaldo: boolean;
     aActualizar: boolean;
 }) {
-    const valor = linhas.reduce((soma, d) => soma + Number(d.valor ?? 0), 0);
     const porPagar = linhas.reduce((soma, d) => soma + Number(d.saldo ?? 0), 0);
     const nesta = t(':quantos nesta página', { quantos: linhas.length });
 
+    /*
+     * OS ESTADOS QUE MAIS PESAM, e não uma lista inventada.
+     *
+     * A lista em Blade tinha cinco cartões fixos — total, rascunhos, os
+     * emitidos, os pagos e o valor — mas os estados não são os mesmos em todos
+     * os documentos: uma proforma é «enviada» ou «aceite», uma nota é
+     * «emitida». Mostram-se os TRÊS com mais documentos, que é o que responde
+     * à mesma pergunta sem inventar estados que este tipo não tem.
+     */
+    const estados = (resumo?.por_estado ?? []).slice(0, 3);
+
     return (
-        <div className={cls('grid gap-3 sm:grid-cols-2', temSaldo ? 'lg:grid-cols-3' : 'lg:grid-cols-2', aActualizar && 'opacity-70')}>
+        <div className={cls('grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5', aActualizar && 'opacity-70')}>
             <CartaoNumero
-                rotulo={t('Documentos')}
+                aspecto="claro"
+                rotulo={t('Total')}
                 tom="indigo"
                 icone="fa-file-lines"
                 nota={t('com os filtros actuais')}
-                valor={
-                    total === undefined ? (
-                        <span className="text-white/50">—</span>
-                    ) : (
-                        total.toLocaleString(etiquetaIntl())
-                    )
-                }
+                valor={resumo === undefined ? '—' : resumo.total.toLocaleString(etiquetaIntl())}
             />
+
+            {estados.map((e) => (
+                <CartaoNumero
+                    key={e.estado}
+                    aspecto="claro"
+                    rotulo={e.rotulo}
+                    tom={TOM_DO_ESTADO[e.cor] ?? 'cinza'}
+                    icone={SINAL_DO_ESTADO[e.cor] ?? 'fa-circle-info'}
+                    nota={`${kz(e.valor)} Kz`}
+                    valor={e.quantos.toLocaleString(etiquetaIntl())}
+                />
+            ))}
+
             <CartaoNumero
-                rotulo={t('Valor nesta página')}
+                aspecto="claro"
+                rotulo={t('Valor Total')}
                 tom="verde"
                 icone="fa-money-bill-wave"
                 sufixo="Kz"
-                nota={nesta}
-                valor={kz(valor)}
+                nota={t('com os filtros actuais')}
+                valor={resumo === undefined ? '—' : kz(resumo.valor)}
             />
+
             {temSaldo && (
                 <CartaoNumero
+                    aspecto="claro"
                     rotulo={t('Falta pagar nesta página')}
                     tom="ambar"
                     icone="fa-clock"

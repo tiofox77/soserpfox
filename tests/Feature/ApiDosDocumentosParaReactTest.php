@@ -199,4 +199,206 @@ class ApiDosDocumentosParaReactTest extends TenantTestCase
 
         $this->assertTrue($porCliente->contains($o->id));
     }
+
+    /* ─── O que as listas em Blade tinham e faltava ───────────────────── */
+
+    /**
+     * A COLUNA DO PRAZO: validade nas propostas, vencimento nas compras.
+     *
+     * A lista em Blade tinha-a, e não é decoração — uma proposta caducada não
+     * se converte, e uma compra vencida é dinheiro em atraso. Quem decide que
+     * o prazo passou é o SERVIDOR, com o relógio dele.
+     *
+     * @test
+     */
+    public function o_prazo_vem_na_linha_e_diz_se_ja_passou(): void
+    {
+        $this->comPermissoes('invoicing.sales.quotes.view', 'invoicing.purchases.invoices.view');
+
+        $caducado = $this->orcamento(['valid_until' => now()->subWeek()->toDateString()]);
+        $valido = $this->orcamento(['valid_until' => now()->addWeek()->toDateString()]);
+
+        $this->getJson($this->rota('orcamentos') . '/opcoes')->assertOk()
+            ->assertJsonPath('prazo', 'Validade');
+
+        $linhas = collect($this->getJson($this->rota('orcamentos'))->assertOk()->json('data'))
+            ->keyBy('id');
+
+        $this->assertTrue($linhas[$caducado->id]['expirado'], 'a validade passada tem de aparecer expirada');
+        $this->assertFalse($linhas[$valido->id]['expirado']);
+
+        // Na compra o mesmo campo chama-se «Vencimento» — é o esquema que sabe.
+        $this->getJson($this->rota('facturas-compra') . '/opcoes')->assertOk()
+            ->assertJsonPath('prazo', 'Vencimento');
+    }
+
+    /**
+     * AS NOTAS TRAZEM A FACTURA DE ORIGEM E O MOTIVO.
+     *
+     * A lista em Blade tinha-os em coluna própria: uma nota de crédito sem
+     * saber de que factura é não se lê, e uma de devolução conta uma história
+     * diferente de uma de correcção.
+     *
+     * @test
+     */
+    public function as_notas_trazem_a_factura_de_origem_e_o_motivo(): void
+    {
+        $this->comPermissoes('invoicing.credit-notes.view');
+
+        $factura = \App\Models\Invoicing\SalesInvoice::create([
+            'tenant_id' => $this->tenant->id,
+            'client_id' => $this->clienteEmpresa()->id,
+            'invoice_number' => 'FT ORIGEM/0001',
+            'invoice_date' => now()->toDateString(),
+            'status' => 'sent',
+            'total' => 5000,
+            'created_by' => $this->user->id,
+        ]);
+
+        $nota = \App\Models\Invoicing\CreditNote::create([
+            'tenant_id' => $this->tenant->id,
+            'client_id' => $factura->client_id,
+            'invoice_id' => $factura->id,
+            'credit_note_number' => 'NC/0001',
+            'issue_date' => now()->toDateString(),
+            'status' => 'issued',
+            'reason' => 'return',
+            'total' => 1000,
+            'created_by' => $this->user->id,
+        ]);
+
+        $opcoes = $this->getJson($this->rota('notas-credito') . '/opcoes')->assertOk();
+
+        $this->assertSame('Fatura Origem', $opcoes->json('origem'));
+        $this->assertContains('return', collect($opcoes->json('motivos'))->pluck('valor')->all());
+
+        $linha = collect($this->getJson($this->rota('notas-credito'))->assertOk()->json('data'))
+            ->firstWhere('id', $nota->id);
+
+        $this->assertSame($factura->id, $linha['origem']['id']);
+        $this->assertSame('Devolução', $linha['motivo_rotulo']);
+
+        // E o FILTRO do motivo separa-as.
+        $ids = collect($this->getJson($this->rota('notas-credito') . '?motivo=return')->json('data'))->pluck('id');
+        $this->assertTrue($ids->contains($nota->id));
+
+        $ids = collect($this->getJson($this->rota('notas-credito') . '?motivo=discount')->json('data'))->pluck('id');
+        $this->assertFalse($ids->contains($nota->id));
+    }
+
+    /**
+     * O FILTRO DO MOTIVO SÓ EXISTE ONDE HÁ MOTIVOS.
+     *
+     * Num orçamento é recusado em vez de ignorado: ignorado em silêncio,
+     * devolvia a lista toda e fazia acreditar que filtrava.
+     *
+     * @test
+     */
+    public function o_motivo_nao_se_aceita_onde_nao_existe(): void
+    {
+        $this->comPermissoes('invoicing.sales.quotes.view');
+
+        $this->getJson($this->rota('orcamentos') . '?motivo=return')
+            ->assertStatus(422)->assertJsonValidationErrors('motivo');
+
+        $this->getJson($this->rota('orcamentos') . '/opcoes')->assertOk()
+            ->assertJsonPath('motivos', [])
+            ->assertJsonPath('origem', null);
+    }
+
+    /**
+     * CONVERTER UMA PROPOSTA EM FACTURA — o botão que a lista em Blade tinha e
+     * a migração não trouxe, nem no ecrã nem na API.
+     *
+     * A factura nasce em RASCUNHO: converter não é emitir.
+     *
+     * @test
+     */
+    public function converter_um_orcamento_faz_nascer_uma_factura_em_rascunho(): void
+    {
+        $this->comPermissoes('invoicing.sales.quotes.view');
+
+        $o = $this->orcamento();
+
+        // SEM A PERMISSÃO DE FACTURAR, não converte: nasce uma factura, e quem
+        // não pode facturar não a faz nascer por este atalho.
+        $this->postJson($this->rota('orcamentos') . '/' . $o->id . '/converter')->assertForbidden();
+
+        $this->comPermissoes('invoicing.sales.invoices.create');
+
+        $r = $this->postJson($this->rota('orcamentos') . '/' . $o->id . '/converter')->assertOk();
+
+        $id = $r->json('factura.id');
+
+        $this->assertDatabaseHas('invoicing_sales_invoices', [
+            'id' => $id,
+            'tenant_id' => $this->tenant->id,
+            'status' => 'draft',
+        ]);
+
+        // E o histórico passa a mostrá-la.
+        $h = $this->getJson($this->rota('orcamentos') . '/' . $o->id . '/historico')->assertOk();
+
+        $this->assertCount(1, $h->json('facturas'));
+        $this->assertSame($id, $h->json('facturas.0.id'));
+    }
+
+    /** Um documento que não se converte responde 404, e não uma factura vazia. @test */
+    public function um_documento_que_nao_se_converte_recusa(): void
+    {
+        $this->comPermissoes('invoicing.purchases.invoices.view', 'invoicing.sales.invoices.create');
+
+        $c = $this->compra();
+
+        $this->postJson($this->rota('facturas-compra') . '/' . $c->id . '/converter')->assertNotFound();
+        $this->getJson($this->rota('facturas-compra') . '/' . $c->id . '/historico')->assertNotFound();
+    }
+
+    /**
+     * ELIMINAR — e não o que já foi convertido.
+     *
+     * Uma proposta convertida em factura não se elimina: a factura aponta para
+     * ela e ficaria a referir um documento que já não existe.
+     *
+     * @test
+     */
+    public function eliminar_respeita_a_permissao_e_o_que_ja_foi_convertido(): void
+    {
+        $this->comPermissoes('invoicing.sales.quotes.view');
+
+        $o = $this->orcamento();
+
+        // Sem a permissão de apagar, o botão nem devia aparecer — e a porta
+        // recusa na mesma, que é a guarda que conta.
+        $this->getJson($this->rota('orcamentos') . '/opcoes')->assertOk()
+            ->assertJsonPath('pode_apagar', false);
+
+        $this->deleteJson($this->rota('orcamentos') . '/' . $o->id)->assertForbidden();
+
+        $this->comPermissoes('invoicing.sales.quotes.delete');
+
+        $this->getJson($this->rota('orcamentos') . '/opcoes')->assertOk()
+            ->assertJsonPath('pode_apagar', true);
+
+        // Um já convertido não se apaga, e diz porquê.
+        $convertido = $this->orcamento(['status' => 'converted']);
+
+        $this->deleteJson($this->rota('orcamentos') . '/' . $convertido->id)->assertStatus(422);
+        $this->assertNotNull(SalesQuote::find($convertido->id));
+
+        // O que ainda dá, apaga-se.
+        $this->deleteJson($this->rota('orcamentos') . '/' . $o->id)->assertOk();
+        $this->assertNull(SalesQuote::find($o->id));
+    }
+
+    /** Uma factura de compra não se elimina por aqui: anula-se. @test */
+    public function a_factura_de_compra_nao_se_elimina_por_aqui(): void
+    {
+        $this->comPermissoes('invoicing.purchases.invoices.view', 'invoicing.purchases.invoices.delete');
+
+        $c = $this->compra();
+
+        $this->deleteJson($this->rota('facturas-compra') . '/' . $c->id)->assertNotFound();
+        $this->assertNotNull(PurchaseInvoice::find($c->id));
+    }
 }
