@@ -59,10 +59,28 @@
 
             {{-- Dados Fatura --}}
             <div class="text-xs mb-3 space-y-1">
+                {{-- OS DOIS NÚMEROS: a série da CASA em cima, a da AGT por
+                     baixo e mais pequena.
+
+                     O que estava gravado em `invoice_number` é o número na
+                     série da AGT — críptico (FR4226S61354N/000229) e não é por
+                     ele que a empresa chama o documento. Quem atende ao balcão
+                     e quem confere a caixa procuram pela série interna
+                     (SOSFR/000130). A da AGT continua impressa, que é a que a
+                     autoridade reconhece — só deixa de ser a primeira.
+
+                     É a mesma ordem que a lista de facturas e a pré-visualização
+                     já usam. Ver os helpers `numeroInterno()` / `numeroAgt()`. --}}
                 <div class="flex justify-between">
                     <span class="font-bold">FATURA:</span>
-                    <span>{{ $invoice->invoice_number }}</span>
+                    <span class="font-bold">{{ $invoice->numeroInterno() }}</span>
                 </div>
+                @if($invoice->numeroAgt() && $invoice->numeroAgt() !== $invoice->numeroInterno())
+                <div class="flex justify-between" style="margin-top: -2px;">
+                    <span></span>
+                    <span style="font-size: 11px; color: #444;">AGT: {{ $invoice->numeroAgt() }}</span>
+                </div>
+                @endif
                 <div class="flex justify-between">
                     <span class="font-bold">DATA:</span>
                     <span>{{ ($invoice->system_entry_date ?? $invoice->invoice_date)->format('d/m/Y H:i') }}</span>
