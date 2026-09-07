@@ -18,7 +18,8 @@ import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { AvisoDeErro } from '@/ui/AvisoDeErro';
 import { Modal } from '@/ui/Modal';
-import { CARTAO, FOCO, GRADIENTES, RAIO, cls, kz } from '@/ui/tokens';
+import { IntervaloDeDatas, PorPagina } from '@/ui/FiltrosComuns';
+import { CARTAO, FOCO, GRADIENTES, RAIO, cls, data, kz } from '@/ui/tokens';
 import { etiquetaIntl, t, tPartes } from '@/i18n';
 
 /**
@@ -122,6 +123,8 @@ export default function Produtos() {
     const cache = useQueryClient();
 
     const [filtros, porFiltros] = useState<FiltrosDeArtigos>({ procura: '', page: 1 });
+    /** O artigo cujo rastreio está aberto. Null é o modal fechado. */
+    const [aRastrear, porARastrear] = useState<Artigo | null>(null);
     const [aEditar, porAEditar] = useState<Artigo | null>(null);
     const [formulario, porFormulario] = useState<ArtigoParaGravar | null>(null);
     const [erros, porErros] = useState<Record<string, string[]>>({});
@@ -345,6 +348,30 @@ export default function Produtos() {
                             ))}
                         </select>
                     </label>
+
+                    {/* O QUE FALTA NA FICHA — o `qualidadeFilter` de sempre.
+                        Serve para arrumar o catálogo: um artigo sem preço
+                        vende-se a zero no POS e um sem categoria não aparece em
+                        filtro nenhum. São erros que só se acham procurando. */}
+                    <label className="block">
+                        <Rotulo>{t('Ficha incompleta')}</Rotulo>
+                        <select
+                            value={filtros.qualidade ?? ''}
+                            onChange={(e) => porFiltros((f) => ({ ...f, qualidade: e.target.value, page: 1 }))}
+                            className={entrada}
+                        >
+                            <option value="">{t('Todas as fichas')}</option>
+                            <option value="sem_preco">{t('Sem preço')}</option>
+                            <option value="sem_codigo_barras">{t('Sem código de barras')}</option>
+                            <option value="sem_categoria">{t('Sem categoria')}</option>
+                        </select>
+                    </label>
+
+                    <IntervaloDeDatas
+                        de={filtros.de}
+                        ate={filtros.ate}
+                        aoMudar={(campo, valor) => porFiltros((f) => ({ ...f, [campo]: valor, page: 1 }))}
+                    />
                 </div>
 
                 <FiltrosDeSector opcoes={opcoes.data} filtros={filtros} aoMudar={porFiltros} />
@@ -354,7 +381,11 @@ export default function Produtos() {
                         {contas ? t(':quantos artigo(s)', { quantos: contas.total.toLocaleString('pt-PT') }) : t('A contar…')}
                         {lista.isFetching && <span className="ml-2 text-xs">{t('a actualizar…')}</span>}
                     </p>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <PorPagina
+                            valor={filtros.por_pagina}
+                            aoMudar={(n) => porFiltros((f) => ({ ...f, por_pagina: n, page: 1 }))}
+                        />
                         <Botao
                             altura="pequeno"
                             cor={filtros.so_em_falta === '1' ? 'aviso' : 'neutra'}
@@ -500,6 +531,22 @@ export default function Produtos() {
                                         </td>
                                         <td className="px-4 py-3">
                                             <div className="flex items-center justify-end gap-1">
+                                                {/* PARA ONDE FOI ESTE ARTIGO. O botão que o
+                                                    ecrã de sempre tinha em cada linha: junta as
+                                                    vendas aos movimentos de stock, e é a
+                                                    diferença entre os dois que denuncia a baixa
+                                                    que falhou. Basta a permissão de VER — é uma
+                                                    consulta, não mexe em nada. */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => porARastrear(a)}
+                                                    title={t('Rastreio')}
+                                                    aria-label={t('Rastrear :nome', { nome: a.name })}
+                                                    className={cls('p-2 text-teal-600 transition-all duration-200 hover:scale-110 active:scale-100 hover:bg-teal-50', RAIO, FOCO)}
+                                                >
+                                                    <i className="fas fa-timeline" aria-hidden="true" />
+                                                </button>
+
                                                 {permissoes?.pode_editar && (
                                                     <button
                                                         type="button"
@@ -555,6 +602,8 @@ export default function Produtos() {
                     </Botao>
                 </nav>
             )}
+
+            <Rastreio artigo={aRastrear} aoFechar={() => porARastrear(null)} />
 
             <Formulario
                 dados={formulario}
@@ -1394,6 +1443,278 @@ function Formulario({
             </form>
         </Modal>
     );
+}
+
+/* ─── O rastreio: para onde foi este artigo ───────────────────────────── */
+
+/**
+ * AS VENDAS E OS MOVIMENTOS DE STOCK, LADO A LADO.
+ *
+ * As duas listas juntas de propósito — é essa a razão de este ecrã existir. As
+ * vendas dizem para quem foi e por quanto; os movimentos dizem de que armazém
+ * saiu e por que documento. É a DISCREPÂNCIA entre elas que denuncia problemas:
+ * vendeu-se sem saída de stock (o artigo aparece disponível mas a baixa falha),
+ * saiu sem venda, ajustou-se à mão sem justificação.
+ *
+ * Existia num botão por linha no ecrã em Blade e a migração deixou-o para trás
+ * por inteiro — nem ecrã, nem API, nem contas.
+ */
+function Rastreio({ artigo, aoFechar }: { artigo: Artigo | null; aoFechar: () => void }) {
+    const [dias, porDias] = useState(90);
+
+    const q = useQuery({
+        queryKey: ['artigos', 'rastreio', artigo?.id, dias],
+        queryFn: () => produtos.rastreio(artigo!.id, dias),
+        enabled: artigo !== null,
+        placeholderData: keepPreviousData,
+    });
+
+    if (!artigo) {
+        return null;
+    }
+
+    const r = q.data;
+    // Milésimos porque as quantidades podem sê-lo (0,250 kg) — e uma
+    // divergência de três milésimos ainda é uma divergência.
+    const divergente = r ? Math.abs(r.resumo.divergencia) > 0.001 : false;
+
+    return (
+        <Modal
+            aberto
+            aoFechar={aoFechar}
+            largura="xl"
+            icone="fa-timeline"
+            cor="primaria"
+            titulo={artigo.name}
+            subtitulo={[artigo.code, t('rastreio de vendas e stock')].filter(Boolean).join(' · ')}
+            rodape={<Botao onClick={aoFechar}>{t('Fechar')}</Botao>}
+        >
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <label className="flex items-center gap-2 text-sm text-slate-600">
+                    <i className="fas fa-calendar-day text-slate-400" aria-hidden="true" />
+                    {t('Período')}
+                    <select
+                        value={dias}
+                        onChange={(e) => porDias(Number(e.target.value))}
+                        aria-label={t('Período do rastreio')}
+                        className="h-9 rounded-lg border border-slate-300 px-2 text-sm transition-colors hover:border-indigo-400"
+                    >
+                        <option value={30}>{t('30 dias')}</option>
+                        <option value={90}>{t('90 dias')}</option>
+                        <option value={365}>{t('1 ano')}</option>
+                        <option value={0}>{t('Tudo')}</option>
+                    </select>
+                </label>
+                {q.isFetching && <span className="text-xs text-slate-400">{t('a actualizar…')}</span>}
+            </div>
+
+            {q.isPending || !r ? (
+                <Carregando />
+            ) : (
+                <div className="space-y-5">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <CartaoNumero
+                            rotulo={t('Vendido')}
+                            tom="azul"
+                            icone="fa-cart-shopping"
+                            valor={numero(r.resumo.qtd_vendida)}
+                            nota={t(':quantos documento(s)', { quantos: r.resumo.documentos })}
+                        />
+                        <CartaoNumero
+                            rotulo={t('Faturado')}
+                            tom="verde"
+                            icone="fa-coins"
+                            valor={kz(r.resumo.valor_vendido)}
+                            nota="Kz"
+                        />
+                        <CartaoNumero
+                            rotulo={t('Stock actual')}
+                            tom="indigo"
+                            icone="fa-warehouse"
+                            valor={numero(r.resumo.stock_total)}
+                            nota={t(':quantos armazém(ns)', { quantos: r.por_armazem.length })}
+                        />
+                        {/* O CARTÃO QUE JUSTIFICA O ECRÃ. Vermelho só quando há
+                            mesmo divergência: pintá-lo sempre ensinava a
+                            ignorá-lo. */}
+                        <CartaoNumero
+                            rotulo={t('Vendido − saídas')}
+                            tom={divergente ? 'vermelho' : 'cinza'}
+                            icone={divergente ? 'fa-triangle-exclamation' : 'fa-circle-check'}
+                            valor={numero(r.resumo.divergencia)}
+                            nota={divergente ? t('stock não acompanhou a venda') : t('coerente')}
+                        />
+                    </div>
+
+                    {divergente && (
+                        <div
+                            role="alert"
+                            className={cls('animate-fade-in border-2 border-red-300 bg-red-50 p-3 text-sm text-red-800', RAIO)}
+                        >
+                            <strong className="block">
+                                <i className="fas fa-triangle-exclamation mr-1.5" aria-hidden="true" />
+                                {t('Vendas e stock não batem certo.')}
+                            </strong>
+                            {t(
+                                'Foram vendidas :vendidas unidades mas só saíram :saidas do stock. É o sintoma do artigo que aparece disponível mas cuja baixa falha.',
+                                { vendidas: numero(r.resumo.qtd_vendida), saidas: numero(r.resumo.saidas) },
+                            )}
+                        </div>
+                    )}
+
+                    {r.por_armazem.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                            {r.por_armazem.map((s, i) => (
+                                <span
+                                    key={i}
+                                    className={cls('bg-slate-100 px-3 py-1.5 text-sm text-slate-700', RAIO)}
+                                >
+                                    <strong>{s.armazem}:</strong> {numero(s.quantidade)}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+
+                    <section>
+                        <h4 className="mb-2 text-sm font-bold text-slate-700">
+                            <i className="fas fa-file-invoice mr-1.5 text-slate-400" aria-hidden="true" />
+                            {t('Vendas (:quantas)', { quantas: r.vendas.length })}
+                        </h4>
+                        <div className={cls('overflow-x-auto border border-slate-200', RAIO)}>
+                            <table className="w-full min-w-[640px] text-sm">
+                                <thead className="bg-slate-50 text-xs text-slate-600">
+                                    <tr>
+                                        <th className="px-3 py-2 text-left font-semibold">{t('Data')}</th>
+                                        <th className="px-3 py-2 text-left font-semibold">{t('Documento')}</th>
+                                        <th className="px-3 py-2 text-left font-semibold">{t('Cliente')}</th>
+                                        <th className="px-3 py-2 text-right font-semibold">{t('Qtd')}</th>
+                                        <th className="px-3 py-2 text-right font-semibold">{t('Preço')}</th>
+                                        <th className="px-3 py-2 text-right font-semibold">{t('Total')}</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {r.vendas.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={6} className="px-3 py-6 text-center text-slate-400">
+                                                {t('Sem vendas no período.')}
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        r.vendas.map((v) => (
+                                            <tr key={v.id} className="transition-colors hover:bg-indigo-50/50">
+                                                <td className="whitespace-nowrap px-3 py-2 text-slate-500">
+                                                    {data(v.data)}
+                                                </td>
+                                                <td className="px-3 py-2 font-semibold">
+                                                    {v.documento_id ? (
+                                                        <a
+                                                            href={`/invoicing/sales/invoices/${v.documento_id}`}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className="text-indigo-600 hover:underline"
+                                                        >
+                                                            {v.documento}
+                                                        </a>
+                                                    ) : (
+                                                        '—'
+                                                    )}
+                                                </td>
+                                                <td className="px-3 py-2 text-slate-700">{v.cliente ?? '—'}</td>
+                                                <td className="px-3 py-2 text-right font-semibold tabular-nums">
+                                                    {numero(v.quantidade)}
+                                                </td>
+                                                <td className="px-3 py-2 text-right tabular-nums">{kz(v.preco)}</td>
+                                                <td className="px-3 py-2 text-right font-semibold tabular-nums">
+                                                    {kz(v.total)}
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <section>
+                        <h4 className="mb-2 text-sm font-bold text-slate-700">
+                            <i className="fas fa-arrow-right-arrow-left mr-1.5 text-slate-400" aria-hidden="true" />
+                            {t('Movimentos de stock (:quantos)', { quantos: r.movimentos.length })}
+                        </h4>
+                        <div className={cls('overflow-x-auto border border-slate-200', RAIO)}>
+                            <table className="w-full min-w-[640px] text-sm">
+                                <thead className="bg-slate-50 text-xs text-slate-600">
+                                    <tr>
+                                        <th className="px-3 py-2 text-left font-semibold">{t('Data')}</th>
+                                        <th className="px-3 py-2 text-left font-semibold">{t('Tipo')}</th>
+                                        <th className="px-3 py-2 text-left font-semibold">{t('Armazém')}</th>
+                                        <th className="px-3 py-2 text-right font-semibold">{t('Qtd')}</th>
+                                        <th className="px-3 py-2 text-left font-semibold">{t('Origem')}</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {r.movimentos.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={5} className="px-3 py-6 text-center text-slate-400">
+                                                {t('Sem movimentos no período.')}
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        r.movimentos.map((m) => (
+                                            <tr key={m.id} className="transition-colors hover:bg-indigo-50/50">
+                                                <td className="whitespace-nowrap px-3 py-2 text-slate-500">
+                                                    {data(m.data)}
+                                                </td>
+                                                <td className="px-3 py-2">
+                                                    {/* Entrada, saída ou o resto: cada um com o
+                                                        seu ícone, para o tipo não depender só da
+                                                        cor. */}
+                                                    <Etiqueta
+                                                        cor={
+                                                            m.tipo === 'in'
+                                                                ? 'bom'
+                                                                : m.tipo === 'out'
+                                                                  ? 'perigo'
+                                                                  : 'primaria'
+                                                        }
+                                                        icone={
+                                                            m.tipo === 'in'
+                                                                ? 'fa-arrow-down'
+                                                                : m.tipo === 'out'
+                                                                  ? 'fa-arrow-up'
+                                                                  : 'fa-right-left'
+                                                        }
+                                                    >
+                                                        {m.tipo}
+                                                    </Etiqueta>
+                                                </td>
+                                                <td className="px-3 py-2 text-slate-700">{m.armazem ?? '—'}</td>
+                                                <td className="px-3 py-2 text-right font-semibold tabular-nums">
+                                                    {numero(m.quantidade)}
+                                                </td>
+                                                <td className="px-3 py-2 text-xs text-slate-500">
+                                                    {m.origem || '—'}
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+            )}
+        </Modal>
+    );
+}
+
+/**
+ * Uma quantidade sem zeros à direita: 2,500 lê-se «2,5» e 3,000 lê-se «3».
+ *
+ * As quantidades podem ser milesimais (250 gramas é 0,250) e escrevê-las
+ * sempre com três casas enche a tabela de zeros que não dizem nada.
+ */
+function numero(v: number): string {
+    return v.toLocaleString(etiquetaIntl(), { maximumFractionDigits: 3 });
 }
 
 /* ─── Lotes e validades ───────────────────────────────────────────────── */

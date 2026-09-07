@@ -38,7 +38,15 @@ export type Coluna = {
     alinhar?: 'direita';
 };
 
-export type Filtro = { chave: string; rotulo: string; opcoes: Escolha[] };
+export type Filtro = {
+    chave: string;
+    rotulo: string;
+    /** `escolha` (lista fechada) ou `texto` (escrito à mão, procura por dentro). */
+    tipo?: 'escolha' | 'texto';
+    /** A dica do campo de texto — nunca há opções num filtro escrito. */
+    ajuda?: string | null;
+    opcoes?: Escolha[];
+};
 
 export type OpcoesDoCatalogo = {
     titulo: string;
@@ -48,6 +56,8 @@ export type OpcoesDoCatalogo = {
     colunas: Coluna[];
     campos: Campo[];
     filtros: Filtro[];
+    /** Se este catálogo aceita o intervalo de datas de criação. */
+    datas: boolean;
     accoes: { activar: boolean; padrao: boolean; logotipo: boolean; apagar: boolean };
     referencias: Record<string, Escolha[]>;
     geografia: { paises: Escolha[]; provincias: string[]; municipios: Record<string, string[]>; pais_padrao: string } | null;
@@ -65,7 +75,14 @@ export type Linha = {
     rotulos: Record<string, string>;
 } & Record<string, unknown>;
 
-export type FiltrosDoCatalogo = { procura?: string; page?: number } & Record<string, string | number | undefined>;
+export type FiltrosDoCatalogo = {
+    procura?: string;
+    page?: number;
+    por_pagina?: number;
+    /** O intervalo de criação, só nos catálogos que o declaram. */
+    de?: string;
+    ate?: string;
+} & Record<string, string | number | undefined>;
 
 export const catalogos = {
     opcoes: (tipo: string) => api.ler<OpcoesDoCatalogo>(`/catalogos/${tipo}/opcoes`),

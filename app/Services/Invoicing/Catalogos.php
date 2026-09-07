@@ -97,7 +97,13 @@ final class Catalogos
             ],
             'filtros' => [
                 ['chave' => 'type', 'rotulo' => 'Tipo', 'opcoes' => self::TIPOS_DE_ENTIDADE],
+                // A CIDADE era um filtro próprio no ecrã de sempre, escrito à
+                // mão: com fornecedores em três províncias, é por ela que se
+                // encontra quem serve uma delas.
+                ['chave' => 'city', 'rotulo' => 'Cidade', 'tipo' => 'texto', 'ajuda' => 'Ex.: Luanda'],
             ],
+            // «Quem entrou este mês» é uma pergunta que se faz a esta lista.
+            'datas' => true,
             'campos' => [
                 self::campo('type', 'Tipo', 'escolha', obrigatorio: true, omissao: 'pessoa_juridica', opcoes: self::TIPOS_DE_ENTIDADE),
                 self::campo('name', 'Nome', 'texto', obrigatorio: true),
@@ -551,8 +557,29 @@ final class Catalogos
             }
             if ($f['chave'] === 'nivel') {
                 $valor === 'principal' ? $q->whereNull('parent_id') : $q->whereNotNull('parent_id');
+            } elseif (($f['tipo'] ?? 'escolha') === 'texto') {
+                // UM FILTRO ESCRITO À MÃO procura por dentro: «Luanda» tem de
+                // apanhar «Luanda Sul». Era assim o `cityFilter` do ecrã de
+                // sempre, e um `=` obrigava a acertar a cidade toda.
+                $q->where($f['chave'], 'like', '%' . $valor . '%');
             } else {
                 $q->where($f['chave'], $valor);
+            }
+        }
+
+        /*
+         * O INTERVALO DE DATAS, por data de criação da ficha.
+         *
+         * Só nos catálogos que o declaram (`'datas' => true`): é uma pergunta
+         * que faz sentido numa lista de fornecedores («quem entrou este mês»)
+         * e nenhum numa de unidades de medida.
+         */
+        if (! empty($def['datas'])) {
+            if (! empty($filtros['de'])) {
+                $q->whereDate('created_at', '>=', $filtros['de']);
+            }
+            if (! empty($filtros['ate'])) {
+                $q->whereDate('created_at', '<=', $filtros['ate']);
             }
         }
 

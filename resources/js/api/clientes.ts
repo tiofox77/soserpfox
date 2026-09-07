@@ -62,6 +62,11 @@ export type FiltrosDeClientes = {
     procura?: string;
     tipo?: string;
     provincia?: string;
+    /** Escrita à mão e procurada por dentro: «Luanda» apanha «Luanda Sul». */
+    cidade?: string;
+    /** O intervalo em que a ficha foi criada. */
+    de?: string;
+    ate?: string;
     por_pagina?: number;
     page?: number;
 };

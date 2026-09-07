@@ -11,6 +11,7 @@ import { CartaoNumero } from '@/ui/CartaoNumero';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
+import { IntervaloDeDatas, PorPagina } from '@/ui/FiltrosComuns';
 import { FOCO, RAIO, cls, kz } from '@/ui/tokens';
 import { etiquetaIntl, t, tPartes } from '@/i18n';
 
@@ -138,12 +139,55 @@ export default function Catalogo({ tipo }: { tipo: string }) {
                     {o.filtros.map((f) => (
                         <label key={f.chave} className="text-sm">
                             <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">{f.rotulo}</span>
-                            <select value={String(filtros[f.chave] ?? '')} onChange={(e) => porFiltros((x) => ({ ...x, [f.chave]: e.target.value, page: 1 }))} className={entrada}>
-                                <option value="">{t('Todos')}</option>
-                                {f.opcoes.map((op) => <option key={op.valor} value={op.valor}>{op.rotulo}</option>)}
-                            </select>
+                            {/* UM FILTRO ESCRITO À MÃO ou uma lista fechada — é o
+                                esquema do servidor que o diz. A cidade dos
+                                fornecedores era um campo de texto no ecrã de
+                                sempre, e uma lista de cidades não existe. */}
+                            {f.tipo === 'texto' ? (
+                                <input
+                                    type="search"
+                                    value={String(filtros[f.chave] ?? '')}
+                                    onChange={(e) => porFiltros((x) => ({ ...x, [f.chave]: e.target.value, page: 1 }))}
+                                    placeholder={f.ajuda ?? ''}
+                                    className={entrada}
+                                />
+                            ) : (
+                                <select value={String(filtros[f.chave] ?? '')} onChange={(e) => porFiltros((x) => ({ ...x, [f.chave]: e.target.value, page: 1 }))} className={entrada}>
+                                    <option value="">{t('Todos')}</option>
+                                    {(f.opcoes ?? []).map((op) => <option key={op.valor} value={op.valor}>{op.rotulo}</option>)}
+                                </select>
+                            )}
                         </label>
                     ))}
+
+                    {/* «Quem entrou este mês» — só nos catálogos onde a pergunta
+                        faz sentido, e é o servidor que o declara. */}
+                    {o.datas && (
+                        <IntervaloDeDatas
+                            de={filtros.de}
+                            ate={filtros.ate}
+                            aoMudar={(campo, valor) => porFiltros((f) => ({ ...f, [campo]: valor, page: 1 }))}
+                            className="text-sm"
+                        />
+                    )}
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm text-slate-500">
+                        {contas
+                            ? t(':quantos registo(s)', { quantos: contas.total.toLocaleString(etiquetaIntl()) })
+                            : t('A contar…')}
+                        {lista.isFetching && <span className="ml-2 text-xs">{t('a actualizar…')}</span>}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <PorPagina
+                            valor={filtros.por_pagina}
+                            aoMudar={(n) => porFiltros((f) => ({ ...f, por_pagina: n, page: 1 }))}
+                        />
+                        <Botao altura="pequeno" icone="fa-eraser" onClick={() => porFiltros({ procura: '', page: 1 })}>
+                            {t('Limpar')}
+                        </Botao>
+                    </div>
                 </div>
             </Cartao>
 

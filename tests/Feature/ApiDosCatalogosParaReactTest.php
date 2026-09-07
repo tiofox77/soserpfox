@@ -217,4 +217,97 @@ class ApiDosCatalogosParaReactTest extends TenantTestCase
         $this->deleteJson(self::RAIZ . '/marcas/' . $id)->assertOk();
         $this->assertNull(Brand::find($id));
     }
+
+    /* ─── Os filtros que a migração deixou cair ───────────────────────── */
+
+    /**
+     * A CIDADE DOS FORNECEDORES, escrita à mão e procurada por dentro.
+     *
+     * Era um filtro próprio no ecrã de sempre (`cityFilter`), e não uma lista:
+     * uma lista de cidades não existe. «Luanda» tem de apanhar «Luanda Sul».
+     *
+     * @test
+     */
+    public function a_cidade_do_fornecedor_filtra_por_dentro(): void
+    {
+        $this->tudoDe('invoicing.suppliers');
+
+        $sul = Supplier::create([
+            'tenant_id' => $this->tenant->id,
+            'name' => 'Fornecedor do Sul',
+            'city' => 'Luanda Sul',
+            'country' => 'AO',
+        ]);
+
+        $lubango = Supplier::create([
+            'tenant_id' => $this->tenant->id,
+            'name' => 'Fornecedor do Lubango',
+            'city' => 'Lubango',
+            'country' => 'AO',
+        ]);
+
+        $ids = collect($this->getJson(self::RAIZ . '/fornecedores?city=Luanda')->assertOk()->json('data'))
+            ->pluck('id');
+
+        $this->assertTrue($ids->contains($sul->id), '«Luanda» tem de apanhar «Luanda Sul»');
+        $this->assertFalse($ids->contains($lubango->id));
+    }
+
+    /**
+     * O INTERVALO DE DATAS SÓ ONDE FOI DECLARADO.
+     *
+     * Faz sentido numa lista de fornecedores («quem entrou este mês») e nenhum
+     * numa de marcas. Aceitar o que não se usa convidava a acreditar que
+     * filtrava — por isso é recusado, e não ignorado em silêncio.
+     *
+     * @test
+     */
+    public function o_intervalo_de_datas_so_existe_onde_o_esquema_o_declara(): void
+    {
+        $this->tudoDe('invoicing.suppliers');
+        $this->tudoDe('invoicing.brands');
+
+        $antigo = Supplier::create([
+            'tenant_id' => $this->tenant->id,
+            'name' => 'Fornecedor antigo',
+            'country' => 'AO',
+        ]);
+
+        Supplier::where('id', $antigo->id)->update(['created_at' => now()->subMonths(3)]);
+
+        $novo = Supplier::create([
+            'tenant_id' => $this->tenant->id,
+            'name' => 'Fornecedor de hoje',
+            'country' => 'AO',
+        ]);
+
+        // O esquema anuncia-o, e é por isso que o ecrã desenha os dois campos.
+        $this->getJson(self::RAIZ . '/fornecedores/opcoes')->assertOk()->assertJsonPath('datas', true);
+        $this->getJson(self::RAIZ . '/marcas/opcoes')->assertOk()->assertJsonPath('datas', false);
+
+        $ids = collect(
+            $this->getJson(self::RAIZ . '/fornecedores?de=' . now()->subDay()->toDateString())
+                ->assertOk()->json('data')
+        )->pluck('id');
+
+        $this->assertTrue($ids->contains($novo->id));
+        $this->assertFalse($ids->contains($antigo->id));
+
+        // Nas marcas, que não o declaram, o pedido é RECUSADO.
+        $this->getJson(self::RAIZ . '/marcas?de=' . now()->toDateString())
+            ->assertStatus(422)->assertJsonValidationErrors('de');
+    }
+
+    /** O «por página» era aceite desde o primeiro dia — faltava o botão. @test */
+    public function o_por_pagina_manda_no_tamanho_da_lista(): void
+    {
+        $this->tudoDe('invoicing.brands');
+
+        foreach (range(1, 7) as $n) {
+            Brand::create(['tenant_id' => $this->tenant->id, 'name' => "Marca {$n}", 'icon' => 'fa-tag']);
+        }
+
+        $this->getJson(self::RAIZ . '/marcas?por_pagina=5')->assertOk()->assertJsonCount(5, 'data');
+        $this->getJson(self::RAIZ . '/marcas?por_pagina=100')->assertOk()->assertJsonCount(7, 'data');
+    }
 }

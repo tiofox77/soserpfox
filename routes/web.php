@@ -652,6 +652,12 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::delete('/products/{id}', [\App\Http\Controllers\Api\Invoicing\ProductApiController::class, 'destroy'])
             ->whereNumber('id')->name('products.destroy');
 
+        // PARA ONDE FOI ESTE ARTIGO: vendas e movimentos de stock lado a lado.
+        // É a discrepância entre os dois que denuncia a baixa de stock que
+        // falhou — e é por isso que as duas listas vêm juntas.
+        Route::get('/products/{id}/rastreio', [\App\Http\Controllers\Api\Invoicing\ProductApiController::class, 'rastreio'])
+            ->whereNumber('id')->name('products.rastreio');
+
         // As imagens do artigo: destaque e galeria. Um ficheiro não viaja em
         // JSON — vai em multipart, como o logótipo dos catálogos.
         Route::post('/products/{id}/imagem', [\App\Http\Controllers\Api\Invoicing\ProductApiController::class, 'imagem'])

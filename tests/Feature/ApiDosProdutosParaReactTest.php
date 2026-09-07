@@ -982,4 +982,177 @@ class ApiDosProdutosParaReactTest extends TenantTestCase
             ->assertOk()
             ->assertJsonPath('data.code', 'FICA-ASSIM');
     }
+
+    /* ─── Os filtros que arrumam o catálogo ───────────────────────────── */
+
+    /**
+     * O QUE FALTA NA FICHA — o `qualidadeFilter` do ecrã de sempre.
+     *
+     * Um artigo sem preço vende-se a zero no POS e um sem categoria não
+     * aparece em filtro nenhum: são erros que só se acham a procurar por eles,
+     * e o filtro era a única forma de o fazer.
+     *
+     * @test
+     */
+    public function o_filtro_de_ficha_incompleta_acha_o_que_falta(): void
+    {
+        $this->comPermissoes('invoicing.products.view', 'invoicing.products.create');
+
+        // Um artigo completo, que não pode aparecer em nenhum dos três cortes.
+        $this->postJson(self::RAIZ, $this->corpo([
+            'name' => 'Artigo completo',
+            'price' => 900,
+            'barcode' => '5601234567890',
+        ]))->assertCreated();
+
+        $semPreco = $this->postJson(self::RAIZ, $this->corpo(['name' => 'Artigo sem preço', 'price' => 0]))
+            ->assertCreated()->json('data.id');
+
+        // Sem código de barras: nem sequer o mandámos.
+        $semCodigo = $this->postJson(self::RAIZ, $this->corpo(['name' => 'Artigo sem barras', 'price' => 500]))
+            ->assertCreated()->json('data.id');
+
+        $ids = fn (string $qualidade) => collect(
+            $this->getJson(self::RAIZ . '?qualidade=' . $qualidade)->assertOk()->json('data')
+        )->pluck('id');
+
+        $this->assertTrue($ids('sem_preco')->contains($semPreco));
+        $this->assertFalse($ids('sem_preco')->contains($semCodigo));
+
+        $this->assertTrue($ids('sem_codigo_barras')->contains($semCodigo));
+
+        // Um valor inventado não passa: um filtro que se ignora em silêncio
+        // devolve a lista toda e faz acreditar que não há nada errado.
+        $this->getJson(self::RAIZ . '?qualidade=inventado')
+            ->assertStatus(422)->assertJsonValidationErrors('qualidade');
+    }
+
+    /** «Que artigos entraram este mês» — pela data de criação da ficha. @test */
+    public function o_intervalo_de_datas_filtra_pela_criacao(): void
+    {
+        $this->comPermissoes('invoicing.products.view', 'invoicing.products.create');
+
+        $velho = $this->postJson(self::RAIZ, $this->corpo(['name' => 'Artigo antigo']))
+            ->assertCreated()->json('data.id');
+
+        Product::where('id', $velho)->update(['created_at' => now()->subMonths(3)]);
+
+        $novo = $this->postJson(self::RAIZ, $this->corpo(['name' => 'Artigo de hoje']))
+            ->assertCreated()->json('data.id');
+
+        $desdeOntem = collect(
+            $this->getJson(self::RAIZ . '?de=' . now()->subDay()->toDateString())->assertOk()->json('data')
+        )->pluck('id');
+
+        $this->assertTrue($desdeOntem->contains($novo));
+        $this->assertFalse($desdeOntem->contains($velho), 'o artigo de há três meses não entra no «desde ontem»');
+
+        // E o corte de cima faz o contrário.
+        $ateOntem = collect(
+            $this->getJson(self::RAIZ . '?ate=' . now()->subDay()->toDateString())->assertOk()->json('data')
+        )->pluck('id');
+
+        $this->assertTrue($ateOntem->contains($velho));
+        $this->assertFalse($ateOntem->contains($novo));
+    }
+
+    /* ─── O rastreio: para onde foi este artigo ───────────────────────── */
+
+    /**
+     * VENDIDO MENOS SAÍDAS — o número que justifica o ecrã do rastreio.
+     *
+     * Diferente de zero quer dizer que se venderam unidades que nunca saíram
+     * do stock: é o sintoma exacto do artigo que aparece disponível no balcão
+     * mas cuja baixa falha. É por isso que as vendas e os movimentos vêm na
+     * mesma resposta — cada lista sozinha não mostra nada disto.
+     *
+     * @test
+     */
+    public function o_rastreio_junta_as_vendas_aos_movimentos_e_denuncia_a_divergencia(): void
+    {
+        $this->comPermissoes('invoicing.products.view');
+
+        $artigo = $this->produtoComStock();
+
+        $factura = \App\Models\Invoicing\SalesInvoice::create([
+            'tenant_id' => $this->tenant->id,
+            'client_id' => $this->clienteEmpresa()->id,
+            'invoice_number' => 'FT RASTREIO/1',
+            'invoice_date' => now()->toDateString(),
+            'status' => 'sent',
+            'total' => 1000,
+            'created_by' => $this->user->id,
+        ]);
+
+        \App\Models\Invoicing\SalesInvoiceItem::create([
+            'sales_invoice_id' => $factura->id,
+            'product_id' => $artigo->id,
+            'product_name' => $artigo->name,
+            'quantity' => 5,
+            'unit_price' => 200,
+            'total' => 1000,
+        ]);
+
+        $r = $this->getJson(self::RAIZ . "/{$artigo->id}/rastreio")->assertOk()->json();
+
+        $this->assertSame($artigo->id, $r['artigo']['id']);
+        $this->assertCount(1, $r['vendas']);
+        $this->assertEqualsWithDelta(5, $r['resumo']['qtd_vendida'], 0.001);
+
+        /*
+         * VENDEU-SE E NÃO SAIU NADA: cinco unidades vendidas, zero saídas de
+         * stock. É esta a divergência que o cartão vermelho assinala.
+         */
+        $this->assertEqualsWithDelta(5, $r['resumo']['divergencia'], 0.001);
+    }
+
+    /**
+     * O RASTREIO NÃO ATRAVESSA EMPRESAS.
+     *
+     * As linhas de venda não têm `tenant_id` — quem o tem é a factura. Sem o
+     * escopo pela factura, um `product_id` chegava para ler as vendas de outra
+     * empresa.
+     *
+     * @test
+     */
+    public function o_rastreio_de_um_artigo_de_outra_empresa_nao_abre(): void
+    {
+        $this->comPermissoes('invoicing.products.view');
+
+        $vizinha = \App\Models\Tenant::create([
+            'name' => 'Vizinha',
+            'slug' => 'vizinha-' . uniqid(),
+            'email' => 'v' . uniqid() . '@ex.com',
+        ]);
+
+        $alheio = Product::create([
+            'tenant_id' => $vizinha->id,
+            'name' => 'Artigo alheio',
+            'type' => 'produto',
+            'price' => 100,
+            'unit' => 'un',
+        ]);
+
+        $this->getJson(self::RAIZ . "/{$alheio->id}/rastreio")->assertNotFound();
+    }
+
+    /** Sem a permissão de ver artigos, não há rastreio. @test */
+    public function o_rastreio_exige_a_permissao_de_ver(): void
+    {
+        $artigo = $this->artigo();
+
+        $this->getJson(self::RAIZ . "/{$artigo->id}/rastreio")->assertForbidden();
+    }
+
+    /** Um período que não é dos oferecidos cai no de omissão, sem rebentar. @test */
+    public function um_periodo_estranho_no_rastreio_cai_no_de_omissao(): void
+    {
+        $this->comPermissoes('invoicing.products.view');
+
+        $artigo = $this->artigo();
+
+        $this->getJson(self::RAIZ . "/{$artigo->id}/rastreio?dias=999999")
+            ->assertOk()
+            ->assertJsonPath('dias', 90);
+    }
 }

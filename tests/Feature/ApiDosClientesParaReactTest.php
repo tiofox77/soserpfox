@@ -651,4 +651,58 @@ class ApiDosClientesParaReactTest extends TenantTestCase
             ->assertOk()
             ->assertJsonPath('data.0.mobile', '923111222');
     }
+
+    /* ─── Os filtros da lista ─────────────────────────────────────────── */
+
+    /**
+     * A CIDADE PROCURA POR DENTRO.
+     *
+     * Era assim o `cityFilter` do ecrã de sempre: escrito à mão, e «Luanda»
+     * tinha de apanhar «Luanda Sul». Um `=` obrigava a acertar a cidade toda,
+     * e ninguém sabe de cor como está escrita em cada ficha.
+     *
+     * @test
+     */
+    public function a_cidade_filtra_por_dentro(): void
+    {
+        $this->comPermissoes('invoicing.clients.view', 'invoicing.clients.create');
+
+        $sul = $this->postJson(self::RAIZ, $this->corpo([
+            'name' => 'Cliente do Sul, Lda',
+            'nif' => '5000000900',
+            'city' => 'Luanda Sul',
+        ]))->assertCreated()->json('data.id');
+
+        $benguela = $this->postJson(self::RAIZ, $this->corpo([
+            'name' => 'Cliente de Benguela, Lda',
+            'nif' => '5000000901',
+            'city' => 'Benguela',
+        ]))->assertCreated()->json('data.id');
+
+        $ids = collect($this->getJson(self::RAIZ . '?cidade=Luanda')->assertOk()->json('data'))->pluck('id');
+
+        $this->assertTrue($ids->contains($sul), '«Luanda» tem de apanhar «Luanda Sul»');
+        $this->assertFalse($ids->contains($benguela));
+    }
+
+    /** «Quem entrou este mês» — pela data de criação da ficha. @test */
+    public function o_intervalo_de_datas_filtra_pela_criacao(): void
+    {
+        $this->comPermissoes('invoicing.clients.view', 'invoicing.clients.create');
+
+        $antigo = $this->postJson(self::RAIZ, $this->corpo(['name' => 'Cliente antigo, Lda', 'nif' => '5000000902']))
+            ->assertCreated()->json('data.id');
+
+        Client::where('id', $antigo)->update(['created_at' => now()->subMonths(3)]);
+
+        $hoje = $this->postJson(self::RAIZ, $this->corpo(['name' => 'Cliente de hoje, Lda', 'nif' => '5000000903']))
+            ->assertCreated()->json('data.id');
+
+        $desdeOntem = collect(
+            $this->getJson(self::RAIZ . '?de=' . now()->subDay()->toDateString())->assertOk()->json('data')
+        )->pluck('id');
+
+        $this->assertTrue($desdeOntem->contains($hoje));
+        $this->assertFalse($desdeOntem->contains($antigo));
+    }
 }

@@ -39,7 +39,14 @@ class CatalogoApiController extends Controller
             'pesquisa' => __($def['pesquisa_ajuda']),
             'colunas' => array_map(fn ($c) => array_merge($c, ['rotulo' => __($c['rotulo'])]), $def['colunas']),
             'campos' => $def['campos'],
-            'filtros' => array_map(fn ($f) => array_merge($f, ['rotulo' => __($f['rotulo'])]), $def['filtros']),
+            'filtros' => array_map(fn ($f) => array_merge($f, [
+                'rotulo' => __($f['rotulo']),
+                'tipo' => $f['tipo'] ?? 'escolha',
+                'ajuda' => isset($f['ajuda']) ? __($f['ajuda']) : null,
+            ]), $def['filtros']),
+            // Se este catálogo aceita o intervalo de datas de criação: é o
+            // ecrã que desenha os dois campos, e só onde eles servem.
+            'datas' => ! empty($def['datas']),
             'accoes' => $def['accoes'],
             'referencias' => $this->referencias($def, $tenantId),
             'geografia' => ! empty($def['geografia']) ? [
@@ -67,7 +74,12 @@ class CatalogoApiController extends Controller
             'procura' => ['nullable', 'string', 'max:100'],
             'por_pagina' => ['nullable', 'integer', 'min:5', 'max:100'],
             'page' => ['nullable', 'integer', 'min:1'],
-        ] + array_fill_keys(array_column($def['filtros'], 'chave'), ['nullable', 'string', 'max:50']));
+            // O intervalo de datas, só nos catálogos que o declaram — a
+            // consulta ignora-o nos outros, mas aceitar o que não se usa
+            // convida a acreditar que filtra.
+            'de' => [empty($def['datas']) ? 'prohibited' : 'nullable', 'date'],
+            'ate' => [empty($def['datas']) ? 'prohibited' : 'nullable', 'date'],
+        ] + array_fill_keys(array_column($def['filtros'], 'chave'), ['nullable', 'string', 'max:80']));
 
         $referencias = $this->referencias($def, $tenantId);
 

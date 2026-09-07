@@ -40,6 +40,12 @@ class ClientApiController extends Controller
             'procura' => ['nullable', 'string', 'max:120'],
             'tipo' => ['nullable', 'in:pessoa_juridica,pessoa_fisica'],
             'provincia' => ['nullable', 'string', 'max:80'],
+            // A CIDADE escrita à mão, como no ecrã de sempre: procura por
+            // dentro, para «Luanda» apanhar «Luanda Sul».
+            'cidade' => ['nullable', 'string', 'max:100'],
+            // «Quem entrou este mês» — pela data de criação da ficha.
+            'de' => ['nullable', 'date'],
+            'ate' => ['nullable', 'date'],
             'por_pagina' => ['nullable', 'integer', 'min:5', 'max:100'],
         ]);
 
@@ -58,7 +64,10 @@ class ClientApiController extends Controller
 
         $query
             ->when($filtros['tipo'] ?? null, fn ($q, $v) => $q->where('type', $v))
-            ->when($filtros['provincia'] ?? null, fn ($q, $v) => $q->where('province', $v));
+            ->when($filtros['provincia'] ?? null, fn ($q, $v) => $q->where('province', $v))
+            ->when($filtros['cidade'] ?? null, fn ($q, $v) => $q->where('city', 'like', "%{$v}%"))
+            ->when($filtros['de'] ?? null, fn ($q, $v) => $q->whereDate('created_at', '>=', $v))
+            ->when($filtros['ate'] ?? null, fn ($q, $v) => $q->whereDate('created_at', '<=', $v));
 
         return ClientResource::collection(
             $query->orderBy('name')->paginate($filtros['por_pagina'] ?? 15)->withQueryString()

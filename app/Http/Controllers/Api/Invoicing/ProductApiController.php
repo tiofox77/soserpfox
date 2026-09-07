@@ -10,6 +10,7 @@ use App\Models\Invoicing\InvoicingSettings;
 use App\Models\Invoicing\Tax;
 use App\Models\Product;
 use App\Models\Supplier;
+use App\Services\Invoicing\RastreioDoArtigo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -91,6 +92,21 @@ class ProductApiController extends Controller
             'tamanho' => ['nullable', 'string', 'max:20'],
             'cor' => ['nullable', 'string', 'max:40'],
             'conservacao' => ['nullable', 'in:ambiente,refrigerado,congelado'],
+
+            /*
+             * O FILTRO DE QUALIDADE DA FICHA — o que o ecrã de sempre chamava
+             * `qualidadeFilter`. Serve para arrumar o catálogo: encontrar o
+             * que ficou sem preço, sem código de barras ou sem categoria. Um
+             * artigo sem preço vende-se a zero no POS, e um sem categoria não
+             * aparece em nenhum filtro — são erros que só se acham a procurar
+             * por eles.
+             */
+            'qualidade' => ['nullable', 'in:sem_preco,sem_codigo_barras,sem_categoria'],
+
+            // «Que artigos entraram este mês» — pela data de criação da ficha.
+            'de' => ['nullable', 'date'],
+            'ate' => ['nullable', 'date'],
+
             'por_pagina' => ['nullable', 'integer', 'min:5', 'max:100'],
         ]);
 
@@ -149,7 +165,26 @@ class ProductApiController extends Controller
             )
             ->when($filtros['tamanho'] ?? null, fn ($q, $v) => $q->porTamanho($v))
             ->when($filtros['cor'] ?? null, fn ($q, $v) => $q->porCor($v))
-            ->when($filtros['conservacao'] ?? null, fn ($q, $v) => $q->porConservacao($v));
+            ->when($filtros['conservacao'] ?? null, fn ($q, $v) => $q->porConservacao($v))
+
+            // O QUE FALTA NA FICHA. As mesmas três perguntas do ecrã de
+            // sempre: preço a zero conta como sem preço, e o código de barras
+            // vazio conta como ausente — em muitas fichas ele é '' e não NULL.
+            ->when(
+                ($filtros['qualidade'] ?? null) === 'sem_preco',
+                fn ($q) => $q->where(fn ($x) => $x->whereNull('price')->orWhere('price', '<=', 0))
+            )
+            ->when(
+                ($filtros['qualidade'] ?? null) === 'sem_codigo_barras',
+                fn ($q) => $q->where(fn ($x) => $x->whereNull('barcode')->orWhere('barcode', ''))
+            )
+            ->when(
+                ($filtros['qualidade'] ?? null) === 'sem_categoria',
+                fn ($q) => $q->whereNull('category_id')
+            )
+
+            ->when($filtros['de'] ?? null, fn ($q, $v) => $q->whereDate('created_at', '>=', $v))
+            ->when($filtros['ate'] ?? null, fn ($q, $v) => $q->whereDate('created_at', '<=', $v));
 
         return ProductResource::collection(
             $query->orderBy('name')->paginate($filtros['por_pagina'] ?? 15)->withQueryString()
@@ -416,6 +451,31 @@ class ProductApiController extends Controller
     private function doCatalogo(int $id): Product
     {
         return Product::where('tenant_id', activeTenantId())->findOrFail($id);
+    }
+
+    /**
+     * PARA ONDE FOI ESTE ARTIGO: vendas e movimentos de stock, lado a lado.
+     *
+     * O ecrã de sempre tinha-o num botão por linha, e a migração deixou-o para
+     * trás inteiro. As contas vivem no `RastreioDoArtigo`, não aqui: é a
+     * discrepância entre o vendido e o que saiu do stock que este ecrã existe
+     * para mostrar, e essa conta não pode ter duas versões.
+     *
+     * UM ARTIGO APAGADO CONTINUA A RASTREAR-SE. Ele anda em facturas emitidas,
+     * e é precisamente quando alguém o apagou que se quer saber por onde
+     * andou — daí o `withTrashed`.
+     */
+    public function rastreio(Request $request, int $id, RastreioDoArtigo $rastreio): JsonResponse
+    {
+        $this->exigir($request, 'invoicing.products.view');
+
+        $artigo = Product::withTrashed()
+            ->where('tenant_id', activeTenantId())
+            ->findOrFail($id);
+
+        return response()->json(
+            $rastreio->para($artigo, (int) $request->query('dias', RastreioDoArtigo::PERIODO_OMISSAO))
+        );
     }
 
     /**

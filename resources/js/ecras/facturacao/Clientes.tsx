@@ -18,6 +18,7 @@ import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { AvisoDeErro } from '@/ui/AvisoDeErro';
 import { Modal } from '@/ui/Modal';
+import { IntervaloDeDatas, PorPagina } from '@/ui/FiltrosComuns';
 import { CARTAO, FOCO, GRADIENTES, RAIO, cls } from '@/ui/tokens';
 
 /**
@@ -247,11 +248,9 @@ export default function Clientes() {
                     )
                 }
             >
-                <div className="grid gap-3 sm:grid-cols-3">
-                    <label className="block sm:col-span-2">
-                        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
-                            {t('Procurar')}
-                        </span>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <label className="block lg:col-span-2">
+                        <Rotulo>{t('Procurar')}</Rotulo>
                         <input
                             type="search"
                             value={filtros.procura ?? ''}
@@ -262,9 +261,7 @@ export default function Clientes() {
                     </label>
 
                     <label className="block">
-                        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
-                            {t('Tipo')}
-                        </span>
+                        <Rotulo>{t('Tipo')}</Rotulo>
                         <select
                             value={filtros.tipo ?? ''}
                             onChange={(e) => porFiltros((f) => ({ ...f, tipo: e.target.value, page: 1 }))}
@@ -279,14 +276,68 @@ export default function Clientes() {
                             ))}
                         </select>
                     </label>
+
+                    {/* A PROVÍNCIA já era aceite pela API desde o primeiro dia e
+                        nunca teve por onde se escolher. Com clientes espalhados
+                        por Angola, é o corte mais útil desta lista. */}
+                    <label className="block">
+                        <Rotulo>{t('Província')}</Rotulo>
+                        <select
+                            value={filtros.provincia ?? ''}
+                            onChange={(e) => porFiltros((f) => ({ ...f, provincia: e.target.value, page: 1 }))}
+                            className={entrada}
+                        >
+                            <option value="">{t('Todas')}</option>
+                            {opcoes.data?.provincias.map((p) => (
+                                <option key={p} value={p}>
+                                    {p}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+
+                    {/* A CIDADE escrita à mão, como o `cityFilter` do ecrã de
+                        sempre: procura por dentro, para «Luanda» apanhar
+                        «Luanda Sul». */}
+                    <label className="block">
+                        <Rotulo>{t('Cidade')}</Rotulo>
+                        <input
+                            type="search"
+                            value={filtros.cidade ?? ''}
+                            onChange={(e) => porFiltros((f) => ({ ...f, cidade: e.target.value, page: 1 }))}
+                            placeholder={t('Ex.: Luanda')}
+                            className={entrada}
+                        />
+                    </label>
+
+                    <IntervaloDeDatas
+                        de={filtros.de}
+                        ate={filtros.ate}
+                        aoMudar={(campo, valor) => porFiltros((f) => ({ ...f, [campo]: valor, page: 1 }))}
+                    />
                 </div>
 
-                <p className="mt-4 text-sm text-slate-500">
-                    {contas
-                        ? t(':quantos cliente(s)', { quantos: contas.total.toLocaleString('pt-PT') })
-                        : t('A contar…')}
-                    {lista.isFetching && <span className="ml-2 text-xs">{t('a actualizar…')}</span>}
-                </p>
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm text-slate-500">
+                        {contas
+                            ? t(':quantos cliente(s)', { quantos: contas.total.toLocaleString('pt-PT') })
+                            : t('A contar…')}
+                        {lista.isFetching && <span className="ml-2 text-xs">{t('a actualizar…')}</span>}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <PorPagina
+                            valor={filtros.por_pagina}
+                            aoMudar={(n) => porFiltros((f) => ({ ...f, por_pagina: n, page: 1 }))}
+                        />
+                        <Botao
+                            altura="pequeno"
+                            icone="fa-eraser"
+                            onClick={() => porFiltros({ procura: '', tipo: '', page: 1 })}
+                        >
+                            {t('Limpar')}
+                        </Botao>
+                    </div>
+                </div>
             </Cartao>
 
             {lista.isPending ? (

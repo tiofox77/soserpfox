@@ -153,8 +153,48 @@ export type FiltrosDeArtigos = {
     tamanho?: string;
     cor?: string;
     conservacao?: string;
+    /** O que falta na ficha: 'sem_preco' | 'sem_codigo_barras' | 'sem_categoria'. */
+    qualidade?: string;
+    /** O intervalo em que a ficha foi criada. */
+    de?: string;
+    ate?: string;
     por_pagina?: number;
     page?: number;
+};
+
+/** O rastreio de um artigo: as vendas e os movimentos, e o que não bate certo. */
+export type RastreioDeArtigo = {
+    artigo: { id: number; nome: string; codigo: string | null; unidade: string };
+    vendas: Array<{
+        id: number;
+        data: string | null;
+        documento: string | null;
+        documento_id: number | null;
+        cliente: string | null;
+        quantidade: number;
+        preco: number;
+        total: number;
+    }>;
+    movimentos: Array<{
+        id: number;
+        data: string | null;
+        tipo: string;
+        armazem: string | null;
+        quantidade: number;
+        origem: string;
+    }>;
+    por_armazem: Array<{ armazem: string; quantidade: number }>;
+    resumo: {
+        qtd_vendida: number;
+        valor_vendido: number;
+        documentos: number;
+        entradas: number;
+        saidas: number;
+        stock_total: number;
+        /** Vendido menos saídas. Diferente de zero é o sintoma a investigar. */
+        divergencia: number;
+    };
+    dias: number;
 };
 
 /** Um valor de lista fechada, com o rótulo que se mostra. */
@@ -189,6 +229,15 @@ export const produtos = {
     apagar: (id: number) => api.apagar<{ message: string; desactivado: boolean }>(`/products/${id}`),
 
     /** A imagem de destaque. Uma só — a nova substitui a que lá estava. */
+    /**
+     * PARA ONDE FOI ESTE ARTIGO: vendas e movimentos de stock, lado a lado.
+     *
+     * As duas listas juntas de propósito — é a discrepância entre elas que
+     * denuncia a baixa de stock que falhou.
+     */
+    rastreio: (id: number, dias: number) =>
+        api.ler<RastreioDeArtigo>(`/products/${id}/rastreio`, { dias }),
+
     imagem: (id: number, ficheiro: File) => {
         const corpo = new FormData();
         corpo.append('imagem', ficheiro);
