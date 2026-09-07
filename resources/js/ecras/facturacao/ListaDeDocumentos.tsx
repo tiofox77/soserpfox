@@ -706,6 +706,10 @@ function FichaDoDocumento({
                         {f.impostos_extra.map((x) => (
                             <Soma key={x.tipo} rotulo={x.tipo} valor={x.valor} />
                         ))}
+                        {/* A RETENÇÃO NA FONTE, só quando existe — como no modal
+                            de sempre. Sem ela, um documento com retenção mostra um
+                            total que não fecha com as parcelas de cima. */}
+                        {f.totais.retencao > 0 && <Soma rotulo={t('Retenção')} valor={f.totais.retencao} />}
                         <div className="mt-2 flex items-baseline justify-between border-t border-slate-300 pt-2">
                             <span className="font-bold text-slate-800">{t('TOTAL')}</span>
                             <span className="text-xl font-bold tabular-nums text-slate-900">

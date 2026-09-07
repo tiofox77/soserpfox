@@ -705,4 +705,28 @@ class ApiDosDocumentosParaReactTest extends TenantTestCase
             $rotulos
         );
     }
+
+    /**
+     * A RETENÇÃO NA FONTE aparece na ficha, como no modal de sempre.
+     *
+     * Sem ela um documento com retenção mostra um total que não fecha com as
+     * parcelas escritas por cima dele — e quem confere fica a procurar a
+     * diferença.
+     *
+     * @test
+     */
+    public function a_ficha_mostra_a_retencao_na_fonte(): void
+    {
+        $this->comPermissoes('invoicing.sales.quotes.view');
+
+        $o = $this->orcamento(['subtotal' => 10000, 'tax_amount' => 1400, 'irt_amount' => 650, 'total' => 10750]);
+
+        $r = $this->getJson($this->rota('orcamentos') . '/' . $o->id)->assertOk();
+
+        $this->assertEquals(650, $r->json('totais.retencao'));
+
+        // E onde não há retenção vem zero, para o ecrã não desenhar a linha.
+        $sem = $this->orcamento();
+        $this->assertEquals(0, $this->getJson($this->rota('orcamentos') . '/' . $sem->id)->json('totais.retencao'));
+    }
 }

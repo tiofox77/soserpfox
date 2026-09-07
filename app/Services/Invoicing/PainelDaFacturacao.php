@@ -41,8 +41,16 @@ use Illuminate\Support\Facades\DB;
  */
 class PainelDaFacturacao
 {
-    /** O que já não se cobra. Ver a nota acima: a lista é do avesso. */
-    private const LIQUIDADAS = ['cancelled', 'paid', 'credited'];
+    /**
+     * O QUE NÃO SE COBRA.
+     *
+     * O RASCUNHO está aqui: uma factura por acabar ainda não foi emitida a
+     * ninguém, e sem certificação da AGT não é uma factura — é um documento
+     * em curso. Contá-la como dívida do cliente inchava o painel com dinheiro
+     * que ninguém deve, e punha este número a contradizer a lista de
+     * facturas, que já não a conta (ver `SomasDasFacturas`).
+     */
+    private const SEM_NADA_A_COBRAR = ['draft', 'cancelled', 'paid', 'credited'];
 
     /**
      * Os atalhos que o painel oferece — um subconjunto dos dos relatórios.
@@ -193,7 +201,7 @@ class PainelDaFacturacao
     public function porCobrar(int $tenantId, bool $apenasVencidas = false)
     {
         $q = escopoDoAutor(SalesInvoice::where('tenant_id', $tenantId))
-            ->whereNotIn('status', self::LIQUIDADAS)
+            ->whereNotIn('status', self::SEM_NADA_A_COBRAR)
             ->whereRaw('COALESCE(total, 0) - COALESCE(paid_amount, 0) > 0.01');
 
         if ($apenasVencidas) {

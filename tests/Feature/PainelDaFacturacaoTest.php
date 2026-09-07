@@ -392,4 +392,26 @@ class PainelDaFacturacaoTest extends TenantTestCase
             }
         }
     }
+
+    /**
+     * UM RASCUNHO NÃO É DÍVIDA DO CLIENTE.
+     *
+     * Uma factura por acabar ainda não foi emitida a ninguém, e sem
+     * certificação da AGT não é uma factura. Contá-la enchia o painel com
+     * dinheiro que ninguém deve — e punha este número a contradizer a lista
+     * de facturas, que já não a conta (ver `SomasDasFacturas`).
+     *
+     * @test
+     */
+    public function um_rascunho_nao_entra_na_divida_do_painel(): void
+    {
+        $this->factura('sent', 1000);
+        $this->factura('draft', 9000);
+
+        $servico = app(PainelDaFacturacao::class);
+        $empresa = (int) $this->tenant->id;
+
+        $this->assertEqualsWithDelta(1000, $servico->somaPorCobrar($empresa), 0.01, 'só a enviada é dívida');
+        $this->assertSame(1, $servico->porCobrar($empresa)->count(), 'e o rascunho nem entra na contagem');
+    }
 }

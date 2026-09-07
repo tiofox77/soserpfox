@@ -199,6 +199,8 @@ export type FichaDeDocumento = {
         desconto_comercial: number;
         desconto_financeiro: number;
         imposto: number;
+        /** A retenção na fonte (IRT). Zero na esmagadora maioria. */
+        retencao: number;
         total: number;
     };
     /** IEC e Imposto de Selo, se os houver — sem eles o total não reconcilia. */

@@ -341,6 +341,17 @@ class DocumentosApiController extends Controller
                 ),
                 'desconto_financeiro' => round((float) ($d->discount_financial ?? 0), 2),
                 'imposto' => round((float) ($d->tax_amount ?? 0), 2),
+                /*
+                 * A RETENÇÃO NA FONTE (IRT). O modal em Blade mostrava-a e a
+                 * ficha não: um documento com retenção ficava com um total
+                 * que não fecha com o que está escrito acima dele.
+                 *
+                 * A ETIQUETA NÃO DIZ A TAXA. O Blade escrevia «6,5%» à mão,
+                 * mas a percentagem não fica gravada em lado nenhum — só o
+                 * valor — e uma taxa afirmada por hábito é uma taxa que um
+                 * dia mente.
+                 */
+                'retencao' => round((float) ($d->irt_amount ?? 0), 2),
                 'total' => round((float) $d->{$def['valor']}, 2),
             ],
 
