@@ -172,6 +172,42 @@ class ApiDaCompraParaReactTest extends TenantTestCase
         $this->assertEqualsWithDelta(5, $lote->quantity, 0.001);
     }
 
+    /**
+     * O QUE O ECRÃ DE SEMPRE PEDIA NA LINHA e a API sempre aceitou: a data de
+     * FABRICO e os DIAS DE ALERTA do lote, e os TERMOS do documento.
+     *
+     * Sem o fabrico não se separam duas remessas do mesmo artigo com a mesma
+     * validade; sem os dias de alerta o lote avisa com os 30 dias por omissão,
+     * que num fresco chega tarde. Ficaram de fora do editor React até agora —
+     * este teste é para não voltarem a cair.
+     *
+     * @test
+     */
+    public function o_fabrico_os_dias_de_alerta_e_os_termos_ficam_gravados(): void
+    {
+        $this->comPermissoes('invoicing.purchases.invoices.create');
+
+        $artigo = $this->artigo(true, true);
+        $fabrico = now()->subMonth()->toDateString();
+
+        $r = $this->postJson(self::RAIZ, $this->corpo([
+            'terms' => 'Pagamento a 30 dias. Devoluções até 8 dias.',
+            'linhas' => [[
+                'product_id' => $artigo->id, 'quantity' => 5, 'price' => 200,
+                'batch_number' => 'L-FAB-1', 'expiry_date' => now()->addYear()->toDateString(),
+                'manufacturing_date' => $fabrico, 'alert_days' => 7,
+            ]],
+        ]))->assertCreated();
+
+        $factura = PurchaseInvoice::find($r->json('id'));
+        $this->assertSame('Pagamento a 30 dias. Devoluções até 8 dias.', $factura->terms);
+
+        $lote = ProductBatch::where('product_id', $artigo->id)->where('batch_number', 'L-FAB-1')->firstOrFail();
+
+        $this->assertSame($fabrico, $lote->manufacturing_date?->toDateString(), 'o fabrico da linha chega ao lote');
+        $this->assertSame(7, (int) $lote->alert_days, 'os dias de alerta da linha mandam mais do que os 30 por omissão');
+    }
+
     /** O armazém é sempre obrigatório: a compra dá entrada de stock. @test */
     public function sem_armazem_ou_fornecedor_o_servidor_recusa_e_diz_onde(): void
     {

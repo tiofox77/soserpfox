@@ -11,6 +11,16 @@ export type LinhaDaCompra = {
     discount_percent: number | string;
     batch_number: string;
     expiry_date: string;
+    /**
+     * A FABRICAÇÃO e os DIAS DE ALERTA do lote — o ecrã de sempre pedia-os na
+     * linha, e a API sempre os aceitou.
+     *
+     * Sem a fabricação não se separam duas remessas do mesmo artigo com a mesma
+     * validade; sem os dias de alerta o lote avisa com a antecedência por
+     * omissão (30 dias), que numa mercearia de fresco chega tarde.
+     */
+    manufacturing_date: string;
+    alert_days: number | string;
 };
 
 export type OpcoesDaCompra = {

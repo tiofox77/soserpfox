@@ -48,7 +48,7 @@ import {
  * porque é a compra que os cria.
  */
 
-const LINHA_NOVA: LinhaDaCompra = { product_id: null, description: '', quantity: 1, price: 0, discount_percent: 0, batch_number: '', expiry_date: '' };
+const LINHA_NOVA: LinhaDaCompra = { product_id: null, description: '', quantity: 1, price: 0, discount_percent: 0, batch_number: '', expiry_date: '', manufacturing_date: '', alert_days: 30 };
 
 type Estado = 'draft' | 'pending' | 'paid';
 
@@ -62,6 +62,12 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
     const [descontoComercial, porDescontoComercial] = useState('');
     const [descontoFinanceiro, porDescontoFinanceiro] = useState('');
     const [notas, porNotas] = useState('');
+    /**
+     * OS TERMOS E CONDIÇÕES — o ecrã de sempre pedia-os e a API sempre os
+     * aceitou; só o formulário em React é que não os oferecia. São as
+     * condições que ficam escritas no documento (prazo, garantia, entrega).
+     */
+    const [termos, porTermos] = useState('');
     const [linhas, porLinhas] = useState<LinhaDaCompra[]>([{ ...LINHA_NOVA }]);
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [feito, porFeito] = useState<{ numero: string; abrir: string; mensagem: string } | null>(null);
@@ -144,10 +150,11 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
                 discount_commercial: Number(descontoComercial) || 0,
                 discount_financial: Number(descontoFinanceiro) || 0,
                 notes: notas || null,
+                terms: termos || null,
                 status,
                 linhas: linhas
                     .filter(comConteudo)
-                    .map((l) => ({ ...l, batch_number: l.batch_number || null, expiry_date: l.expiry_date || null })),
+                    .map((l) => ({ ...l, batch_number: l.batch_number || null, expiry_date: l.expiry_date || null, manufacturing_date: l.manufacturing_date || null })),
             };
             return id !== undefined ? compra.actualizar(id, corpo) : compra.guardar(corpo);
         },
@@ -285,7 +292,14 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
                                 <th className={cls('w-32 text-right', CELULA_DO_CABECALHO)}>{t('Preço de compra')}</th>
                                 <th className={cls('w-24 text-right', CELULA_DO_CABECALHO)}>{t('Desc. %')}</th>
                                 <th className={cls('w-32', CELULA_DO_CABECALHO)}>{t('Lote')}</th>
+                                {/* FABRICO e DIAS DE ALERTA: o ecrã de sempre pedia-os
+                                    na linha e a API sempre os aceitou. Sem a fabricação
+                                    não se separam duas remessas com a mesma validade; sem
+                                    os dias de alerta o lote avisa com os 30 por omissão,
+                                    que num fresco chega tarde. */}
+                                <th className={cls('w-36', CELULA_DO_CABECALHO)}>{t('Fabrico')}</th>
                                 <th className={cls('w-36', CELULA_DO_CABECALHO)}>{t('Validade')}</th>
+                                <th className={cls('w-24', CELULA_DO_CABECALHO)}>{t('Alerta (dias)')}</th>
                                 <th className={cls('w-12', CELULA_DO_CABECALHO)}></th>
                             </tr>
                         </thead>
@@ -305,7 +319,9 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
                                     <td className="px-4 py-2 align-top"><input type="number" min="0" step="0.01" value={l.price} onChange={(e) => mudarLinha(i, 'price', e.target.value)} aria-label={t('Preço da linha :n', { n: i + 1 })} className={cls(entrada, 'text-right tabular-nums')} /></td>
                                     <td className="px-4 py-2 align-top"><input type="number" min="0" max="100" step="0.01" value={l.discount_percent} onChange={(e) => mudarLinha(i, 'discount_percent', e.target.value)} aria-label={t('Desconto da linha :n', { n: i + 1 })} className={cls(entrada, 'text-right tabular-nums')} /></td>
                                     <td className="px-4 py-2 align-top"><input value={l.batch_number} onChange={(e) => mudarLinha(i, 'batch_number', e.target.value)} aria-label={t('Lote da linha :n', { n: i + 1 })} className={entrada} /></td>
+                                    <td className="px-4 py-2 align-top"><input type="date" value={l.manufacturing_date} onChange={(e) => mudarLinha(i, 'manufacturing_date', e.target.value)} aria-label={t('Fabrico da linha :n', { n: i + 1 })} className={entrada} /></td>
                                     <td className="px-4 py-2 align-top"><input type="date" value={l.expiry_date} onChange={(e) => mudarLinha(i, 'expiry_date', e.target.value)} aria-label={t('Validade da linha :n', { n: i + 1 })} className={entrada} /></td>
+                                    <td className="px-4 py-2 align-top"><input type="number" min="0" step="1" value={l.alert_days} onChange={(e) => mudarLinha(i, 'alert_days', e.target.value)} aria-label={t('Dias de alerta da linha :n', { n: i + 1 })} className={cls(entrada, 'text-right tabular-nums')} /></td>
                                     <td className="px-4 py-2 text-right align-top">
                                         {/* A última linha não se apaga: um documento sem linhas não é um documento. */}
                                         {linhas.length > 1 && !soLeitura && (
@@ -330,9 +346,12 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
                             <input type="number" min="0" step="0.01" value={descontoFinanceiro} onChange={(e) => porDescontoFinanceiro(e.target.value)} className={cls(entrada, 'text-right tabular-nums')} />
                         </Campo>
                     </div>
-                    <div className="mt-4">
+                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
                         <Campo etiqueta={t('Observações')} erro={erros.notes}>
                             <textarea rows={3} value={notas} onChange={(e) => porNotas(e.target.value)} className={cls(entrada, 'h-auto py-2')} />
+                        </Campo>
+                        <Campo etiqueta={t('Termos e Condições')} erro={erros.terms}>
+                            <textarea rows={3} value={termos} onChange={(e) => porTermos(e.target.value)} className={cls(entrada, 'h-auto py-2')} />
                         </Campo>
                     </div>
                 </Cartao>
