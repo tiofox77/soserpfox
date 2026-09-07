@@ -382,6 +382,15 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             ->name('sales-invoices.opcoes');
 
         /*
+         * POST e não PATCH: marcar como paga é um ACTO sobre a factura, o
+         * mesmo que a compra já fazia em `/compra/{id}/pagar`. Não é a
+         * edição de um campo — é fechar a conta, e a regra é do servidor.
+         */
+        Route::post('/sales-invoices/{id}/pagar', [\App\Http\Controllers\Api\Invoicing\SalesInvoiceApiController::class, 'marcarComoPaga'])
+            ->whereNumber('id')
+            ->name('sales-invoices.pagar');
+
+        /*
          * AS LISTAS QUE TÊM TODAS A MESMA FORMA.
          *
          * Proformas de venda e de compra, orçamentos, facturas de compra e

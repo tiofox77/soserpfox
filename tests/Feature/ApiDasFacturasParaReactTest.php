@@ -394,4 +394,79 @@ class ApiDasFacturasParaReactTest extends TenantTestCase
             ->assertOk()
             ->assertSee('data-ecra="facturacao/lista-de-facturas"', false);
     }
+
+    /*
+     * ─── MARCAR COMO PAGA, o segundo botão verde da lista de sempre ────────
+     *
+     * Não se confunde com o recibo: este NÃO lança dinheiro, apenas fecha a
+     * conta de uma factura já paga por fora. As recusas são as do ecrã
+     * Livewire, à letra — e cada uma tem aqui o seu teste, porque uma porta
+     * HTTP não tem botões para esconder.
+     */
+
+    private function pagar(int $id): \Illuminate\Testing\TestResponse
+    {
+        return $this->postJson(self::LISTA . '/' . $id . '/pagar');
+    }
+
+    /** @test */
+    public function sem_permissao_de_editar_nao_se_marca_como_paga(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.view');
+
+        $f = $this->factura();
+
+        $this->pagar($f->id)->assertForbidden();
+        $this->assertSame('sent', $f->fresh()->status);
+    }
+
+    /** @test */
+    public function marcar_como_paga_fecha_a_conta_da_factura(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.edit');
+
+        $f = $this->factura();
+
+        $this->pagar($f->id)->assertOk()->assertJsonPath('estado', 'paid');
+
+        $this->assertSame('paid', $f->fresh()->status);
+    }
+
+    /** A FR já é paga no acto da venda: marcá-la duplicaria o recebimento. @test */
+    public function a_factura_recibo_nao_se_marca_como_paga(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.edit');
+
+        $f = $this->factura(['invoice_type' => 'FR']);
+
+        $this->pagar($f->id)->assertStatus(422);
+        $this->assertSame('sent', $f->fresh()->status);
+    }
+
+    /** @test */
+    public function o_que_ja_esta_pago_ou_anulado_nao_se_marca_outra_vez(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.edit');
+
+        $paga = $this->factura(['status' => 'paid']);
+        $anulada = $this->factura(['status' => 'cancelled']);
+
+        $this->pagar($paga->id)->assertStatus(422);
+        $this->pagar($anulada->id)->assertStatus(422);
+
+        $this->assertSame('paid', $paga->fresh()->status);
+        $this->assertSame('cancelled', $anulada->fresh()->status);
+    }
+
+    /** O escopo por autor manda: quem só vê as suas não fecha a dos outros. @test */
+    public function quem_so_ve_as_suas_nao_marca_a_dos_outros_como_paga(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.edit');
+
+        $outro = User::factory()->create();
+        $doOutro = $this->factura(['created_by' => $outro->id]);
+
+        $this->pagar($doOutro->id)->assertNotFound();
+        $this->assertSame('sent', $doOutro->fresh()->status);
+    }
 }

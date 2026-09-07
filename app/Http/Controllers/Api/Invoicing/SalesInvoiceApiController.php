@@ -198,7 +198,62 @@ class SalesInvoiceApiController extends Controller
                 'pode_criar' => (bool) $request->user()?->can('invoicing.sales.invoices.create'),
                 'pode_creditar' => (bool) $request->user()?->can('invoicing.credit-notes.create'),
                 'pode_receber' => (bool) $request->user()?->can('invoicing.receipts.create'),
+
+                // Quem pode EDITAR pode fechar a conta à mão («marcar como
+                // paga»). É a permissão do ecrã de sempre, e não a dos
+                // recibos: marcar como paga não lança dinheiro nenhum.
+                'pode_editar' => (bool) $request->user()?->can('invoicing.sales.invoices.edit'),
             ],
+        ]);
+    }
+
+    /**
+     * MARCAR A FACTURA COMO PAGA — sem recibo, à mão.
+     *
+     * É o segundo botão verde da lista de sempre, e não se confunde com o
+     * primeiro: «Registar Pagamento» abre o recibo e lança o dinheiro; este
+     * apenas FECHA A CONTA de uma factura que já foi paga por fora e cujo
+     * recibo ninguém vai lançar. Quem quer o dinheiro registado usa o outro.
+     *
+     * As três recusas são as do ecrã Livewire, à letra:
+     *
+     * 1. A FACTURA-RECIBO já é paga no acto da venda. Marcá-la outra vez seria
+     *    um convite a contar o mesmo recebimento duas vezes. O botão não
+     *    aparece — mas a defesa tem de estar aqui, porque a porta é HTTP.
+     * 2. O que já está `paid` ou `cancelled` não se marca de novo.
+     * 3. E o escopo por autor manda: quem só vê as suas não fecha a dos outros
+     *    (é o `baseDoAutor` que o garante, não um `if`).
+     */
+    public function marcarComoPaga(Request $request, int $id): JsonResponse
+    {
+        abort_unless(
+            $request->user()?->can('invoicing.sales.invoices.edit'),
+            403,
+            __('Sem permissão para alterar facturas de venda.')
+        );
+
+        $factura = $this->baseDoAutor()->findOrFail($id);
+
+        if (($factura->invoice_type ?? 'FT') === 'FR') {
+            return response()->json(['message' => __('A Fatura-Recibo já é paga no acto da venda.')], 422);
+        }
+
+        if (in_array($factura->status, ['paid', 'cancelled'], true)) {
+            // Duas frases inteiras, e não uma frase colada a um adjectivo:
+            // noutras línguas a concordância e a ordem não são as portuguesas.
+            return response()->json([
+                'message' => $factura->status === 'paid'
+                    ? __('Esta fatura já está paga.')
+                    : __('Esta fatura já está cancelada.'),
+            ], 422);
+        }
+
+        $factura->status = 'paid';
+        $factura->save();
+
+        return response()->json([
+            'estado' => $factura->status,
+            'message' => __('Fatura marcada como paga!'),
         ]);
     }
 }
