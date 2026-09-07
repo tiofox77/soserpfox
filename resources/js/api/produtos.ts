@@ -213,7 +213,11 @@ export type RastreioDeArtigo = {
 export type Escolha = { valor: string; rotulo: string };
 
 export type OpcoesDosArtigos = {
-    categorias: Array<{ id: number; name: string }>;
+    /**
+     * As categorias por HIERARQUIA: cada mãe seguida das suas filhas, com o
+     * nome da mãe já resolvido. O ecrã desenha a árvore com isto.
+     */
+    categorias: Array<{ id: number; name: string; parent_id: number | null; mae: string | null }>;
     marcas: Array<{ id: number; name: string }>;
     fornecedores: Array<{ id: number; name: string }>;
     taxas: Array<{ id: number; name: string; rate: number }>;

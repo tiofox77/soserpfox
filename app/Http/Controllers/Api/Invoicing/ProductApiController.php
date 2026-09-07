@@ -472,9 +472,16 @@ class ProductApiController extends Controller
         $this->exigir($request, 'invoicing.products.view');
 
         return response()->json([
-            'categorias' => Category::where('tenant_id', activeTenantId())
-                ->orderBy('name')
-                ->get(['id', 'name']),
+            /*
+             * AS CATEGORIAS COM A MÃE, e ordenadas pela hierarquia.
+             *
+             * O ecrã em Blade mostrava-as em árvore — as principais em
+             * maiúsculas, as filhas identadas com «└─» por baixo da sua mãe — e
+             * ao lado escrevia a hierarquia da escolhida por extenso. Uma lista
+             * plana por ordem alfabética separa «Cervejas» de «Bebidas» por
+             * meia lista, e quem escolhe não sabe de que ramo é qual.
+             */
+            'categorias' => $this->categoriasEmArvore(),
 
             /*
              * MARCAS E FORNECEDORES — as duas listas que o formulário de
@@ -553,6 +560,49 @@ class ProductApiController extends Controller
     }
 
     /* ─── Por dentro ──────────────────────────────────────────────────── */
+
+    /**
+     * As categorias por HIERARQUIA: cada mãe seguida das suas filhas.
+     *
+     * O ecrã em Blade mostrava-as em árvore — as principais em maiúsculas, as
+     * filhas identadas por baixo da sua mãe — e escrevia ao lado a hierarquia
+     * da escolhida por extenso. Uma lista plana por ordem alfabética separa
+     * «Cervejas» de «Bebidas» por meia lista, e quem escolhe não sabe de que
+     * ramo é qual.
+     *
+     * O NOME DA MÃE VEM RESOLVIDO DAQUI, do mesmo lote já lido: um `find()`
+     * dentro do `map` seriam tantas consultas quantas as subcategorias.
+     *
+     * @return list<array{id: int, name: string, parent_id: int|null, mae: string|null}>
+     */
+    private function categoriasEmArvore(): array
+    {
+        $todas = Category::where('tenant_id', activeTenantId())
+            ->orderBy('name')
+            ->get(['id', 'name', 'parent_id']);
+
+        $nomes = $todas->pluck('name', 'id');
+
+        $arrumadas = $todas
+            ->whereNull('parent_id')
+            ->flatMap(fn ($mae) => collect([$mae])->concat($todas->where('parent_id', $mae->id)))
+            /*
+             * AS ÓRFÃS VÃO PARA O FIM, e não desaparecem.
+             *
+             * Uma filha cuja mãe foi apagada não entra em nenhum ramo. Deixá-la
+             * de fora tirava-a da lista — e um artigo que aponta para ela
+             * abriria o formulário com a categoria em branco, para se gravar
+             * por cima sem ninguém dar por nada.
+             */
+            ->concat($todas->filter(fn ($c) => $c->parent_id && ! $nomes->has($c->parent_id)));
+
+        return $arrumadas->map(fn ($c) => [
+            'id' => $c->id,
+            'name' => $c->name,
+            'parent_id' => $c->parent_id,
+            'mae' => $c->parent_id ? ($nomes[$c->parent_id] ?? null) : null,
+        ])->values()->all();
+    }
 
     private function exigir(Request $request, string $permissao): void
     {

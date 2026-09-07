@@ -1208,7 +1208,17 @@ function Formulario({
                     </select>
                 </Campo>
 
-                <Campo etiqueta={t('Categoria')} erro={erros.category_id} obrigatorio>
+                {/* A CATEGORIA EM ÁRVORE, como o ecrã de sempre: cada mãe em
+                    maiúsculas e as filhas identadas por baixo dela. Uma lista
+                    plana por ordem alfabética separa «Cervejas» de «Bebidas»
+                    por meia lista, e quem escolhe não sabe de que ramo é qual.
+                    Ao lado, a hierarquia da escolhida por extenso. */}
+                <Campo
+                    etiqueta={t('Categoria')}
+                    erro={erros.category_id}
+                    obrigatorio
+                    ajuda={hierarquia(opcoes?.categorias, dados.category_id)}
+                >
                     <select
                         value={String(dados.category_id ?? '')}
                         onChange={(e) => campo('category_id', e.target.value)}
@@ -1217,7 +1227,7 @@ function Formulario({
                         <option value="">{t('Escolher…')}</option>
                         {opcoes?.categorias.map((c) => (
                             <option key={c.id} value={c.id}>
-                                {c.name}
+                                {c.parent_id ? `  └─ ${c.name}` : c.name.toUpperCase()}
                             </option>
                         ))}
                     </select>
@@ -1226,7 +1236,11 @@ function Formulario({
                 {/* A MARCA E O FORNECEDOR ficam ao pé da categoria: são as
                     três perguntas de arrumação do artigo — onde entra, de quem
                     é, a quem se compra — e nenhuma delas é obrigatória. */}
-                <Campo etiqueta={t('Marca')} erro={erros.brand_id}>
+                <Campo
+                    etiqueta={t('Marca')}
+                    erro={erros.brand_id}
+                    ajuda={t('Opcional — marca ou fabricante do produto')}
+                >
                     <select
                         value={String(dados.brand_id ?? '')}
                         onChange={(e) => campo('brand_id', e.target.value)}
@@ -1241,7 +1255,11 @@ function Formulario({
                     </select>
                 </Campo>
 
-                <Campo etiqueta={t('Fornecedor')} erro={erros.supplier_id}>
+                <Campo
+                    etiqueta={t('Fornecedor Padrão')}
+                    erro={erros.supplier_id}
+                    ajuda={t('Opcional — fornecedor principal deste produto')}
+                >
                     <select
                         value={String(dados.supplier_id ?? '')}
                         onChange={(e) => campo('supplier_id', e.target.value)}
@@ -1596,16 +1614,29 @@ function Formulario({
                     encomenda: o preço só se sabe na hora. Isto é do BALCÃO; na
                     factura de venda o preço escreve-se na linha, como sempre.
                 */}
-                <label className="flex items-start gap-2 text-sm text-slate-700 sm:col-span-3">
+                {/* NO SEU PAINEL ÂMBAR, como o ecrã de sempre. Não é decoração:
+                    é um interruptor que muda o comportamento do BALCÃO, e
+                    perdido entre as caixas do stock passava despercebido a quem
+                    o procurava. */}
+                <label
+                    className={cls(
+                        'flex cursor-pointer items-start gap-3 border p-4 text-sm sm:col-span-3',
+                        RAIO,
+                        dados.preco_no_pos ? 'border-amber-400 bg-amber-50' : 'border-amber-200 bg-amber-50/50',
+                    )}
+                >
                     <input
                         type="checkbox"
                         checked={dados.preco_no_pos}
                         onChange={(e) => campo('preco_no_pos', e.target.checked)}
-                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600"
+                        className="mt-0.5 h-5 w-5 flex-none rounded border-amber-300 text-amber-600"
                     />
                     <span>
-                        {t('Perguntar o preço no POS')}
-                        <span className="mt-0.5 block text-xs text-slate-500">
+                        <span className="flex items-center gap-2 font-bold text-slate-900">
+                            <i className="fas fa-hand-holding-dollar text-amber-500" aria-hidden="true" />
+                            {t('Perguntar o preço no POS')}
+                        </span>
+                        <span className="mt-1 block text-xs text-slate-600">
                             {t('Para trabalhos à medida: no POS o preço é escrito na hora da venda. Na factura de venda escreve-se na linha, como sempre.')}
                         </span>
                     </span>
@@ -2045,6 +2076,31 @@ function EscolhaDeRegime({
 }
 
 /**
+ * A HIERARQUIA DA CATEGORIA ESCOLHIDA, por extenso: «Bebidas → Cervejas».
+ *
+ * O ecrã em Blade tinha uma caixa ao lado só para isto. É a confirmação de que
+ * se escolheu o ramo certo — com trinta categorias, «Cervejas» sozinha pode ser
+ * de bebidas ou de mercearia, e a lista identada só mostra isso enquanto está
+ * aberta.
+ */
+function hierarquia(
+    categorias: Array<{ id: number; name: string; mae: string | null }> | undefined,
+    escolhida: number | string | null,
+): string | undefined {
+    if (!escolhida) {
+        return undefined;
+    }
+
+    const c = categorias?.find((x) => String(x.id) === String(escolhida));
+
+    if (!c) {
+        return undefined;
+    }
+
+    return c.mae ? `${c.mae} → ${c.name}` : c.name;
+}
+
+/**
  * Arruma os motivos de isenção pelos seus grupos, pela ordem em que chegam.
  *
  * O servidor já os manda ordenados (IVA, Selo, IEC): manter essa ordem é o que
@@ -2359,26 +2415,30 @@ function LotesEValidade({
 }) {
     // Dentro do render, e não no topo do ficheiro: o dicionário chega depois
     // do arranque, e um `t()` avaliado à importação saía sempre em português.
-    const marcas: Array<{ chave: ChaveDeLote; titulo: string; nota: string }> = [
+    const marcas: Array<{ chave: ChaveDeLote; titulo: string; nota: string; icone: string }> = [
         {
             chave: 'track_batches',
             titulo: t('Rastrear por Lotes'),
             nota: t('Controlar produto por números de lote'),
+            icone: 'fa-layer-group',
         },
         {
             chave: 'track_expiry',
             titulo: t('Controlar Validade'),
             nota: t('Gerenciar data de validade do produto'),
+            icone: 'fa-calendar-xmark',
         },
         {
             chave: 'require_batch_on_purchase',
             titulo: t('Exigir Lote na Compra'),
             nota: t('Obrigatório informar lote ao comprar'),
+            icone: 'fa-cart-shopping',
         },
         {
             chave: 'require_batch_on_sale',
             titulo: t('Exigir Lote na Venda'),
             nota: t('Obrigatório selecionar lote ao vender'),
+            icone: 'fa-cash-register',
         },
     ];
 
@@ -2392,21 +2452,55 @@ function LotesEValidade({
                 {t('Rastreabilidade e gestão de validade do produto')}
             </p>
 
+            {/* CADA MARCA É UM CARTÃO com o seu ícone, como no ecrã de sempre:
+                são quatro interruptores parecidos e é o ícone que os distingue
+                de relance — comprar, vender, lote, validade. Quatro linhas de
+                texto seguidas lêem-se todas na mesma. */}
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {marcas.map((m) => (
-                    <label key={m.chave} className="flex items-start gap-2 text-sm text-slate-700">
+                    <label
+                        key={m.chave}
+                        className={cls(
+                            'flex cursor-pointer items-start gap-3 border-2 bg-white p-3 transition-all duration-200',
+                            RAIO,
+                            dados[m.chave]
+                                ? 'border-indigo-400 shadow-sm'
+                                : 'border-transparent hover:border-slate-300 hover:shadow-sm',
+                        )}
+                    >
                         <input
                             type="checkbox"
                             checked={dados[m.chave]}
                             onChange={(e) => aoMudar({ ...dados, [m.chave]: e.target.checked })}
-                            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600"
+                            className="mt-0.5 h-4 w-4 flex-none rounded border-slate-300 text-indigo-600"
                         />
-                        <span>
-                            {m.titulo}
-                            <span className="block text-xs text-slate-500">{m.nota}</span>
+                        <span className="min-w-0">
+                            <span className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                                <i
+                                    className={cls('fas', m.icone, dados[m.chave] ? 'text-indigo-600' : 'text-slate-400')}
+                                    aria-hidden="true"
+                                />
+                                {m.titulo}
+                            </span>
+                            <span className="mt-0.5 block text-xs text-slate-500">{m.nota}</span>
                         </span>
                     </label>
                 ))}
+            </div>
+
+            {/* O QUE CADA UMA FAZ, por extenso. O ecrã de sempre tinha-o: sem
+                isto, «Exigir Lote na Venda» parece o mesmo que «Rastrear por
+                Lotes» a quem está a preencher a ficha pela primeira vez. */}
+            <div className={cls('mt-3 border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900', RAIO)}>
+                <p className="mb-1 font-semibold">
+                    <i className="fas fa-circle-info mr-1.5" aria-hidden="true" />
+                    {t('O que cada uma faz')}
+                </p>
+                <ul className="list-inside list-disc space-y-0.5">
+                    <li>{t('Rastrear por Lotes: liga o controlo de lotes a este artigo.')}</li>
+                    <li>{t('Controlar Validade: permite datas de validade nos lotes.')}</li>
+                    <li>{t('Exigir na Compra/Venda: torna obrigatório indicar o lote na operação.')}</li>
+                </ul>
             </div>
         </section>
     );
