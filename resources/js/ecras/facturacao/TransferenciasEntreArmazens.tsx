@@ -124,6 +124,12 @@ export default function TransferenciasEntreArmazens() {
                                     <td className="px-4 py-2 text-right">
                                         <span className="flex justify-end gap-1.5">
                                             <button type="button" onClick={() => porDetalhe(l)} title={t('Detalhe')} aria-label={t('Detalhe de :referencia', { referencia: l.referencia ?? l.reference_id ?? '' })} className={accao('primaria')}><i className="fas fa-list" aria-hidden="true" /></button>
+                                            {/* A PRÉ-VISUALIZAÇÃO abre no browser e é de lá
+                                                que se imprime; o PDF descarrega. O ecrã de
+                                                sempre tinha os dois, e a migração trouxe só o
+                                                segundo — quem queria conferir antes de
+                                                imprimir tinha de descarregar um ficheiro. */}
+                                            {l.preview && <a href={l.preview} target="_blank" rel="noreferrer" title={t('Pré-visualizar / Imprimir')} aria-label={t('Pré-visualizar :referencia', { referencia: l.referencia ?? '' })} className={accao('bom')}><i className="fas fa-print" aria-hidden="true" /></a>}
                                             {l.pdf && <a href={l.pdf} target="_blank" rel="noreferrer" title={t('PDF')} aria-label={t('PDF de :referencia', { referencia: l.referencia ?? '' })} className={accao('perigo')}><i className="fas fa-file-pdf" aria-hidden="true" /></a>}
                                         </span>
                                     </td>

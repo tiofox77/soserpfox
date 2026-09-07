@@ -12,7 +12,9 @@ export type ItemDaTransferencia = { product_id: number; product_name: string; pr
 
 export type LoteDoHistorico = {
     id: number; referencia: string | null; reference_id: number | null; tipo: string; tipo_rotulo: string; quando: string;
-    armazem: string | null; produtos: number; quantidade: number; quem: string | null; notas: string | null; pdf: string | null;
+    armazem: string | null; produtos: number; quantidade: number; quem: string | null; notas: string | null;
+    /** Os dois caminhos para o papel do lote: a pré-visualização abre, o PDF descarrega. */
+    preview: string | null; pdf: string | null;
 };
 
 export type LinhaDoLote = { id: number; artigo: string | null; codigo: string | null; armazem: string | null; quantidade: number; antes: number | null; depois: number | null; notas: string | null; quem: string | null };

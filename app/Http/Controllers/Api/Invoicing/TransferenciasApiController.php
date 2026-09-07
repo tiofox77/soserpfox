@@ -128,6 +128,15 @@ class TransferenciasApiController extends Controller
                 'quantidade' => round((float) $m->total_quantity, 3),
                 'quem' => $m->user?->name,
                 'notas' => $m->notes,
+                /*
+                 * OS DOIS CAMINHOS PARA O PAPEL DO LOTE, como no ecrã de sempre.
+                 *
+                 * A PRÉ-VISUALIZAÇÃO abre no browser e é de lá que se imprime;
+                 * o PDF descarrega. A migração trouxe só o segundo, e quem
+                 * queria conferir antes de imprimir tinha de descarregar um
+                 * ficheiro para o abrir.
+                 */
+                'preview' => $m->batch_reference ? '/invoicing/stock/movimentacao/' . $m->batch_reference . '/preview' : null,
                 'pdf' => $m->batch_reference ? '/invoicing/stock/movimentacao/' . $m->batch_reference . '/pdf' : null,
             ])->values(),
             'meta' => ['current_page' => $pagina->currentPage(), 'last_page' => $pagina->lastPage(), 'per_page' => $pagina->perPage(), 'total' => $pagina->total()],
