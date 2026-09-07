@@ -105,25 +105,6 @@ class CompraApiController extends Controller
         ]);
     }
 
-    /** Marcar como paga sem lançar recibo — o acerto de quem já pagou por fora. */
-    public function marcarComoPaga(Request $request, EmissorDeCompras $emissor, int $id): JsonResponse
-    {
-        $this->exigir($request, 'invoicing.purchases.invoices.edit');
-
-        $f = $this->baseDoAutor()->findOrFail($id);
-
-        try {
-            $emissor->marcarComoPaga($f);
-        } catch (DomainException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
-        }
-
-        return response()->json([
-            'estado' => $f->status,
-            'message' => __('Factura de compra :n marcada como paga.', ['n' => $f->invoice_number]),
-        ]);
-    }
-
     /**
      * A compra na forma que o editor conhece.
      *

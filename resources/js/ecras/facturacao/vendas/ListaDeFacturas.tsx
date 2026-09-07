@@ -54,15 +54,6 @@ export default function ListaDeFacturas({ tipo }: { tipo?: 'FT' | 'FR' }) {
     const [filtros, porFiltros] = useState<FiltrosDeFacturas>(tipo ? { ...FILTROS_VAZIOS, tipo } : FILTROS_VAZIOS);
     // A factura que se está a pagar, e o que o servidor disse depois.
     const [aPagar, porAPagar] = useState<FacturaDeVenda | null>(null);
-    /*
-     * A FACTURA QUE SE VAI DAR POR PAGA À MÃO.
-     *
-     * Não é o mesmo que a de cima. «Pagar» abre o recibo e lança o dinheiro;
-     * esta apenas fecha a conta de uma factura já paga por fora, sem recibo —
-     * são os dois botões verdes que a lista de sempre tinha, lado a lado.
-     */
-    const [aDarPorPaga, porADarPorPaga] = useState<FacturaDeVenda | null>(null);
-    const [erroDoPago, porErroDoPago] = useState('');
     const [recado, porRecado] = useState('');
 
     /**
@@ -96,22 +87,6 @@ export default function ListaDeFacturas({ tipo }: { tipo?: 'FT' | 'FR' }) {
         placeholderData: keepPreviousData,
     });
 
-    /*
-     * Marcar como paga. O servidor é que recusa a Fatura-Recibo e o que já
-     * está pago ou anulado — aqui só se mostra o que ele responde. Um botão
-     * escondido nunca foi segurança, e uma recusa em silêncio é pior.
-     */
-    const darPorPaga = useMutation({
-        mutationFn: (f: FacturaDeVenda) => facturacao.marcarFacturaComoPaga(f.id),
-        onSuccess: (r) => {
-            porADarPorPaga(null);
-            porErroDoPago('');
-            porRecado(r.message);
-            void cache.invalidateQueries({ queryKey: ['facturas'] });
-        },
-        onError: (e) => porErroDoPago(e instanceof ErroDaApi ? e.message : t('Não foi possível marcar a factura como paga.')),
-    });
-
     if (lista.isError) {
         return <Falhou erro={lista.error} />;
     }
@@ -121,8 +96,6 @@ export default function ListaDeFacturas({ tipo }: { tipo?: 'FT' | 'FR' }) {
     const podeVerAutores = (opcoes.data?.autores.length ?? 0) > 0;
     // Duplicar é começar uma factura nova: quem pode criar, pode duplicar.
     const podeDuplicar = opcoes.data?.permissoes.pode_criar ?? false;
-    // Fechar a conta à mão é EDITAR a factura, não lançar um recebimento.
-    const podeDarPorPaga = opcoes.data?.permissoes.pode_editar ?? false;
 
     return (
         <div className="space-y-4">
@@ -145,44 +118,6 @@ export default function ListaDeFacturas({ tipo }: { tipo?: 'FT' | 'FR' }) {
                 />
             )}
 
-            {/* Dar por paga: pergunta-se primeiro, e diz-se o que muda e o
-                que NÃO muda — não entra dinheiro nenhum na tesouraria. */}
-            <Modal
-                aberto={aDarPorPaga !== null}
-                aoFechar={() => { porADarPorPaga(null); porErroDoPago(''); }}
-                titulo={t('Marcar como paga?')}
-                icone="fa-circle-check"
-                cor="bom"
-                rodape={
-                    <>
-                        <Botao onClick={() => { porADarPorPaga(null); porErroDoPago(''); }}>{t('Cancelar')}</Botao>
-                        <Botao
-                            cor="bom"
-                            tom="solida"
-                            icone="fa-circle-check"
-                            aTrabalhar={darPorPaga.isPending}
-                            onClick={() => aDarPorPaga && darPorPaga.mutate(aDarPorPaga)}
-                        >
-                            {t('Marcar como paga')}
-                        </Botao>
-                    </>
-                }
-            >
-                <div className="space-y-3">
-                    <p className="text-sm text-slate-700">
-                        {t('A factura :numero passa a Paga.', { numero: aDarPorPaga?.numero ?? '' })}
-                    </p>
-                    <p className={cls('flex items-start gap-3 border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900', RAIO)}>
-                        <i className="fas fa-triangle-exclamation mt-0.5 flex-none text-base text-amber-500" aria-hidden="true" />
-                        <span>{t('Não é lançado nenhum recibo nem entra dinheiro na tesouraria. Para registar o recebimento, use antes o botão de pagamento.')}</span>
-                    </p>
-                    {erroDoPago && (
-                        <p role="alert" className={cls('border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800', RAIO)}>
-                            <i className="fas fa-circle-exclamation mr-2" aria-hidden="true" />{erroDoPago}
-                        </p>
-                    )}
-                </div>
-            </Modal>
 
             <Cartao titulo={t('Filtros')} icone="fa-filter">
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -310,7 +245,7 @@ export default function ListaDeFacturas({ tipo }: { tipo?: 'FT' | 'FR' }) {
                 <SemNada aoLimpar={() => porFiltros(FILTROS_VAZIOS)} />
             ) : (
                 <Cartao titulo={t('Facturas de venda')} icone="fa-list" semPadding>
-                    <Tabela facturas={facturas} podeDuplicar={podeDuplicar} aoPagar={porAPagar} podeDarPorPaga={podeDarPorPaga} aoDarPorPaga={porADarPorPaga} />
+                    <Tabela facturas={facturas} podeDuplicar={podeDuplicar} aoPagar={porAPagar} />
                 </Cartao>
             )}
 
@@ -397,14 +332,10 @@ function Tabela({
     facturas,
     podeDuplicar,
     aoPagar: porAPagar,
-    podeDarPorPaga,
-    aoDarPorPaga,
 }: {
     facturas: FacturaDeVenda[];
     podeDuplicar: boolean;
     aoPagar: (f: FacturaDeVenda) => void;
-    podeDarPorPaga: boolean;
-    aoDarPorPaga: (f: FacturaDeVenda) => void;
 }) {
     return (
         // A tabela rola dentro da sua caixa. Sem isto, uma linha larga põe a
@@ -476,7 +407,7 @@ function Tabela({
                                 )}
                             </td>
                             <td className="px-4 py-3">
-                                <Accoes factura={f} podeDuplicar={podeDuplicar} aoPagar={() => porAPagar(f)} podeDarPorPaga={podeDarPorPaga} aoDarPorPaga={() => aoDarPorPaga(f)} />
+                                <Accoes factura={f} podeDuplicar={podeDuplicar} aoPagar={() => porAPagar(f)} />
                             </td>
                         </tr>
                     ))}
@@ -497,14 +428,10 @@ function Accoes({
     factura,
     podeDuplicar,
     aoPagar,
-    podeDarPorPaga,
-    aoDarPorPaga,
 }: {
     factura: FacturaDeVenda;
     podeDuplicar: boolean;
     aoPagar: () => void;
-    podeDarPorPaga: boolean;
-    aoDarPorPaga: () => void;
 }) {
     return (
         <div className="flex items-center justify-end gap-1">
@@ -525,26 +452,6 @@ function Accoes({
                 </button>
             )}
 
-            {/* O SEGUNDO BOTÃO VERDE. Fecha a conta de uma factura já paga por
-                fora, sem lançar recibo nenhum — e por isso é um visto e não uma
-                nota, para se distinguir do de cima ao primeiro olhar.
-                O mesmo gatilho do outro: só com saldo por receber, que é o que
-                exclui a Fatura-Recibo, a paga, a anulada e a creditada. */}
-            {podeDarPorPaga && factura.saldo > 0.01 && (
-                <button
-                    type="button"
-                    onClick={aoDarPorPaga}
-                    title={t('Marcar como paga (sem recibo)')}
-                    aria-label={t('Marcar :numero como paga', { numero: factura.numero })}
-                    className={cls(
-                        'p-2 text-green-600 transition-all duration-200 hover:scale-110 hover:bg-green-50 active:scale-100',
-                        RAIO,
-                        FOCO,
-                    )}
-                >
-                    <i className="fas fa-circle-check" aria-hidden="true" />
-                </button>
-            )}
             <Accao href={`/invoicing/sales/invoices/${factura.id}`} icone="fa-eye" titulo={t('Ver')} />
 
             {/* TRÊS CAMINHOS PARA O MESMO DOCUMENTO, e nenhum substitui outro.

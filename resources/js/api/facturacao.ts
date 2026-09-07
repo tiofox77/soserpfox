@@ -72,7 +72,6 @@ export type OpcoesDasFacturas = {
         pode_criar: boolean;
         pode_creditar: boolean;
         pode_receber: boolean;
-        pode_editar: boolean;
     };
 };
 
@@ -81,13 +80,4 @@ export const facturacao = {
         api.ler<PaginaDeFacturas>('/sales-invoices', filtros),
 
     opcoesDasFacturas: () => api.ler<OpcoesDasFacturas>('/sales-invoices/opcoes'),
-
-    /**
-     * Fechar a conta de uma factura paga por fora, sem recibo.
-     *
-     * O segundo botão verde da lista de sempre. Quem quer o dinheiro
-     * registado usa o outro — este só muda o estado.
-     */
-    marcarFacturaComoPaga: (id: number) =>
-        api.criar<{ estado: string; message: string }>(`/sales-invoices/${id}/pagar`, {}),
 };

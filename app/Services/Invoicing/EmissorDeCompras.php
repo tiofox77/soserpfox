@@ -229,39 +229,9 @@ class EmissorDeCompras
     }
 
     /**
-     * MARCAR COMO PAGA sem lançar recibo — o acerto de quem pagou por fora.
+     * A REGRA DE ANULAR, em pergunta, para a lista saber se mostra o botão.
      *
-     * Não passa pelo `RegistoDePagamento` de propósito: aqui não se lança
-     * dinheiro nenhum em tesouraria, só se dá a dívida por saldada. Quem quer
-     * o recibo e o movimento usa o botão de pagar.
-     *
-     * De rascunho para paga a mercadoria passa a contar: `paid` é um dos
-     * `ESTADOS_COM_STOCK` e o observer dá a entrada que faltava — é o mesmo
-     * que acontecia no ecrã em Blade.
-     *
-     * @throws DomainException
-     */
-    public function marcarComoPaga(PurchaseInvoice $factura): PurchaseInvoice
-    {
-        if ($factura->status === 'paid') {
-            throw new DomainException(__('Esta factura já está paga.'));
-        }
-
-        if ($factura->status === 'cancelled') {
-            throw new DomainException(__('Uma factura anulada não se marca como paga.'));
-        }
-
-        $factura->status = 'paid';
-        $factura->paid_amount = $factura->total;
-        $factura->save();
-
-        return $factura;
-    }
-
-    /**
-     * As mesmas regras, em pergunta, para a lista saber que botões mostrar.
-     *
-     * Vivem aqui e não no controlador para que o botão que aparece e a porta
+     * Vive aqui e não no controlador para que o botão que aparece e a porta
      * que aceita digam sempre a mesma coisa: um botão que aparece e depois
      * recusa é pior do que um botão que não aparece.
      */
@@ -269,11 +239,6 @@ class EmissorDeCompras
     {
         return ! in_array($factura->status, ['draft', 'cancelled'], true)
             && ! self::temDinheiroPago($factura);
-    }
-
-    public static function podeMarcarPaga(PurchaseInvoice $factura): bool
-    {
-        return ! in_array($factura->status, ['paid', 'cancelled'], true);
     }
 
     /** Um cêntimo de tolerância: o que interessa é se entrou dinheiro. */

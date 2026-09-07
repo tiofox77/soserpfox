@@ -60,7 +60,6 @@ export type LinhaDeDocumento = {
      * aparece e depois recusa é pior do que um botão que não aparece.
      */
     pode_anular?: boolean;
-    pode_marcar_paga?: boolean;
     /** Um documento já convertido ou anulado não se elimina. */
     pode_apagar?: boolean;
 };

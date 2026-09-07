@@ -52,7 +52,7 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
     const [aVer, porAVer] = useState<LinhaDeDocumento | null>(null);
 
     /*
-     * ANULAR e MARCAR COMO PAGA — só nas facturas de compra.
+     * ANULAR — só nas facturas de compra.
      *
      * Uma factura de compra NÃO se elimina: anula-se, e o stock que tinha
      * entrado é revertido. Não é coisa que se faça por engano, por isso
@@ -60,8 +60,7 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
      * linha a linha; aqui só se pergunta e se conta o que ele respondeu.
      */
     const accao = useMutation({
-        mutationFn: ({ id, qual }: { id: number; qual: 'anular' | 'pagar' }) =>
-            qual === 'anular' ? compra.anular(id) : compra.marcarComoPaga(id),
+        mutationFn: ({ id }: { id: number }) => compra.anular(id),
         onSuccess: (r) => {
             porAviso('');
             porRecado(r.message);
@@ -107,12 +106,7 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
 
     function anular(d: LinhaDeDocumento): void {
         if (!window.confirm(t('Anular a factura de compra :numero? O stock que entrou será revertido.', { numero: d.numero }))) return;
-        accao.mutate({ id: d.id, qual: 'anular' });
-    }
-
-    function marcarPaga(d: LinhaDeDocumento): void {
-        if (!window.confirm(t('Marcar :numero como paga? Não lança recibo nem movimento de caixa.', { numero: d.numero }))) return;
-        accao.mutate({ id: d.id, qual: 'pagar' });
+        accao.mutate({ id: d.id });
     }
 
     const opcoes = useQuery({
@@ -387,7 +381,6 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
                                         aTrabalhar={accao.isPending || apagar.isPending || converter.isPending}
                                         aoPagar={opcoes.data?.pode_pagar ? () => porAPagar(d) : undefined}
                                         aoAnular={() => anular(d)}
-                                        aoMarcarPaga={() => marcarPaga(d)}
                                         aoApagar={opcoes.data?.pode_apagar ? () => porAApagar(d) : undefined}
                                         aoConverter={opcoes.data?.pode_converter ? () => porAConverter(d) : undefined}
                                         aoVerHistorico={
@@ -946,7 +939,6 @@ function Linha({
     aTrabalhar,
     aoPagar,
     aoAnular,
-    aoMarcarPaga,
     aoApagar,
     aoConverter,
     aoVerHistorico,
@@ -966,7 +958,6 @@ function Linha({
     aTrabalhar: boolean;
     aoPagar?: () => void;
     aoAnular: () => void;
-    aoMarcarPaga: () => void;
     /** Eliminar, converter e ver o histórico: `undefined` onde não existem. */
     aoApagar?: () => void;
     aoConverter?: () => void;
@@ -1162,22 +1153,6 @@ function Linha({
                         >
                             <i className="fas fa-copy" aria-hidden="true" />
                         </a>
-                    )}
-
-                    {/* Marcar como paga: fecha a conta de quem já pagou por
-                        fora. Não lança recibo nem mexe na caixa — para isso há
-                        o botão de pagar, aqui ao lado. */}
-                    {d.pode_marcar_paga && (
-                        <button
-                            type="button"
-                            onClick={aoMarcarPaga}
-                            disabled={aTrabalhar}
-                            title={t('Marcar como paga')}
-                            aria-label={t('Marcar :numero como paga', { numero: d.numero })}
-                            className={cls('p-2 text-green-600 transition-all duration-200 hover:scale-110 active:scale-100 hover:bg-green-50 disabled:opacity-40', RAIO, FOCO)}
-                        >
-                            <i className="fas fa-check-circle" aria-hidden="true" />
-                        </button>
                     )}
 
                     {/* Anular: uma factura de compra NÃO se elimina — o

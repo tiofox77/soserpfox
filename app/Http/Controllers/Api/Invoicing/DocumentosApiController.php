@@ -37,7 +37,7 @@ class DocumentosApiController extends Controller
      *
      * @var array<string,bool>
      */
-    private array $podeNaCompra = ['anular' => false, 'marcar_paga' => false];
+    private array $podeNaCompra = ['anular' => false];
 
     /** Se ESTE utilizador pode apagar documentos deste tipo. Decidido uma vez. */
     private bool $podeApagar = false;
@@ -640,13 +640,11 @@ class DocumentosApiController extends Controller
         $this->modeloActual = $def['modelo'];
         $this->tipoActual = $tipo;
 
-        // As acções da factura de compra: anular (que é o eliminar dela) e
-        // marcar como paga. Só nesta lista existem — as outras não têm o que
-        // anular por aqui.
+        // A ACÇÃO PRÓPRIA DA FACTURA DE COMPRA: anular, que é o eliminar dela.
+        // Só nesta lista existe — as outras não têm o que anular por aqui.
         if ($tipo === 'facturas-compra') {
             $this->podeNaCompra = [
                 'anular' => (bool) $request->user()?->can('invoicing.purchases.invoices.delete'),
-                'marcar_paga' => (bool) $request->user()?->can('invoicing.purchases.invoices.edit'),
             ];
         }
 
@@ -820,7 +818,6 @@ class DocumentosApiController extends Controller
          */
         if ($this->tipoActual === 'facturas-compra') {
             $linha['pode_anular'] = $this->podeNaCompra['anular'] && EmissorDeCompras::podeAnular($d);
-            $linha['pode_marcar_paga'] = $this->podeNaCompra['marcar_paga'] && EmissorDeCompras::podeMarcarPaga($d);
         }
 
         /*

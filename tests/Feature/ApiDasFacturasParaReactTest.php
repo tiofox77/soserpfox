@@ -395,79 +395,31 @@ class ApiDasFacturasParaReactTest extends TenantTestCase
             ->assertSee('data-ecra="facturacao/lista-de-facturas"', false);
     }
 
-    /*
-     * ─── MARCAR COMO PAGA, o segundo botão verde da lista de sempre ────────
+    /**
+     * HÁ UMA PORTA SÓ PARA DAR UMA FACTURA POR PAGA: o recibo.
      *
-     * Não se confunde com o recibo: este NÃO lança dinheiro, apenas fecha a
-     * conta de uma factura já paga por fora. As recusas são as do ecrã
-     * Livewire, à letra — e cada uma tem aqui o seu teste, porque uma porta
-     * HTTP não tem botões para esconder.
+     * Houve aqui um endereço `POST /sales-invoices/{id}/pagar` que punha
+     * `status = 'paid'` e mais nada — sem recibo, sem movimento de tesouraria
+     * e com o `paid_amount` a zero. Ficava uma factura «paga» que ninguém
+     * conseguia explicar: o dinheiro não estava em lado nenhum.
+     *
+     * Foi removido. Quem recebe usa o `RegistoDePagamento`, que emite o
+     * recibo, lança o movimento na caixa ou na conta e só então aplica o
+     * pagamento à factura. Este ensaio é o que impede a porta de voltar.
+     *
+     * @test
      */
-
-    private function pagar(int $id): \Illuminate\Testing\TestResponse
+    public function nao_ha_atalho_para_dar_uma_factura_por_paga_sem_recibo(): void
     {
-        return $this->postJson(self::LISTA . '/' . $id . '/pagar');
-    }
-
-    /** @test */
-    public function sem_permissao_de_editar_nao_se_marca_como_paga(): void
-    {
-        $this->comPermissoes('invoicing.sales.invoices.view');
+        $this->comPermissoes('invoicing.sales.invoices.edit', 'invoicing.sales.invoices.view');
 
         $f = $this->factura();
 
-        $this->pagar($f->id)->assertForbidden();
-        $this->assertSame('sent', $f->fresh()->status);
-    }
+        // 405 (o endereço não existe neste verbo) ou 404: o que não pode é passar.
+        $r = $this->postJson(self::LISTA . '/' . $f->id . '/pagar');
 
-    /** @test */
-    public function marcar_como_paga_fecha_a_conta_da_factura(): void
-    {
-        $this->comPermissoes('invoicing.sales.invoices.edit');
-
-        $f = $this->factura();
-
-        $this->pagar($f->id)->assertOk()->assertJsonPath('estado', 'paid');
-
-        $this->assertSame('paid', $f->fresh()->status);
-    }
-
-    /** A FR já é paga no acto da venda: marcá-la duplicaria o recebimento. @test */
-    public function a_factura_recibo_nao_se_marca_como_paga(): void
-    {
-        $this->comPermissoes('invoicing.sales.invoices.edit');
-
-        $f = $this->factura(['invoice_type' => 'FR']);
-
-        $this->pagar($f->id)->assertStatus(422);
-        $this->assertSame('sent', $f->fresh()->status);
-    }
-
-    /** @test */
-    public function o_que_ja_esta_pago_ou_anulado_nao_se_marca_outra_vez(): void
-    {
-        $this->comPermissoes('invoicing.sales.invoices.edit');
-
-        $paga = $this->factura(['status' => 'paid']);
-        $anulada = $this->factura(['status' => 'cancelled']);
-
-        $this->pagar($paga->id)->assertStatus(422);
-        $this->pagar($anulada->id)->assertStatus(422);
-
-        $this->assertSame('paid', $paga->fresh()->status);
-        $this->assertSame('cancelled', $anulada->fresh()->status);
-    }
-
-    /** O escopo por autor manda: quem só vê as suas não fecha a dos outros. @test */
-    public function quem_so_ve_as_suas_nao_marca_a_dos_outros_como_paga(): void
-    {
-        $this->comPermissoes('invoicing.sales.invoices.edit');
-
-        $outro = User::factory()->create();
-        $doOutro = $this->factura(['created_by' => $outro->id]);
-
-        $this->pagar($doOutro->id)->assertNotFound();
-        $this->assertSame('sent', $doOutro->fresh()->status);
+        $this->assertContains($r->status(), [404, 405], 'o atalho de marcar como paga voltou');
+        $this->assertSame('sent', $f->fresh()->status, 'e a factura não mudou de estado');
     }
 
     /**

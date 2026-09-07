@@ -232,70 +232,17 @@ class ApiDaCompraParaReactTest extends TenantTestCase
         $this->postJson(self::RAIZ, $this->corpo(['linhas' => []]))->assertJsonValidationErrors('linhas');
     }
 
-    /* ─── MARCAR COMO PAGA: o acerto de quem já pagou por fora ─────────── */
-
     /**
-     * DÁ A DÍVIDA POR SALDADA, e não lança dinheiro nenhum em tesouraria.
-     *
-     * É o botão que o ecrã em Blade tinha ao lado do de pagar, e a diferença
-     * entre os dois é essa: pagar emite recibo e mexe na caixa; marcar como
-     * paga só fecha a conta de uma factura que já foi liquidada noutro sítio.
-     *
-     * @test
-     */
-    public function marcar_como_paga_fecha_a_conta_da_factura(): void
-    {
-        $this->comPermissoes('invoicing.purchases.invoices.create', 'invoicing.purchases.invoices.edit');
-
-        $id = $this->postJson(self::RAIZ, $this->corpo(['status' => 'pending']))->assertCreated()->json('id');
-
-        $this->postJson(self::RAIZ . '/' . $id . '/pagar')
-            ->assertOk()
-            ->assertJsonPath('estado', 'paid');
-
-        $f = PurchaseInvoice::findOrFail($id);
-
-        $this->assertSame('paid', $f->status);
-        $this->assertEqualsWithDelta((float) $f->total, (float) $f->paid_amount, 0.01);
-    }
-
-    /** Já paga, ou anulada, não se marca outra vez — e o servidor diz porquê. @test */
-    public function uma_factura_paga_ou_anulada_nao_se_marca_como_paga(): void
-    {
-        $this->comPermissoes(
-            'invoicing.purchases.invoices.create',
-            'invoicing.purchases.invoices.edit',
-            'invoicing.purchases.invoices.delete',
-        );
-
-        $paga = $this->postJson(self::RAIZ, $this->corpo(['status' => 'paid']))->assertCreated()->json('id');
-        $this->postJson(self::RAIZ . '/' . $paga . '/pagar')->assertStatus(422);
-
-        $anulada = $this->postJson(self::RAIZ, $this->corpo(['status' => 'pending']))->assertCreated()->json('id');
-        $this->postJson(self::RAIZ . '/' . $anulada . '/anular')->assertOk();
-        $this->postJson(self::RAIZ . '/' . $anulada . '/pagar')->assertStatus(422);
-
-        $this->assertSame('cancelled', PurchaseInvoice::findOrFail($anulada)->status);
-    }
-
-    /** Marcar como paga é alterar o documento: exige a permissão de EDITAR. @test */
-    public function sem_permissao_de_editar_nao_se_marca_como_paga(): void
-    {
-        $this->comPermissoes('invoicing.purchases.invoices.create');
-
-        $id = $this->postJson(self::RAIZ, $this->corpo(['status' => 'pending']))->assertCreated()->json('id');
-
-        $this->postJson(self::RAIZ . '/' . $id . '/pagar')->assertForbidden();
-
-        $this->assertSame('pending', PurchaseInvoice::findOrFail($id)->status);
-    }
-
-    /**
-     * A LISTA E A PORTA DIZEM O MESMO.
+     * A LISTA E A PORTA DIZEM O MESMO — e há UMA porta só para o dinheiro.
      *
      * Os botões que a lista mostra saem do `EmissorDeCompras`, o mesmo que
-     * depois aceita ou recusa a acção — um botão que aparece e depois recusa é
-     * pior do que um botão que não aparece.
+     * depois aceita ou recusa a acção — um botão que aparece e depois recusa
+     * é pior do que um botão que não aparece.
+     *
+     * E não há aqui nenhum «marcar como paga»: dar uma compra por paga é
+     * REGISTAR O PAGAMENTO, que lança o recibo e o movimento de caixa (ver
+     * `RegistoDePagamento`). Dois caminhos para o mesmo facto eram duas
+     * contabilidades, e uma delas sem rasto na tesouraria.
      *
      * @test
      */
@@ -316,10 +263,8 @@ class ApiDaCompraParaReactTest extends TenantTestCase
         )->keyBy('id');
 
         $this->assertFalse($lista[$rascunho]['pode_anular'], 'um rascunho não se anula');
-        $this->assertTrue($lista[$rascunho]['pode_marcar_paga']);
 
         $this->assertTrue($lista[$registada]['pode_anular']);
-        $this->assertTrue($lista[$registada]['pode_marcar_paga']);
 
         // E depois de anulada, nenhuma das duas.
         $this->postJson(self::RAIZ . '/' . $registada . '/anular')->assertOk();
@@ -329,7 +274,6 @@ class ApiDaCompraParaReactTest extends TenantTestCase
         )->keyBy('id');
 
         $this->assertFalse($depois[$registada]['pode_anular']);
-        $this->assertFalse($depois[$registada]['pode_marcar_paga']);
 
         // E a lista oferece duplicar — que é o outro caminho que aqui existe.
         $this->assertTrue(

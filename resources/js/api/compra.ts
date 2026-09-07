@@ -55,7 +55,7 @@ export type CompraDuplicada = {
 
 type Gravada = { id: number; numero: string; total: number; abrir: string; message: string };
 
-/** O que o servidor diz depois de anular ou de dar a compra por paga. */
+/** O que o servidor diz depois de anular a compra. */
 type Mudada = { estado: string; message: string };
 
 export const compra = {
@@ -73,5 +73,4 @@ export const compra = {
      * apaga — muda de estado, e o stock que tinha entrado é revertido.
      */
     anular: (id: number) => api.criar<Mudada>(`/compra/${id}/anular`, {}),
-    marcarComoPaga: (id: number) => api.criar<Mudada>(`/compra/${id}/pagar`, {}),
 };

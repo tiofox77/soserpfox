@@ -6,6 +6,7 @@ use App\Models\Invoicing\PurchaseInvoice;
 use App\Models\Invoicing\Receipt;
 use App\Models\Invoicing\SalesInvoice;
 use App\Models\Supplier;
+use App\Models\Treasury\Transaction;
 use Tests\TenantTestCase;
 
 /**
@@ -169,5 +170,41 @@ class PagamentoDeFacturaDeCompraTest extends TenantTestCase
         $this->assertSame('sale', $recibo->type);
         $this->assertSame($venda->id, $recibo->invoice_id);
         $this->assertNull($recibo->purchase_invoice_id);
+    }
+
+    /**
+     * PAGAR LANÇA SEMPRE NA TESOURARIA. É por isto que há uma porta só.
+     *
+     * Existiram dois caminhos para dar uma factura por paga: este, que emite o
+     * recibo e lança o movimento, e um «marcar como paga» que punha o estado a
+     * `paid` e mais nada. O segundo deixava dinheiro sem rasto — a factura
+     * dizia-se paga e a caixa não sabia de nada. Foi removido.
+     *
+     * Este ensaio guarda as três coisas que TÊM de acontecer juntas: o recibo
+     * (que é o documento que se entrega), o movimento de tesouraria (que é
+     * onde o dinheiro fica registado) e a factura saldada.
+     */
+    public function test_pagar_uma_compra_lanca_recibo_e_movimento_de_tesouraria(): void
+    {
+        $factura = $this->facturaDeCompra();
+
+        $antes = Transaction::where('tenant_id', $this->tenant->id)->count();
+
+        $this->pagar($factura, 109168.68)->assertCreated();
+
+        $recibo = $this->ultimoRecibo();
+        $this->assertNotNull($recibo, 'sem recibo não há documento para entregar');
+
+        $movimentos = Transaction::where('tenant_id', $this->tenant->id)->count();
+        $this->assertSame($antes + 1, $movimentos, 'o dinheiro que saiu tem de ficar na tesouraria');
+
+        $mov = Transaction::where('tenant_id', $this->tenant->id)->latest('id')->firstOrFail();
+
+        $this->assertSame('expense', $mov->type, 'pagar a um fornecedor é saída');
+        $this->assertEqualsWithDelta(109168.68, (float) $mov->amount, 0.01);
+        $this->assertNotEmpty($mov->transaction_number, 'e com número próprio, gerado pelo modelo');
+
+        $this->assertSame('paid', $factura->refresh()->status);
+        $this->assertEqualsWithDelta((float) $factura->total, (float) $factura->paid_amount, 0.01);
     }
 }
