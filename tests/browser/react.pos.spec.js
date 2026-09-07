@@ -95,8 +95,10 @@ test('vender um artigo fecha a venda e mostra o talão', async ({ page }) => {
 
     test.skip(!(await balcaoPronto(page)), 'sem turno aberto');
 
-    // O primeiro artigo da grelha que não peça o preço ao balcão.
-    const primeiro = page.locator('button:has-text("Kz")').first();
+    // O primeiro artigo da grelha. Os que pedem o preço ao balcão abrem um
+    // modal em vez de entrar direitos; o nome acessível distingue-os — só os
+    // que têm preço trazem a vírgula e o valor.
+    const primeiro = page.getByRole('button', { name: /^Juntar .+, / }).first();
 
     test.skip((await primeiro.count()) === 0, 'a bancada não tem artigos no POS');
 
