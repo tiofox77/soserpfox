@@ -310,4 +310,112 @@ class ApiDosCatalogosParaReactTest extends TenantTestCase
         $this->getJson(self::RAIZ . '/marcas?por_pagina=5')->assertOk()->assertJsonCount(5, 'data');
         $this->getJson(self::RAIZ . '/marcas?por_pagina=100')->assertOk()->assertJsonCount(7, 'data');
     }
+
+    /* ─── O extrato do fornecedor ─────────────────────────────────────── */
+
+    /**
+     * O EXTRATO — o modal de ver que a migração não trouxe.
+     *
+     * É o que se olha antes de negociar um preço ou de decidir mudar de
+     * fornecedor: quanto já lhe comprámos, quanto lhe devemos, o que mais lhe
+     * compramos e de quanto em quanto tempo.
+     *
+     * @test
+     */
+    public function o_extrato_do_fornecedor_conta_o_que_lhe_comprei(): void
+    {
+        $this->tudoDe('invoicing.suppliers');
+
+        $fornecedor = Supplier::create([
+            'tenant_id' => $this->tenant->id,
+            'name' => 'Fornecedor com histórico',
+            'country' => 'AO',
+        ]);
+
+        $artigo = $this->produtoComStock();
+
+        foreach ([['2026-01-05', 2000.0, 500.0], ['2026-03-05', 6000.0, 6000.0]] as [$data, $total, $pago]) {
+            $compra = \App\Models\Invoicing\PurchaseInvoice::create([
+                'tenant_id' => $this->tenant->id,
+                'supplier_id' => $fornecedor->id,
+                'invoice_number' => 'FC EXTRATO/' . random_int(1000, 9999),
+                'invoice_date' => $data,
+                'due_date' => $data,
+                'status' => 'pending',
+                'total' => $total,
+                'paid_amount' => $pago,
+                'created_by' => $this->user->id,
+            ]);
+
+            \App\Models\Invoicing\PurchaseInvoiceItem::create([
+                'purchase_invoice_id' => $compra->id,
+                'product_id' => $artigo->id,
+                'product_name' => 'Mercadoria do extrato',
+                'quantity' => 3,
+                'unit_price' => $total / 3,
+                'total' => $total,
+            ]);
+        }
+
+        $e = $this->getJson(self::RAIZ . "/fornecedores/{$fornecedor->id}/extrato")->assertOk()->json();
+
+        $this->assertSame(2, $e['resumo']['documentos']);
+        $this->assertEqualsWithDelta(8000, $e['resumo']['facturado'], 0.01);
+        $this->assertEqualsWithDelta(6500, $e['resumo']['pago'], 0.01);
+        $this->assertEqualsWithDelta(1500, $e['resumo']['pendente'], 0.01);
+
+        // Nunca negativa: o `diffInDays` do Carbon 3 devolve valor com sinal.
+        $this->assertGreaterThan(0, $e['resumo']['dias_entre']);
+
+        $this->assertSame('Mercadoria do extrato', $e['artigos'][0]['nome']);
+        $this->assertEqualsWithDelta(6, $e['artigos'][0]['quantidade'], 0.001);
+
+        // O FORNECEDOR NÃO TEM EXTRAS: notas de crédito e recibos são do lado
+        // do cliente. Uma caixa vazia a dizer «Recibos: 0» seria mentira.
+        $this->assertSame([], $e['extras']);
+    }
+
+    /**
+     * SÓ OS FORNECEDORES TÊM EXTRATO.
+     *
+     * Uma marca ou uma unidade de medida não têm nada disto, e um endereço que
+     * responde a todos os catálogos com listas vazias faz acreditar que o
+     * fornecedor não comprou nada.
+     *
+     * @test
+     */
+    public function so_os_fornecedores_tem_extrato(): void
+    {
+        $this->tudoDe('invoicing.brands');
+
+        $marca = Brand::create(['tenant_id' => $this->tenant->id, 'name' => 'Marca sem extrato', 'icon' => 'fa-tag']);
+
+        $this->getJson(self::RAIZ . "/marcas/{$marca->id}/extrato")->assertNotFound();
+
+        // E o esquema anuncia-o, para o ecrã só desenhar o botão onde ele serve.
+        $this->getJson(self::RAIZ . '/marcas/opcoes')->assertOk()->assertJsonPath('extrato', false);
+
+        $this->tudoDe('invoicing.suppliers');
+        $this->getJson(self::RAIZ . '/fornecedores/opcoes')->assertOk()->assertJsonPath('extrato', true);
+    }
+
+    /** O extrato de um fornecedor de outra empresa não abre. @test */
+    public function o_extrato_de_um_fornecedor_alheio_nao_abre(): void
+    {
+        $this->tudoDe('invoicing.suppliers');
+
+        $vizinha = Tenant::create([
+            'name' => 'Vizinha',
+            'slug' => 'vizinha-' . uniqid(),
+            'email' => 'v' . uniqid() . '@ex.com',
+        ]);
+
+        $alheio = Supplier::create([
+            'tenant_id' => $vizinha->id,
+            'name' => 'Fornecedor alheio',
+            'country' => 'AO',
+        ]);
+
+        $this->getJson(self::RAIZ . "/fornecedores/{$alheio->id}/extrato")->assertNotFound();
+    }
 }

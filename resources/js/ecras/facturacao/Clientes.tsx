@@ -22,6 +22,7 @@ import { Modal } from '@/ui/Modal';
 import { IntervaloDeDatas, PorPagina } from '@/ui/FiltrosComuns';
 import { CARTAO, FOCO, GRADIENTES, RAIO, cls } from '@/ui/tokens';
 import { ACCAO_DA_FAIXA, Faixa } from './faixa';
+import { Dado, JanelaDoExtrato, Seccao } from './ExtratoDaParte';
 
 /**
  * OS CLIENTES — o primeiro ecrã que também ESCREVE.
@@ -68,6 +69,8 @@ export default function Clientes() {
     const [recado, porRecado] = useState<string>('');
     /** O ficheiro escolhido no formulário — sobe DEPOIS da ficha gravar. */
     const [logotipo, porLogotipo] = useState<File | null>(null);
+    /** O cliente cuja FICHA está aberta — só para ler. */
+    const [aVer, porAVer] = useState<Cliente | null>(null);
 
     const opcoes = useQuery({
         queryKey: ['clientes', 'opcoes'],
@@ -461,6 +464,21 @@ export default function Clientes() {
                                         </td>
                                         <td className="px-4 py-3">
                                             <div className="flex items-center justify-end gap-1">
+                                                {/* VER A FICHA. Quem só quer consultar não tem de
+                                                    abrir o formulário de edição — que é onde se
+                                                    estraga uma ficha por engano. E é aqui que
+                                                    estão as contas: quanto já comprou, o que
+                                                    deve, de quanto em quanto tempo volta. */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => porAVer(c)}
+                                                    title={t('Ver')}
+                                                    aria-label={t('Ver :nome', { nome: c.name })}
+                                                    className={cls('p-2 text-indigo-600 transition-all duration-200 hover:scale-110 active:scale-100 hover:bg-indigo-50', RAIO, FOCO)}
+                                                >
+                                                    <i className="fas fa-eye" aria-hidden="true" />
+                                                </button>
+
                                                 {permissoes?.pode_editar && (
                                                     <button
                                                         type="button"
@@ -534,6 +552,34 @@ export default function Clientes() {
                     </Botao>
                 </nav>
             )}
+
+            {/* A FICHA DO CLIENTE — o modal de ver que o ecrã em Blade tinha e
+                a migração não trouxe: quatro separadores com a ficha, as
+                contas, os artigos que ele mais leva e a frequência. */}
+            <JanelaDoExtrato
+                aberto={aVer !== null}
+                aoFechar={() => porAVer(null)}
+                titulo={aVer?.name ?? ''}
+                subtitulo={aVer ? [aVer.nif, aVer.tipo_rotulo].filter(Boolean).join(' · ') : undefined}
+                icone="fa-users"
+                cor="bom"
+                caminho={`/clients/${aVer?.id}/extrato`}
+                chave={['clientes', 'extrato', aVer?.id]}
+                rotulos={{
+                    facturado: t('Faturado'),
+                    documentos: t('Faturas'),
+                    artigos: t('Top 10 Produtos Mais Comprados'),
+                    semDocumentos: t('Sem faturas registadas'),
+                }}
+                moradaDoDocumento={(id) => `/invoicing/sales/invoices/${id}`}
+                podeEditar={Boolean(permissoes?.pode_editar)}
+                aoEditar={() => {
+                    const c = aVer;
+                    porAVer(null);
+                    if (c) abrirEdicao(c);
+                }}
+                ficha={aVer && <FichaDoCliente cliente={aVer} />}
+            />
 
             <Formulario
                 dados={formulario}
@@ -746,6 +792,57 @@ function Cartoes({
                 valor={conta(resumo?.com_portal)}
             />
         </div>
+    );
+}
+
+/**
+ * A FICHA DO CLIENTE — o primeiro separador da janela de ver.
+ *
+ * Identificação, contactos, localização e as datas que interessam. É a parte
+ * que difere do fornecedor; o resto da janela (contas, extrato, artigos,
+ * frequência) é o mesmo e vive em `ExtratoDaParte`.
+ */
+function FichaDoCliente({ cliente: c }: { cliente: Cliente }) {
+    return (
+        <>
+            <Seccao titulo={t('Identificação')} icone="fa-id-card">
+                <Dado rotulo={t('Nome:')} valor={c.name} />
+                <Dado rotulo={t('NIF:')} valor={c.nif} />
+                <Dado rotulo={t('Tipo:')} valor={c.tipo_rotulo} />
+                <Dado rotulo={t('Condição:')} valor={c.condicao_pagamento} />
+            </Seccao>
+
+            <Seccao titulo={t('Contactos')} icone="fa-envelope">
+                <Dado rotulo={t('Email:')} valor={c.email} />
+                <Dado rotulo={t('Telefone:')} valor={c.phone} />
+                <Dado rotulo={t('Celular:')} valor={c.mobile} />
+                {/* Se entra no portal — o FACTO, nunca a senha. */}
+                <Dado
+                    rotulo={t('Portal:')}
+                    valor={c.portal_access ? t('Com acesso') : t('Sem acesso')}
+                />
+            </Seccao>
+
+            <Seccao titulo={t('Localização')} icone="fa-location-dot">
+                <Dado rotulo={t('País:')} valor={c.pais_nome} />
+                <Dado rotulo={t('Província:')} valor={c.province} />
+                <Dado rotulo={t('Município:')} valor={c.municipality} />
+                <Dado rotulo={t('Cidade:')} valor={c.city} />
+                <Dado rotulo={t('Bairro:')} valor={c.neighbourhood} />
+                <Dado rotulo={t('Cód. Postal:')} valor={c.postal_code} />
+                <Dado rotulo={t('Endereço:')} valor={c.address} />
+            </Seccao>
+
+            {c.logo && (
+                <Seccao titulo={t('Logótipo')} icone="fa-image">
+                    <img
+                        src={c.logo}
+                        alt={t('Logótipo de :nome', { nome: c.name })}
+                        className="h-24 w-24 rounded-xl object-cover shadow-md ring-1 ring-slate-200"
+                    />
+                </Seccao>
+            )}
+        </>
     );
 }
 

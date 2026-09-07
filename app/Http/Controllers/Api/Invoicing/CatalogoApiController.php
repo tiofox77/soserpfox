@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Invoicing;
 
 use App\Http\Controllers\Controller;
 use App\Services\Invoicing\Catalogos;
+use App\Services\Invoicing\ExtratoDaParte;
 use App\Support\Geografia;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
@@ -57,6 +58,8 @@ class CatalogoApiController extends Controller
             // Se este catálogo aceita o intervalo de datas de criação: é o
             // ecrã que desenha os dois campos, e só onde eles servem.
             'datas' => ! empty($def['datas']),
+            // Se este catálogo tem extrato — a janela de VER com as contas.
+            'extrato' => ! empty($def['extrato']),
             'accoes' => $def['accoes'],
             'referencias' => $this->referencias($def, $tenantId),
             'geografia' => ! empty($def['geografia']) ? [
@@ -180,6 +183,30 @@ class CatalogoApiController extends Controller
             'data' => Catalogos::linha($def, $m->fresh(), $this->referencias($def, $tenantId)),
             'message' => $mensagem,
         ]);
+    }
+
+    /**
+     * O EXTRATO DE UM FORNECEDOR — o que já lhe comprámos.
+     *
+     * É a ficha que o ecrã de sempre abria no modal de ver: as contas, as
+     * últimas facturas de compra, os artigos que mais lhe compramos e a
+     * frequência mês a mês. É o que se olha antes de negociar um preço ou de
+     * decidir se vale a pena mudar de fornecedor.
+     *
+     * SÓ NOS FORNECEDORES: uma marca ou uma unidade de medida não têm extrato
+     * nenhum, e um endereço que responde a todos os catálogos com listas vazias
+     * faz acreditar que o fornecedor não comprou nada.
+     */
+    public function extrato(Request $request, string $tipo, int $id, ExtratoDaParte $extrato): JsonResponse
+    {
+        abort_unless($tipo === 'fornecedores', 404, __('Este catálogo não tem extrato.'));
+
+        $def = $this->definicao($tipo);
+        $this->exigir($request, $def['permissoes']['ver']);
+
+        $fornecedor = $this->encontrar($def, activeTenantId(), $id);
+
+        return response()->json($extrato->doFornecedor($fornecedor));
     }
 
     /** O logótipo do fornecedor: um ficheiro na pasta dele, como sempre. */

@@ -705,4 +705,134 @@ class ApiDosClientesParaReactTest extends TenantTestCase
         $this->assertTrue($desdeOntem->contains($hoje));
         $this->assertFalse($desdeOntem->contains($antigo));
     }
+
+    /* ─── O extrato: a ficha de ver ───────────────────────────────────── */
+
+    /**
+     * O EXTRATO DO CLIENTE — o modal de ver que a migração não trouxe.
+     *
+     * São as duas perguntas que se fazem antes de dar crédito ou negociar um
+     * preço: quanto já comprou, e de quanto em quanto tempo volta.
+     *
+     * @test
+     */
+    public function o_extrato_conta_o_que_o_cliente_comprou(): void
+    {
+        $this->comPermissoes('invoicing.clients.view');
+
+        $cliente = $this->clienteEmpresa();
+        $artigo = $this->produtoComStock();
+
+        foreach ([['2026-01-10', 1000.0, 400.0], ['2026-02-10', 3000.0, 3000.0]] as [$data, $total, $pago]) {
+            $factura = SalesInvoice::create([
+                'tenant_id' => $this->tenant->id,
+                'client_id' => $cliente->id,
+                'invoice_number' => 'FT EXTRATO/' . random_int(1000, 9999),
+                'invoice_date' => $data,
+                'due_date' => $data,
+                'status' => 'sent',
+                'total' => $total,
+                'paid_amount' => $pago,
+                'created_by' => $this->user->id,
+            ]);
+
+            \App\Models\Invoicing\SalesInvoiceItem::create([
+                'sales_invoice_id' => $factura->id,
+                'product_id' => $artigo->id,
+                'product_name' => 'Artigo do extrato',
+                'quantity' => 2,
+                'unit_price' => $total / 2,
+                'total' => $total,
+            ]);
+        }
+
+        $e = $this->getJson(self::RAIZ . "/{$cliente->id}/extrato")->assertOk()->json();
+
+        $this->assertSame(2, $e['resumo']['documentos']);
+        $this->assertEqualsWithDelta(4000, $e['resumo']['facturado'], 0.01);
+        $this->assertEqualsWithDelta(3400, $e['resumo']['pago'], 0.01);
+        $this->assertEqualsWithDelta(600, $e['resumo']['pendente'], 0.01);
+        $this->assertEqualsWithDelta(2000, $e['resumo']['ticket_medio'], 0.01);
+
+        // A PRIMEIRA E A ÚLTIMA saem por ordem, e não trocadas.
+        $this->assertSame('2026-01-10', $e['resumo']['primeira']);
+        $this->assertSame('2026-02-10', $e['resumo']['ultima']);
+
+        /*
+         * A MÉDIA DE DIAS NUNCA É NEGATIVA.
+         *
+         * O `diffInDays` do Carbon 3 devolve valor com sinal, e o cálculo
+         * herdado do Livewire comparava cada data com a anterior — a ficha de
+         * um cliente com 52 facturas mostrava «−0,1 dias».
+         */
+        $this->assertGreaterThan(0, $e['resumo']['dias_entre']);
+        $this->assertEqualsWithDelta(31, $e['resumo']['dias_entre'], 1);
+
+        // Os artigos que ele mais leva.
+        $this->assertSame('Artigo do extrato', $e['artigos'][0]['nome']);
+        $this->assertEqualsWithDelta(4, $e['artigos'][0]['quantidade'], 0.001);
+        $this->assertSame(2, $e['artigos'][0]['documentos']);
+
+        // E as últimas facturas, com o saldo já feito.
+        $this->assertCount(2, $e['documentos']);
+        $this->assertEqualsWithDelta(600, collect($e['documentos'])->sum('saldo'), 0.01);
+
+        // A frequência, mês a mês.
+        $this->assertCount(2, $e['frequencia']);
+        $this->assertSame('2026-01', $e['frequencia'][0]['periodo']);
+    }
+
+    /**
+     * UM CLIENTE SEM COMPRAS NENHUMAS não rebenta nem inventa números.
+     *
+     * O ticket médio de zero facturas seria uma divisão por zero — que sai no
+     * JSON como `null` e no ecrã como um espaço em branco.
+     *
+     * @test
+     */
+    public function o_extrato_de_um_cliente_sem_compras_responde_a_zeros(): void
+    {
+        $this->comPermissoes('invoicing.clients.view');
+
+        $cliente = $this->clienteEmpresa();
+
+        $e = $this->getJson(self::RAIZ . "/{$cliente->id}/extrato")->assertOk()->json();
+
+        $this->assertSame(0, $e['resumo']['documentos']);
+        // `assertEquals` e não `assertSame`: o JSON escreve `0.0` como `0`, e
+        // o que interessa é o valor, não o tipo com que atravessou a rede.
+        $this->assertEquals(0, $e['resumo']['ticket_medio']);
+        $this->assertEquals(0, $e['resumo']['dias_entre']);
+        $this->assertNull($e['resumo']['primeira']);
+        $this->assertSame([], $e['documentos']);
+        $this->assertSame([], $e['artigos']);
+    }
+
+    /** O extrato exige a permissão de ver clientes, e o cliente é desta empresa. @test */
+    public function o_extrato_segue_a_permissao_e_a_empresa(): void
+    {
+        $cliente = $this->clienteEmpresa();
+
+        $this->getJson(self::RAIZ . "/{$cliente->id}/extrato")->assertForbidden();
+
+        $this->comPermissoes('invoicing.clients.view');
+
+        $vizinha = Tenant::create([
+            'name' => 'Vizinha do extrato',
+            'slug' => 'vizinha-ext-' . uniqid(),
+            'nif' => (string) random_int(500000000, 599999999),
+            'email' => 'vext' . uniqid() . '@exemplo.ao',
+            'is_active' => true,
+        ]);
+
+        $alheio = Client::create([
+            'tenant_id' => $vizinha->id,
+            'type' => 'pessoa_juridica',
+            'name' => 'Cliente alheio',
+            'nif' => '5000000777',
+            'country' => 'AO',
+        ]);
+
+        $this->getJson(self::RAIZ . "/{$alheio->id}/extrato")->assertNotFound();
+    }
 }

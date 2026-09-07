@@ -9,6 +9,7 @@ use App\Models\Invoicing\PaymentTerm;
 use App\Rules\PaisIso;
 use App\Rules\ValidateNIF;
 use App\Services\Clientes\AcessoAoPortal;
+use App\Services\Invoicing\ExtratoDaParte;
 use App\Support\Geografia;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -217,6 +218,25 @@ class ClientApiController extends Controller
                 'pode_apagar' => (bool) $request->user()?->can('invoicing.clients.delete'),
             ],
         ]);
+    }
+
+    /**
+     * O EXTRATO DO CLIENTE — o que ele já nos comprou.
+     *
+     * É a ficha que o ecrã de sempre abria no modal de ver: as contas, as
+     * últimas facturas, os artigos que mais leva e a frequência mês a mês. São
+     * as duas perguntas que se fazem antes de dar crédito ou negociar um
+     * preço: quanto já comprou, e de quanto em quanto tempo volta.
+     *
+     * As contas vivem no `ExtratoDaParte` — as mesmas do lado do fornecedor,
+     * vistas do outro lado — e respeitam o escopo do autor: sem
+     * `invoicing.documents.all`, isto conta o que ESTE utilizador facturou.
+     */
+    public function extrato(Request $request, int $id, ExtratoDaParte $extrato): JsonResponse
+    {
+        $this->exigir($request, 'invoicing.clients.view');
+
+        return response()->json($extrato->doCliente($this->doTenant($id)));
     }
 
     /**

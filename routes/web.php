@@ -470,6 +470,11 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         // de pagamento e impostos — uma API só, o esquema vem do Catalogos.
         Route::get('/catalogos/{tipo}/opcoes', [\App\Http\Controllers\Api\Invoicing\CatalogoApiController::class, 'opcoes'])
             ->where('tipo', '[a-z-]+')->name('catalogos.opcoes');
+        // O EXTRATO — só nos fornecedores, que são os únicos que o têm. Vem
+        // ANTES do `{tipo}/{id}` genérico: uma rota mais larga declarada antes
+        // apanharia `/fornecedores/12/extrato` como um `accao`.
+        Route::get('/catalogos/{tipo}/{id}/extrato', [\App\Http\Controllers\Api\Invoicing\CatalogoApiController::class, 'extrato'])
+            ->where('tipo', '[a-z-]+')->whereNumber('id')->name('catalogos.extrato');
         Route::get('/catalogos/{tipo}', [\App\Http\Controllers\Api\Invoicing\CatalogoApiController::class, 'index'])
             ->where('tipo', '[a-z-]+')->name('catalogos.index');
         Route::post('/catalogos/{tipo}', [\App\Http\Controllers\Api\Invoicing\CatalogoApiController::class, 'store'])
@@ -632,6 +637,11 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             ->whereNumber('id')->name('clients.update');
         Route::delete('/clients/{id}', [\App\Http\Controllers\Api\Invoicing\ClientApiController::class, 'destroy'])
             ->whereNumber('id')->name('clients.destroy');
+
+        // O EXTRATO DO CLIENTE: as contas, as últimas facturas, os artigos que
+        // mais leva e a frequência. É o que se olha antes de dar crédito.
+        Route::get('/clients/{id}/extrato', [\App\Http\Controllers\Api\Invoicing\ClientApiController::class, 'extrato'])
+            ->whereNumber('id')->name('clients.extrato');
 
         // O logótipo do cliente. Um ficheiro não viaja em JSON — vai em
         // multipart, como o logótipo dos catálogos e as imagens do artigo.

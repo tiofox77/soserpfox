@@ -13,6 +13,7 @@ import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { IntervaloDeDatas, PorPagina } from '@/ui/FiltrosComuns';
 import { ACCAO_DA_FAIXA, Faixa, type TomDaFaixa } from './faixa';
+import { Dado, JanelaDoExtrato, Seccao } from './ExtratoDaParte';
 import { FOCO, RAIO, cls, kz } from '@/ui/tokens';
 import { etiquetaIntl, t, tPartes } from '@/i18n';
 
@@ -60,6 +61,8 @@ export default function Catalogo({ tipo }: { tipo: string }) {
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [aApagar, porAApagar] = useState<Linha | null>(null);
     const [recado, porRecado] = useState('');
+    /** A linha cuja FICHA está aberta — só nos catálogos que têm extrato. */
+    const [aVer, porAVer] = useState<Linha | null>(null);
 
     const opcoes = useQuery({ queryKey: ['catalogo', tipo, 'opcoes'], queryFn: () => catalogos.opcoes(tipo), staleTime: 5 * 60_000 });
     const lista = useQuery({ queryKey: ['catalogo', tipo, filtros], queryFn: () => catalogos.lista(tipo, filtros), placeholderData: keepPreviousData });
@@ -138,6 +141,36 @@ export default function Catalogo({ tipo }: { tipo: string }) {
             )}
 
             <AvisoDeErro erro={apagar.error ?? accao.error ?? logotipo.error} />
+
+            {/* A FICHA DO FORNECEDOR — o modal de ver que o ecrã em Blade tinha
+                e a migração não trouxe: as contas do que já lhe comprámos, as
+                últimas facturas, o que mais lhe compramos e a frequência. */}
+            {o.extrato && (
+                <JanelaDoExtrato
+                    aberto={aVer !== null}
+                    aoFechar={() => porAVer(null)}
+                    titulo={String(aVer?.name ?? '')}
+                    subtitulo={aVer?.nif ? String(aVer.nif) : undefined}
+                    icone={o.icone}
+                    cor={(o.cor as TomDaFaixa) ?? 'primaria'}
+                    caminho={`/catalogos/${tipo}/${aVer?.id}/extrato`}
+                    chave={['catalogo', tipo, 'extrato', aVer?.id]}
+                    rotulos={{
+                        facturado: t('Comprado'),
+                        documentos: t('Faturas'),
+                        artigos: t('Top 10 Produtos Comprados a Este Fornecedor'),
+                        semDocumentos: t('Sem faturas registadas'),
+                    }}
+                    moradaDoDocumento={(id) => `/invoicing/purchases/invoices/${id}`}
+                    podeEditar={o.permissoes.pode_escrever}
+                    aoEditar={() => {
+                        const l = aVer;
+                        porAVer(null);
+                        if (l) abrirEdicao(l);
+                    }}
+                    ficha={aVer && <FichaDaLinha linha={aVer} colunas={o.campos} />}
+                />
+            )}
 
             {/* OS CARTÕES DO TOPO. A contagem é a do servidor, com os filtros
                 postos; o que está contado nas linhas à vista di-lo no cartão. */}
@@ -299,8 +332,26 @@ export default function Catalogo({ tipo }: { tipo: string }) {
                                     )}
                                     {o.colunas.map((c) => <td key={c.chave} className={cls('px-4 py-2', c.alinhar === 'direita' && 'text-right tabular-nums')}><Celula c={c} l={l} /></td>)}
                                     <td className="px-4 py-2 text-right">
-                                        {o.permissoes.pode_escrever && (
-                                            <span className="flex justify-end gap-1">
+                                        <span className="flex justify-end gap-1">
+                                            {/* VER A FICHA — só onde há uma para ver, e
+                                                basta a permissão de VER: são as contas
+                                                do fornecedor, não uma edição. Fica FORA
+                                                do bloco de escrever, que é o que separa
+                                                consultar de mexer. */}
+                                            {o.extrato && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => porAVer(l)}
+                                                    title={t('Ver')}
+                                                    aria-label={t('Ver: :nome', { nome: String(l.name ?? l.id) })}
+                                                    className={cls('p-2 text-slate-400 transition-all duration-200 hover:scale-110 active:scale-100 hover:text-indigo-600', RAIO, FOCO)}
+                                                >
+                                                    <i className="fas fa-eye" aria-hidden="true" />
+                                                </button>
+                                            )}
+
+                                            {o.permissoes.pode_escrever && (
+                                            <>
                                                 {o.accoes.padrao && !l.is_default && (
                                                     <button type="button" onClick={() => accao.mutate({ l, qual: 'padrao' })} title={t('Tornar padrão')} aria-label={t('Tornar padrão: :nome', { nome: String(l.name ?? l.id) })} className={cls('p-2 text-slate-400 transition-all duration-200 hover:scale-110 active:scale-100 hover:text-amber-500', RAIO, FOCO)}><i className="fas fa-star" aria-hidden="true" /></button>
                                                 )}
@@ -318,8 +369,9 @@ export default function Catalogo({ tipo }: { tipo: string }) {
                                                 {o.accoes.apagar && (
                                                     <button type="button" disabled={!l.pode_apagar} onClick={() => porAApagar(l)} title={l.pode_apagar ? t('Apagar') : t('Em uso — não se pode apagar')} aria-label={t('Apagar: :nome', { nome: String(l.name ?? l.id) })} className={cls('p-2 text-slate-400 transition-all duration-200 hover:scale-110 active:scale-100 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40', RAIO, FOCO)}><i className="fas fa-trash" aria-hidden="true" /></button>
                                                 )}
-                                            </span>
-                                        )}
+                                            </>
+                                            )}
+                                        </span>
                                     </td>
                                 </tr>
                             ))}
@@ -539,6 +591,62 @@ function CampoDeEsquema({ c, valor, erro, o, valores, aoMudar }: {
             {controlo}
             {c.ajuda && <p className="mt-1 text-xs text-slate-400">{c.ajuda}</p>}
         </CampoDoFormulario>
+    );
+}
+
+/**
+ * A FICHA DE UMA LINHA DO CATÁLOGO — o primeiro separador da janela de ver.
+ *
+ * Desenha-se a partir dos CAMPOS DO ESQUEMA, e não de uma lista escrita à mão:
+ * é o mesmo princípio do resto deste ecrã. Um campo novo no fornecedor aparece
+ * aqui sem ninguém tocar neste ficheiro — e nenhum fica esquecido.
+ *
+ * As caixas de escolha lêem-se «Sim»/«Não» e não `true`/`false`: quem lê a
+ * ficha não está a ler JSON.
+ */
+function FichaDaLinha({ linha, colunas }: { linha: Linha; colunas: Campo[] }) {
+    // Os campos de morada vão juntos numa secção própria, como o formulário os
+    // agrupa: soltos entre o NIF e o email, ninguém os lê como uma morada.
+    const daMorada = ['country', 'province', 'municipality', 'neighbourhood', 'city', 'postal_code', 'address'];
+
+    const identificacao = colunas.filter((c) => !daMorada.includes(c.chave));
+    const morada = colunas.filter((c) => daMorada.includes(c.chave));
+
+    const valorDe = (c: Campo) => {
+        const v = linha[c.chave];
+
+        if (typeof v === 'boolean') return v ? t('Sim') : t('Não');
+        // O rótulo já resolvido do servidor (o país por extenso, a
+        // categoria-mãe pelo nome) ganha ao número cru.
+        return linha.rotulos?.[c.chave] || (v === null || v === undefined ? null : String(v));
+    };
+
+    return (
+        <>
+            <Seccao titulo={t('Identificação')} icone="fa-id-card">
+                {identificacao.map((c) => (
+                    <Dado key={c.chave} rotulo={`${c.rotulo}:`} valor={valorDe(c)} />
+                ))}
+            </Seccao>
+
+            {morada.length > 0 && (
+                <Seccao titulo={t('Localização')} icone="fa-location-dot">
+                    {morada.map((c) => (
+                        <Dado key={c.chave} rotulo={`${c.rotulo}:`} valor={valorDe(c)} />
+                    ))}
+                </Seccao>
+            )}
+
+            {linha.logo && (
+                <Seccao titulo={t('Logótipo')} icone="fa-image">
+                    <img
+                        src={String(linha.logo)}
+                        alt=""
+                        className="h-24 w-24 rounded-xl object-contain shadow-md ring-1 ring-slate-200"
+                    />
+                </Seccao>
+            )}
+        </>
     );
 }
 

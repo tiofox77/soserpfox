@@ -148,6 +148,13 @@ final class Catalogos
             },
             'accoes' => ['activar' => false, 'padrao' => false, 'logotipo' => true, 'apagar' => true],
             'geografia' => true,
+            /*
+             * O FORNECEDOR TEM EXTRATO — o que já lhe comprámos, quanto se lhe
+             * deve, o que mais lhe compramos e de quanto em quanto tempo. Uma
+             * marca ou uma unidade de medida não têm nada disto, e uma janela
+             * que abre vazia faz acreditar que não se comprou nada.
+             */
+            'extrato' => true,
         ];
     }
 

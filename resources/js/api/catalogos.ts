@@ -64,6 +64,8 @@ export type OpcoesDoCatalogo = {
     filtros: Filtro[];
     /** Se este catálogo aceita o intervalo de datas de criação. */
     datas: boolean;
+    /** Se tem ficha de VER com extrato — hoje, só os fornecedores. */
+    extrato: boolean;
     accoes: { activar: boolean; padrao: boolean; logotipo: boolean; apagar: boolean };
     referencias: Record<string, Escolha[]>;
     geografia: { paises: Escolha[]; provincias: string[]; municipios: Record<string, string[]>; pais_padrao: string } | null;
