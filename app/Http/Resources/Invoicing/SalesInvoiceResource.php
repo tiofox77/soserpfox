@@ -64,6 +64,32 @@ class SalesInvoiceResource extends JsonResource
             'pode_creditar' => ! $this->jaTotalmenteCreditada(),
             'pode_receber' => $this->porReceber() > 0.01,
             'e_rascunho' => $this->status === 'draft',
+
+            /*
+             * EDITAR E ELIMINAR SÓ ANTES DE SER DOCUMENTO FISCAL.
+             *
+             * Não basta estar em rascunho: `invoice_status === 'F'` quer dizer
+             * FINALIZADA — assinada e com número de série. Um documento fiscal
+             * emitido não se corrige nem se apaga, rectifica-se por Nota de
+             * Crédito (Decreto 71/25). O ecrã de sempre exigia as duas
+             * condições e é isso que aqui se repete, decidido de uma vez em
+             * vez de o browser as voltar a juntar.
+             */
+            'pode_editar' => $this->status === 'draft' && $this->invoice_status !== 'F',
+
+            /*
+             * E NÃO SE APAGA O QUE JÁ RECEBEU DINHEIRO. Um pagamento aponta
+             * para a factura; apagá-la deixava o movimento de tesouraria a
+             * apontar para o nada.
+             *
+             * AQUI SÓ O QUE SE SABE SEM PERGUNTAR À BASE. Procurar movimentos
+             * de tesouraria por linha seriam cem consultas numa página de cem
+             * facturas. Essa verificação vive no endpoint, que é onde tem de
+             * viver: um botão apagado nunca foi segurança.
+             */
+            'pode_apagar' => $this->status === 'draft'
+                && $this->invoice_status !== 'F'
+                && (float) ($this->paid_amount ?? 0) <= 0,
         ];
     }
 

@@ -443,4 +443,150 @@ class ApiDasFacturasParaReactTest extends TenantTestCase
         $this->assertFalse($r->json('data.0.pode_receber'), 'e não se recebe contra um rascunho');
         $this->assertEquals(0, $r->json('meta.somas.por_receber'), 'nem entra na soma do cartão');
     }
+
+    /* ─── Apagar um rascunho ──────────────────────────────────────────── */
+
+    /**
+     * UM DOCUMENTO FISCAL EMITIDO NÃO SE APAGA.
+     *
+     * `invoice_status = 'F'` quer dizer assinada e numerada: rectifica-se por
+     * Nota de Crédito, nunca por `delete` (Decreto 71/25). Uma factura que
+     * desaparece abre um buraco na sequência — e a sequência é o que a AGT
+     * verifica.
+     *
+     * @test
+     */
+    public function uma_factura_emitida_nao_se_apaga(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.view', 'invoicing.sales.invoices.delete');
+
+        $f = $this->factura(['status' => 'sent', 'invoice_status' => 'F']);
+
+        $this->deleteJson(self::LISTA . '/' . $f->id)->assertStatus(422);
+
+        $this->assertNotNull(SalesInvoice::find($f->id), 'continua lá');
+    }
+
+    /** Nem uma que já não seja rascunho, mesmo sem estar finalizada. @test */
+    public function so_o_rascunho_se_apaga(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.view', 'invoicing.sales.invoices.delete');
+
+        $f = $this->factura(['status' => 'sent']);
+
+        $this->deleteJson(self::LISTA . '/' . $f->id)->assertStatus(422);
+        $this->assertNotNull(SalesInvoice::find($f->id));
+    }
+
+    /**
+     * E NÃO SE APAGA O QUE JÁ RECEBEU DINHEIRO.
+     *
+     * Um recibo ou um movimento de tesouraria apontam para a factura; apagá-la
+     * deixava-os a apontar para o nada.
+     *
+     * @test
+     */
+    public function um_rascunho_com_dinheiro_recebido_nao_se_apaga(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.view', 'invoicing.sales.invoices.delete');
+
+        $f = $this->factura(['status' => 'draft', 'total' => 5000, 'paid_amount' => 1500]);
+
+        $this->deleteJson(self::LISTA . '/' . $f->id)->assertStatus(422);
+        $this->assertNotNull(SalesInvoice::find($f->id));
+    }
+
+    /** @test */
+    public function um_rascunho_limpo_apaga_se(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.view', 'invoicing.sales.invoices.delete');
+
+        $f = $this->factura(['status' => 'draft', 'total' => 5000, 'paid_amount' => 0]);
+
+        $this->deleteJson(self::LISTA . '/' . $f->id)->assertOk();
+
+        $this->assertNull(SalesInvoice::find($f->id));
+    }
+
+    /** Ver não dá direito a apagar. @test */
+    public function sem_a_permissao_de_apagar_a_porta_esta_fechada(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.view');
+
+        $f = $this->factura(['status' => 'draft']);
+
+        $this->deleteJson(self::LISTA . '/' . $f->id)->assertForbidden();
+        $this->assertNotNull(SalesInvoice::find($f->id));
+    }
+
+    /** A factura da empresa do lado não se apaga daqui. @test */
+    public function uma_factura_de_outra_empresa_nao_se_apaga(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.view', 'invoicing.sales.invoices.delete');
+
+        $outra = \App\Models\Tenant::create(['name' => 'Outra', 'slug' => 'outra-' . uniqid(), 'is_active' => true]);
+
+        $alheia = SalesInvoice::create([
+            'tenant_id' => $outra->id,
+            // O cliente é obrigatório na coluna; qual é indiferente ao que
+            // este ensaio guarda — que a factura é de OUTRA empresa.
+            'client_id' => $this->clienteEmpresa()->id,
+            'invoice_number' => 'FT ALHEIA/0001',
+            'invoice_date' => now()->toDateString(),
+            'status' => 'draft',
+            'total' => 100,
+            'created_by' => $this->user->id,
+        ]);
+
+        $this->deleteJson(self::LISTA . '/' . $alheia->id)->assertNotFound();
+        $this->assertNotNull(SalesInvoice::withoutGlobalScopes()->find($alheia->id));
+    }
+
+    /**
+     * A LISTA DIZ QUEM SE PODE EDITAR E APAGAR — decidido no servidor.
+     *
+     * Não basta o rascunho: `invoice_status = 'F'` quer dizer finalizada. O
+     * ecrã recebe a decisão pronta em vez de a voltar a juntar no browser.
+     *
+     * @test
+     */
+    public function a_lista_diz_o_que_se_pode_editar_e_apagar(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.view');
+
+        $this->factura(['invoice_number' => 'FT A/0001', 'status' => 'draft', 'paid_amount' => 0]);
+
+        $r = $this->getJson(self::LISTA)->assertOk();
+
+        $this->assertTrue($r->json('data.0.pode_editar'));
+        $this->assertTrue($r->json('data.0.pode_apagar'));
+
+        // E as contagens por estado, que os cartões do ecrã de sempre tinham.
+        $this->assertSame(1, $r->json('meta.contagens.rascunhos'));
+    }
+
+    /** Um rascunho FINALIZADO não se corrige por cima. @test */
+    public function um_rascunho_finalizado_ja_nao_se_edita(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.view');
+
+        $this->factura(['status' => 'draft', 'invoice_status' => 'F']);
+
+        $r = $this->getJson(self::LISTA)->assertOk();
+
+        $this->assertFalse($r->json('data.0.pode_editar'), 'finalizada é documento fiscal');
+        $this->assertFalse($r->json('data.0.pode_apagar'));
+    }
+
+    /** As opções dizem ao ecrã que botões desenhar. @test */
+    public function as_opcoes_dizem_quem_pode_o_que(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.view', 'invoicing.sales.invoices.create');
+
+        $r = $this->getJson(self::OPCOES)->assertOk();
+
+        $this->assertTrue($r->json('permissoes.pode_criar'), 'sem isto a lista não tem por onde criar');
+        $this->assertFalse($r->json('permissoes.pode_apagar'));
+        $this->assertIsBool($r->json('eliminacao_bloqueada'));
+    }
 }

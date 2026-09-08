@@ -378,6 +378,10 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
     Route::prefix('react')->name('react.')->group(function () {
         Route::get('/sales-invoices', [\App\Http\Controllers\Api\Invoicing\SalesInvoiceApiController::class, 'index'])
             ->name('sales-invoices.index');
+        // Apagar um RASCUNHO — nunca um documento fiscal emitido, que se
+        // rectifica por nota de crédito. As guardas estão no controlador.
+        Route::delete('/sales-invoices/{id}', [\App\Http\Controllers\Api\Invoicing\SalesInvoiceApiController::class, 'eliminar'])
+            ->whereNumber('id')->name('sales-invoices.eliminar');
         Route::get('/sales-invoices/opcoes', [\App\Http\Controllers\Api\Invoicing\SalesInvoiceApiController::class, 'opcoes'])
             ->name('sales-invoices.opcoes');
 

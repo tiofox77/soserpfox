@@ -66,6 +66,15 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
     const [pagamento, porPagamento] = useState('');
     const [descontoComercial, porDescontoComercial] = useState('');
     const [descontoFinanceiro, porDescontoFinanceiro] = useState('');
+    /*
+     * O DESCONTO DE SEMPRE — o `discount_amount`, anterior aos dois acima.
+     * Continua na base e continua a somar ao comercial no cálculo; tirá-lo do
+     * formulário fazia com que uma factura antiga aberta para editar perdesse
+     * o desconto que tinha, sem ninguém dar por isso.
+     */
+    const [descontoLegado, porDescontoLegado] = useState('');
+    /* Prestação de serviço: é o que liga a retenção de IRT. */
+    const [servico, porServico] = useState(false);
     const [retencaoTipo, porRetencaoTipo] = useState('');
     const [retencaoPct, porRetencaoPct] = useState('');
     const [notas, porNotas] = useState('');
@@ -106,6 +115,8 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
         porPagamento(d.payment_method ?? '');
         porDescontoComercial(d.discount_commercial ? String(d.discount_commercial) : '');
         porDescontoFinanceiro(d.discount_financial ? String(d.discount_financial) : '');
+        porDescontoLegado(d.discount_amount ? String(d.discount_amount) : '');
+        porServico(!!d.is_service);
         porRetencaoTipo(d.withholding_type ?? '');
         porRetencaoPct(d.withholding_percentage ? String(d.withholding_percentage) : '');
         porNotas(d.notes ?? '');
@@ -159,6 +170,10 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
                     linhas: comLinhas,
                     discount_commercial: Number(descontoComercial) || 0,
                     discount_financial: Number(descontoFinanceiro) || 0,
+                    // Sem estes, o total do ecrã não batia com o que o servidor
+                    // ia assinar — e a diferença só aparecia depois de emitir.
+                    discount_amount: Number(descontoLegado) || 0,
+                    is_service: servico,
                 })
                 .then((r) => { if (!cancelado) porTotais(r.totais); })
                 .catch(() => { if (!cancelado) porTotais(null); })
@@ -166,7 +181,7 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
         }, 400);
 
         return () => { cancelado = true; clearTimeout(pausa); };
-    }, [linhas, descontoComercial, descontoFinanceiro]);
+    }, [linhas, descontoComercial, descontoFinanceiro, descontoLegado, servico]);
 
     const retencaoValor = totais && retencaoPct ? Math.round(totais.base * Number(retencaoPct)) / 100 : 0;
 
@@ -185,6 +200,8 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
                 payment_method: tipo === 'FR' ? pagamento || null : null,
                 discount_commercial: Number(descontoComercial) || 0,
                 discount_financial: Number(descontoFinanceiro) || 0,
+                discount_amount: Number(descontoLegado) || 0,
+                is_service: servico,
                 withholding_type: retencaoTipo || null,
                 withholding_percentage: Number(retencaoPct) || 0,
                 withholding_amount: retencaoValor,
@@ -227,6 +244,16 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
     const seriesDoTipo = o.series.filter((s) => (tipo === 'FR' ? s.document_type === 'pos' : s.document_type === 'invoice'));
     const temFisicos = linhas.some((l) => o.artigos.find((a) => a.id === l.product_id)?.type !== 'servico' && l.product_id !== null);
 
+    /*
+     * A REGIÃO QUE VAI SER APLICADA.
+     *
+     * Escolhida à mão, é a escolhida. Em «automática», é a do CLIENTE — e essa
+     * vem decidida do servidor (`TaxResolver`), no próprio cliente: a regra de
+     * que Cabinda tem regime próprio não se reescreve aqui em JavaScript,
+     * porque decide quanto imposto se cobra.
+     */
+    const regiaoAplicada = regiao || o.clientes.find((c) => String(c.id) === clienteId)?.regiao || 'AO';
+
     const mudarLinha = (i: number, campo: keyof LinhaDaFactura, valor: string) =>
         porLinhas((ls) =>
             ls.map((l, j) => {
@@ -268,19 +295,70 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
             <fieldset disabled={soLeitura} className="min-w-0 space-y-4 border-0 p-0">
             <Cartao titulo={t('Documento')} icone="fa-circle-info">
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <Campo etiqueta={t('Tipo')} erro={erros.invoice_type} obrigatorio>
-                        {/* O tipo define a série e só se fixa na criação. */}
-                        <select value={tipo} onChange={(e) => porTipo(e.target.value as 'FT' | 'FR')} disabled={id !== undefined} className={entrada}>
-                            <option value="FT">{t('Factura (FT)')}</option>
-                            <option value="FR">{t('Factura-Recibo (FR) — paga no acto')}</option>
-                        </select>
+                    {/* O TIPO SÃO DUAS ESCOLHAS COM CONSEQUÊNCIAS DIFERENTES,
+                        e não duas linhas de uma lista.
+
+                        A FT paga-se depois e o recibo vem no pagamento; a FR é
+                        paga no acto e usa a MESMA sequência do POS. Quem
+                        factura precisa de saber isso ANTES de escolher — o
+                        ecrã de sempre punha as duas frases à vista, e num
+                        `<select>` elas não cabem. Só se fixa na criação. */}
+                    <Campo etiqueta={t('Tipo de Documento')} erro={erros.invoice_type} obrigatorio className="sm:col-span-2">
+                        <div className="grid grid-cols-2 gap-3">
+                            {([
+                                ['FT', t('Factura'), t('A pagar depois. O recibo é emitido no pagamento.'), 'indigo'],
+                                ['FR', t('Factura-Recibo'), t('Paga no acto. Usa a mesma sequência do POS.'), 'emerald'],
+                            ] as const).map(([valor, nome, explicacao, cor]) => (
+                                <label
+                                    key={valor}
+                                    className={cls(
+                                        'cursor-pointer border-2 p-3 transition-all duration-200',
+                                        RAIO,
+                                        id !== undefined && 'cursor-not-allowed opacity-60',
+                                        tipo === valor
+                                            ? (cor === 'emerald'
+                                                ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-100'
+                                                : 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-100')
+                                            : 'border-slate-200 hover:border-slate-300',
+                                    )}
+                                >
+                                    <span className="flex items-start gap-2">
+                                        <input
+                                            type="radio"
+                                            name="invoice_type"
+                                            value={valor}
+                                            checked={tipo === valor}
+                                            disabled={id !== undefined}
+                                            onChange={() => porTipo(valor)}
+                                            className={cls('mt-1', cor === 'emerald' ? 'text-emerald-600' : 'text-indigo-600')}
+                                        />
+                                        <span>
+                                            <span className="block text-sm font-bold text-slate-900">
+                                                {nome} <span className="font-mono text-xs text-slate-500">({valor})</span>
+                                            </span>
+                                            <span className="mt-0.5 block text-[11px] text-slate-600">{explicacao}</span>
+                                        </span>
+                                    </span>
+                                </label>
+                            ))}
+                        </div>
                     </Campo>
 
-                    <Campo etiqueta={t('Série')} erro={erros.series_id}>
+                    <Campo
+                        etiqueta={t('Série fiscal')}
+                        erro={erros.series_id}
+                        className="sm:col-span-2"
+                        /* A NOTA DA SÉRIE: o ecrã de sempre explicava porque é
+                           que a lista é curta. Sem ela, quem não vê a sua série
+                           conclui que o sistema a perdeu. */
+                        ajuda={t('Apenas séries activas desta empresa e sincronizadas com a AGT são apresentadas.')}
+                    >
                         <select value={serieId} onChange={(e) => porSerieId(e.target.value)} disabled={id !== undefined} className={entrada}>
                             {seriesDoTipo.length === 0 && <option value="">{t('Sem série activa para este tipo')}</option>}
                             {seriesDoTipo.map((s) => (
-                                <option key={s.id} value={s.id}>{s.series_code} · {s.name}</option>
+                                <option key={s.id} value={s.id}>
+                                    {s.series_code} · {s.name}{s.is_default ? ` (${t('por omissão')})` : ''}
+                                </option>
                             ))}
                         </select>
                     </Campo>
@@ -331,9 +409,23 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
 
                     {/* Cabinda tem regime próprio. Por omissão deriva da província do cliente. */}
                     <Campo etiqueta={t('Região fiscal')} erro={erros.tax_country_region}>
-                        <select value={regiao} onChange={(e) => porRegiao(e.target.value)} className={entrada}>
-                            {o.regioes.map((r) => <option key={r.valor} value={r.valor}>{r.rotulo}</option>)}
-                        </select>
+                        <span className="flex items-center gap-2">
+                            <select value={regiao} onChange={(e) => porRegiao(e.target.value)} className={entrada}>
+                                {o.regioes.map((r) => <option key={r.valor} value={r.valor}>{r.rotulo}</option>)}
+                            </select>
+
+                            {/* O QUE VAI MESMO SER APLICADO.
+                                Deixado em «automática», a região sai da província
+                                do cliente — e quem factura não tem como saber
+                                qual saiu. O crachá estava no ecrã de sempre e
+                                diz-o: com Cabinda, o imposto é outro. */}
+                            <span className={cls(
+                                'shrink-0 rounded-full px-2.5 py-1 text-xs font-bold',
+                                regiaoAplicada === 'AO-CAB' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600',
+                            )}>
+                                {t('a aplicar')}: {regiaoAplicada}
+                            </span>
+                        </span>
                     </Campo>
 
                     {tipo === 'FR' && (
@@ -379,30 +471,112 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
                                 <th className={cls('w-24 text-right', CELULA_DO_CABECALHO)}>{t('Qtd.')}</th>
                                 <th className={cls('w-32 text-right', CELULA_DO_CABECALHO)}>{t('Preço')}</th>
                                 <th className={cls('w-24 text-right', CELULA_DO_CABECALHO)}>{t('Desc. %')}</th>
+                                {/* A COLUNA DO IMPOSTO, que tinha desaparecido.
+                                    O ecrã de sempre mostrava aqui a taxa de IVA
+                                    da linha e os dois selectores do imposto
+                                    ESPECIAL: o IEC (bebidas, tabaco, combustível,
+                                    viaturas) e o Imposto de Selo. O servidor
+                                    continuava a aceitá-los — só não havia por
+                                    onde os escolher, e uma factura de bebidas
+                                    deixou de poder levar o que a lei manda. */}
+                                <th className={cls('w-52', CELULA_DO_CABECALHO)}>{t('Taxa')}</th>
+                                <th className={cls('w-32 text-right', CELULA_DO_CABECALHO)}>{t('Total')}</th>
                                 <th className={cls('w-12', CELULA_DO_CABECALHO)}></th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {linhas.map((l, i) => (
+                            {linhas.map((l, i) => {
+                                const artigo = o.artigos.find((a) => a.id === l.product_id);
+
+                                return (
                                 <tr key={i} className={LINHA_DA_TABELA} style={cascata(i)}>
                                     <td className="px-4 py-2">
                                         <select value={l.product_id ?? ''} onChange={(e) => mudarLinha(i, 'product_id', e.target.value)} aria-label={t('Artigo da linha :n', { n: i + 1 })} className={entrada}>
                                             <option value="">{t('Escolher…')}</option>
                                             {o.artigos.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                                         </select>
+                                        {/* O QUE É E EM QUE SE VENDE. O ecrã de
+                                            sempre punha aqui o crachá de
+                                            produto/serviço e a unidade — é o que
+                                            faz reparar numa linha «serviço» com
+                                            armazém escolhido. */}
+                                        {artigo && (
+                                            <p className="mt-1 flex items-center gap-2 text-xs">
+                                                <span className={cls(
+                                                    'rounded-full px-2 py-0.5 font-semibold',
+                                                    artigo.type === 'servico'
+                                                        ? 'bg-sky-100 text-sky-700'
+                                                        : 'bg-purple-100 text-purple-700',
+                                                )}>
+                                                    <i className={cls('mr-1 fas', artigo.type === 'servico' ? 'fa-concierge-bell' : 'fa-box')} aria-hidden="true" />
+                                                    {artigo.type === 'servico' ? t('Serviço') : t('Produto')}
+                                                </span>
+                                                {artigo.unit && <span className="text-slate-400">{artigo.unit}</span>}
+                                            </p>
+                                        )}
                                     </td>
                                     <td className="px-4 py-2"><input value={l.description} onChange={(e) => mudarLinha(i, 'description', e.target.value)} aria-label={t('Descrição da linha :n', { n: i + 1 })} className={entrada} /></td>
                                     <td className="px-4 py-2"><input type="number" min="0" step="0.001" value={l.quantity} onChange={(e) => mudarLinha(i, 'quantity', e.target.value)} aria-label={t('Quantidade da linha :n', { n: i + 1 })} className={cls(entrada, 'text-right tabular-nums')} /></td>
                                     <td className="px-4 py-2"><input type="number" min="0" step="0.01" value={l.price} onChange={(e) => mudarLinha(i, 'price', e.target.value)} aria-label={t('Preço da linha :n', { n: i + 1 })} className={cls(entrada, 'text-right tabular-nums')} /></td>
                                     <td className="px-4 py-2"><input type="number" min="0" max="100" step="0.01" value={l.discount_percent} onChange={(e) => mudarLinha(i, 'discount_percent', e.target.value)} aria-label={t('Desconto da linha :n', { n: i + 1 })} className={cls(entrada, 'text-right tabular-nums')} /></td>
-                                    <td className="px-4 py-2 text-right">
+
+                                    {/* O IMPOSTO DA LINHA.
+                                        O IVA vem do artigo e não se escolhe aqui
+                                        — é o `TaxResolver` que o decide, e por
+                                        isso mostra-se e não se edita. O IEC e o
+                                        Selo é que são escolha de quem factura. */}
+                                    <td className="px-4 py-2 align-top">
+                                        <div className="space-y-1">
+                                            <select
+                                                value={l.iec ?? ''}
+                                                onChange={(e) => mudarLinha(i, 'iec', e.target.value)}
+                                                aria-label={t('IEC da linha :n', { n: i + 1 })}
+                                                className={cls(entrada, 'h-8 text-xs')}
+                                            >
+                                                <option value="">{t('+ IEC')}</option>
+                                                {o.iec.map((c) => (
+                                                    <option key={c.codigo} value={c.codigo}>
+                                                        {c.codigo} · {c.descricao} ({c.taxa}%)
+                                                    </option>
+                                                ))}
+                                            </select>
+
+                                            <select
+                                                value={l.is ?? ''}
+                                                onChange={(e) => mudarLinha(i, 'is', e.target.value)}
+                                                aria-label={t('Imposto de selo da linha :n', { n: i + 1 })}
+                                                className={cls(entrada, 'h-8 text-xs')}
+                                            >
+                                                <option value="">{t('+ Selo')}</option>
+                                                {o.selo.map((v) => (
+                                                    <option key={v.codigo} value={v.codigo}>
+                                                        V{v.codigo} · {v.descricao}{' '}
+                                                        ({v.tipo === 'PERCENTAGE' ? `${v.taxa}%` : `AKZ ${v.taxa}`})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </td>
+
+                                    {/* O TOTAL DA LINHA. Sem ele, conferir uma
+                                        factura de vinte linhas obriga a fazer a
+                                        conta de cabeça vinte vezes. */}
+                                    <td className="px-4 py-2 text-right align-top">
+                                        <span className="font-bold tabular-nums text-slate-900">
+                                            {kz(Number(l.quantity || 0) * Number(l.price || 0) * (1 - Number(l.discount_percent || 0) / 100))}
+                                        </span>
+                                        <span className="block text-xs text-slate-400">Kz</span>
+                                    </td>
+
+                                    <td className="px-4 py-2 text-right align-top">
                                         {/* A última linha não se apaga: um documento sem linhas não é um documento. */}
                                         {linhas.length > 1 && !soLeitura && (
                                             <ApagarLinha aoCarregar={() => porLinhas((ls) => ls.filter((_, j) => j !== i))} rotulo={t('Apagar linha :n', { n: i + 1 })} />
                                         )}
                                     </td>
                                 </tr>
-                            ))}
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
@@ -418,6 +592,43 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
                         <Campo etiqueta={t('Desconto financeiro (Kz)')} erro={erros.discount_financial}>
                             <input type="number" min="0" step="0.01" value={descontoFinanceiro} onChange={(e) => porDescontoFinanceiro(e.target.value)} className={cls(entrada, 'text-right tabular-nums')} />
                         </Campo>
+
+                        {/* O DESCONTO DE SEMPRE.
+                            Existe na base desde antes dos dois acima e soma ao
+                            comercial no cálculo do servidor. Tirá-lo do
+                            formulário fazia uma factura antiga aberta para
+                            editar perder o desconto que tinha, calada. */}
+                        <Campo
+                            etiqueta={t('Desconto (legado) (Kz)')}
+                            erro={erros.discount_amount}
+                            ajuda={t('Campo antigo, mantido para as facturas que o têm. Soma ao comercial.')}
+                        >
+                            <input type="number" min="0" step="0.01" value={descontoLegado} onChange={(e) => porDescontoLegado(e.target.value)} className={cls(entrada, 'text-right tabular-nums')} />
+                        </Campo>
+
+                        {/* É PRESTAÇÃO DE SERVIÇO — é o que liga a retenção de
+                            IRT. Estava no resumo do ecrã de sempre, com o
+                            interruptor à vista; sem ele, uma factura de
+                            serviços saía sem a retenção que a lei manda. */}
+                        <Campo etiqueta={t('Natureza')} erro={erros.is_service}>
+                            <label className={cls(
+                                'flex h-10 cursor-pointer items-center gap-3 border border-slate-300 bg-white px-3 text-sm',
+                                RAIO,
+                                servico && 'border-indigo-400 bg-indigo-50',
+                            )}>
+                                <input
+                                    type="checkbox"
+                                    checked={servico}
+                                    onChange={(e) => porServico(e.target.checked)}
+                                    className="h-4 w-4 rounded border-slate-300 text-indigo-600"
+                                />
+                                <span className="font-semibold text-slate-700">
+                                    <i className="fas fa-concierge-bell mr-1 text-indigo-600" aria-hidden="true" />
+                                    {t('É prestação de serviço (IRT)')}
+                                </span>
+                            </label>
+                        </Campo>
+
                         <Campo etiqueta={t('Retenção na fonte')} erro={erros.withholding_type}>
                             <select value={retencaoTipo} onChange={(e) => porRetencaoTipo(e.target.value)} className={entrada}>
                                 <option value="">{t('Sem retenção')}</option>
@@ -464,6 +675,23 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
                                 valor={<>{kz(totais.total - retencaoValor)} <span className="text-base font-normal text-emerald-800/60">Kz</span></>}
                                 nota={t('Contado no servidor — é o mesmo cálculo que assina o documento.')}
                             />
+
+                            {/* A BASE E A LEI QUE MANDA NA CONTA.
+                                O ecrã de sempre fechava o resumo com a
+                                incidência do IVA e a nota do Decreto — é o que
+                                um contabilista procura para conferir, e é o que
+                                se responde a quem pergunta de onde saiu o
+                                número. */}
+                            <div className={cls('mt-4 bg-blue-50 px-3 py-2.5 text-xs text-slate-600', RAIO)}>
+                                <p className="flex justify-between">
+                                    <span>{t('Incidência IVA (base)')}:</span>
+                                    <span className="font-semibold tabular-nums">{kz(totais.base)} Kz</span>
+                                </p>
+                                <p className="mt-2 text-[10px] text-slate-500">
+                                    <i className="fas fa-circle-info mr-1" aria-hidden="true" />
+                                    {t('Cálculo conforme Decreto Presidencial 312/18 — AGT Angola')}
+                                </p>
+                            </div>
                         </>
                     ) : (
                         <SemNada icone="fa-calculator">{t('Escolha um artigo e uma quantidade para ver os totais.')}</SemNada>

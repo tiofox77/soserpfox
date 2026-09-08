@@ -31,6 +31,9 @@ export type FacturaDeVenda = {
     pode_creditar: boolean;
     pode_receber: boolean;
     e_rascunho: boolean;
+    /** Rascunho E ainda não finalizada: um documento fiscal não se corrige. */
+    pode_editar: boolean;
+    pode_apagar: boolean;
 };
 
 export type FiltrosDeFacturas = {
@@ -60,7 +63,11 @@ export type SomasDasFacturas = {
 
 /** A página de facturas traz as somas dentro do `meta`, ao lado das contagens. */
 export type PaginaDeFacturas = Omit<Pagina<FacturaDeVenda>, 'meta'> & {
-    meta: Pagina<FacturaDeVenda>['meta'] & { somas: SomasDasFacturas };
+    meta: Pagina<FacturaDeVenda>['meta'] & {
+        somas: SomasDasFacturas;
+        /** Quantas, e não quanto: «tenho doze rascunhos por acabar». */
+        contagens: { rascunhos: number; pendentes: number; pagas: number };
+    };
 };
 
 export type OpcoesDasFacturas = {
@@ -70,9 +77,17 @@ export type OpcoesDasFacturas = {
     permissoes: {
         ve_de_todos: boolean;
         pode_criar: boolean;
+        pode_editar: boolean;
+        pode_apagar: boolean;
         pode_creditar: boolean;
+        pode_debitar: boolean;
         pode_receber: boolean;
     };
+    /**
+     * A eliminação pode estar fechada à chave pelo administrador — é uma
+     * definição do software, não uma permissão de utilizador.
+     */
+    eliminacao_bloqueada: boolean;
 };
 
 export const facturacao = {
@@ -80,4 +95,10 @@ export const facturacao = {
         api.ler<PaginaDeFacturas>('/sales-invoices', filtros),
 
     opcoesDasFacturas: () => api.ler<OpcoesDasFacturas>('/sales-invoices/opcoes'),
+
+    /**
+     * APAGAR UM RASCUNHO. Um documento fiscal emitido não se apaga —
+     * rectifica-se por nota de crédito. As guardas estão no servidor.
+     */
+    eliminarFactura: (id: number) => api.apagar<{ message: string }>('/sales-invoices/' + id),
 };

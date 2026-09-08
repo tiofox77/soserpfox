@@ -18,6 +18,7 @@ import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { PdfDoEcra } from '@/ui/PdfDoEcra';
 import { CARTAO, FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
+import { ACCAO_DA_FAIXA, Faixa } from '../faixa';
 
 /**
  * A LISTA DE FACTURAS DE VENDA.
@@ -54,6 +55,8 @@ export default function ListaDeFacturas({ tipo }: { tipo?: 'FT' | 'FR' }) {
     const [filtros, porFiltros] = useState<FiltrosDeFacturas>(tipo ? { ...FILTROS_VAZIOS, tipo } : FILTROS_VAZIOS);
     // A factura que se está a pagar, e o que o servidor disse depois.
     const [aPagar, porAPagar] = useState<FacturaDeVenda | null>(null);
+    // O rascunho que se está a apagar, à espera de confirmação.
+    const [aApagar, porAApagar] = useState<FacturaDeVenda | null>(null);
     const [recado, porRecado] = useState('');
 
     /**
@@ -72,6 +75,23 @@ export default function ListaDeFacturas({ tipo }: { tipo?: 'FT' | 'FR' }) {
     }
 
     const irParaPagina = (p: number) => porFiltros((f) => ({ ...f, page: p }));
+
+    /*
+     * APAGAR UM RASCUNHO.
+     *
+     * As guardas todas estão no servidor — bloqueio do administrador,
+     * documento fiscal emitido, pagamentos associados. O que vem de lá em
+     * caso de recusa é uma frase, e é essa que se mostra: inventar aqui uma
+     * segunda explicação era arriscar que as duas discordassem.
+     */
+    const apagar = useMutation({
+        mutationFn: (f: FacturaDeVenda) => facturacao.eliminarFactura(f.id),
+        onSuccess: (r) => {
+            porAApagar(null);
+            porRecado(r.message);
+            void cache.invalidateQueries({ queryKey: ['facturas'] });
+        },
+    });
 
     const opcoes = useQuery({
         queryKey: ['facturas', 'opcoes'],
@@ -97,8 +117,39 @@ export default function ListaDeFacturas({ tipo }: { tipo?: 'FT' | 'FR' }) {
     // Duplicar é começar uma factura nova: quem pode criar, pode duplicar.
     const podeDuplicar = opcoes.data?.permissoes.pode_criar ?? false;
 
+    /*
+     * A FACTURA-RECIBO É OUTRO DOCUMENTO, e o ecrã diz isso.
+     *
+     * Filtrando por FR, o ecrã de sempre trocava o título, o subtítulo, a cor
+     * e o rótulo do botão de criar — e o botão passava `?type=FR`, para a
+     * factura nova já nascer do tipo que se está a ver. Perdeu-se tudo ao
+     * migrar, e com ele o próprio botão de criar: a lista não tinha por onde
+     * se fazer uma factura.
+     */
+    const soFR = filtros.tipo === 'FR';
+
     return (
         <div className="space-y-4">
+            <Faixa
+                titulo={soFR ? t('Facturas-Recibo') : t('Facturas de Venda')}
+                subtitulo={soFR
+                    ? t('Documentos pagos no acto (FR) — mesma sequência do POS')
+                    : t('Facturas de vendas para clientes')}
+                icone={soFR ? 'fa-receipt' : 'fa-file-invoice'}
+                cor={soFR ? 'bom' : 'roxo'}
+                accoes={
+                    opcoes.data?.permissoes.pode_criar && (
+                        <a
+                            href={`/invoicing/sales/invoices/create${soFR ? '?type=FR' : ''}`}
+                            className={ACCAO_DA_FAIXA}
+                        >
+                            <i className="fas fa-plus" aria-hidden="true" />
+                            {soFR ? t('Nova Factura-Recibo') : t('Nova Factura')}
+                        </a>
+                    )
+                }
+            />
+
             {recado && (
                 <div role="status" className={cls('flex items-center justify-between gap-3 border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900', RAIO)}>
                     <span><i className="fas fa-circle-check mr-2" aria-hidden="true" />{recado}</span>
@@ -106,7 +157,7 @@ export default function ListaDeFacturas({ tipo }: { tipo?: 'FT' | 'FR' }) {
                 </div>
             )}
 
-            <Totais contas={contas} somas={contas?.somas} aActualizar={lista.isFetching} />
+            <Totais contas={contas} somas={contas?.somas} contagens={contas?.contagens} aActualizar={lista.isFetching} />
 
             {/* Pagar: o modal partilhado, o mesmo caminho do Livewire. */}
             {aPagar && (
@@ -117,6 +168,57 @@ export default function ListaDeFacturas({ tipo }: { tipo?: 'FT' | 'FR' }) {
                     aoRegistar={(m) => { porAPagar(null); porRecado(m); void cache.invalidateQueries({ queryKey: ['facturas'] }); }}
                 />
             )}
+
+            {/* ELIMINAR: a confirmação diz O QUE se apaga e que não volta. */}
+            <Modal
+                aberto={aApagar !== null}
+                aoFechar={() => { porAApagar(null); apagar.reset(); }}
+                titulo={t('Eliminar rascunho')}
+                subtitulo={aApagar?.numero}
+                icone="fa-trash"
+                cor="perigo"
+                largura="sm"
+                rodape={
+                    <>
+                        <Botao onClick={() => { porAApagar(null); apagar.reset(); }} icone="fa-times">{t('Cancelar')}</Botao>
+                        <Botao
+                            cor="perigo"
+                            tom="solida"
+                            icone="fa-trash"
+                            aTrabalhar={apagar.isPending}
+                            onClick={() => aApagar && apagar.mutate(aApagar)}
+                        >
+                            {t('Sim, eliminar')}
+                        </Botao>
+                    </>
+                }
+            >
+                {aApagar && (
+                    <div className="space-y-4">
+                        <p className="text-center text-slate-600">
+                            {t('Tem a certeza que quer eliminar o rascunho')}{' '}
+                            <span className="font-bold text-red-600">{aApagar.numero}</span>?
+                        </p>
+
+                        <div className={cls('border-l-4 border-red-500 bg-red-50 px-4 py-3 text-sm', RAIO)}>
+                            <p className="font-semibold text-red-700">
+                                <i className="fas fa-exclamation-triangle mr-2" aria-hidden="true" />
+                                {t('Isto não se desfaz.')}
+                            </p>
+                            <p className="mt-1 text-red-600">
+                                {t('Só se apagam rascunhos. Um documento fiscal já emitido rectifica-se por nota de crédito.')}
+                            </p>
+                        </div>
+
+                        {/* O QUE O SERVIDOR RECUSOU, dito por ele. */}
+                        {apagar.isError && (
+                            <div role="alert" className={cls('border border-red-200 bg-white px-4 py-3 text-sm text-red-800', RAIO)}>
+                                {apagar.error instanceof ErroDaApi ? apagar.error.message : t('Não foi possível eliminar.')}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </Modal>
 
 
             <Cartao titulo={t('Filtros')} icone="fa-filter">
@@ -245,7 +347,16 @@ export default function ListaDeFacturas({ tipo }: { tipo?: 'FT' | 'FR' }) {
                 <SemNada aoLimpar={() => porFiltros(FILTROS_VAZIOS)} />
             ) : (
                 <Cartao titulo={t('Facturas de venda')} icone="fa-list" semPadding>
-                    <Tabela facturas={facturas} podeDuplicar={podeDuplicar} aoPagar={porAPagar} />
+                    <Tabela
+                        facturas={facturas}
+                        podeDuplicar={podeDuplicar}
+                        podeEditar={opcoes.data?.permissoes.pode_editar ?? false}
+                        podeApagar={opcoes.data?.permissoes.pode_apagar ?? false}
+                        podeDebitar={opcoes.data?.permissoes.pode_debitar ?? false}
+                        eliminacaoBloqueada={opcoes.data?.eliminacao_bloqueada ?? false}
+                        aoPagar={porAPagar}
+                        aoApagar={porAApagar}
+                    />
                 </Cartao>
             )}
 
@@ -275,15 +386,34 @@ export default function ListaDeFacturas({ tipo }: { tipo?: 'FT' | 'FR' }) {
 function Totais({
     contas,
     somas,
+    contagens,
     aActualizar,
 }: {
     contas?: { total: number };
     somas?: SomasDasFacturas;
+    contagens?: { rascunhos: number; pendentes: number; pagas: number };
     aActualizar: boolean;
 }) {
     return (
         <div className={cls('grid gap-3 sm:grid-cols-2 lg:grid-cols-4', aActualizar && 'opacity-70')}>
-            <Total rotulo={t('Documentos')} valor={contas?.total} contagem tom="indigo" icone="fa-file-invoice" />
+            {/* AS CONTAGENS POR ESTADO, debaixo do total.
+                Os cartões do ecrã de sempre eram cinco e três deles eram
+                contagens — rascunhos, pendentes, pagas. Ficaram só os de
+                dinheiro, que são melhores para o topo, mas «tenho doze
+                rascunhos por acabar» é outra pergunta e desapareceu. Vai aqui,
+                em vez de mais três caixas a competir com os valores. */}
+            <Total
+                rotulo={t('Documentos')}
+                valor={contas?.total}
+                contagem
+                tom="indigo"
+                icone="fa-file-invoice"
+                nota={contagens && [
+                    contagens.rascunhos > 0 && t(':n rascunho(s)', { n: contagens.rascunhos }),
+                    contagens.pendentes > 0 && t(':n por pagar', { n: contagens.pendentes }),
+                    contagens.pagas > 0 && t(':n paga(s)', { n: contagens.pagas }),
+                ].filter(Boolean).join(' · ')}
+            />
             <Total rotulo={t('Facturado')} valor={somas?.facturado} tom="verde" icone="fa-money-bill-wave" />
             <Total rotulo={t('Por receber')} valor={somas?.por_receber} tom="ambar" icone="fa-clock" />
             <Total rotulo={t('Vencido')} valor={somas?.vencido} tom="vermelho" icone="fa-triangle-exclamation" />
@@ -297,6 +427,7 @@ function Total({
     contagem = false,
     tom,
     icone,
+    nota,
 }: {
     rotulo: string;
     valor?: number;
@@ -304,12 +435,15 @@ function Total({
     contagem?: boolean;
     tom: TomDoCartao;
     icone: string;
+    /** A linha pequena por baixo do número — a repartição, quando a há. */
+    nota?: string;
 }) {
     return (
         <CartaoNumero
             rotulo={rotulo}
             tom={tom}
             icone={icone}
+            nota={nota || undefined}
             sufixo={valor !== undefined && !contagem ? 'Kz' : undefined}
             valor={
                 /* Enquanto não há resposta escreve-se um traço, não um zero:
@@ -331,11 +465,21 @@ function Total({
 function Tabela({
     facturas,
     podeDuplicar,
+    podeEditar,
+    podeApagar,
+    podeDebitar,
+    eliminacaoBloqueada,
     aoPagar: porAPagar,
+    aoApagar: porAApagar,
 }: {
     facturas: FacturaDeVenda[];
     podeDuplicar: boolean;
+    podeEditar: boolean;
+    podeApagar: boolean;
+    podeDebitar: boolean;
+    eliminacaoBloqueada: boolean;
     aoPagar: (f: FacturaDeVenda) => void;
+    aoApagar: (f: FacturaDeVenda) => void;
 }) {
     return (
         // A tabela rola dentro da sua caixa. Sem isto, uma linha larga põe a
@@ -407,7 +551,16 @@ function Tabela({
                                 )}
                             </td>
                             <td className="px-4 py-3">
-                                <Accoes factura={f} podeDuplicar={podeDuplicar} aoPagar={() => porAPagar(f)} />
+                                <Accoes
+                                    factura={f}
+                                    podeDuplicar={podeDuplicar}
+                                    podeEditar={podeEditar}
+                                    podeApagar={podeApagar}
+                                    podeDebitar={podeDebitar}
+                                    eliminacaoBloqueada={eliminacaoBloqueada}
+                                    aoPagar={() => porAPagar(f)}
+                                    aoApagar={() => porAApagar(f)}
+                                />
                             </td>
                         </tr>
                     ))}
@@ -427,11 +580,21 @@ function Tabela({
 function Accoes({
     factura,
     podeDuplicar,
+    podeEditar,
+    podeApagar,
+    podeDebitar,
+    eliminacaoBloqueada,
     aoPagar,
+    aoApagar,
 }: {
     factura: FacturaDeVenda;
     podeDuplicar: boolean;
+    podeEditar: boolean;
+    podeApagar: boolean;
+    podeDebitar: boolean;
+    eliminacaoBloqueada: boolean;
     aoPagar: () => void;
+    aoApagar: () => void;
 }) {
     return (
         <div className="flex items-center justify-end gap-1">
@@ -518,6 +681,59 @@ function Accoes({
                 >
                     <i className="fas fa-file-circle-minus" aria-hidden="true" />
                 </span>
+            )}
+
+            {/* NOTA DE DÉBITO: acrescentar ao que já foi facturado. É a outra
+                metade da rectificação e tinha ficado de fora — sem ela, uma
+                factura a menos só se corrige emitindo outra de raiz. */}
+            {podeDebitar && (
+                <Accao
+                    href={`/invoicing/debit-notes/create?invoice=${factura.id}`}
+                    icone="fa-file-circle-plus"
+                    titulo={t('Nota de débito (acrescentar)')}
+                    cor="text-indigo-600 hover:bg-indigo-50"
+                />
+            )}
+
+            {/* EDITAR — só enquanto é rascunho E não é documento fiscal.
+                Depois de finalizada tem número de série e assinatura:
+                corrige-se por nota, nunca por cima (Decreto 71/25). */}
+            {podeEditar && factura.pode_editar && (
+                <Accao
+                    href={`/invoicing/sales/invoices/${factura.id}/edit`}
+                    icone="fa-pen"
+                    titulo={t('Editar rascunho')}
+                    cor="text-blue-600 hover:bg-blue-50"
+                />
+            )}
+
+            {/* ELIMINAR — o mesmo rascunho, e nunca o que já recebeu dinheiro.
+                Bloqueado à chave pelo administrador fica à vista e a dizer
+                porquê: escondê-lo faz procurar um botão que existe. */}
+            {podeApagar && factura.pode_apagar && (
+                eliminacaoBloqueada ? (
+                    <span
+                        title={t('A eliminação está bloqueada pelo administrador — só se anula.')}
+                        aria-disabled="true"
+                        className={cls('cursor-not-allowed p-2 text-slate-300', RAIO)}
+                    >
+                        <i className="fas fa-trash" aria-hidden="true" />
+                    </span>
+                ) : (
+                    <button
+                        type="button"
+                        onClick={aoApagar}
+                        title={t('Eliminar rascunho')}
+                        aria-label={t('Eliminar :numero', { numero: factura.numero })}
+                        className={cls(
+                            'p-2 text-red-600 transition-all duration-200 hover:scale-110 hover:bg-red-50 active:scale-100',
+                            RAIO,
+                            FOCO,
+                        )}
+                    >
+                        <i className="fas fa-trash" aria-hidden="true" />
+                    </button>
+                )
             )}
         </div>
     );

@@ -8,6 +8,7 @@ use App\Models\Invoicing\LineTax;
 use App\Models\Invoicing\SalesInvoice;
 use App\Models\Invoicing\SalesInvoiceItem;
 use App\Traits\DocumentosPorAutor;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use App\Models\Invoicing\InvoicingSeries;
 use App\Models\Invoicing\Warehouse;
@@ -162,9 +163,52 @@ class FacturaApiController extends Controller
                 ->map(fn ($c) => [
                     'id' => $c->id, 'name' => $c->name, 'nif' => $c->nif, 'province' => $c->province,
                     'payment_term_days' => $this->diasDaCondicao($c),
+                    /*
+                     * A REGIÃO FISCAL QUE ESTE CLIENTE IMPLICA — decidida cá.
+                     *
+                     * Cabinda tem regime próprio (AO-CAB) e a regra é do
+                     * `TaxResolver`. O ecrã mostra o crachá «a aplicar: X» que
+                     * o formulário de sempre tinha, sem ter de repetir a regra
+                     * em JavaScript — duas versões da mesma regra fiscal
+                     * divergem, e esta decide quanto imposto se cobra.
+                     */
+                    'regiao' => TaxResolver::regionForClient($c),
                 ]),
             'artigos' => Product::where('tenant_id', $tenantId)->where('is_active', true)
                 ->orderBy('name')->limit(500)->get(['id', 'name', 'code', 'price', 'unit', 'type']),
+
+            /*
+             * O IEC E O IMPOSTO DE SELO — as listas OFICIAIS da AGT, da base.
+             *
+             * São 29 códigos pautais e 67 verbas, e estavam nos dois selectores
+             * de cada linha do ecrã de sempre. Ao migrar desapareceram do
+             * formulário — o servidor continuava a aceitá-los, mas não havia
+             * por onde os escolher, e uma factura de bebidas ou de tabaco
+             * deixou de poder levar o imposto especial que a lei manda.
+             *
+             * Em cache por uma hora: são tabelas fixas do Estado, e relê-las a
+             * cada abertura do editor é uma consulta por nada.
+             */
+            'iec' => Cache::remember('agt_iec_pautal_codes', 3600, fn () => DB::table('agt_iec_pautal_codes')
+                ->where('is_active', true)->orderBy('pautal_code')
+                ->get(['pautal_code', 'description', 'rate_percentage'])
+                ->map(fn ($c) => [
+                    'codigo' => $c->pautal_code,
+                    'descricao' => $c->description,
+                    'taxa' => (float) $c->rate_percentage,
+                ])->values()),
+
+            'selo' => Cache::remember('agt_is_verbas', 3600, fn () => DB::table('agt_is_verbas')
+                ->where('is_active', true)->orderBy('verba_no')
+                ->get(['verba_no', 'description', 'rate', 'rate_type'])
+                ->map(fn ($v) => [
+                    'codigo' => (string) $v->verba_no,
+                    'descricao' => $v->description,
+                    'taxa' => (float) $v->rate,
+                    // `percentage` ou `fixed`: uma verba fixa são kwanzas, não
+                    // uma percentagem, e o ecrã escreve-as de maneira diferente.
+                    'tipo' => $v->rate_type,
+                ])->values()),
             'armazens' => Warehouse::where('tenant_id', $tenantId)->where('is_active', true)->orderBy('name')->get(['id', 'name']),
 
             // As séries por tipo: a FR usa a sequência do POS.

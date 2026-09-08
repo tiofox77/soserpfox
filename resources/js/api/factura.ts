@@ -13,12 +13,26 @@ export type LinhaDaFactura = {
 };
 
 export type OpcoesDaFactura = {
-    clientes: Array<{ id: number; name: string; nif: string | null; province: string | null; payment_term_days: number }>;
+    clientes: Array<{
+        id: number; name: string; nif: string | null; province: string | null; payment_term_days: number;
+        /**
+         * A REGIÃO FISCAL QUE ESTE CLIENTE IMPLICA — decidida no servidor.
+         *
+         * Cabinda tem regime próprio. A regra é do `TaxResolver` e não se
+         * repete aqui: duas versões de uma regra fiscal divergem, e esta
+         * decide quanto imposto se cobra.
+         */
+        regiao: string;
+    }>;
     artigos: Array<{ id: number; name: string; code: string | null; price: number; unit: string; type: string }>;
     armazens: Array<{ id: number; name: string }>;
     series: Array<{ id: number; series_code: string; name: string; document_type: string; is_default: boolean }>;
     formas_de_pagamento: Array<{ id: number; code: string; name: string }>;
     retencoes: Array<{ valor: string; rotulo: string }>;
+    /** Os 29 códigos pautais do IEC, da tabela oficial da AGT. */
+    iec: Array<{ codigo: string; descricao: string; taxa: number }>;
+    /** As 67 verbas do Imposto de Selo. `tipo` diz se a taxa é % ou kwanzas. */
+    selo: Array<{ codigo: string; descricao: string; taxa: number; tipo: string }>;
     regioes: Array<{ valor: string; rotulo: string }>;
     /** O CLIENTE RÁPIDO: se se pode criar aqui, e com que país por omissão. */
     criar_parte: CriarParte;
@@ -40,6 +54,10 @@ export type ConteudoDaFactura = {
     delivery_location: string | null;
     tax_country_region: string | null; payment_method: string | null;
     discount_commercial: number; discount_financial: number;
+    /** O desconto de sempre, anterior aos dois acima. Continua na base. */
+    discount_amount: number;
+    /** Prestação de serviço: liga a retenção de IRT. */
+    is_service: boolean;
     withholding_type: string | null; withholding_percentage: number; notes: string | null;
     /** As condições que saem no papel (termos e condições). */
     terms: string | null;

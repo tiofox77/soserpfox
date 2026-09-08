@@ -37,6 +37,9 @@ function factura(por: Partial<FacturaDeVenda> = {}): FacturaDeVenda {
         pode_creditar: true,
         pode_receber: true,
         e_rascunho: false,
+        // Emitida: não se corrige por cima nem se apaga — rectifica-se por nota.
+        pode_editar: false,
+        pode_apagar: false,
         ...por,
     };
 }
@@ -45,7 +48,11 @@ const OPCOES_VAZIAS = {
     armazens: [],
     estados: [{ valor: 'sent', rotulo: 'Emitida' }],
     autores: [],
-    permissoes: { ve_de_todos: false, pode_criar: true, pode_creditar: true, pode_receber: true },
+    permissoes: {
+        ve_de_todos: false, pode_criar: true, pode_editar: true, pode_apagar: true,
+        pode_creditar: true, pode_debitar: true, pode_receber: true,
+    },
+    eliminacao_bloqueada: false,
 };
 
 function responder(facturas: FacturaDeVenda[], opcoes: unknown = OPCOES_VAZIAS) {
@@ -62,6 +69,8 @@ function responder(facturas: FacturaDeVenda[], opcoes: unknown = OPCOES_VAZIAS) 
                       per_page: 15,
                       to: facturas.length,
                       total: facturas.length,
+                      somas: { facturado: 0, por_receber: 0, vencido: 0 },
+                      contagens: { rascunhos: 0, pendentes: 0, pagas: 0 },
                   },
               };
 
@@ -187,6 +196,137 @@ describe('Lista de facturas de venda', () => {
 
         expect(await screen.findByText('Emitida por')).toBeInTheDocument();
         expect(screen.getByRole('option', { name: 'Ana' })).toBeInTheDocument();
+    });
+
+    /**
+     * O BOTÃO DE CRIAR — que a lista não tinha.
+     *
+     * Ao migrar do Blade perdeu-se o cabeçalho inteiro, e com ele o «Nova
+     * Fatura». A lista mostrava facturas e não tinha por onde se fazer uma.
+     */
+    it('tem por onde fazer uma factura nova', async () => {
+        vi.stubGlobal('fetch', responder([factura()]));
+
+        mostrar();
+
+        expect(await screen.findByRole('link', { name: /Nova Factura$/ })).toHaveAttribute(
+            'href',
+            '/invoicing/sales/invoices/create',
+        );
+    });
+
+    it('esconde o botão de criar de quem não pode criar', async () => {
+        vi.stubGlobal(
+            'fetch',
+            responder([factura()], {
+                ...OPCOES_VAZIAS,
+                permissoes: { ...OPCOES_VAZIAS.permissoes, pode_criar: false },
+            }),
+        );
+
+        mostrar();
+
+        await screen.findByText('FT SOSFT/000003');
+
+        expect(screen.queryByRole('link', { name: /Nova Factura/ })).not.toBeInTheDocument();
+    });
+
+    /**
+     * A FACTURA-RECIBO É OUTRO DOCUMENTO. Filtrando por FR, o ecrã de sempre
+     * trocava o título e o botão — e o botão levava o tipo consigo, para a
+     * factura nova nascer do tipo que se está a ver.
+     */
+    it('filtrando por FR, o titulo e o botao acompanham', async () => {
+        vi.stubGlobal('fetch', responder([factura({ tipo: 'FR' })]));
+
+        const { container } = render(
+            <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })}>
+                <ListaDeFacturas tipo="FR" />
+            </QueryClientProvider>,
+        );
+
+        expect(await screen.findByRole('heading', { name: 'Facturas-Recibo' })).toBeInTheDocument();
+
+        // O TÍTULO NÃO ESPERA PELAS OPÇÕES e o botão espera: quem pode criar
+        // vem do servidor. Procurar os dois da mesma maneira lia o ecrã a meio.
+        expect(await screen.findByRole('link', { name: /Nova Factura-Recibo/ })).toHaveAttribute(
+            'href',
+            '/invoicing/sales/invoices/create?type=FR',
+        );
+
+        expect(container).toBeTruthy();
+    });
+
+    /**
+     * EDITAR E ELIMINAR SÓ ENQUANTO É RASCUNHO.
+     *
+     * Depois de finalizada a factura tem número de série e assinatura:
+     * corrige-se por nota de crédito, nunca por cima (Decreto 71/25). A
+     * decisão vem do servidor — o ecrã só a desenha.
+     */
+    it('nao oferece editar nem eliminar uma factura ja emitida', async () => {
+        vi.stubGlobal('fetch', responder([factura({ pode_editar: false, pode_apagar: false })]));
+
+        mostrar();
+
+        await screen.findByText('FT SOSFT/000003');
+
+        expect(screen.queryByRole('link', { name: 'Editar rascunho' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /Eliminar/ })).not.toBeInTheDocument();
+    });
+
+    it('oferece editar e eliminar um rascunho', async () => {
+        vi.stubGlobal(
+            'fetch',
+            responder([factura({ id: 7, e_rascunho: true, pode_editar: true, pode_apagar: true })]),
+        );
+
+        mostrar();
+
+        await screen.findByText('FT SOSFT/000003');
+
+        expect(screen.getByRole('link', { name: 'Editar rascunho' })).toHaveAttribute(
+            'href',
+            '/invoicing/sales/invoices/7/edit',
+        );
+        expect(screen.getByRole('button', { name: /Eliminar/ })).toBeInTheDocument();
+    });
+
+    /**
+     * BLOQUEADO À CHAVE PELO ADMINISTRADOR: o botão fica à vista e a dizer
+     * porquê. Escondê-lo faz procurar um botão que existe.
+     */
+    it('com a eliminacao bloqueada, o botao fica apagado e diz porque', async () => {
+        vi.stubGlobal(
+            'fetch',
+            responder([factura({ pode_apagar: true, pode_editar: true })], {
+                ...OPCOES_VAZIAS,
+                eliminacao_bloqueada: true,
+            }),
+        );
+
+        mostrar();
+
+        await screen.findByText('FT SOSFT/000003');
+
+        expect(screen.queryByRole('button', { name: /Eliminar/ })).not.toBeInTheDocument();
+        expect(
+            screen.getByTitle('A eliminação está bloqueada pelo administrador — só se anula.'),
+        ).toBeInTheDocument();
+    });
+
+    /** A outra metade da rectificação, que tinha ficado de fora. */
+    it('oferece a nota de debito', async () => {
+        vi.stubGlobal('fetch', responder([factura({ id: 4 })]));
+
+        mostrar();
+
+        await screen.findByText('FT SOSFT/000003');
+
+        expect(screen.getByRole('link', { name: 'Nota de débito (acrescentar)' })).toHaveAttribute(
+            'href',
+            '/invoicing/debit-notes/create?invoice=4',
+        );
     });
 
     it('diz que não há nada e deixa limpar os filtros', async () => {

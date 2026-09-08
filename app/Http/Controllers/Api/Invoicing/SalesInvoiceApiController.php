@@ -104,8 +104,32 @@ class SalesInvoiceApiController extends Controller
             $this->comFiltros($this->baseDoAutor(), $filtros)
         );
 
+        /*
+         * AS CONTAGENS POR ESTADO — quantas, e não quanto.
+         *
+         * Os cartões do ecrã de sempre eram cinco e três deles eram
+         * CONTAGENS: rascunhos, pendentes, pagas. Ao passar para React ficaram
+         * só os de dinheiro, que são melhores para o topo — mas «tenho doze
+         * rascunhos por acabar» é uma pergunta diferente de «tenho 44 mil por
+         * receber», e desapareceu.
+         *
+         * Numa consulta só, sobre os mesmos filtros da lista.
+         */
+        $contagens = $this->comFiltros($this->baseDoAutor(), $filtros)
+            ->selectRaw("COALESCE(SUM(status = 'draft'), 0) as rascunhos")
+            ->selectRaw("COALESCE(SUM(status IN ('pending', 'sent', 'partially_paid', 'overdue')), 0) as pendentes")
+            ->selectRaw("COALESCE(SUM(status = 'paid'), 0) as pagas")
+            ->first();
+
         return SalesInvoiceResource::collection($pagina)->additional([
-            'meta' => ['somas' => $somas],
+            'meta' => [
+                'somas' => $somas,
+                'contagens' => [
+                    'rascunhos' => (int) ($contagens->rascunhos ?? 0),
+                    'pendentes' => (int) ($contagens->pendentes ?? 0),
+                    'pagas' => (int) ($contagens->pagas ?? 0),
+                ],
+            ],
         ]);
     }
 
@@ -196,9 +220,74 @@ class SalesInvoiceApiController extends Controller
             'permissoes' => [
                 've_de_todos' => $this->getVeDocumentosDeTodosProperty(),
                 'pode_criar' => (bool) $request->user()?->can('invoicing.sales.invoices.create'),
+                'pode_editar' => (bool) $request->user()?->can('invoicing.sales.invoices.edit'),
+                'pode_apagar' => (bool) $request->user()?->can('invoicing.sales.invoices.delete'),
                 'pode_creditar' => (bool) $request->user()?->can('invoicing.credit-notes.create'),
+                'pode_debitar' => (bool) $request->user()?->can('invoicing.debit-notes.create'),
                 'pode_receber' => (bool) $request->user()?->can('invoicing.receipts.create'),
             ],
+
+            /*
+             * A ELIMINAÇÃO PODE ESTAR FECHADA À CHAVE PELO ADMINISTRADOR.
+             *
+             * É uma definição do software, não uma permissão: uma empresa
+             * pode decidir que facturas NUNCA se apagam, só se anulam. O ecrã
+             * mostra o botão desactivado e diz porquê, em vez de o esconder e
+             * deixar quem o procura a pensar que o sistema o perdeu.
+             */
+            'eliminacao_bloqueada' => isDeleteBlocked('sales_invoice'),
         ]);
+    }
+
+    /**
+     * APAGAR UM RASCUNHO — e só isso.
+     *
+     * As três guardas são as do ecrã de sempre, e nenhuma é dispensável:
+     *
+     *  1. **A CHAVE DO ADMINISTRADOR.** Uma empresa pode decidir que facturas
+     *     nunca se apagam, só se anulam (`isDeleteBlocked`).
+     *
+     *  2. **UM DOCUMENTO FISCAL EMITIDO NÃO SE APAGA.** `invoice_status = 'F'`
+     *     quer dizer assinada e numerada: rectifica-se por Nota de Crédito,
+     *     nunca por `delete` (Decreto 71/25). Uma factura que desaparece abre
+     *     um buraco na sequência, e a sequência é o que a AGT verifica.
+     *
+     *  3. **NEM O QUE JÁ RECEBEU DINHEIRO.** Um recibo ou um movimento de
+     *     tesouraria apontam para a factura; apagá-la deixava-os a apontar
+     *     para o nada. É aqui que esta se verifica, e não na linha da lista:
+     *     seriam cem consultas numa página de cem.
+     */
+    public function eliminar(Request $request, int $id): JsonResponse
+    {
+        abort_unless($request->user()?->can('invoicing.sales.invoices.delete'), 403, __('Sem permissão para esta operação.'));
+
+        if (isDeleteBlocked('sales_invoice')) {
+            return response()->json([
+                'message' => __('A eliminação de Faturas de Venda está bloqueada pelo administrador. Apenas anulações são permitidas.'),
+            ], 422);
+        }
+
+        // Pelo escopo do autor: quem só vê as suas também só apaga as suas.
+        $factura = $this->baseDoAutor()->findOrFail($id);
+
+        if ($factura->invoice_status === 'F' || $factura->status !== 'draft') {
+            return response()->json([
+                'message' => __('Documento fiscal emitido não pode ser eliminado. Emita uma Nota de Crédito para rectificar (Decreto 71/25).'),
+            ], 422);
+        }
+
+        $temDinheiro = (float) ($factura->paid_amount ?? 0) > 0
+            || \App\Models\Treasury\Transaction::where('tenant_id', activeTenantId())
+                ->where('invoice_id', $factura->id)->exists();
+
+        if ($temDinheiro) {
+            return response()->json([
+                'message' => __('Não é possível eliminar uma fatura que já tem pagamentos associados.'),
+            ], 422);
+        }
+
+        $factura->delete();
+
+        return response()->json(['message' => __('Fatura eliminada com sucesso!')]);
     }
 }
