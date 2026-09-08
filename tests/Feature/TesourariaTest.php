@@ -2,10 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Treasury\Banks;
-use App\Livewire\Treasury\CashRegisters;
-use App\Livewire\Treasury\Reports;
-use App\Livewire\Treasury\Transactions;
 use App\Models\Invoicing\SalesInvoice;
 use App\Models\Treasury\Bank;
 use App\Models\Treasury\CashRegister;
@@ -16,7 +12,6 @@ use App\Models\Treasury\TransactionType;
 use App\Models\Treasury\TransactionCategory;
 use App\Models\User;
 use App\Support\CategoriasDeTesouraria;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -35,10 +30,19 @@ use Tests\TenantTestCase;
  */
 class TesourariaTest extends TenantTestCase
 {
+    /** A morada de um catálogo da tesouraria, para o ecrã genérico. */
+    private function catalogo(string $tipo, string $cauda = ''): string
+    {
+        return "/api/v1/invoicing/react/catalogos/{$tipo}{$cauda}";
+    }
+
     public function test_tesouraria_traz_tipos_e_categorias_padrao_por_empresa(): void
     {
-        Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Treasury\TransactionClassifications::class, ['kind' => 'type']);
+        $this->comPermissoes('treasury.transactions.view');
+
+        // ABRIR O CATÁLOGO SEMEIA O QUE FALTA. Uma empresa nova não pode
+        // ficar com a lista vazia e sem por onde começar.
+        $this->getJson($this->catalogo('tipos-de-movimento', '/opcoes'))->assertOk();
 
         $this->assertDatabaseHas('treasury_transaction_types', [
             'tenant_id' => $this->tenant->id, 'code' => 'INCOME', 'nature' => 'income',
@@ -48,24 +52,93 @@ class TesourariaTest extends TenantTestCase
         ]);
     }
 
+    /**
+     * AS TRÊS NATUREZAS, E OS SEIS TIPOS DE PAGAMENTO — os REAIS.
+     *
+     * Ao passar os catálogos para o ecrã genérico escreveram-se listas de
+     * escolha que não batiam certo com a base: faltava a natureza
+     * `transfer`, e os tipos de forma de pagamento traziam `bank` e `manual`,
+     * que não existem em registo nenhum, sem `bank_transfer`,
+     * `digital_wallet` nem `check`, que existem em dezenas.
+     *
+     * O efeito era pior do que uma lista errada: ABRIR um registo que já lá
+     * está e carregar em Guardar dava erro de validação sobre o valor que o
+     * próprio registo tem.
+     */
+    public function test_as_escolhas_dos_catalogos_aceitam_o_que_esta_na_base(): void
+    {
+        $this->comPermissoes('treasury.transactions.view', 'treasury.transactions.create',
+            'treasury.payment-methods.view', 'treasury.payment-methods.create');
+
+        $this->postJson($this->catalogo('tipos-de-movimento'), [
+            'name' => 'Transferência interna', 'code' => 'TRF' . uniqid(),
+            'nature' => 'transfer', 'is_active' => true,
+        ])->assertCreated();
+
+        foreach (['bank_transfer', 'digital_wallet', 'check'] as $tipo) {
+            $this->postJson($this->catalogo('formas-de-pagamento'), [
+                'name' => 'Forma ' . $tipo, 'code' => strtoupper(substr($tipo, 0, 3)) . random_int(1000, 9999),
+                'type' => $tipo, 'is_active' => true,
+            ])->assertCreated();
+        }
+    }
+
+    /**
+     * UMA CATEGORIA SEM TIPO SERVE A QUALQUER UM — e tem de poder gravar-se.
+     *
+     * Onze das categorias de omissão nascem sem tipo, de propósito. O esquema
+     * do ecrã genérico passou a exigi-lo, o que as tornava impossíveis de
+     * editar: o formulário pedia um valor que o próprio registo não tem.
+     */
+    public function test_uma_categoria_sem_tipo_pode_ser_gravada(): void
+    {
+        $this->comPermissoes('treasury.transactions.view', 'treasury.transactions.create');
+
+        $r = $this->postJson($this->catalogo('categorias-de-movimento'), [
+            'name' => 'Serve a todos', 'code' => 'TODOS' . random_int(100, 999),
+            'transaction_type_id' => null, 'is_active' => true,
+        ])->assertCreated();
+
+        $this->assertNull(TransactionCategory::findOrFail($r->json('data.id'))->transaction_type_id);
+    }
+
+    /**
+     * O CÓDIGO REPETIDO DIZ-SE NO CAMPO, e não em SQL.
+     *
+     * Os cinco catálogos da tesouraria têm índice único na base e nenhum o
+     * declarava: repetir um código dava um 1062 cru, com a consulta inteira
+     * na cara de quem estava a criar.
+     */
+    public function test_um_codigo_repetido_e_recusado_com_jeito(): void
+    {
+        $this->comPermissoes('treasury.transactions.view', 'treasury.transactions.create');
+
+        $codigo = 'REPETIDO' . random_int(100, 999);
+
+        $corpo = ['name' => 'Primeiro', 'code' => $codigo, 'nature' => 'income', 'is_active' => true];
+
+        $this->postJson($this->catalogo('tipos-de-movimento'), $corpo)->assertCreated();
+
+        $this->postJson($this->catalogo('tipos-de-movimento'), $corpo + ['name' => 'Segundo'])
+            ->assertStatus(422)->assertJsonValidationErrors('code');
+    }
+
     public function test_utilizador_cria_tipo_e_categoria_e_usa_no_movimento(): void
     {
-        $types = Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Treasury\TransactionClassifications::class, ['kind' => 'type'])
-            ->call('create')
-            ->set('form.name', 'Financiamento recebido')
-            ->set('form.code', 'FINANCIAMENTO')
-            ->set('form.nature', 'income')
-            ->call('save')->assertHasNoErrors();
+        $this->comPermissoes('treasury.transactions.view', 'treasury.transactions.create');
+
+        $this->postJson($this->catalogo('tipos-de-movimento'), [
+            'name' => 'Financiamento recebido', 'code' => 'FINANCIAMENTO',
+            'nature' => 'income', 'is_active' => true,
+        ])->assertCreated();
+
         $type = TransactionType::where('tenant_id', $this->tenant->id)->where('code', 'FINANCIAMENTO')->firstOrFail();
 
-        Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Treasury\TransactionClassifications::class, ['kind' => 'category'])
-            ->call('create')
-            ->set('form.name', 'Crédito bancário')
-            ->set('form.code', 'bank_loan')
-            ->set('form.transaction_type_id', $type->id)
-            ->call('save')->assertHasNoErrors();
+        $this->postJson($this->catalogo('categorias-de-movimento'), [
+            'name' => 'Crédito bancário', 'code' => 'bank_loan',
+            'transaction_type_id' => $type->id, 'is_active' => true,
+        ])->assertCreated();
+
         $category = TransactionCategory::where('tenant_id', $this->tenant->id)->where('code', 'bank_loan')->firstOrFail();
 
         /*
@@ -209,10 +282,58 @@ class TesourariaTest extends TenantTestCase
             ]));
     }
 
+    /**
+     * UM MÉTODO NOVO COMEÇA COM UM TIPO QUE EXISTE.
+     *
+     * A versão antiga do ecrã exigia `manual/automatic/online`, que não estão
+     * na tabela: método nenhum podia ser criado. O que o formulário propõe
+     * por omissão tem de constar do que a regra aceita.
+     */
     public function test_metodo_de_pagamento_novo_comeca_com_tipo_valido(): void
     {
-        Livewire::actingAs($this->user)->test(\App\Livewire\Treasury\PaymentMethods::class)
-            ->call('create')->assertSet('form.type', 'cash');
+        $this->comPermissoes('treasury.payment-methods.view', 'treasury.payment-methods.create');
+
+        $opcoes = $this->getJson($this->catalogo('formas-de-pagamento', '/opcoes'))->assertOk();
+
+        $tipo = collect($opcoes->json('campos'))->firstWhere('chave', 'type');
+        $aceites = collect($tipo['opcoes'])->pluck('valor')->all();
+
+        $this->assertContains($tipo['omissao'], $aceites, 'o valor proposto tem de ser um dos aceites');
+
+        // E gravar com ele passa.
+        $this->postJson($this->catalogo('formas-de-pagamento'), [
+            'name' => 'Método novo', 'code' => 'MN' . random_int(1000, 9999),
+            'type' => $tipo['omissao'], 'is_active' => true,
+        ])->assertCreated();
+    }
+
+    /**
+     * O DESTINO DE UMA FORMA DE PAGAMENTO É DESTA CASA.
+     *
+     * A regra ficou `nullable|integer` ao passar para o ecrã genérico:
+     * aceitava o id da conta bancária de outra empresa. O dinheiro não ia lá
+     * parar — o serviço volta a filtrar — mas a configuração ficava a mentir,
+     * e quem a lesse não perceberia porque é que o saldo não mexia.
+     */
+    public function test_forma_de_pagamento_nao_aponta_para_conta_de_outra_empresa(): void
+    {
+        $this->comPermissoes('treasury.payment-methods.view', 'treasury.payment-methods.create');
+
+        $outra = \App\Models\Tenant::create(['name' => 'Outra', 'slug' => 'outra-' . uniqid(), 'is_active' => true]);
+
+        $alheia = Account::create([
+            'tenant_id' => $outra->id,
+            'bank_id' => Bank::create(['name' => 'Banco Alheio', 'code' => 'BAL-' . uniqid(), 'country' => 'AO'])->id,
+            'account_name' => 'Conta do Lado', 'account_number' => 'AL-' . uniqid(),
+            'currency' => 'AOA', 'initial_balance' => 0, 'current_balance' => 0, 'is_active' => true,
+        ]);
+
+        $this->postJson($this->catalogo('formas-de-pagamento'), [
+            'name' => 'TPA', 'code' => 'TPA' . random_int(1000, 9999), 'type' => 'card',
+            'default_account_id' => $alheia->id, 'is_active' => true,
+        ])->assertStatus(422)->assertJsonValidationErrors('default_account_id');
+
+        $this->assertSame(0, PaymentMethod::where('default_account_id', $alheia->id)->count());
     }
 
     public function test_metodo_configurado_encaminha_o_recebimento_para_a_conta(): void
@@ -290,36 +411,55 @@ class TesourariaTest extends TenantTestCase
      */
     public function test_criar_banco_avisa_o_utilizador(): void
     {
-        Livewire::actingAs($this->user)
-            ->test(Banks::class)
-            ->call('create')
-            ->set('form.name', $nome = 'BFA Teste ' . uniqid())
-            ->set('form.code', 'BFA-' . uniqid())
-            ->call('save')
-            ->assertHasNoErrors()
-            ->assertDispatched('success');
+        // ESCREVER NOS BANCOS PEDE A PERMISSÃO MAIS FORTE. A tabela é
+        // partilhada por todas as empresas: criar ou renomear um banco muda-o
+        // para toda a gente, e por isso as três escritas pedem a de apagar.
+        $this->comPermissoes('treasury.banks.view', 'treasury.banks.delete');
 
+        $r = $this->postJson($this->catalogo('bancos'), [
+            'name' => $nome = 'BFA Teste ' . uniqid(),
+            'code' => 'BFA-' . uniqid(),
+            'country' => 'AO',
+            'is_active' => true,
+        ])->assertCreated();
+
+        // A CONFIRMAÇÃO VIAJA COM A RESPOSTA. Ia por `session()->flash`, que
+        // nada nesta aplicação renderiza: o banco era criado e o utilizador
+        // não via nada — que se lê como «não funciona».
+        $this->assertNotEmpty($r->json('message'));
         $this->assertSame(1, Bank::where('name', $nome)->count());
     }
 
     public function test_eliminar_banco_avisa_o_utilizador(): void
     {
+        $this->comPermissoes('treasury.banks.view', 'treasury.banks.delete');
+
         $banco = Bank::create(['name' => 'Banco X', 'code' => 'BX-' . uniqid(), 'country' => 'AO']);
 
-        Livewire::actingAs($this->user)
-            ->test(Banks::class)
-            ->call('confirmDelete', $banco->id)
-            ->call('deleteBank')
-            ->assertDispatched('success');
+        $r = $this->deleteJson($this->catalogo('bancos', '/' . $banco->id))->assertOk();
 
+        $this->assertNotEmpty($r->json('message'));
         $this->assertNull(Bank::find($banco->id));
     }
 
-    public function test_nenhum_ecra_da_tesouraria_usa_flash_invisivel(): void
+    /**
+     * O QUE SE DIZ AO UTILIZADOR VIAJA NA RESPOSTA.
+     *
+     * Guarda contra a reincidência do `session()->flash('message')`, que não
+     * é renderizado em lado nenhum desta aplicação. Antes varria os
+     * componentes Livewire da tesouraria — que já não existem; agora varre
+     * quem lhes sucedeu: os controladores de API que estes ecrãs chamam.
+     */
+    public function test_nenhum_caminho_da_tesouraria_usa_flash_invisivel(): void
     {
-        // Guarda contra a reincidência: `session()->flash('message')` não é
-        // renderizado em lado nenhum desta aplicação.
-        foreach (glob(app_path('Livewire/Treasury/*.php')) as $ficheiro) {
+        $ficheiros = array_merge(
+            glob(app_path('Http/Controllers/Api/Treasury/*.php')),
+            [app_path('Http/Controllers/Api/Invoicing/CatalogoApiController.php')],
+        );
+
+        $this->assertNotEmpty($ficheiros, 'o varrimento tem de encontrar alguma coisa');
+
+        foreach ($ficheiros as $ficheiro) {
             $this->assertStringNotContainsString(
                 "session()->flash('message'",
                 file_get_contents($ficheiro),
@@ -349,12 +489,14 @@ class TesourariaTest extends TenantTestCase
 
         $this->tenant->users()->attach($novo->id, ['is_active' => true]);
 
-        $lista = Livewire::actingAs($this->user)
-            ->test(CashRegisters::class)
-            ->viewData('users');
+        $this->comPermissoes('treasury.cash-registers.view');
+
+        $lista = collect(
+            $this->getJson($this->catalogo('caixas', '/opcoes'))->assertOk()->json('referencias.utilizadores')
+        );
 
         $this->assertTrue(
-            $lista->contains('id', $novo->id),
+            $lista->contains('valor', $novo->id),
             'quem entra pelo pivô tem de poder ser responsável de caixa'
         );
     }
@@ -371,30 +513,26 @@ class TesourariaTest extends TenantTestCase
         ]);
         $outra->users()->attach($alheio->id, ['is_active' => true]);
 
-        Livewire::actingAs($this->user)
-            ->test(CashRegisters::class)
-            ->call('create')
-            ->set('form.name', 'Caixa 1')
-            ->set('form.code', 'CX-' . uniqid())
-            ->set('form.user_id', $alheio->id)
-            ->call('save')
-            ->assertHasErrors('form.user_id');
+        $this->comPermissoes('treasury.cash-registers.view', 'treasury.cash-registers.create');
+
+        $this->postJson($this->catalogo('caixas'), [
+            'name' => 'Caixa 1', 'code' => 'CX-' . uniqid(),
+            'user_id' => $alheio->id, 'is_active' => true,
+        ])->assertStatus(422)->assertJsonValidationErrors('user_id');
 
         $this->assertSame(0, CashRegister::where('user_id', $alheio->id)->count());
     }
 
     public function test_cria_um_caixa_com_responsavel_da_casa(): void
     {
-        Livewire::actingAs($this->user)
-            ->test(CashRegisters::class)
-            ->call('create')
-            ->set('form.name', 'Caixa Balcão')
-            ->set('form.code', 'CX-' . uniqid())
-            ->set('form.user_id', $this->user->id)
-            ->call('save')
-            ->assertHasNoErrors()
-            ->assertDispatched('success');
+        $this->comPermissoes('treasury.cash-registers.view', 'treasury.cash-registers.create');
 
+        $r = $this->postJson($this->catalogo('caixas'), [
+            'name' => 'Caixa Balcão', 'code' => 'CX-' . uniqid(),
+            'user_id' => $this->user->id, 'is_active' => true,
+        ])->assertCreated();
+
+        $this->assertNotEmpty($r->json('message'));
         $this->assertSame(1, CashRegister::where('name', 'Caixa Balcão')->count());
     }
 

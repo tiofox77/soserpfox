@@ -172,6 +172,44 @@ test('o modal de transferencia agrupa contas e caixas', async ({ page }) => {
     await expect(modal).toBeHidden();
 });
 
+/* ─── Os catálogos ────────────────────────────────────────────────────── */
+
+/**
+ * UM REGISTO ABRE COM O VALOR QUE TEM.
+ *
+ * Ao passar os catálogos para o ecrã genérico escreveram-se listas de
+ * escolha que não batiam certo com a base: as formas de pagamento traziam
+ * `bank` e `manual`, que não existem, sem `bank_transfer`, `digital_wallet`
+ * nem `check`, que existem em dezenas. Abrir a «Transferência Bancária» que
+ * já lá está dava um campo EM BRANCO — e guardar dava erro de validação
+ * sobre o valor do próprio registo.
+ *
+ * É o género de defeito que nenhum ensaio de API apanha se o ensaio usar os
+ * mesmos valores errados: o que o prova é abrir o que a empresa tem.
+ */
+test('editar uma forma de pagamento mostra o tipo que ela tem', async ({ page }) => {
+    await page.goto('/treasury/payment-methods');
+    await listaPronta(page);
+
+    /*
+     * SEM `test.skip` À FRENTE DE UM `count()`.
+     *
+     * A empresa de bancada TEM uma forma de transferência — nasce com ela. Um
+     * guarda de contagem aqui só serviria para o ensaio se calar quando o
+     * ecrã não desenhasse a lista, que é precisamente o caso que ele existe
+     * para apanhar. Espera-se pelo botão, e se não vier, falha.
+     */
+    const editar = page.getByRole('button', { name: /^Editar: Transferência/i }).first();
+
+    await expect(editar).toBeVisible({ timeout: 20_000 });
+    await editar.click();
+
+    const tipo = page.getByRole('dialog').getByRole('combobox', { name: /^Tipo\b/ });
+
+    await expect(tipo).toBeVisible();
+    await expect(tipo).not.toHaveValue('', { timeout: 10_000 });
+});
+
 /* ─── O painel ────────────────────────────────────────────────────────── */
 
 test('o painel diz que o saldo nao segue o periodo', async ({ page }) => {

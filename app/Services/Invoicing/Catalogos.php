@@ -553,12 +553,27 @@ final class Catalogos
             ['valor' => 'USD', 'rotulo' => 'USD — Dólar'],
             ['valor' => 'EUR', 'rotulo' => 'EUR — Euro'],
         ];
+        /*
+         * DUAS LÍNGUAS NA MESMA COLUNA, e não fui eu que as pus.
+         *
+         * O ecrã em Livewire gravava `checking`/`savings`/`investment`; o
+         * comando `contas:da-empresa` grava `corrente`. Ninguém lê esta
+         * coluna para decidir coisa nenhuma — é uma etiqueta — mas uma conta
+         * gravada em inglês aparecia com o campo em branco, e ao guardar
+         * mudava de valor sem se dizer.
+         *
+         * As opções ficam em português (é o que se escreve de novo) e o
+         * `preparar` traduz as antigas, para convergirem à medida que se
+         * editam em vez de ficarem duas para sempre.
+         */
         $tipos = [
             ['valor' => 'corrente', 'rotulo' => 'Conta à ordem'],
             ['valor' => 'poupanca', 'rotulo' => 'Poupança'],
             ['valor' => 'prazo', 'rotulo' => 'A prazo'],
             ['valor' => 'outra', 'rotulo' => 'Outra'],
         ];
+
+        $tiposAntigos = ['checking' => 'corrente', 'savings' => 'poupanca', 'investment' => 'prazo'];
 
         return [
             'modelo' => \App\Models\Treasury\Account::class,
@@ -630,10 +645,23 @@ final class Catalogos
              * disso é dos movimentos, e mexer-lhe aqui era reescrever a
              * tesouraria por um formulário.
              */
-            'preparar' => function (array $d, ?Model $m) {
+            /*
+             * O BANCO TEM DE EXISTIR. A regra era `required|integer`: um id
+             * inventado passava a validação e rebentava na chave estrangeira,
+             * com o erro de SQL inteiro na cara do utilizador.
+             *
+             * Aqui não se usa o `daCasa`: a tabela dos bancos é PARTILHADA e
+             * não tem `tenant_id` nenhum por onde filtrar.
+             */
+            'validar' => fn (array $d) => \App\Models\Treasury\Bank::whereKey($d['bank_id'] ?? 0)->exists()
+                ? [] : ['bank_id' => __('Banco desconhecido.')],
+            'preparar' => function (array $d, ?Model $m) use ($tiposAntigos) {
                 if (! $m) {
                     $d['current_balance'] = $d['initial_balance'] ?? 0;
                 }
+
+                // As etiquetas em inglês convergem para as de cá.
+                $d['account_type'] = $tiposAntigos[$d['account_type'] ?? ''] ?? ($d['account_type'] ?? null);
 
                 return $d;
             },
@@ -687,6 +715,12 @@ final class Catalogos
             'descricao' => 'A lista de bancos, partilhada por todas as empresas',
             'novo' => 'Novo Banco',
             'rota' => '/treasury/banks',
+            /*
+             * ESCREVER AQUI MEXE COM TODAS AS EMPRESAS, e por isso pede a
+             * permissão mais forte das três. A tabela é partilhada: renomear
+             * ou apagar um banco muda-o para toda a gente, não só para quem
+             * está a carregar no botão.
+             */
             'permissoes' => [
                 'ver' => 'treasury.banks.view',
                 'criar' => 'treasury.banks.delete',
@@ -730,6 +764,26 @@ final class Catalogos
                 'is_active' => 'boolean',
             ],
             /*
+             * O CÓDIGO DO BANCO É ÚNICO — e GLOBALMENTE, ao contrário dos
+             * outros catálogos da tesouraria.
+             *
+             * A tabela é partilhada por todas as empresas (não tem
+             * `tenant_id`) e o índice único está no `code` sozinho. Repetir
+             * um código dava um 1062 cru na cara de quem estivesse a criar —
+             * e como a tabela é partilhada, o duplicado podia vir de uma
+             * empresa que a pessoa nunca viu.
+             */
+            'validar' => function (array $d, ?Model $m, int $tenantId) {
+                if (empty($d['code'])) {
+                    return [];
+                }
+
+                $repetido = \App\Models\Treasury\Bank::where('code', $d['code'])
+                    ->when($m, fn ($q) => $q->where('id', '!=', $m->id))->exists();
+
+                return $repetido ? ['code' => __('Já existe um banco com esse código.')] : [];
+            },
+            /*
              * NÃO SE APAGA UM BANCO QUE ALGUÉM USA — e «alguém» aqui é
              * qualquer empresa do sistema, não só a de quem está a carregar.
              */
@@ -742,11 +796,26 @@ final class Catalogos
     /** As formas de pagamento da tesouraria — para onde o dinheiro vai. */
     private static function formasDePagamento(): array
     {
+        /*
+         * OS TIPOS REAIS, os que estão na base.
+         *
+         * Estavam aqui quatro valores inventados — `bank` e `manual` não
+         * existem em registo nenhum, e faltavam `bank_transfer`,
+         * `digital_wallet` e `check`, que existem em dezenas. O efeito era
+         * pior do que uma lista errada: abrir a «Transferência Bancária» que
+         * já lá está e carregar em Guardar dava erro de validação, porque o
+         * valor do próprio registo não constava dos aceites.
+         *
+         * `cash` é o único com significado no código — é ele que manda o
+         * dinheiro para o caixa em vez da conta (ver `TreasuryMovementService`).
+         */
         $tipos = [
             ['valor' => 'cash', 'rotulo' => 'Numerário'],
-            ['valor' => 'bank', 'rotulo' => 'Banco'],
             ['valor' => 'card', 'rotulo' => 'Cartão / TPA'],
-            ['valor' => 'manual', 'rotulo' => 'Outra'],
+            ['valor' => 'bank_transfer', 'rotulo' => 'Transferência bancária'],
+            ['valor' => 'digital_wallet', 'rotulo' => 'Carteira digital'],
+            ['valor' => 'check', 'rotulo' => 'Cheque'],
+            ['valor' => 'other', 'rotulo' => 'Outra'],
         ];
 
         return [
@@ -775,7 +844,7 @@ final class Catalogos
             'campos' => [
                 self::campo('name', 'Nome', 'texto', obrigatorio: true),
                 self::campo('code', 'Código', 'texto', obrigatorio: true, ajuda: 'É por ele que o POS e os recibos a identificam.'),
-                self::campo('type', 'Tipo', 'escolha', obrigatorio: true, omissao: 'manual', opcoes: $tipos),
+                self::campo('type', 'Tipo', 'escolha', obrigatorio: true, omissao: 'cash', opcoes: $tipos),
                 self::campo('description', 'Descrição', 'texto'),
                 self::campo('icon', 'Ícone', 'texto', omissao: 'fa-money-bill'),
                 self::campo('color', 'Cor', 'texto', omissao: 'green'),
@@ -789,7 +858,7 @@ final class Catalogos
             'regras' => [
                 'name' => 'required|max:100',
                 'code' => 'required|max:30',
-                'type' => 'required|in:cash,bank,card,manual',
+                'type' => 'required|in:cash,card,bank_transfer,digital_wallet,check,other',
                 'description' => 'nullable|max:255',
                 'icon' => 'nullable|max:60',
                 'color' => 'nullable|max:30',
@@ -800,6 +869,20 @@ final class Catalogos
                 'default_cash_register_id' => 'nullable|integer',
                 'is_active' => 'boolean',
             ],
+            /*
+             * O DESTINO TEM DE SER DESTA CASA.
+             *
+             * `nullable|integer` aceitava o id da conta bancária de outra
+             * empresa: a forma de pagamento ficava a apontar para fora, sem
+             * erro nenhum. O dinheiro não ia lá parar — o serviço volta a
+             * filtrar pela empresa — mas a configuração ficava a mentir, e
+             * quem a lesse não perceberia porque é que o saldo não mexia.
+             */
+            'validar' => self::tudoIsto([
+                self::codigoUnico(\App\Models\Treasury\PaymentMethod::class, 'Já existe uma forma de pagamento com esse código.'),
+                self::daCasa('default_account_id', \App\Models\Treasury\Account::class, 'Essa conta bancária não é desta empresa.'),
+                self::daCasa('default_cash_register_id', \App\Models\Treasury\CashRegister::class, 'Esse caixa não é desta empresa.'),
+            ]),
             'referencias' => fn (int $t) => [
                 // A conta bancária chama-se `account_name` e não `name`: a
                 // coluna «name» aqui não existe, e a consulta rebentava.
@@ -871,10 +954,41 @@ final class Catalogos
                 'is_active' => 'boolean',
             ],
             'referencias' => fn (int $t) => [
+                /*
+                 * OS UTILIZADORES VÊM DO PIVÔ, e não de `users.tenant_id`.
+                 *
+                 * Medido em produção: uma empresa com nove pessoas no pivô
+                 * mostrava oito — e a que faltava não podia ser responsável
+                 * de caixa nenhum. Quem é acrescentado pela gestão de
+                 * utilizadores entra SÓ pelo pivô.
+                 */
                 'utilizadores' => User::whereHas('tenants', fn ($q) => $q->where('tenants.id', $t))
                     ->orderBy('name')->get(['id', 'name'])
                     ->map(fn ($x) => ['valor' => $x->id, 'rotulo' => $x->name])->all(),
             ],
+            /*
+             * O OPERADOR TEM DE SER DESTA EMPRESA.
+             *
+             * A regra `nullable|integer` aceitava qualquer utilizador do
+             * sistema: bastava trocar o valor no pedido para pôr uma pessoa
+             * de outra empresa como responsável de um caixa que não é dela.
+             * O ecrã em Livewire prendia-a ao pivô e a regra perdeu-se ao
+             * passar para aqui.
+             */
+            'validar' => self::tudoIsto([
+                self::codigoUnico(\App\Models\Treasury\CashRegister::class, 'Já existe uma caixa com esse código.'),
+                function (array $d, ?Model $m, int $tenantId) {
+                    if (empty($d['user_id'])) {
+                        return [];
+                    }
+
+                    $daCasa = User::whereKey($d['user_id'])
+                        ->whereHas('tenants', fn ($q) => $q->where('tenants.id', $tenantId))->exists();
+
+                    return $daCasa ? [] : ['user_id' => __('Esse utilizador não pertence a esta empresa.')];
+                },
+            ]),
+            'preparar' => fn (array $d) => array_merge($d, ['user_id' => ($d['user_id'] ?? null) ?: null]),
             // Uma caixa ABERTA tem dinheiro contado e um turno por fechar.
             'pode_apagar' => fn (Model $m) => $m->status !== 'open',
             'porque_nao_apaga' => 'A caixa está aberta. Feche o turno primeiro.',
@@ -885,9 +999,18 @@ final class Catalogos
     /** Os TIPOS de movimento: o que é entrada e o que é saída. */
     private static function tiposDeMovimento(): array
     {
+        /*
+         * AS TRÊS NATUREZAS, as da coluna.
+         *
+         * `transfer` faltava aqui e está no `enum` da base e em registos a
+         * sério — o que fazia com que abrir um tipo de transferência e
+         * carregar em Guardar desse erro de validação sobre o valor que o
+         * próprio registo já tinha.
+         */
         $naturezas = [
             ['valor' => 'income', 'rotulo' => 'Entrada'],
             ['valor' => 'expense', 'rotulo' => 'Saída'],
+            ['valor' => 'transfer', 'rotulo' => 'Transferência'],
         ];
 
         return [
@@ -899,6 +1022,17 @@ final class Catalogos
             'descricao' => 'O que conta como entrada e o que conta como saída',
             'novo' => 'Novo Tipo',
             'rota' => '/treasury/transaction-types',
+            /*
+             * A EMPRESA NOVA NÃO FICA COM A LISTA VAZIA.
+             *
+             * O ecrã em Livewire semeava os tipos e as categorias de omissão
+             * ao abrir, e a semeadura perdeu-se ao passar para o ecrã
+             * genérico: quem entrasse aqui pela primeira vez via uma lista
+             * sem nada e sem por onde começar — e os movimentos ficavam por
+             * classificar. Semeia os DOIS, porque as categorias dependem dos
+             * tipos e este catálogo pode ser o primeiro a abrir.
+             */
+            'antes' => fn (int $t) => \App\Models\Treasury\TransactionCategory::seedDefaultsForTenant($t),
             'permissoes' => self::porVerbo('treasury.transactions'),
             'pesquisa' => ['name', 'code'],
             'pesquisa_ajuda' => 'Nome ou código',
@@ -924,12 +1058,13 @@ final class Catalogos
             'regras' => [
                 'name' => 'required|max:100',
                 'code' => 'required|max:30',
-                'nature' => 'required|in:income,expense',
+                'nature' => 'required|in:income,expense,transfer',
                 'description' => 'nullable|string',
                 'color' => 'nullable|max:30',
                 'icon' => 'nullable|max:60',
                 'is_active' => 'boolean',
             ],
+            'validar' => self::codigoUnico(\App\Models\Treasury\TransactionType::class, 'Já existe um tipo de movimento com esse código.'),
             /*
              * Um tipo com CATEGORIAS por baixo, ou já usado num MOVIMENTO, não
              * desaparece: o histórico deixaria de saber o que aquilo era.
@@ -953,6 +1088,17 @@ final class Catalogos
             'descricao' => 'O detalhe dentro de cada tipo de movimento',
             'novo' => 'Nova Categoria',
             'rota' => '/treasury/transaction-categories',
+            /*
+             * A EMPRESA NOVA NÃO FICA COM A LISTA VAZIA.
+             *
+             * O ecrã em Livewire semeava os tipos e as categorias de omissão
+             * ao abrir, e a semeadura perdeu-se ao passar para o ecrã
+             * genérico: quem entrasse aqui pela primeira vez via uma lista
+             * sem nada e sem por onde começar — e os movimentos ficavam por
+             * classificar. Semeia os DOIS, porque as categorias dependem dos
+             * tipos e este catálogo pode ser o primeiro a abrir.
+             */
+            'antes' => fn (int $t) => \App\Models\Treasury\TransactionCategory::seedDefaultsForTenant($t),
             'permissoes' => self::porVerbo('treasury.transactions'),
             'pesquisa' => ['name', 'code'],
             'pesquisa_ajuda' => 'Nome ou código',
@@ -967,14 +1113,23 @@ final class Catalogos
             'campos' => [
                 self::campo('name', 'Nome', 'texto', obrigatorio: true),
                 self::campo('code', 'Código', 'texto', obrigatorio: true),
-                self::campo('transaction_type_id', 'Tipo de movimento', 'referencia', obrigatorio: true, referencia: 'tipos'),
+                self::campo('transaction_type_id', 'Tipo de movimento', 'referencia', referencia: 'tipos', ajuda: 'Em branco, serve a qualquer tipo.'),
                 self::campo('description', 'Descrição', 'textarea', largura: 'inteira'),
                 self::campo('is_active', 'Activa', 'booleano', omissao: true),
             ],
             'regras' => [
                 'name' => 'required|max:100',
                 'code' => 'required|max:30',
-                'transaction_type_id' => 'required|integer',
+                /*
+                 * O TIPO É OPCIONAL — e tinha ficado obrigatório.
+                 *
+                 * Onze das categorias de omissão nascem SEM tipo, de
+                 * propósito: são as que servem a qualquer um, e o ecrã dos
+                 * movimentos lê o nulo como «serve sempre». Exigi-lo aqui
+                 * tornava essas onze impossíveis de editar — o formulário
+                 * pedia um valor que o próprio registo não tem.
+                 */
+                'transaction_type_id' => 'nullable|integer',
                 'description' => 'nullable|string',
                 'is_active' => 'boolean',
             ],
@@ -983,6 +1138,13 @@ final class Catalogos
                     ->orderBy('name')->get(['id', 'name'])
                     ->map(fn ($x) => ['valor' => $x->id, 'rotulo' => $x->name])->all(),
             ],
+            'validar' => self::tudoIsto([
+                self::codigoUnico(\App\Models\Treasury\TransactionCategory::class, 'Já existe uma categoria com esse código.'),
+                self::daCasa('transaction_type_id', \App\Models\Treasury\TransactionType::class, 'Esse tipo de movimento não é desta empresa.'),
+            ]),
+            'preparar' => fn (array $d) => array_merge($d, [
+                'transaction_type_id' => ($d['transaction_type_id'] ?? null) ?: null,
+            ]),
             'pode_apagar' => fn (Model $m) => ! \App\Models\Treasury\Transaction::where('transaction_category_id', $m->id)->exists(),
             'porque_nao_apaga' => 'Há movimentos nesta categoria.',
             'accoes' => ['activar' => true, 'padrao' => false, 'logotipo' => false, 'apagar' => true],
@@ -992,6 +1154,84 @@ final class Catalogos
     private static function porVerbo(string $prefixo): array
     {
         return ['ver' => "$prefixo.view", 'criar' => "$prefixo.create", 'editar' => "$prefixo.edit", 'apagar' => "$prefixo.delete"];
+    }
+
+    /**
+     * O CÓDIGO É ÚNICO POR EMPRESA — e diz-se no campo, não em SQL.
+     *
+     * Os catálogos da tesouraria têm todos um índice único `(tenant_id, code)`
+     * na base e nenhum o declarava: repetir um código dava um 1062 cru na cara
+     * do utilizador, com o SQL inteiro lá dentro, em vez de «Já existe uma
+     * forma de pagamento com esse código».
+     *
+     * Vive aqui e não numa regra `Rule::unique(...)` porque a regra precisa de
+     * IGNORAR o próprio registo ao editar, e o esquema não sabe qual é — o
+     * `validar` recebe-o.
+     *
+     * @param  class-string<Model>  $modelo
+     * @return callable(array, ?Model, int): array
+     */
+    private static function codigoUnico(string $modelo, string $frase, string $coluna = 'code'): callable
+    {
+        return function (array $d, ?Model $m, int $tenantId) use ($modelo, $frase, $coluna) {
+            if (($d[$coluna] ?? '') === '') {
+                return [];
+            }
+
+            $repetido = $modelo::withoutGlobalScopes()
+                ->where('tenant_id', $tenantId)
+                ->where($coluna, $d[$coluna])
+                ->when($m, fn ($q) => $q->where('id', '!=', $m->id))
+                ->exists();
+
+            return $repetido ? [$coluna => __($frase)] : [];
+        };
+    }
+
+    /**
+     * Junta várias verificações numa só, para o `validar` que só aceita uma.
+     *
+     * @param  array<int, callable(array, ?Model, int): array>  $verificacoes
+     * @return callable(array, ?Model, int): array
+     */
+    private static function tudoIsto(array $verificacoes): callable
+    {
+        return function (array $d, ?Model $m, int $tenantId) use ($verificacoes) {
+            foreach ($verificacoes as $verificar) {
+                // A PRIMEIRA QUE FALHA MANDA. Devolver as duas de uma vez
+                // obrigaria a juntar mensagens de campos diferentes, e o
+                // formulário só sabe mostrar uma por campo.
+                if ($erros = $verificar($d, $m, $tenantId)) {
+                    return $erros;
+                }
+            }
+
+            return [];
+        };
+    }
+
+    /**
+     * Um `id` que tem de apontar para algo DESTA empresa.
+     *
+     * Sem isto, `nullable|integer` aceitava o id de uma conta bancária ou de
+     * um utilizador de outra empresa — o registo ficava a apontar para fora
+     * de casa, e nada dava erro.
+     *
+     * @param  class-string<Model>  $modelo
+     * @return callable(array, ?Model, int): array
+     */
+    private static function daCasa(string $campo, string $modelo, string $frase): callable
+    {
+        return function (array $d, ?Model $m, int $tenantId) use ($campo, $modelo, $frase) {
+            if (empty($d[$campo])) {
+                return [];
+            }
+
+            $existe = $modelo::withoutGlobalScopes()
+                ->where('tenant_id', $tenantId)->whereKey($d[$campo])->exists();
+
+            return $existe ? [] : [$campo => __($frase)];
+        };
     }
 
     private static function campo(
