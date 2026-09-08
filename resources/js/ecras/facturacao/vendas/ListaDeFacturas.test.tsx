@@ -329,6 +329,60 @@ describe('Lista de facturas de venda', () => {
         );
     });
 
+    /**
+     * CADA ESTADO TEM O SEU CARTÃO — como no ecrã de sempre.
+     *
+     * Ao migrar, as contagens por estado tinham-se transformado numa linha de
+     * texto cinzento por baixo do total: a mesma informação, mas precisa de
+     * ser lida com atenção, e a cor deixou de dizer nada.
+     */
+    it('cada estado tem o seu cartao, com a sua contagem', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn((url: string) =>
+                Promise.resolve({
+                    ok: true,
+                    status: 200,
+                    json: () => Promise.resolve(
+                        url.includes('/opcoes')
+                            ? OPCOES_VAZIAS
+                            : {
+                                  data: [factura()],
+                                  links: { first: null, last: null, prev: null, next: null },
+                                  meta: {
+                                      current_page: 1, from: 1, last_page: 1, per_page: 15, to: 1, total: 170,
+                                      somas: { facturado: 179208, por_receber: 44289, vencido: 0 },
+                                      contagens: { rascunhos: 1, pendentes: 41, pagas: 128 },
+                                  },
+                              },
+                    ),
+                } as Response),
+            ),
+        );
+
+        mostrar();
+
+        /*
+         * ESPERA-SE PELO NÚMERO, não pelo rótulo.
+         *
+         * O cartão desenha-se antes de a resposta chegar, com um traço no
+         * lugar do valor — procurar o rótulo encontra-o nesse instante e a
+         * asserção seguinte lê o ecrã a meio.
+         */
+        const cartoes: Array<[string, string]> = [
+            ['Documentos', '170'], ['Rascunho', '1'], ['Pendentes', '41'], ['Pagas', '128'],
+        ];
+
+        for (const [rotulo, contagem] of cartoes) {
+            expect(await screen.findByText(contagem)).toBeInTheDocument();
+            expect(screen.getByText(rotulo)).toBeInTheDocument();
+        }
+
+        // E o dinheiro continua lá, que é o que o ecrã de sempre não tinha.
+        expect(screen.getByText('Por receber')).toBeInTheDocument();
+        expect(screen.getByText('Vencido')).toBeInTheDocument();
+    });
+
     it('diz que não há nada e deixa limpar os filtros', async () => {
         vi.stubGlobal('fetch', responder([]));
 

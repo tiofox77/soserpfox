@@ -395,28 +395,35 @@ function Totais({
     aActualizar: boolean;
 }) {
     return (
-        <div className={cls('grid gap-3 sm:grid-cols-2 lg:grid-cols-4', aActualizar && 'opacity-70')}>
-            {/* AS CONTAGENS POR ESTADO, debaixo do total.
-                Os cartões do ecrã de sempre eram cinco e três deles eram
-                contagens — rascunhos, pendentes, pagas. Ficaram só os de
-                dinheiro, que são melhores para o topo, mas «tenho doze
-                rascunhos por acabar» é outra pergunta e desapareceu. Vai aqui,
-                em vez de mais três caixas a competir com os valores. */}
-            <Total
-                rotulo={t('Documentos')}
-                valor={contas?.total}
-                contagem
-                tom="indigo"
-                icone="fa-file-invoice"
-                nota={contagens && [
-                    contagens.rascunhos > 0 && t(':n rascunho(s)', { n: contagens.rascunhos }),
-                    contagens.pendentes > 0 && t(':n por pagar', { n: contagens.pendentes }),
-                    contagens.pagas > 0 && t(':n paga(s)', { n: contagens.pagas }),
-                ].filter(Boolean).join(' · ')}
-            />
-            <Total rotulo={t('Facturado')} valor={somas?.facturado} tom="verde" icone="fa-money-bill-wave" />
-            <Total rotulo={t('Por receber')} valor={somas?.por_receber} tom="ambar" icone="fa-clock" />
-            <Total rotulo={t('Vencido')} valor={somas?.vencido} tom="vermelho" icone="fa-triangle-exclamation" />
+        <div className={cls('space-y-3', aActualizar && 'opacity-70')}>
+            {/*
+              * QUANTAS — uma fileira, um cartão por estado.
+              *
+              * Era assim no ecrã de sempre e é melhor: «Rascunho 1»,
+              * «Pendentes 41», «Pagas 128» lêem-se de relance, e a COR diz o
+              * estado antes de se ler o rótulo. Ao migrar tinham-se
+              * transformado numa linha de texto cinzento por baixo do total —
+              * a mesma informação, precisa de ser lida com atenção, e a cor
+              * deixou de dizer nada.
+              */}
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <Total rotulo={t('Documentos')} valor={contas?.total} contagem tom="indigo" icone="fa-file-invoice" aspecto="claro" />
+                <Total rotulo={t('Rascunho')} valor={contagens?.rascunhos} contagem tom="cinza" icone="fa-pen" aspecto="claro" />
+                <Total rotulo={t('Pendentes')} valor={contagens?.pendentes} contagem tom="ambar" icone="fa-clock" aspecto="claro" />
+                <Total rotulo={t('Pagas')} valor={contagens?.pagas} contagem tom="verde" icone="fa-circle-check" aspecto="claro" />
+            </div>
+
+            {/*
+              * QUANTO — a fileira do dinheiro, cheia, que é onde o olho cai.
+              *
+              * O ecrã de sempre só tinha «Valor Total»: por receber e vencido
+              * não existiam, e são o que interessa a quem cobra.
+              */}
+            <div className="grid gap-3 sm:grid-cols-3">
+                <Total rotulo={t('Facturado')} valor={somas?.facturado} tom="azul" icone="fa-money-bill-wave" />
+                <Total rotulo={t('Por receber')} valor={somas?.por_receber} tom="ambar" icone="fa-hand-holding-dollar" />
+                <Total rotulo={t('Vencido')} valor={somas?.vencido} tom={somas && somas.vencido > 0 ? 'vermelho' : 'cinza'} icone="fa-triangle-exclamation" />
+            </div>
         </div>
     );
 }
@@ -427,7 +434,7 @@ function Total({
     contagem = false,
     tom,
     icone,
-    nota,
+    aspecto,
 }: {
     rotulo: string;
     valor?: number;
@@ -435,21 +442,32 @@ function Total({
     contagem?: boolean;
     tom: TomDoCartao;
     icone: string;
-    /** A linha pequena por baixo do número — a repartição, quando a há. */
-    nota?: string;
+    /**
+     * `claro` para as contagens, `cheio` (omissão) para o dinheiro.
+     *
+     * Não é enfeite: são duas perguntas diferentes — «quantas estão em cada
+     * estado» e «quanto é que isso vale» — e a diferença de peso diz qual é a
+     * que se olha primeiro.
+     */
+    aspecto?: 'cheio' | 'claro';
 }) {
     return (
         <CartaoNumero
             rotulo={rotulo}
             tom={tom}
             icone={icone}
-            nota={nota || undefined}
+            aspecto={aspecto}
             sufixo={valor !== undefined && !contagem ? 'Kz' : undefined}
             valor={
                 /* Enquanto não há resposta escreve-se um traço, não um zero:
-                   um zero é uma afirmação, e ainda ninguém contou nada. */
+                   um zero é uma afirmação, e ainda ninguém contou nada.
+
+                   E o traço tem de SER VISÍVEL no cartão em que está: branco
+                   translúcido sobre o gradiente, cinzento sobre o cartão
+                   claro. Assim como estava, no claro era branco sobre branco
+                   — o cartão parecia vazio em vez de a contar. */
                 valor === undefined ? (
-                    <span className="text-white/50">—</span>
+                    <span className={aspecto === 'claro' ? 'text-slate-300' : 'text-white/50'}>—</span>
                 ) : contagem ? (
                     valor.toLocaleString(etiquetaIntl())
                 ) : (
