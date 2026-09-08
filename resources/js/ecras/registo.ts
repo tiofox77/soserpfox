@@ -60,6 +60,16 @@ export const ecras: Record<string, Ecra> = {
     'facturacao/gateways-de-notificacao': () =>
         import('./facturacao/GatewaysDeNotificacao'),
 
+    /*
+     * ─── RECURSOS HUMANOS ──────────────────────────────────────────────
+     *
+     * Os catálogos do RH (departamentos, cargos, turnos) usam o ecrã genérico
+     * `facturacao/catalogo`, como os da tesouraria. Aqui ficam os que têm
+     * ecrã próprio.
+     */
+    'rh/funcionarios': () =>
+        import('./rh/Funcionarios'),
+
     // A casca: a barra lateral com o menu, o suporte e o utilizador.
     'casca': () =>
         import('./casca/Casca'),

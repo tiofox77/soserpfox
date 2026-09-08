@@ -521,6 +521,27 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::post('/catalogos/{tipo}/{id}/{accao}', [\App\Http\Controllers\Api\Invoicing\CatalogoApiController::class, 'accao'])
             ->where('tipo', '[a-z-]+')->whereNumber('id')->where('accao', 'activar|padrao')->name('catalogos.accao');
 
+        /*
+         * ─── RECURSOS HUMANOS ──────────────────────────────────────────
+         *
+         * A ficha do funcionário. As permissões são exigidas DENTRO do
+         * controlador, por verbo (`employees.view/create/edit/delete`): ver a
+         * lista é uma coisa, mexer no salário de alguém é outra.
+         */
+        Route::get('/rh/funcionarios/opcoes', [\App\Http\Controllers\Api\Hr\FuncionariosApiController::class, 'opcoes'])->name('rh.funcionarios.opcoes');
+        Route::get('/rh/funcionarios/importaveis', [\App\Http\Controllers\Api\Hr\FuncionariosApiController::class, 'importaveis'])->name('rh.funcionarios.importaveis');
+        Route::post('/rh/funcionarios/importar', [\App\Http\Controllers\Api\Hr\FuncionariosApiController::class, 'importar'])->name('rh.funcionarios.importar');
+        Route::get('/rh/funcionarios', [\App\Http\Controllers\Api\Hr\FuncionariosApiController::class, 'index'])->name('rh.funcionarios.index');
+        Route::post('/rh/funcionarios', [\App\Http\Controllers\Api\Hr\FuncionariosApiController::class, 'guardar'])->name('rh.funcionarios.guardar');
+        Route::get('/rh/funcionarios/{id}', [\App\Http\Controllers\Api\Hr\FuncionariosApiController::class, 'abrir'])->whereNumber('id')->name('rh.funcionarios.abrir');
+        Route::put('/rh/funcionarios/{id}', [\App\Http\Controllers\Api\Hr\FuncionariosApiController::class, 'actualizar'])->whereNumber('id')->name('rh.funcionarios.actualizar');
+        Route::delete('/rh/funcionarios/{id}', [\App\Http\Controllers\Api\Hr\FuncionariosApiController::class, 'eliminar'])->whereNumber('id')->name('rh.funcionarios.eliminar');
+        Route::post('/rh/funcionarios/{id}/fotografia', [\App\Http\Controllers\Api\Hr\FuncionariosApiController::class, 'guardarFotografia'])->whereNumber('id')->name('rh.funcionarios.fotografia');
+        Route::post('/rh/funcionarios/{id}/documentos/{tipo}', [\App\Http\Controllers\Api\Hr\FuncionariosApiController::class, 'guardarDocumento'])
+            ->whereNumber('id')->where('tipo', '[a-z_]+')->name('rh.funcionarios.documento');
+        Route::delete('/rh/funcionarios/{id}/documentos/{tipo}', [\App\Http\Controllers\Api\Hr\FuncionariosApiController::class, 'apagarDocumento'])
+            ->whereNumber('id')->where('tipo', '[a-z_]+')->name('rh.funcionarios.documento.apagar');
+
         // Adiantamentos: as regras no EmissorDeAdiantamentos, o mesmo do Livewire.
         Route::get('/adiantamentos/opcoes', [\App\Http\Controllers\Api\Invoicing\AdiantamentoApiController::class, 'opcoes'])->name('adiantamentos.opcoes');
         Route::get('/adiantamentos/{id}', [\App\Http\Controllers\Api\Invoicing\AdiantamentoApiController::class, 'mostrar'])->whereNumber('id')->name('adiantamentos.mostrar');
@@ -1203,7 +1224,9 @@ Route::middleware(['auth:client'])->prefix('client')->name('client.')->group(fun
 // HR Module Routes
 Route::middleware(['auth', 'tenant.module:rh'])->prefix('hr')->name('hr.')->group(function () {
     Route::get('/dashboard', \App\Livewire\HR\HRDashboard::class)->name('dashboard');
-    Route::get('/employees', \App\Livewire\HR\EmployeeManagement::class)->name('employees.index');
+    Route::middleware('permission:employees.view')
+        ->get('/employees', \App\Support\EcraReact::pagina('rh/funcionarios', 'Funcionários'))
+        ->name('employees.index');
     Route::get('/employees/{id}/sheet', [\App\Http\Controllers\HR\EmployeeController::class, 'employeeSheet'])->name('employees.sheet');
     Route::get('/vacations/{id}/pdf', [\App\Http\Controllers\HR\VacationController::class, 'generatePDF'])->name('vacations.pdf');
     Route::get('/leaves/{id}/pdf', [\App\Http\Controllers\HR\LeaveController::class, 'generatePDF'])->name('leaves.pdf');
