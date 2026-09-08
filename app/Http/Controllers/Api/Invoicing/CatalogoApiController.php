@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Invoicing;
 use App\Http\Controllers\Controller;
 use App\Services\Invoicing\Catalogos;
 use App\Services\Invoicing\ExtratoDaParte;
+use App\Support\GaleriaDeIcones;
 use App\Support\Geografia;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
@@ -68,6 +69,16 @@ class CatalogoApiController extends Controller
                 'municipios' => collect(Geografia::provincias())->mapWithKeys(fn ($p) => [$p => Geografia::municipios($p)]),
                 'pais_padrao' => Geografia::PAIS_PADRAO,
             ] : null,
+            /*
+             * A GALERIA DE ÍCONES, e só onde há um campo que a use.
+             *
+             * A lista vive em PHP (`GaleriaDeIcones`) porque há formulários
+             * em React e formulários em Blade: duas galerias em dois sítios
+             * eram duas listas a divergir à primeira adição.
+             */
+            'galeria_de_icones' => collect($def['campos'])->contains(fn ($c) => ($c['tipo'] ?? '') === 'icone')
+                ? GaleriaDeIcones::grupos()
+                : null,
             'permissoes' => [
                 'pode_escrever' => (bool) $request->user()?->can($def['permissoes']['criar']),
             ],

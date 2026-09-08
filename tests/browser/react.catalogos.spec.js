@@ -36,6 +36,45 @@ for (const c of CATALOGOS) {
     });
 }
 
+/**
+ * O ÍCONE ESCOLHE-SE DE UMA GALERIA, e não escrevendo o código.
+ *
+ * Era uma caixa de texto onde se escrevia `fa-money-bill` e se esperava pelo
+ * melhor: quem não sabe o Font Awesome de cor não tinha por onde começar, e
+ * um código mal escrito não dá erro — dá um quadrado vazio na lista, que só
+ * se descobre depois de gravado.
+ *
+ * Prova-se aqui o que só um browser prova: que a galeria abre DENTRO do
+ * formulário (não noutra janela, que roubaria o Escape à de fora), que a
+ * procura é em português, e que escolher escreve o código certo no campo.
+ */
+test('o icone escolhe-se de uma galeria, com procura em portugues', async ({ page }) => {
+    await page.goto('/invoicing/categories');
+    await expect(page.getByRole('table')).toBeVisible({ timeout: 20_000 });
+
+    await page.getByRole('button', { name: /^Nova Categoria$/ }).click();
+
+    const abrir = page.getByRole('button', { name: /^Ícone: / });
+
+    await expect(abrir).toBeVisible();
+    await abrir.click();
+
+    // A PROCURA É PELO NOME, não pelo código: quem quer um café escreve
+    // «café», não `mug-hot`.
+    await page.getByLabel('Procurar ícone').fill('café');
+
+    const encontrado = page.getByRole('button', { name: 'café', exact: true });
+
+    await expect(encontrado).toBeVisible({ timeout: 10_000 });
+    await encontrado.click();
+
+    // E o campo fica com o código certo, com a galeria fechada por trás.
+    await expect(page.getByRole('button', { name: 'Ícone: fa-mug-hot' })).toBeVisible();
+    await expect(page.getByLabel('Procurar ícone')).toBeHidden();
+
+    await page.getByRole('button', { name: /^Cancelar$/ }).click();
+});
+
 test('cria uma marca, ve-a na lista e apaga-a', async ({ page }) => {
     const nome = 'Marca ensaio ' + Date.now();
 

@@ -202,7 +202,7 @@ final class Catalogos
             'campos' => [
                 self::campo('name', 'Nome', 'texto', obrigatorio: true),
                 self::campo('parent_id', 'Categoria-mãe', 'referencia', referencia: 'categorias_principais', ajuda: 'Vazio para uma categoria principal.'),
-                self::campo('icon', 'Ícone (Font Awesome)', 'texto', obrigatorio: true, omissao: 'fa-folder'),
+                self::campo('icon', 'Ícone', 'icone', obrigatorio: true, omissao: 'fa-folder'),
                 self::campo('color', 'Cor', 'cor', obrigatorio: true, omissao: '#3B82F6'),
                 self::campo('order', 'Ordem', 'numero', omissao: 0),
                 self::campo('description', 'Descrição', 'textarea', largura: 'inteira'),
@@ -261,7 +261,7 @@ final class Catalogos
             'filtros' => [],
             'campos' => [
                 self::campo('name', 'Nome', 'texto', obrigatorio: true),
-                self::campo('icon', 'Ícone (Font Awesome)', 'texto', obrigatorio: true, omissao: 'fa-tag'),
+                self::campo('icon', 'Ícone', 'icone', obrigatorio: true, omissao: 'fa-tag'),
                 self::campo('logo', 'Logótipo (URL)', 'url'),
                 self::campo('website', 'Site', 'url'),
                 self::campo('order', 'Ordem', 'numero', omissao: 0),
@@ -846,7 +846,7 @@ final class Catalogos
                 self::campo('code', 'Código', 'texto', obrigatorio: true, ajuda: 'É por ele que o POS e os recibos a identificam.'),
                 self::campo('type', 'Tipo', 'escolha', obrigatorio: true, omissao: 'cash', opcoes: $tipos),
                 self::campo('description', 'Descrição', 'texto'),
-                self::campo('icon', 'Ícone', 'texto', omissao: 'fa-money-bill'),
+                self::campo('icon', 'Ícone', 'icone', omissao: 'fa-money-bill'),
                 self::campo('color', 'Cor', 'texto', omissao: 'green'),
                 self::campo('fee_percentage', 'Comissão (%)', 'numero', omissao: 0, passo: 0.01, min: 0, max: 100),
                 self::campo('fee_fixed', 'Comissão fixa', 'numero', omissao: 0, passo: 0.01, min: 0),
@@ -1052,7 +1052,7 @@ final class Catalogos
                 self::campo('nature', 'Natureza', 'escolha', obrigatorio: true, omissao: 'income', opcoes: $naturezas),
                 self::campo('description', 'Descrição', 'textarea', largura: 'inteira'),
                 self::campo('color', 'Cor', 'texto', omissao: 'blue'),
-                self::campo('icon', 'Ícone', 'texto', omissao: 'fa-right-left'),
+                self::campo('icon', 'Ícone', 'icone', omissao: 'fa-right-left'),
                 self::campo('is_active', 'Activo', 'booleano', omissao: true),
             ],
             'regras' => [

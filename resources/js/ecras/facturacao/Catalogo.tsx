@@ -9,6 +9,7 @@ import { Campo as CampoDoFormulario, entrada } from '@/ui/Campo';
 import { Cartao } from '@/ui/Cartao';
 import { CartaoNumero, type TomDoCartao } from '@/ui/CartaoNumero';
 import { Carregando } from '@/ui/Carregando';
+import { EscolherIcone } from '@/ui/EscolherIcone';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { IntervaloDeDatas, PorPagina } from '@/ui/FiltrosComuns';
@@ -588,6 +589,16 @@ function CampoDeEsquema({ c, valor, erro, o, valores, aoMudar }: {
                     <input value={texto} onChange={(e) => aoMudar(e.target.value)} className={cls(entrada, 'font-mono')} />
                 </span>
             );
+            break;
+        /*
+         * O ÍCONE ESCOLHE-SE DE UMA GALERIA, e não escrevendo o código.
+         *
+         * Era uma caixa de texto onde se escrevia `fa-money-bill` e se
+         * esperava pelo melhor. Um código mal escrito não dá erro nenhum —
+         * dá um quadrado vazio na lista, e só se descobre depois.
+         */
+        case 'icone':
+            controlo = <EscolherIcone valor={texto} aoMudar={aoMudar} etiqueta={c.rotulo} galeria={o.galeria_de_icones ?? []} />;
             break;
         default:
             controlo = <input type={c.tipo === 'email' ? 'email' : c.tipo === 'url' ? 'url' : 'text'} value={texto} onChange={(e) => aoMudar(e.target.value)} className={entrada} />;

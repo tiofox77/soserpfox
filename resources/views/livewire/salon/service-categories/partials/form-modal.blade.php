@@ -30,13 +30,15 @@
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
                                 <i class="fas fa-icons text-indigo-500 mr-2"></i>Ícone
                             </label>
-                            <div class="flex items-center gap-2">
-                                <div class="w-12 h-12 rounded-xl flex items-center justify-center border-2 border-gray-200" style="background-color: {{ $color }}20">
-                                    <i class="{{ $icon }}" style="color: {{ $color }}"></i>
-                                </div>
-                                <input wire:model.live="icon" type="text" placeholder="fas fa-spa" class="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition text-sm">
-                            </div>
-                            <p class="text-xs text-gray-500 mt-1">FontAwesome: fas fa-cut, fas fa-spa...</p>
+                            {{-- ESCOLHE-SE DA GALERIA. Era uma caixa de texto
+                                 onde se escrevia `fas fa-spa`: quem não sabe o
+                                 Font Awesome de cor não tinha por onde começar,
+                                 e um código mal escrito não dá erro — dá um
+                                 quadrado vazio na lista.
+
+                                 `completo` porque este ecrã guarda a classe
+                                 inteira e renderiza-a tal e qual. --}}
+                            <x-icon-picker model="icon" formato="completo" />
                         </div>
                         
                         <div>

@@ -11,8 +11,15 @@ import { api, type Pagina } from './cliente';
 
 export type Escolha = { valor: string; rotulo: string };
 
+/** Um grupo da galeria de ícones — «Dinheiro», «Comida e bebida». */
+export type GrupoDeIcones = {
+    nome: string;
+    /** O `nome` é por que se procura: «carrinho», não `cart-shopping`. */
+    icones: Array<{ codigo: string; nome: string }>;
+};
+
 export type TipoDeCampo =
-    | 'texto' | 'numero' | 'email' | 'url' | 'textarea' | 'booleano' | 'cor'
+    | 'texto' | 'numero' | 'email' | 'url' | 'textarea' | 'booleano' | 'cor' | 'icone'
     | 'escolha' | 'referencia' | 'pais' | 'provincia' | 'municipio' | 'cidade';
 
 export type Campo = {
@@ -69,6 +76,14 @@ export type OpcoesDoCatalogo = {
     accoes: { activar: boolean; padrao: boolean; logotipo: boolean; apagar: boolean };
     referencias: Record<string, Escolha[]>;
     geografia: { paises: Escolha[]; provincias: string[]; municipios: Record<string, string[]>; pais_padrao: string } | null;
+    /**
+     * A GALERIA DE ÍCONES, quando este catálogo tem um campo que a use.
+     *
+     * Vem do servidor e não daqui: há formulários em React e formulários em
+     * Blade, e duas galerias em dois sítios eram duas listas a divergir à
+     * primeira adição.
+     */
+    galeria_de_icones: GrupoDeIcones[] | null;
     permissoes: { pode_escrever: boolean };
     voltar: string;
 };
