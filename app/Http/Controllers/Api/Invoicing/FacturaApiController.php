@@ -211,6 +211,17 @@ class FacturaApiController extends Controller
                 ])->values()),
             'armazens' => Warehouse::where('tenant_id', $tenantId)->where('is_active', true)->orderBy('name')->get(['id', 'name']),
 
+            /*
+             * O ARMAZÉM POR OMISSÃO, para o documento nascer com ele.
+             *
+             * A empresa marca um como padrão e é dele que sai quase tudo:
+             * obrigar a escolhê-lo em cada factura é um clique por documento
+             * que só existe para repetir uma decisão já tomada — e é o campo
+             * que mais vezes ficava esquecido, com a factura a ser recusada
+             * no fim por falta dele.
+             */
+            'armazem_padrao' => Warehouse::getDefault($tenantId)?->id,
+
             // As séries por tipo: a FR usa a sequência do POS.
             'series' => InvoicingSeries::where('tenant_id', $tenantId)
                 ->where('is_active', true)

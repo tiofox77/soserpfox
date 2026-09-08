@@ -3410,5 +3410,19 @@
     "Voltar às facturas": "Back to invoices",
     "Guardar rascunho": "Save draft",
     "Emitir factura-recibo": "Issue invoice-receipt",
-    "Emitir factura": "Issue invoice"
+    "Emitir factura": "Issue invoice",
+    "Desconto comercial (antes IVA)": "Trade discount (before VAT)",
+    "Desconto (legado)": "Discount (legacy)",
+    "Desconto financeiro (após IVA)": "Settlement discount (after VAT)",
+    "Informações adicionais…": "Additional information…",
+    "Pesquisar fornecedor por nome ou NIF…": "Search supplier by name or tax ID…",
+    "Pesquisar cliente por nome, NIF ou telefone…": "Search client by name, tax ID or phone…",
+    "Nada encontrado.": "Nothing found.",
+    "Use «:botao».": "Use «:botao».",
+    "Novo fornecedor": "New supplier",
+    "Novo cliente": "New client",
+    "Mais :quantos — escreva para afinar.": ":quantos more — type to narrow it down.",
+    "Fica escolhido no documento, sem perder o que já escreveu.": "It stays selected on the document, without losing what you already typed.",
+    "Criar e escolher": "Create and select",
+    "A ficha completa — morada, província, condições de pagamento — edita-se depois no ecrã próprio.": "The full record — address, province, payment terms — is edited later on its own screen."
 }

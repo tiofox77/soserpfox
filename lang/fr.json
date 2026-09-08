@@ -3410,5 +3410,19 @@
     "Voltar às facturas": "Retour aux factures",
     "Guardar rascunho": "Enregistrer le brouillon",
     "Emitir factura-recibo": "Émettre la facture-reçu",
-    "Emitir factura": "Émettre la facture"
+    "Emitir factura": "Émettre la facture",
+    "Desconto comercial (antes IVA)": "Remise commerciale (avant TVA)",
+    "Desconto (legado)": "Remise (héritée)",
+    "Desconto financeiro (após IVA)": "Escompte financier (après TVA)",
+    "Informações adicionais…": "Informations complémentaires…",
+    "Pesquisar fornecedor por nome ou NIF…": "Rechercher un fournisseur par nom ou NIF…",
+    "Pesquisar cliente por nome, NIF ou telefone…": "Rechercher un client par nom, NIF ou téléphone…",
+    "Nada encontrado.": "Rien trouvé.",
+    "Use «:botao».": "Utilisez « :botao ».",
+    "Novo fornecedor": "Nouveau fournisseur",
+    "Novo cliente": "Nouveau client",
+    "Mais :quantos — escreva para afinar.": ":quantos de plus — tapez pour affiner.",
+    "Fica escolhido no documento, sem perder o que já escreveu.": "Il reste sélectionné sur le document, sans perdre ce que vous avez déjà saisi.",
+    "Criar e escolher": "Créer et sélectionner",
+    "A ficha completa — morada, província, condições de pagamento — edita-se depois no ecrã próprio.": "La fiche complète — adresse, province, conditions de paiement — se modifie ensuite sur son propre écran."
 }

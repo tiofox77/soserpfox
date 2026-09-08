@@ -9,7 +9,7 @@ import { Botao } from '@/ui/Botao';
 import { Campo, entrada } from '@/ui/Campo';
 import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
-import { FOCO, RAIO, cls, kz } from '@/ui/tokens';
+import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
 import { t } from '@/i18n';
 import { EscolhaDaParte } from './EscolhaDaParte';
 import { EscolhaDeArtigo, juntarArtigo } from './EscolhaDeArtigo';
@@ -123,6 +123,19 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
         porCondicoes(d.terms ?? '');
         porLinhas(carregado.linhas.length > 0 ? carregado.linhas.map((l) => ({ ...l, description: l.description ?? '' })) : [{ ...LINHA_NOVA }]);
     }, [carregado]);
+
+    /*
+     * O ARMAZÉM NASCE NO QUE A EMPRESA MARCOU COMO PADRÃO.
+     *
+     * Era um clique por documento a repetir uma decisão já tomada nas
+     * definições — e o campo que mais vezes ficava esquecido, com a factura a
+     * ser recusada no fim por falta dele. Continua a poder trocar-se, e uma
+     * factura aberta traz o armazém que tem.
+     */
+    useEffect(() => {
+        if (!opcoes.data || id !== undefined || armazemId !== '') return;
+        if (opcoes.data.armazem_padrao) porArmazemId(String(opcoes.data.armazem_padrao));
+    }, [opcoes.data, id, armazemId]);
 
     /* A série por omissão do tipo escolhido. A FR usa a sequência do POS. Uma factura aberta traz a sua. */
     useEffect(() => {
@@ -291,10 +304,82 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
                 </FaixaDeDuplicado>
             )}
 
-            {/* Um fieldset desligado fecha tudo o que está dentro, botões incluídos. */}
-            <fieldset disabled={soLeitura} className="min-w-0 space-y-4 border-0 p-0">
-            <Cartao titulo={t('Documento')} icone="fa-circle-info">
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {/*
+              * DUAS COLUNAS: o formulário à esquerda, o resumo à direita.
+              *
+              * O ecrã de sempre era assim e é melhor. O resumo é o que se
+              * consulta o TEMPO TODO enquanto se lançam linhas — «quanto vai
+              * dar isto?» — e em coluna única ficava lá em baixo, fora de
+              * vista: preenchia-se o documento às cegas e só no fim se via o
+              * total. Aqui fica colado ao topo e acompanha a página.
+              */}
+            <div className="grid gap-4 lg:grid-cols-3">
+
+            {/* Um fieldset desligado fecha tudo o que está dentro. */}
+            <fieldset disabled={soLeitura} className="min-w-0 space-y-4 border-0 p-0 lg:col-span-2">
+            <Cartao titulo={t('Informações Gerais')} icone="fa-circle-info">
+                <div className="grid gap-4 sm:grid-cols-2">
+                    {/* O cliente escolhe-se com procura, e cria-se aqui mesmo
+                        quando ainda não existe — ver `EscolhaDaParte`. */}
+                    <EscolhaDaParte
+                        criar={o.criar_parte}
+                        partes={o.clientes}
+                        valor={clienteId}
+                        aoEscolher={porClienteId}
+                        erro={erros.client_id}
+                        className="sm:col-span-2"
+                    />
+
+                    {/*
+                      * A REGIÃO FISCAL ESTÁ ESCONDIDA, DE PROPÓSITO.
+                      *
+                      * Fica em automática: o servidor deriva-a da província do
+                      * cliente (`TaxResolver`), que é o que está certo em quase
+                      * todos os documentos. Cabinda tem regime próprio, mas
+                      * quem factura em Luanda não precisa de decidir isso em
+                      * cada factura — e um campo que se deixa sempre como está
+                      * é ruído entre os que é preciso preencher.
+                      *
+                      * O ESTADO E O ENVIO CONTINUAM: `regiao` vai no pedido, e
+                      * uma factura aberta que tenha uma região escolhida
+                      * conserva-a. Só o CONTROLO é que não se desenha.
+                      *
+                      * PARA A VOLTAR A MOSTRAR: tirar o `false &&` da linha
+                      * abaixo. O crachá diz qual é a que vai ser aplicada.
+                      */}
+                    {false && (
+                    <Campo etiqueta={t('Região fiscal')} erro={erros.tax_country_region} className="sm:col-span-2">
+                        <span className="flex items-center gap-2">
+                            <select value={regiao} onChange={(e) => porRegiao(e.target.value)} className={entrada}>
+                                {o.regioes.map((r) => <option key={r.valor} value={r.valor}>{r.rotulo}</option>)}
+                            </select>
+
+                            <span className={cls(
+                                'shrink-0 rounded-full px-2.5 py-1 text-xs font-bold',
+                                regiaoAplicada === 'AO-CAB' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600',
+                            )}>
+                                {t('a aplicar')}: {regiaoAplicada}
+                            </span>
+                        </span>
+                    </Campo>
+                    )}
+
+                    <Campo etiqueta={t('Armazém')} erro={erros.warehouse_id} obrigatorio={temFisicos}>
+                        <select value={armazemId} onChange={(e) => porArmazemId(e.target.value)} className={entrada}>
+                            <option value="">{temFisicos ? t('Escolher…') : t('Só serviços — não é preciso')}</option>
+                            {o.armazens.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                        </select>
+                    </Campo>
+
+                    {tipo === 'FR' && (
+                        <Campo etiqueta={t('Forma de pagamento')} erro={erros.payment_method} obrigatorio>
+                            <select value={pagamento} onChange={(e) => porPagamento(e.target.value)} className={entrada}>
+                                <option value="">{t('Escolher…')}</option>
+                                {o.formas_de_pagamento.map((f) => <option key={f.id} value={f.code}>{f.name}</option>)}
+                            </select>
+                        </Campo>
+                    )}
+
                     {/* O TIPO SÃO DUAS ESCOLHAS COM CONSEQUÊNCIAS DIFERENTES,
                         e não duas linhas de uma lista.
 
@@ -303,7 +388,23 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
                         factura precisa de saber isso ANTES de escolher — o
                         ecrã de sempre punha as duas frases à vista, e num
                         `<select>` elas não cabem. Só se fixa na criação. */}
-                    <Campo etiqueta={t('Tipo de Documento')} erro={erros.invoice_type} obrigatorio className="sm:col-span-2">
+                    {/*
+                      * UM GRUPO DE RÁDIOS NÃO VAI DENTRO DE UM `<label>`.
+                      *
+                      * O `Campo` é um `<label>`, e um `<label>` etiqueta o
+                      * PRIMEIRO controlo lá dentro: o rádio da Factura passava
+                      * a chamar-se «Tipo de Documento (obrigatório)» e o da
+                      * Factura-Recibo ficava com o nome certo. Quem ouve o
+                      * ecrã ouvia duas coisas diferentes para a mesma escolha.
+                      *
+                      * `<fieldset>` + `<legend>` é o que nomeia um grupo.
+                      */}
+                    <fieldset className="min-w-0 border-0 p-0 sm:col-span-2">
+                        <legend className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                            {t('Tipo de Documento')}
+                            <span className="ml-0.5 text-red-500" aria-hidden="true">*</span>
+                            <span className="sr-only"> {t('(obrigatório)')}</span>
+                        </legend>
                         <div className="grid grid-cols-2 gap-3">
                             {([
                                 ['FT', t('Factura'), t('A pagar depois. O recibo é emitido no pagamento.'), 'indigo'],
@@ -342,7 +443,10 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
                                 </label>
                             ))}
                         </div>
-                    </Campo>
+                        {erros.invoice_type?.[0] && (
+                            <p role="alert" className="mt-1 text-xs font-medium text-red-600">{erros.invoice_type[0]}</p>
+                        )}
+                    </fieldset>
 
                     <Campo
                         etiqueta={t('Série fiscal')}
@@ -363,16 +467,6 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
                         </select>
                     </Campo>
 
-                    {/* O cliente escolhe-se com procura, e cria-se aqui mesmo
-                        quando ainda não existe — ver `EscolhaDaParte`. */}
-                    <EscolhaDaParte
-                        criar={o.criar_parte}
-                        partes={o.clientes}
-                        valor={clienteId}
-                        aoEscolher={porClienteId}
-                        erro={erros.client_id}
-                        className="lg:col-span-2"
-                    />
 
                     <Campo etiqueta={t('Data')} erro={erros.invoice_date} obrigatorio>
                         <input type="date" value={dia} onChange={(e) => porDia(e.target.value)} className={entrada} />
@@ -400,42 +494,8 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
                     </Campo>
 
                     {/* O armazém só é obrigatório com artigos físicos. */}
-                    <Campo etiqueta={t('Armazém')} erro={erros.warehouse_id} obrigatorio={temFisicos}>
-                        <select value={armazemId} onChange={(e) => porArmazemId(e.target.value)} className={entrada}>
-                            <option value="">{temFisicos ? t('Escolher…') : t('Só serviços — não é preciso')}</option>
-                            {o.armazens.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                        </select>
-                    </Campo>
 
-                    {/* Cabinda tem regime próprio. Por omissão deriva da província do cliente. */}
-                    <Campo etiqueta={t('Região fiscal')} erro={erros.tax_country_region}>
-                        <span className="flex items-center gap-2">
-                            <select value={regiao} onChange={(e) => porRegiao(e.target.value)} className={entrada}>
-                                {o.regioes.map((r) => <option key={r.valor} value={r.valor}>{r.rotulo}</option>)}
-                            </select>
 
-                            {/* O QUE VAI MESMO SER APLICADO.
-                                Deixado em «automática», a região sai da província
-                                do cliente — e quem factura não tem como saber
-                                qual saiu. O crachá estava no ecrã de sempre e
-                                diz-o: com Cabinda, o imposto é outro. */}
-                            <span className={cls(
-                                'shrink-0 rounded-full px-2.5 py-1 text-xs font-bold',
-                                regiaoAplicada === 'AO-CAB' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600',
-                            )}>
-                                {t('a aplicar')}: {regiaoAplicada}
-                            </span>
-                        </span>
-                    </Campo>
-
-                    {tipo === 'FR' && (
-                        <Campo etiqueta={t('Forma de pagamento')} erro={erros.payment_method} obrigatorio className="lg:col-span-2">
-                            <select value={pagamento} onChange={(e) => porPagamento(e.target.value)} className={entrada}>
-                                <option value="">{t('Escolher…')}</option>
-                                {o.formas_de_pagamento.map((f) => <option key={f.id} value={f.code}>{f.name}</option>)}
-                            </select>
-                        </Campo>
-                    )}
                 </div>
             </Cartao>
 
@@ -583,83 +643,119 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
                 {erros.linhas?.[0] && <p role="alert" className="border-t border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{erros.linhas[0]}</p>}
             </Cartao>
 
-            <div className="grid gap-4 lg:grid-cols-2">
-                <Cartao titulo={t('Descontos e retenção')} icone="fa-tags">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        <Campo etiqueta={t('Desconto comercial (Kz)')} erro={erros.discount_commercial}>
-                            <input type="number" min="0" step="0.01" value={descontoComercial} onChange={(e) => porDescontoComercial(e.target.value)} className={cls(entrada, 'text-right tabular-nums')} />
-                        </Campo>
-                        <Campo etiqueta={t('Desconto financeiro (Kz)')} erro={erros.discount_financial}>
-                            <input type="number" min="0" step="0.01" value={descontoFinanceiro} onChange={(e) => porDescontoFinanceiro(e.target.value)} className={cls(entrada, 'text-right tabular-nums')} />
-                        </Campo>
+            {/* OS DESCONTOS, os três, numa fileira. A retenção saiu daqui:
+                pertence ao resumo, que é onde se vê o efeito dela. */}
+            <Cartao titulo={t('Descontos')} icone="fa-tags">
+                <div className="grid gap-4 sm:grid-cols-3">
+                    <Campo etiqueta={t('Desconto comercial (antes IVA)')} erro={erros.discount_commercial}>
+                        <input type="number" min="0" step="0.01" value={descontoComercial} onChange={(e) => porDescontoComercial(e.target.value)} className={cls(entrada, 'text-right tabular-nums')} />
+                    </Campo>
 
-                        {/* O DESCONTO DE SEMPRE.
-                            Existe na base desde antes dos dois acima e soma ao
-                            comercial no cálculo do servidor. Tirá-lo do
-                            formulário fazia uma factura antiga aberta para
-                            editar perder o desconto que tinha, calada. */}
-                        <Campo
-                            etiqueta={t('Desconto (legado) (Kz)')}
-                            erro={erros.discount_amount}
-                            ajuda={t('Campo antigo, mantido para as facturas que o têm. Soma ao comercial.')}
-                        >
-                            <input type="number" min="0" step="0.01" value={descontoLegado} onChange={(e) => porDescontoLegado(e.target.value)} className={cls(entrada, 'text-right tabular-nums')} />
-                        </Campo>
+                    {/* O DESCONTO DE SEMPRE.
+                        Existe na base desde antes dos dois ao lado e soma ao
+                        comercial no cálculo do servidor. Tirá-lo do formulário
+                        fazia uma factura antiga aberta para editar perder o
+                        desconto que tinha, calada. */}
+                    <Campo
+                        etiqueta={t('Desconto (legado)')}
+                        erro={erros.discount_amount}
+                        ajuda={t('Campo antigo, mantido para as facturas que o têm. Soma ao comercial.')}
+                    >
+                        <input type="number" min="0" step="0.01" value={descontoLegado} onChange={(e) => porDescontoLegado(e.target.value)} className={cls(entrada, 'text-right tabular-nums')} />
+                    </Campo>
 
-                        {/* É PRESTAÇÃO DE SERVIÇO — é o que liga a retenção de
-                            IRT. Estava no resumo do ecrã de sempre, com o
-                            interruptor à vista; sem ele, uma factura de
-                            serviços saía sem a retenção que a lei manda. */}
-                        <Campo etiqueta={t('Natureza')} erro={erros.is_service}>
-                            <label className={cls(
-                                'flex h-10 cursor-pointer items-center gap-3 border border-slate-300 bg-white px-3 text-sm',
-                                RAIO,
-                                servico && 'border-indigo-400 bg-indigo-50',
-                            )}>
-                                <input
-                                    type="checkbox"
-                                    checked={servico}
-                                    onChange={(e) => porServico(e.target.checked)}
-                                    className="h-4 w-4 rounded border-slate-300 text-indigo-600"
-                                />
-                                <span className="font-semibold text-slate-700">
-                                    <i className="fas fa-concierge-bell mr-1 text-indigo-600" aria-hidden="true" />
-                                    {t('É prestação de serviço (IRT)')}
-                                </span>
-                            </label>
-                        </Campo>
+                    <Campo etiqueta={t('Desconto financeiro (após IVA)')} erro={erros.discount_financial}>
+                        <input type="number" min="0" step="0.01" value={descontoFinanceiro} onChange={(e) => porDescontoFinanceiro(e.target.value)} className={cls(entrada, 'text-right tabular-nums')} />
+                    </Campo>
+                </div>
+            </Cartao>
 
-                        <Campo etiqueta={t('Retenção na fonte')} erro={erros.withholding_type}>
-                            <select value={retencaoTipo} onChange={(e) => porRetencaoTipo(e.target.value)} className={entrada}>
-                                <option value="">{t('Sem retenção')}</option>
-                                {o.retencoes.map((r) => <option key={r.valor} value={r.valor}>{r.rotulo}</option>)}
-                            </select>
-                        </Campo>
-                        <Campo etiqueta={t('Percentagem')} erro={erros.withholding_percentage}>
-                            <input type="number" min="0" max="100" step="0.01" value={retencaoPct} onChange={(e) => porRetencaoPct(e.target.value)} disabled={!retencaoTipo} className={cls(entrada, 'text-right tabular-nums')} />
-                        </Campo>
-                    </div>
-                    <div className="mt-4 space-y-4">
-                        <Campo etiqueta={t('Observações')} erro={erros.notes}>
-                            <textarea rows={2} value={notas} onChange={(e) => porNotas(e.target.value)} className={cls(entrada, 'h-auto py-2')} />
-                        </Campo>
+            <Cartao titulo={t('Observações')} icone="fa-sticky-note">
+                <div className="space-y-4">
+                    <Campo etiqueta={t('Notas')} erro={erros.notes}>
+                        <textarea rows={3} value={notas} onChange={(e) => porNotas(e.target.value)} placeholder={t('Informações adicionais…')} className={cls(entrada, 'h-auto py-2')} />
+                    </Campo>
 
-                        {/* AS CONDIÇÕES SAEM NO PAPEL — prazos, garantias.
-                            Não são notas internas. */}
-                        <Campo etiqueta={t('Termos e Condições')} erro={erros.terms}>
-                            <textarea
-                                rows={2}
-                                value={condicoes}
-                                onChange={(e) => porCondicoes(e.target.value)}
-                                placeholder={t('Condições de pagamento, garantias, etc.')}
-                                className={cls(entrada, 'h-auto py-2')}
+                    {/* AS CONDIÇÕES SAEM NO PAPEL — prazos, garantias.
+                        Não são notas internas. */}
+                    <Campo etiqueta={t('Termos e Condições')} erro={erros.terms}>
+                        <textarea
+                            rows={3}
+                            value={condicoes}
+                            onChange={(e) => porCondicoes(e.target.value)}
+                            placeholder={t('Condições de pagamento, garantias, etc.')}
+                            className={cls(entrada, 'h-auto py-2')}
+                        />
+                    </Campo>
+                </div>
+            </Cartao>
+            </fieldset>
+
+            {/*
+              * O RESUMO — um cartão só, colado ao topo.
+              *
+              * Tudo o que responde a «quanto vai dar isto» está aqui dentro e
+              * em mais lado nenhum: a natureza do documento, as parcelas, a
+              * retenção e o total. Espalhá-lo por dois cartões obrigava a
+              * saltar entre eles para perceber de onde vinha um número.
+              */}
+            <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+                <CartaoDeTotais titulo={t('Resumo')} aContar={aContar}>
+                    {/* A NATUREZA E A RETENÇÃO vivem no resumo porque é aqui
+                        que se vê o que elas fazem ao total. O fieldset é
+                        próprio: os botões abaixo têm de continuar a funcionar
+                        numa factura só de leitura. */}
+                    <fieldset disabled={soLeitura} className="space-y-3 border-0 px-5 pt-4 pb-1">
+                        <label className={cls(
+                            'flex cursor-pointer items-center gap-3 border p-3 text-sm transition-colors',
+                            RAIO,
+                            servico ? 'border-indigo-400 bg-indigo-50' : 'border-slate-200',
+                        )}>
+                            <input
+                                type="checkbox"
+                                checked={servico}
+                                onChange={(e) => porServico(e.target.checked)}
+                                className="h-5 w-5 rounded border-slate-300 text-indigo-600"
                             />
-                        </Campo>
-                    </div>
-                </Cartao>
+                            <span className="font-bold text-slate-700">
+                                <i className="fas fa-concierge-bell mr-1.5 text-indigo-600" aria-hidden="true" />
+                                {t('É prestação de serviço (IRT)')}
+                            </span>
+                        </label>
+                    </fieldset>
 
-                {/* OS TOTAIS SÃO OS DO SERVIDOR. */}
-                <CartaoDeTotais titulo={t('Totais')} aContar={aContar}>
+                            {/* A RETENÇÃO ESCOLHE-SE AQUI, debaixo da parcela
+                                que ela produz: mudar o tipo e ver o total
+                                mexer é a mesma coisa num sítio só. */}
+                            <fieldset disabled={soLeitura} className="border-0 px-5 py-3">
+                                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    <i className="fas fa-hand-holding-dollar mr-1 text-rose-600" aria-hidden="true" />
+                                    {t('Retenção na fonte')}
+                                </p>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <select
+                                        value={retencaoTipo}
+                                        onChange={(e) => porRetencaoTipo(e.target.value)}
+                                        aria-label={t('Retenção na fonte')}
+                                        className={cls(entrada, 'h-9 text-xs')}
+                                    >
+                                        <option value="">{t('Sem retenção')}</option>
+                                        {o.retencoes.map((r) => <option key={r.valor} value={r.valor}>{r.rotulo}</option>)}
+                                    </select>
+                                    <input
+                                        type="number" min="0" max="100" step="0.01"
+                                        value={retencaoPct}
+                                        onChange={(e) => porRetencaoPct(e.target.value)}
+                                        disabled={!retencaoTipo}
+                                        placeholder="%"
+                                        aria-label={t('Percentagem')}
+                                        className={cls(entrada, 'h-9 text-right text-xs tabular-nums disabled:bg-slate-100')}
+                                    />
+                                </div>
+                                {erros.withholding_type?.[0] && <p role="alert" className="mt-1 text-xs text-red-600">{erros.withholding_type[0]}</p>}
+                                {erros.withholding_percentage?.[0] && <p role="alert" className="mt-1 text-xs text-red-600">{erros.withholding_percentage[0]}</p>}
+                            </fieldset>
+
                     {totais ? (
                         <>
                             <dl className={cls('px-5 pt-3', aContar && 'opacity-60')}>
@@ -670,6 +766,7 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
                                 {Number(descontoFinanceiro) > 0 && <ParcelaDoTotal rotulo={t('Desconto financeiro')} valor={kz(-Number(descontoFinanceiro))} icone="fa-scissors" />}
                                 {retencaoValor > 0 && <ParcelaDoTotal rotulo={t('Retenção :tipo', { tipo: retencaoTipo })} valor={kz(-retencaoValor)} icone="fa-hand-holding-dollar" realce="retencao" />}
                             </dl>
+
                             <TotalGrande
                                 rotulo={t('Total')}
                                 valor={<>{kz(totais.total - retencaoValor)} <span className="text-base font-normal text-emerald-800/60">Kz</span></>}
@@ -697,17 +794,51 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
                         <SemNada icone="fa-calculator">{t('Escolha um artigo e uma quantidade para ver os totais.')}</SemNada>
                     )}
                 </CartaoDeTotais>
-            </div>
-            </fieldset>
 
-            <div className="flex items-center justify-end gap-2">
-                <Botao onClick={() => (window.location.href = '/invoicing/sales/invoices')}>{soLeitura ? t('Voltar às facturas') : t('Cancelar')}</Botao>
-                {!soLeitura && <Botao icone="fa-file" aTrabalhar={guardar.isPending && guardar.variables === 'draft'} onClick={() => guardar.mutate('draft')}>{t('Guardar rascunho')}</Botao>}
-                {!soLeitura && (
-                    <Botao cor="primaria" tom="solida" altura="grande" icone="fa-file-signature" aTrabalhar={guardar.isPending && guardar.variables === 'pending'} disabled={!o.permissoes.pode_criar} onClick={() => guardar.mutate('pending')}>
-                        {tipo === 'FR' ? t('Emitir factura-recibo') : t('Emitir factura')}
+                {/*
+                  * OS BOTÕES, debaixo do resumo e um por linha.
+                  *
+                  * É a última coisa que se faz e fica onde a vista já está —
+                  * no resumo, depois de conferir o total. Um por linha porque
+                  * são decisões diferentes: guardar para acabar depois, ou
+                  * EMITIR, que assina e não se desfaz.
+                  *
+                  * Fora do fieldset: numa factura só de leitura os campos
+                  * fecham-se, mas voltar à lista tem de continuar a funcionar.
+                  */}
+                <div className={cls(CARTAO, 'space-y-3 p-5')}>
+                    {!soLeitura && (
+                        <Botao
+                            className="w-full"
+                            icone="fa-file"
+                            aTrabalhar={guardar.isPending && guardar.variables === 'draft'}
+                            onClick={() => guardar.mutate('draft')}
+                        >
+                            {t('Guardar rascunho')}
+                        </Botao>
+                    )}
+
+                    {!soLeitura && (
+                        <Botao
+                            className="w-full"
+                            cor="primaria"
+                            tom="solida"
+                            altura="grande"
+                            icone="fa-file-signature"
+                            aTrabalhar={guardar.isPending && guardar.variables === 'pending'}
+                            disabled={!o.permissoes.pode_criar}
+                            onClick={() => guardar.mutate('pending')}
+                        >
+                            {tipo === 'FR' ? t('Emitir factura-recibo') : t('Emitir factura')}
+                        </Botao>
+                    )}
+
+                    <Botao className="w-full" icone="fa-arrow-left" onClick={() => (window.location.href = '/invoicing/sales/invoices')}>
+                        {soLeitura ? t('Voltar às facturas') : t('Cancelar')}
                     </Botao>
-                )}
+                </div>
+            </div>
+
             </div>
         </div>
     );

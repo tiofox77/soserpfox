@@ -50,6 +50,9 @@ export function EscolhaDaParte({
 }) {
     const [procura, porProcura] = useState('');
     const [aberto, porAberto] = useState(false);
+    /* A lista de resultados está aberta — é o que separa «a escrever» de
+       «já escolhido», e o que faz a caixa mostrar um ou outro. */
+    const [aLista, porALista] = useState(false);
     const [rascunho, porRascunho] = useState<ParteRapida>({ ...PARTE_VAZIA });
     const [errosDoNovo, porErrosDoNovo] = useState<Record<string, string[]>>({});
     /* As criadas nesta sessão. As opções vêm em cache; sem isto, o que se
@@ -105,24 +108,111 @@ export function EscolhaDaParte({
 
     return (
         <div className={cls('min-w-0', className)}>
-            <div className="mb-2 flex gap-2">
-                {/* A LUPA DENTRO DA CAIXA — é assim que se reconhece uma caixa
-                    de procura antes de se ler o que lá está escrito, e era
-                    assim no ecrã de sempre. */}
-                <div className="relative min-w-0 flex-1">
-                    <i
-                        className="fas fa-magnifying-glass pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400"
-                        aria-hidden="true"
-                    />
-                    <input
-                        type="search"
-                        value={procura}
-                        onChange={(e) => porProcura(e.target.value)}
-                        placeholder={t('Procurar por nome ou NIF…')}
-                        aria-label={eFornecedor ? t('Procurar fornecedor') : t('Procurar cliente')}
-                        className={cls(entrada, 'w-full pl-9')}
-                    />
-                </div>
+            {/*
+              * UM CONTROLO SÓ — a caixa de procura É o campo do cliente.
+              *
+              * Estavam aqui QUATRO coisas para uma escolha: a caixa de
+              * procura, um `<select>` por baixo, uma linha a dizer «5 de 6» e
+              * um cartão a repetir quem ficou escolhido. Quatro maneiras de
+              * dizer a mesma coisa, e nenhuma delas óbvia — a pessoa escrevia
+              * na caixa e ficava à espera que alguma coisa acontecesse.
+              *
+              * Escreve-se, aparecem os resultados por baixo, carrega-se num.
+              * É o que o ecrã de sempre fazia e é o que se espera de uma caixa
+              * com uma lupa.
+              */}
+            <Campo etiqueta={etiqueta} erro={erro} obrigatorio>
+                <div className="flex gap-2">
+                    <div className="relative min-w-0 flex-1">
+                        <i
+                            className="fas fa-magnifying-glass pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400"
+                            aria-hidden="true"
+                        />
+
+                        <input
+                            type="text"
+                            role="combobox"
+                            aria-expanded={aLista}
+                            aria-controls="lista-de-partes"
+                            autoComplete="off"
+                            value={aLista ? procura : (escolhida?.name ?? '')}
+                            onFocus={() => { porProcura(''); porALista(true); }}
+                            onChange={(e) => { porProcura(e.target.value); porALista(true); }}
+                            /* O rato tem de chegar à opção antes de o `blur`
+                               fechar a lista — daí o atraso curto. */
+                            onBlur={() => setTimeout(() => porALista(false), 150)}
+                            onKeyDown={(e) => e.key === 'Escape' && porALista(false)}
+                            placeholder={eFornecedor
+                                ? t('Pesquisar fornecedor por nome ou NIF…')
+                                : t('Pesquisar cliente por nome, NIF ou telefone…')}
+                            aria-label={etiqueta}
+                            className={cls(entrada, 'w-full pl-9', escolhida && !aLista && 'font-semibold text-slate-900')}
+                        />
+
+                        {/* LIMPAR o que está escolhido, sem ter de apagar letra
+                            a letra o nome que lá está. */}
+                        {escolhida && !aLista && (
+                            <button
+                                type="button"
+                                onClick={() => { aoEscolher(''); porProcura(''); }}
+                                title={t('Limpar')}
+                                aria-label={t('Limpar')}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                            >
+                                <i className="fas fa-xmark" aria-hidden="true" />
+                            </button>
+                        )}
+
+                        {aLista && (
+                            <ul
+                                id="lista-de-partes"
+                                role="listbox"
+                                className={cls(
+                                    'absolute z-50 mt-1 max-h-60 w-full overflow-y-auto border border-slate-200 bg-white shadow-lg',
+                                    RAIO,
+                                )}
+                            >
+                                {visiveis.length === 0 && (
+                                    <li className="px-3 py-3 text-sm text-slate-400">
+                                        {t('Nada encontrado.')}
+                                        {criar.pode && ' ' + t('Use «:botao».', { botao: eFornecedor ? t('Novo fornecedor') : t('Novo cliente') })}
+                                    </li>
+                                )}
+
+                                {visiveis.slice(0, 50).map((p) => (
+                                    <li key={p.id}>
+                                        <button
+                                            type="button"
+                                            role="option"
+                                            aria-selected={String(p.id) === valor}
+                                            /* `mousedown` e não `click`: o
+                                               `blur` do campo chega primeiro e
+                                               o clique perdia-se. */
+                                            onMouseDown={(e) => {
+                                                e.preventDefault();
+                                                aoEscolher(String(p.id));
+                                                porProcura('');
+                                                porALista(false);
+                                            }}
+                                            className={cls(
+                                                'block w-full border-b border-slate-100 px-3 py-2 text-left last:border-b-0 hover:bg-indigo-50',
+                                                String(p.id) === valor && 'bg-indigo-50',
+                                            )}
+                                        >
+                                            <span className="block truncate text-sm font-bold text-slate-900">{p.name}</span>
+                                            {p.nif && <span className="block text-xs text-slate-500">{p.nif}</span>}
+                                        </button>
+                                    </li>
+                                ))}
+
+                                {visiveis.length > 50 && (
+                                    <li className="border-t border-slate-100 px-3 py-2 text-xs text-slate-400">
+                                        {t('Mais :quantos — escreva para afinar.', { quantos: visiveis.length - 50 })}
+                                    </li>
+                                )}
+                            </ul>
+                        )}
+                    </div>
 
                 {/* O botão de criar é VERDE e não da cor do ecrã: cria uma
                     ficha nova, e no Blade era sempre o mesmo verde nos quatro
@@ -142,45 +232,18 @@ export function EscolhaDaParte({
                         {eFornecedor ? t('Novo fornecedor') : t('Novo cliente')}
                     </Botao>
                 )}
-            </div>
+                </div>
 
-            <Campo etiqueta={etiqueta} erro={erro} obrigatorio>
-                <select value={valor} onChange={(e) => aoEscolher(e.target.value)} className={entrada}>
-                    <option value="">{t('Escolher…')}</option>
-                    {visiveis.map((p) => (
-                        <option key={p.id} value={p.id}>
-                            {p.name}
-                            {p.nif ? ` · ${p.nif}` : ''}
-                        </option>
-                    ))}
-                </select>
+                {/* O NIF DE QUEM FICOU ESCOLHIDO — é o que a AGT compara, e
+                    não cabe na caixa ao lado do nome. Uma linha, e só quando
+                    a lista está fechada. */}
+                {escolhida?.nif && !aLista && (
+                    <p className="mt-1 text-xs text-slate-500">
+                        <i className="fas fa-id-card mr-1 text-slate-400" aria-hidden="true" />
+                        {t('NIF')}: <span className="font-mono">{escolhida.nif}</span>
+                    </p>
+                )}
             </Campo>
-
-            {procura.trim() !== '' && (
-                <p role="status" className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
-                    <i
-                        className={`fas ${visiveis.length === 0 ? 'fa-circle-exclamation text-amber-500' : 'fa-filter'}`}
-                        aria-hidden="true"
-                    />
-                    {visiveis.length === 0
-                        ? t('Nada encontrado. Apague a procura para ver todos.')
-                        : t(':quantos de :total', { quantos: visiveis.length, total: todas.length })}
-                </p>
-            )}
-
-            {/* QUEM FICOU ESCOLHIDO, dito por extenso.
-                Uma linha de `<select>` com quatrocentas opções lê-se mal, e o
-                NIF — que é o que a AGT compara — não cabe lá. O ecrã em Blade
-                mostrava o cliente escolhido num cartão por baixo; é o mesmo. */}
-            {escolhida && (
-                <p className={cls('mt-2 flex items-center gap-2 border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900', RAIO)}>
-                    <i className="fas fa-circle-check flex-none text-emerald-600" aria-hidden="true" />
-                    <span className="min-w-0 truncate">
-                        <strong className="font-bold">{escolhida.name}</strong>
-                        {escolhida.nif ? ` · ${escolhida.nif}` : ''}
-                    </span>
-                </p>
-            )}
 
             <Modal
                 aberto={aberto}

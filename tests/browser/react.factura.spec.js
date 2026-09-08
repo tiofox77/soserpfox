@@ -19,7 +19,13 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('abre com FT, uma linha e sem totais', async ({ page }) => {
-    await expect(page.getByLabel(/^Tipo\b/)).toHaveValue('FT');
+    // O tipo são dois cartões de rádio, e a Factura vem marcada.
+    await expect(page.getByRole('radio', { name: /^Factura \(FT\)/ })).toBeChecked();
+
+    // E o ARMAZÉM nasce no que a empresa marcou como padrão: era um clique
+    // por documento a repetir uma decisão já tomada nas definições.
+    await expect(page.getByLabel(/^Armazém/)).not.toHaveValue('');
+
     expect(await page.locator('tbody tr').count()).toBe(1);
     await expect(page.getByText('Escolha um artigo e uma quantidade')).toBeVisible();
     // Sem FR não há forma de pagamento.
@@ -27,9 +33,41 @@ test('abre com FT, uma linha e sem totais', async ({ page }) => {
 });
 
 test('a factura-recibo pede a forma de pagamento', async ({ page }) => {
-    await page.getByLabel(/^Tipo\b/).selectOption('FR');
+    /*
+     * O TIPO SÃO DOIS CARTÕES DE RÁDIO, e não uma lista.
+     *
+     * Cada um traz a sua consequência escrita — «paga no acto, usa a mesma
+     * sequência do POS» — e num `<select>` essa frase não cabe. Era assim no
+     * ecrã de sempre e voltou a ser.
+     */
+    await page.getByRole('radio', { name: /Factura-Recibo/ }).check();
+
     await expect(page.getByLabel(/^Forma de pagamento/)).toBeVisible();
     await expect(page.getByRole('button', { name: /Emitir factura-recibo/ })).toBeVisible();
+});
+
+/**
+ * O RESUMO É UM CARTÃO SÓ, E FICA À DIREITA.
+ *
+ * É o que se consulta o tempo todo enquanto se lançam linhas — «quanto vai
+ * dar isto?». Em coluna única ficava lá em baixo, fora de vista: preenchia-se
+ * o documento às cegas e só no fim se via o total.
+ *
+ * E tudo o que responde a essa pergunta está lá DENTRO: a natureza do
+ * documento, as parcelas, a retenção e o total. Espalhá-lo por dois cartões
+ * obrigava a saltar entre eles para perceber de onde vinha um número.
+ */
+test('o resumo e um cartao so, com a natureza e a retencao la dentro', async ({ page }) => {
+    const resumo = page.getByRole('region', { name: 'Resumo' })
+        .or(page.locator('section').filter({ has: page.getByRole('heading', { name: 'Resumo' }) }));
+
+    await expect(resumo.first()).toBeVisible();
+
+    await expect(resumo.first().getByText(/É prestação de serviço/)).toBeVisible();
+    await expect(resumo.first().getByLabel('Retenção na fonte')).toBeVisible();
+
+    // E os botões de gravar ficam por baixo dele, não perdidos no fundo.
+    await expect(page.getByRole('button', { name: /Emitir factura/ })).toBeVisible();
 });
 
 /**
@@ -155,18 +193,44 @@ test('o botao de criar cliente segue o que o servidor disser', async ({ page }) 
 
     // A PROCURA CONTINUA LÁ: não depende de permissão nenhuma, e é ela que
     // torna utilizável uma lista com centenas de clientes.
-    await expect(page.getByLabel('Procurar cliente')).toBeVisible();
+    await expect(page.getByRole('combobox', { name: /^Cliente/ })).toBeVisible();
 });
 
-/** A procura filtra a lista — um `<select>` de 400 linhas não se usa. */
-test('a procura filtra a lista de clientes', async ({ page }) => {
-    const escolha = page.getByLabel(/^cliente\b/i);
+/**
+ * O CLIENTE É UM CONTROLO SÓ.
+ *
+ * Havia aqui quatro coisas para uma escolha — uma caixa de procura, um
+ * `<select>` por baixo, uma linha a dizer «5 de 6» e um cartão a repetir quem
+ * ficou escolhido. Escreve-se, aparecem os resultados, carrega-se num.
+ */
+test('a procura mostra os resultados e escolher preenche a caixa', async ({ page }) => {
+    const caixa = page.getByRole('combobox', { name: /^Cliente/ });
 
-    await page.getByLabel('Procurar cliente').fill('zzz-nao-existe-zzz');
+    await caixa.click();
+    await caixa.fill('zzz-nao-existe-zzz');
+    await expect(page.getByText('Nada encontrado.')).toBeVisible();
 
-    await expect(page.getByText('Nada encontrado')).toBeVisible();
-    // Sobra só o «Escolher…».
-    expect(await escolha.locator('option').count()).toBe(1);
+    // E com algo que existe: a lista abre e a escolha fica na caixa.
+    await caixa.fill('a');
+
+    /*
+     * A LISTA DELE, não os `<option>` da página.
+     *
+     * `getByRole('option')` apanha as opções de TODOS os `<select>` do ecrã —
+     * armazém, série, IEC, selo, retenção. São 181, e o ensaio encontrava
+     * qualquer uma. Procura-se dentro da lista do cliente.
+     */
+    const lista = page.locator('#lista-de-partes');
+    const primeiro = lista.getByRole('option').first();
+
+    await expect(primeiro).toBeVisible({ timeout: 10_000 });
+
+    const nome = (await primeiro.innerText()).split('\n')[0].trim();
+
+    await primeiro.click();
+
+    await expect(caixa).toHaveValue(nome);
+    await expect(lista).toHaveCount(0);
 });
 
 /**

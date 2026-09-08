@@ -26,6 +26,8 @@ export type OpcoesDaFactura = {
     }>;
     artigos: Array<{ id: number; name: string; code: string | null; price: number; unit: string; type: string }>;
     armazens: Array<{ id: number; name: string }>;
+    /** O que a empresa marcou como padrão — o documento nasce com ele. */
+    armazem_padrao: number | null;
     series: Array<{ id: number; series_code: string; name: string; document_type: string; is_default: boolean }>;
     formas_de_pagamento: Array<{ id: number; code: string; name: string }>;
     retencoes: Array<{ valor: string; rotulo: string }>;
