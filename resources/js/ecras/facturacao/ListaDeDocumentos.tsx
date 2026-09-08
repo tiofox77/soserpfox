@@ -46,6 +46,7 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
     const [aviso, porAviso] = useState('');
     /** O documento que se está a eliminar, a converter, ou cujo histórico se vê. */
     const [aApagar, porAApagar] = useState<LinhaDeDocumento | null>(null);
+    const [aAnular, porAAnular] = useState<LinhaDeDocumento | null>(null);
     const [aConverter, porAConverter] = useState<LinhaDeDocumento | null>(null);
     const [aVerHistorico, porAVerHistorico] = useState<LinhaDeDocumento | null>(null);
     /** O documento cuja FICHA está aberta — só para ler, sem sair da lista. */
@@ -105,8 +106,7 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
     });
 
     function anular(d: LinhaDeDocumento): void {
-        if (!window.confirm(t('Anular a factura de compra :numero? O stock que entrou será revertido.', { numero: d.numero }))) return;
-        accao.mutate({ id: d.id });
+        porAAnular(d);
     }
 
     const opcoes = useQuery({
@@ -420,6 +420,42 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
             )}
 
             {/* ELIMINAR — pergunta-se antes: não se desfaz. */}
+            <Modal
+                aberto={aAnular !== null}
+                aoFechar={() => porAAnular(null)}
+                titulo={t('Anular factura de compra')}
+                subtitulo={t('Esta operação também corrige o stock')}
+                icone="fa-ban"
+                cor="aviso"
+                largura="sm"
+                rodape={
+                    <>
+                        <Botao onClick={() => porAAnular(null)}>{t('Cancelar')}</Botao>
+                        <Botao
+                            cor="aviso"
+                            tom="solida"
+                            icone="fa-ban"
+                            aTrabalhar={accao.isPending}
+                            onClick={() => {
+                                if (!aAnular) return;
+                                accao.mutate({ id: aAnular.id }, { onSuccess: () => porAAnular(null) });
+                            }}
+                        >
+                            {t('Anular e reverter stock')}
+                        </Botao>
+                    </>
+                }
+            >
+                <div className={cls('border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950', RAIO)}>
+                    <p className="font-semibold">
+                        {t('Confirma a anulação de :numero?', { numero: aAnular?.numero ?? '' })}
+                    </p>
+                    <p className="mt-2 text-amber-800">
+                        {t('O documento ficará anulado e todo o stock que entrou por esta compra será revertido. Esta operação não pode ser desfeita.')}
+                    </p>
+                </div>
+            </Modal>
+
             <Modal
                 aberto={aApagar !== null}
                 aoFechar={() => porAApagar(null)}

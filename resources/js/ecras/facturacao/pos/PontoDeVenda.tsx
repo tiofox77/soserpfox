@@ -7,6 +7,7 @@ import { t } from '@/i18n';
 import { Botao } from '@/ui/Botao';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
+import { Modal } from '@/ui/Modal';
 import { FOCO, RAIO, cls, kz } from '@/ui/tokens';
 import { ModalDePagamento } from './ModalDePagamento';
 import { ModalDeCliente } from './ModalDeCliente';
@@ -128,6 +129,7 @@ function Balcao({ o }: { o: Opcoes }) {
     const [escolherCliente, porEscolherCliente] = useState(false);
     const [aPerguntarPreco, porAPerguntarPreco] = useState<ArtigoDoPos | null>(null);
     const [vendida, porVendida] = useState<VendaFechada | null>(null);
+    const [confirmarLimpeza, porConfirmarLimpeza] = useState(false);
 
     const caixaDeProcura = useRef<HTMLInputElement>(null);
 
@@ -306,11 +308,14 @@ function Balcao({ o }: { o: Opcoes }) {
     }, []);
 
     const limpar = useCallback(() => {
-        if (!window.confirm(t('Limpar o carrinho inteiro?'))) return;
+        porConfirmarLimpeza(true);
+    }, []);
 
+    const confirmarQueLimpa = useCallback(() => {
         porLinhas([]);
         porCliente(null);
         porDesconto('');
+        porConfirmarLimpeza(false);
         somDoBalcao('tirar');
     }, []);
 
@@ -518,6 +523,28 @@ function Balcao({ o }: { o: Opcoes }) {
             />
 
             <ModalDoTalao venda={vendida} aoFechar={() => porVendida(null)} />
+
+            <Modal
+                aberto={confirmarLimpeza}
+                aoFechar={() => porConfirmarLimpeza(false)}
+                titulo={t('Limpar o carrinho')}
+                subtitulo={t('Confirme antes de remover o atendimento em curso')}
+                icone="fa-cart-arrow-down"
+                cor="perigo"
+                largura="sm"
+                rodape={
+                    <>
+                        <Botao onClick={() => porConfirmarLimpeza(false)}>{t('Continuar a venda')}</Botao>
+                        <Botao cor="perigo" tom="solida" icone="fa-trash" onClick={confirmarQueLimpa}>
+                            {t('Sim, limpar tudo')}
+                        </Botao>
+                    </>
+                }
+            >
+                <p className="text-sm text-slate-700">
+                    {t('Os artigos, o cliente e o desconto desta venda serão removidos do carrinho.')}
+                </p>
+            </Modal>
         </div>
     );
 }

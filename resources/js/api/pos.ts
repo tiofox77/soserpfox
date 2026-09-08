@@ -67,6 +67,8 @@ export type VendaFechada = {
     formato: 'talao' | 'a4';
     /** As duas moradas do documento verdadeiro, geradas pelo servidor. */
     papeis: { talao: string; a4: string };
+    /** Alias mantido para consumidores antigos; aponta para o papel A4. */
+    preview: string;
     message: string;
 };
 

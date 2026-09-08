@@ -91,7 +91,7 @@ export function Carrinho({ armazem, itens, aoMudar, comTecto, soComStock = true 
                 </p>
             )}
 
-            <div className={cls('overflow-hidden border border-slate-200', RAIO)}>
+            <div className={cls('overflow-x-auto border border-slate-200', RAIO)}>
                 {itens.length === 0 ? (
                     /* A caixa a tracejado do ecrã de sempre: falta alguma coisa,
                        mas não é um erro — é um convite. */
@@ -100,7 +100,7 @@ export function Carrinho({ armazem, itens, aoMudar, comTecto, soComStock = true 
                         <p className="text-sm">{t('Sem artigos. Procure e junte.')}</p>
                     </div>
                 ) : (
-                    <table className="w-full text-sm">
+                    <table className="min-w-[580px] w-full text-sm">
                         <thead><tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-600"><th className="px-3 py-2 font-bold">{t('Artigo')}</th><th className="px-3 py-2 text-right font-bold">{t('Tem')}</th><th className="px-3 py-2 text-right font-bold">{t('Qtd.')}</th><th className="w-10 px-3 py-2"></th></tr></thead>
                         <tbody className="divide-y divide-slate-100">
                             {itens.map((i, k) => (

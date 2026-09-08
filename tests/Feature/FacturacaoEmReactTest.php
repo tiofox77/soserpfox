@@ -30,7 +30,7 @@ use Tests\TenantTestCase;
 class FacturacaoEmReactTest extends TenantTestCase
 {
     /** Moradas que são descarga ou papel, não ecrã: saem do varrimento. */
-    private const NAO_SAO_ECRA = '#(pdf|preview|csv|descarregar|download|imprimir|export)#';
+    private const NAO_SAO_ECRA = '#(pdf|preview|talao|csv|descarregar|download|imprimir|export)#';
 
     /**
      * O QUE MORA EM `/invoicing/` E NÃO É DESTA MIGRAÇÃO.
@@ -44,10 +44,8 @@ class FacturacaoEmReactTest extends TenantTestCase
      *     React era outra migração, com outro risco.
      *   · `pos…` é o POS ao balcão (`App\Livewire\POS\POSSystem`), que ficou
      *     de fora por decisão: é o ecrã que não pode parar num dia de vendas.
-     *   · `settings/notification-gateways` é do módulo das Definições (os
-     *     canais de SMS), não da facturação — está aqui só pelo prefixo.
      */
-    private const FORA_DESTA_MIGRACAO = '#^invoicing/(offline|pos|settings/notification-gateways)#';
+    private const FORA_DESTA_MIGRACAO = '#^invoicing/(offline|pos)#';
 
     protected function setUp(): void
     {

@@ -18,8 +18,40 @@ class TelcoSmsTest extends TenantTestCase
 
         $this->get(route('invoicing.notification-gateways'))
             ->assertOk()
-            ->assertSee('TelcoSMS Angola')
-            ->assertSee('Configurações SMS');
+            ->assertSee('data-ecra="facturacao/gateways-de-notificacao"', false);
+
+        $this->getJson('/api/v1/invoicing/react/notification-gateways')
+            ->assertOk()
+            ->assertJsonPath('permissoes.pode_editar', false)
+            ->assertJsonCount(12, 'eventos')
+            ->assertJsonMissingPath('definicoes.sms_api_token');
+    }
+
+    public function test_api_guarda_chave_sem_a_expor_e_preserva_a_chave_quando_o_campo_volta_vazio(): void
+    {
+        $this->comModulo('invoicing')->comPermissoes('invoicing.settings.view', 'invoicing.settings.edit');
+        $url = '/api/v1/invoicing/react/notification-gateways';
+        $base = $this->getJson($url)->assertOk()->json('definicoes');
+
+        $this->putJson($url, array_merge($base, [
+            'email_enabled' => false,
+            'sms_enabled' => true,
+            'sms_provider' => 'telcosms',
+            'sms_api_token' => 'prd-segredo-react',
+            'whatsapp_enabled' => false,
+        ]))->assertOk()->assertJsonPath('segredos_guardados.sms_api_token', true);
+
+        $this->getJson($url)->assertOk()->assertJsonMissingPath('definicoes.sms_api_token');
+
+        $this->putJson($url, array_merge($this->getJson($url)->json('definicoes'), [
+            'sms_enabled' => true,
+            'sms_provider' => 'telcosms',
+            'sms_api_token' => '',
+        ]))->assertOk();
+
+        $setting = TenantNotificationSetting::where('tenant_id', $this->tenant->id)->firstOrFail();
+        $this->assertSame('prd-segredo-react', $setting->sms_api_token);
+        $this->assertSame('SOSERP', $setting->sms_sender_id);
     }
 
     public function test_envia_json_oficial_e_aceita_resposta_vazia(): void

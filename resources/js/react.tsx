@@ -18,6 +18,7 @@ import { carregarDicionario, lingua } from '@/i18n';
 import { LimiteDeErro } from '@/casca/LimiteDeErro';
 import { Carregando } from '@/ui/Carregando';
 import { ecras } from '@/ecras/registo';
+import { activarDicasDeAccao } from '@/ui/DicasDeAccao';
 
 /**
  * Uma consulta que falha não se repete três vezes.
@@ -35,6 +36,10 @@ const clienteDeConsultas = new QueryClient({
         },
     },
 });
+
+// Uma unica camada de legendas serve todos os ecras e todos os modais,
+// incluindo os elementos que chegam depois de uma resposta da API.
+activarDicasDeAccao();
 
 function montar(elemento: HTMLElement): void {
     const nome = elemento.dataset.ecra;

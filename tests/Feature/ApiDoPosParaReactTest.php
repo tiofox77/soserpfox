@@ -217,7 +217,11 @@ class ApiDoPosParaReactTest extends TenantTestCase
 
         $this->assertNotEmpty($r->json('numero'));
         $this->assertEqualsWithDelta(1140, $r->json('total'), 0.01, '1000 + 14% de IVA');
-        $this->assertStringContainsString('/preview', (string) $r->json('preview'));
+        // OS DOIS PAPÉIS, e qual deles a empresa configurou. O modal do balcão
+        // abre já na pré-visualização deste, com a impressão pronta.
+        $this->assertContains($r->json('formato'), ['talao', 'a4']);
+        $this->assertStringContainsString('/talao', (string) $r->json('papeis.talao'));
+        $this->assertStringContainsString('/preview', (string) $r->json('papeis.a4'));
 
         $f = SalesInvoice::findOrFail($r->json('id'));
 

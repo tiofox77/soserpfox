@@ -115,7 +115,7 @@ export default function TurnosDoPos() {
             {turno && (
                 <Cartao titulo={t('Movimentos do turno (:quantos)', { quantos: turno.movimentos_n ?? 0 })} icone="fa-list" semPadding>
                     <div className="max-h-96 overflow-auto">
-                        <table className="w-full text-sm">
+                        <table className="min-w-[680px] w-full text-sm">
                             <thead className="sticky top-0 z-10"><tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-600"><th className="px-4 py-3 font-semibold">{t('Quando')}</th><th className="px-4 py-3 font-semibold">{t('Tipo')}</th><th className="px-4 py-3 font-semibold">{t('Documento')}</th><th className="px-4 py-3 font-semibold">{t('Meio')}</th><th className="px-4 py-3 text-right font-semibold">{t('Valor')}</th></tr></thead>
                             <tbody className="divide-y divide-slate-100">
                                 {(turno.movimentos ?? []).length === 0 && <tr><td colSpan={5}><SemNada icone="fa-inbox" titulo={t('Ainda não houve movimentos.')} frase={t('Cada venda do balcão entra aqui assim que é fechada.')} /></td></tr>}

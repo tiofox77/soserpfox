@@ -22,11 +22,15 @@ import { FOCO, RAIO, cls, kz } from '@/ui/tokens';
  */
 export function ModalDoTalao({ venda, aoFechar }: { venda: VendaFechada | null; aoFechar: () => void }) {
     const [papel, porPapel] = useState<'talao' | 'a4'>('talao');
+    const [avisoDeImpressao, porAvisoDeImpressao] = useState(false);
     const folha = useRef<HTMLIFrameElement>(null);
 
     // Abre no papel configurado. Muda-se aqui se esta venda pedir o outro.
     useEffect(() => {
-        if (venda) porPapel(venda.formato);
+        if (venda) {
+            porPapel(venda.formato);
+            porAvisoDeImpressao(false);
+        }
     }, [venda]);
 
     if (!venda) return null;
@@ -58,7 +62,7 @@ export function ModalDoTalao({ venda, aoFechar }: { venda: VendaFechada | null; 
         const nova = window.open(`${morada}?imprimir=1`, '_blank', 'noopener');
 
         if (!nova) {
-            window.alert(t('O navegador bloqueou a janela de impressão. Permita pop-ups para este site.'));
+            porAvisoDeImpressao(true);
         }
     }
 
@@ -92,6 +96,31 @@ export function ModalDoTalao({ venda, aoFechar }: { venda: VendaFechada | null; 
             }
         >
             <div className="space-y-3">
+                {avisoDeImpressao && (
+                    <div
+                        role="alert"
+                        className={cls(
+                            'flex items-start gap-3 border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900',
+                            RAIO,
+                        )}
+                    >
+                        <i className="fas fa-triangle-exclamation mt-0.5 text-amber-600" aria-hidden="true" />
+                        <span className="min-w-0 flex-1">
+                            <strong className="block">{t('A impressão foi bloqueada')}</strong>
+                            {t('Permita pop-ups para este site e clique novamente em Imprimir.')}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => porAvisoDeImpressao(false)}
+                            aria-label={t('Fechar aviso')}
+                            title={t('Fechar aviso')}
+                            className={cls('grid h-8 w-8 shrink-0 place-items-center rounded-lg text-amber-700 hover:bg-amber-100', FOCO)}
+                        >
+                            <i className="fas fa-xmark" aria-hidden="true" />
+                        </button>
+                    </div>
+                )}
+
                 {/* O QUE SE VENDEU, numa linha. O papel logo a seguir diz o
                     resto — repeti-lo aqui era ocupar o ecrã duas vezes. */}
                 <div

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 
 import { CORES_DE_ECRA, FOCO, RAIO_GRANDE, TRANSICAO, cls, type CorDeEcra } from './tokens';
 
@@ -22,7 +22,7 @@ export function Modal({
     aoFechar,
     titulo,
     subtitulo,
-    icone,
+    icone = 'fa-window-maximize',
     cor = 'primaria',
     children,
     rodape,
@@ -47,6 +47,8 @@ export function Modal({
     largura?: 'sm' | 'md' | 'lg' | 'xl';
 }) {
     const janela = useRef<HTMLDialogElement>(null);
+    const idTitulo = useId();
+    const idSubtitulo = useId();
 
     useEffect(() => {
         const el = janela.current;
@@ -55,9 +57,14 @@ export function Modal({
 
         if (aberto && !el.open) {
             el.showModal();
+            document.body.style.overflow = 'hidden';
         } else if (!aberto && el.open) {
             el.close();
         }
+
+        return () => {
+            document.body.style.overflow = '';
+        };
     }, [aberto]);
 
     const larguras = { sm: 'max-w-md', md: 'max-w-2xl', lg: 'max-w-4xl', xl: 'max-w-6xl' } as const;
@@ -65,6 +72,8 @@ export function Modal({
     return (
         <dialog
             ref={janela}
+            aria-labelledby={idTitulo}
+            aria-describedby={subtitulo ? idSubtitulo : undefined}
             // O Escape dispara `cancel`; sem isto o `<dialog>` fechava-se
             // sozinho e o React continuava a achar que estava aberto.
             onCancel={(e) => {
@@ -78,7 +87,7 @@ export function Modal({
                 if (e.target === janela.current) aoFechar();
             }}
             className={cls(
-                'w-[calc(100vw-2rem)] overflow-hidden border-0 p-0 shadow-2xl',
+                'm-auto max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] overflow-hidden border-0 p-0 shadow-2xl',
                 RAIO_GRANDE,
                 'animate-scale-in',
                 // O fundo escurece e desfoca — é o que separa a janela da
@@ -90,20 +99,19 @@ export function Modal({
             <header className={cls('sticky top-0 z-10 px-5 py-4 text-white', CORES_DE_ECRA[cor])}>
                 <div className="flex items-center justify-between gap-4">
                     <div className="flex min-w-0 items-center gap-3">
-                        {icone && (
-                            <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-white/20 text-lg">
-                                <i className={`fas ${icone}`} aria-hidden="true" />
-                            </span>
-                        )}
+                        <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-white/20 text-lg shadow-inner">
+                            <i className={`fas ${icone}`} aria-hidden="true" />
+                        </span>
                         <span className="min-w-0">
-                            <h2 className="truncate text-lg font-bold tracking-tight">{titulo}</h2>
-                            {subtitulo && <p className="truncate text-xs text-white/80">{subtitulo}</p>}
+                            <h2 id={idTitulo} className="truncate text-lg font-bold tracking-tight">{titulo}</h2>
+                            {subtitulo && <p id={idSubtitulo} className="truncate text-xs text-white/80">{subtitulo}</p>}
                         </span>
                     </div>
 
                     <button
                         type="button"
                         onClick={aoFechar}
+                        title="Fechar"
                         aria-label="Fechar"
                         className={cls(
                             'flex-none rounded-lg p-2 text-white/80 hover:bg-white/20 hover:text-white',
@@ -117,10 +125,10 @@ export function Modal({
                 </div>
             </header>
 
-            <div className="max-h-[70vh] overflow-y-auto bg-white px-5 py-5">{children}</div>
+            <div className="max-h-[calc(100dvh-11rem)] overflow-y-auto bg-white px-4 py-4 sm:px-5 sm:py-5">{children}</div>
 
             {rodape && (
-                <footer className={cls('flex items-center justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3.5', TRANSICAO)}>
+                <footer className={cls('flex flex-col-reverse items-stretch justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3.5 sm:flex-row sm:items-center sm:px-5', TRANSICAO)}>
                     {rodape}
                 </footer>
             )}
