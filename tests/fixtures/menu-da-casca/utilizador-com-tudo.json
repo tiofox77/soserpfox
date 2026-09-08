@@ -338,6 +338,11 @@
         },
         {
             "tag": "a",
+            "href": "/treasury/dashboard",
+            "texto": "Dashboard"
+        },
+        {
+            "tag": "a",
             "href": "/treasury/reports",
             "texto": "Relatórios"
         },

@@ -181,6 +181,15 @@ final class MenuDaCasca
                 'chave' => 'treasury', 'rotulo' => 'Tesouraria', 'icone' => 'fa-coins', 'cor' => 'green-400',
                 'modulo' => 'invoicing', 'aberto' => 'treasury.*', 'barra' => 'green-400',
                 'entradas' => [
+                    /*
+                     * O PAINEL, que nunca esteve no menu.
+                     *
+                     * A página existia e só se lá chegava escrevendo o URL —
+                     * era a única do sistema com um painel e sem entrada. Todos
+                     * os outros módulos abrem o submenu pelo seu, e é ali que se
+                     * vê quanto dinheiro há antes de se ir ao extracto.
+                     */
+                    ['rota' => 'treasury.dashboard', 'rotulo' => 'Dashboard', 'icone' => 'fa-chart-line', 'cor' => 'blue-400', 'activo' => 'treasury.dashboard', 'permissao' => 'treasury.transactions.view'],
                     ['rota' => 'treasury.reports', 'rotulo' => 'Relatórios', 'icone' => 'fa-file-invoice-dollar', 'cor' => 'purple-400', 'activo' => 'treasury.reports*', 'permissao' => 'treasury.reports.view'],
                     ['rota' => 'treasury.accounts', 'rotulo' => 'Contas Bancárias', 'icone' => 'fa-wallet', 'cor' => 'purple-400', 'activo' => 'treasury.accounts*', 'permissao' => 'treasury.accounts.view'],
                     ['rota' => 'treasury.transactions', 'rotulo' => 'Transações', 'icone' => 'fa-exchange-alt', 'cor' => 'teal-400', 'activo' => 'treasury.transactions*', 'permissao' => 'treasury.transactions.view'],
