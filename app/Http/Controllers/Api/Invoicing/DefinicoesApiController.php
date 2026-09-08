@@ -80,6 +80,20 @@ class DefinicoesApiController extends Controller
                 'clientes' => Client::where('tenant_id', $tenantId)->where('is_active', true)->orderBy('name')->limit(500)->get(['id', 'name']),
                 'fornecedores' => Supplier::where('tenant_id', $tenantId)->where('is_active', true)->orderBy('name')->limit(500)->get(['id', 'name']),
                 'impostos' => Tax::where('tenant_id', $tenantId)->where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get(['id', 'name', 'rate']),
+                /*
+                 * OS IMPOSTOS, SEPARADOS POR TIPO.
+                 *
+                 * O IVA e a RETENÇÃO escolhem-se em caixas diferentes e não se
+                 * misturam: pôr um IRT na lista do IVA é um engano a acontecer,
+                 * e o contrário também. A lista completa fica, para quem já a
+                 * lia; as duas separadas são as que as caixas usam.
+                 */
+                'impostos_de_iva' => Tax::where('tenant_id', $tenantId)->where('is_active', true)
+                    ->where('type', '!=', 'irt')
+                    ->orderByDesc('is_default')->orderBy('name')->get(['id', 'name', 'rate']),
+                'impostos_de_retencao' => Tax::where('tenant_id', $tenantId)->where('is_active', true)
+                    ->where('type', 'irt')
+                    ->orderBy('name')->get(['id', 'name', 'rate']),
                 'formas_de_pagamento' => PaymentMethod::where('tenant_id', $tenantId)->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'code', 'name']),
                 'condicoes_de_pagamento' => PaymentTerm::where('tenant_id', $tenantId)->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'days']),
 

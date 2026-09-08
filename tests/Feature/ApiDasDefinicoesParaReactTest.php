@@ -240,4 +240,42 @@ class ApiDasDefinicoesParaReactTest extends TenantTestCase
         $this->assertEqualsWithDelta(6.5, (float) $d->default_irt_rate, 0.01,
             'o IRT não vem de imposto nenhum: continua a escrever-se');
     }
+
+    /**
+     * A RETENÇÃO SEGUE A MESMA REGRA, quando há um IRT no catálogo.
+     *
+     * Há doze «IRT 6,5% (Retenção)» na base, e escrever 6,5 numa caixa ao lado
+     * deles eram duas verdades a competir — exactamente como no IVA.
+     *
+     * Quem NÃO tenha IRT nenhum no catálogo continua a escrever o número: o
+     * ensaio acima é esse caso, e tirar-lhes a caixa era tirar-lhes a retenção.
+     *
+     * @test
+     */
+    public function a_retencao_vem_do_imposto_de_irt_quando_ha_um(): void
+    {
+        $this->comPermissoes('invoicing.settings.view', 'invoicing.settings.edit');
+
+        $irt = \App\Models\Invoicing\Tax::create([
+            'tenant_id' => $this->tenant->id,
+            'code' => 'IRT10E',
+            'name' => 'IRT 10% de ensaio',
+            'rate' => 10,
+            'type' => 'irt',
+            'is_active' => true,
+            'saft_code' => 'OUT',
+        ]);
+
+        // O pedido MENTE: escolhe o IRT de 10% e diz que a taxa é 6,5%.
+        $this->putJson(self::RAIZ, $this->corpo([
+            'default_irt_tax_id' => $irt->id,
+            'default_irt_rate' => 6.5,
+        ]))->assertOk();
+
+        $d = InvoicingSettings::where('tenant_id', $this->tenant->id)->first();
+
+        $this->assertEqualsWithDelta(10, (float) $d->default_irt_rate, 0.01,
+            'com IRT escolhido, a taxa vem dele e não do número do pedido');
+        $this->assertSame($irt->id, (int) $d->default_irt_tax_id);
+    }
 }

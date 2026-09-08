@@ -255,8 +255,38 @@ export default function Definicoes() {
                                     )}
                                 </div>
                             </Campo>
-                            <Campo etiqueta={t('IRT nos serviços (%)')} erro={erros.default_irt_rate} obrigatorio>
-                                <input type="number" min="0" max="100" step="0.01" value={forma.default_irt_rate} onChange={texto('default_irt_rate')} className={cls(entrada, 'text-right tabular-nums')} />
+                            {/* A RETENÇÃO É UM IMPOSTO DO CATÁLOGO, como o IVA.
+                                Há doze «IRT 6,5% (Retenção)» na base, e escrever
+                                6,5 numa caixa ao lado deles eram duas verdades a
+                                competir.
+
+                                A caixa de escrever só aparece a quem não tem
+                                nenhum IRT no catálogo — tirá-la a essas empresas
+                                era tirar-lhes a retenção. */}
+                            <Campo etiqueta={t('Retenção na fonte (IRT)')} erro={erros.default_irt_tax_id}>
+                                {o.impostos_de_retencao.length > 0 ? (
+                                    <select
+                                        value={forma.default_irt_tax_id ?? ''}
+                                        onChange={numero('default_irt_tax_id')}
+                                        className={entrada}
+                                    >
+                                        <option value="">{t('Sem retenção')}</option>
+                                        {o.impostos_de_retencao.map((i) => (
+                                            <option key={i.id} value={i.id}>{i.name} ({i.rate}%)</option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        step="0.01"
+                                        value={forma.default_irt_rate}
+                                        onChange={texto('default_irt_rate')}
+                                        aria-label={t('IRT nos serviços (%)')}
+                                        className={cls(entrada, 'text-right tabular-nums')}
+                                    />
+                                )}
                             </Campo>
                         </div>
                         <div className="mt-4">

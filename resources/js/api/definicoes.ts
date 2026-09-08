@@ -6,6 +6,8 @@ export type Definicoes = {
     default_client_id: number | null;
     default_supplier_id: number | null;
     default_tax_id: number | null;
+    /** O imposto de retenção (IRT). A taxa deriva dele, como no IVA. */
+    default_irt_tax_id: number | null;
     default_currency: string;
     default_exchange_rate: number | string;
     default_payment_method: string | null;
@@ -78,6 +80,10 @@ export type EcraDasDefinicoes = {
         clientes: Nomeado[];
         fornecedores: Nomeado[];
         impostos: Array<{ id: number; name: string; rate: number }>;
+        /** Só o IVA e afins — o IRT tem caixa própria. */
+        impostos_de_iva: Array<{ id: number; name: string; rate: number }>;
+        /** Os do tipo irt, para a caixa da retenção. */
+        impostos_de_retencao: Array<{ id: number; name: string; rate: number }>;
         formas_de_pagamento: Array<{ id: number; code: string; name: string }>;
         condicoes_de_pagamento: Array<{ id: number; name: string; days: number }>;
         moedas: Escolha[];

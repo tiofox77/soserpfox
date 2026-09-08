@@ -35,6 +35,7 @@ class InvoicingSettings extends Model
         'default_client_id',
         'default_supplier_id',
         'default_tax_id',
+        'default_irt_tax_id',
         'default_currency',
         'default_exchange_rate',
         'default_payment_method',
@@ -164,6 +165,12 @@ class InvoicingSettings extends Model
     public function defaultTax()
     {
         return $this->belongsTo(Tax::class, 'default_tax_id');
+    }
+
+    /** O imposto da RETENÇÃO (IRT), a par do do IVA. */
+    public function defaultIrtTax()
+    {
+        return $this->belongsTo(Tax::class, 'default_irt_tax_id');
     }
 
     // Helper methods

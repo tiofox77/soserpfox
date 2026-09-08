@@ -36,7 +36,7 @@ class DefinicoesDaFacturacao
 {
     /** As colunas que o ecrã edita. O que não estiver aqui não se grava por aqui. */
     public const CAMPOS = [
-        'default_warehouse_id', 'default_client_id', 'default_supplier_id', 'default_tax_id',
+        'default_warehouse_id', 'default_client_id', 'default_supplier_id', 'default_tax_id', 'default_irt_tax_id',
         'default_currency', 'default_exchange_rate', 'default_payment_method',
         'number_format', 'decimal_places', 'price_mask_enabled', 'pos_formato_impressao', 'rounding_mode',
         'proforma_series', 'invoice_series', 'receipt_series',
@@ -155,6 +155,7 @@ class DefinicoesDaFacturacao
             'receipt_series' => 'sometimes|required|max:10',
             'default_tax_rate' => 'required|numeric|min:0|max:100',
             'default_irt_rate' => 'required|numeric|min:0|max:100',
+            'default_irt_tax_id' => 'nullable|integer|exists:invoicing_taxes,id',
             'max_discount_percent' => 'required|numeric|min:0|max:100',
             'proforma_validity_days' => 'required|integer|min:1',
             'invoice_due_days' => 'required|integer|min:1',
@@ -238,6 +239,25 @@ class DefinicoesDaFacturacao
 
             if ($imposto) {
                 $valores['default_tax_rate'] = (float) $imposto->rate;
+            }
+        }
+
+        /*
+         * A RETENÇÃO TAMBÉM NASCE DO IMPOSTO, quando há um escolhido.
+         *
+         * O catálogo tem impostos do tipo `irt` — «IRT 6,5% (Retenção)» —, e
+         * escrever 6,5 numa caixa ao lado deles eram duas verdades a competir,
+         * exactamente como no IVA.
+         *
+         * Sem imposto escolhido o número continua a valer: há empresas cujo
+         * catálogo não tem IRT nenhum, e tirar-lhes a caixa era tirar-lhes a
+         * retenção.
+         */
+        if (! empty($valores['default_irt_tax_id'])) {
+            $retencao = Tax::where('tenant_id', $tenantId)->find($valores['default_irt_tax_id']);
+
+            if ($retencao) {
+                $valores['default_irt_rate'] = (float) $retencao->rate;
             }
         }
 
