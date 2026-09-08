@@ -70,6 +70,11 @@ export const ecras: Record<string, Ecra> = {
     'rh/funcionarios': () =>
         import('./rh/Funcionarios'),
 
+    // SEIS pedidos com aprovação: férias, licenças, horas extras, turno
+    // nocturno, adiantamentos e descontos. O `tipo` vem nas props.
+    'rh/pedidos': () =>
+        import('./rh/Pedidos'),
+
     // A casca: a barra lateral com o menu, o suporte e o utilizador.
     'casca': () =>
         import('./casca/Casca'),

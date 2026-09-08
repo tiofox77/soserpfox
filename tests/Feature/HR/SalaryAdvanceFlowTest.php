@@ -2,15 +2,29 @@
 
 namespace Tests\Feature\HR;
 
-use App\Livewire\HR\SalaryAdvanceManagement;
 use App\Models\HR\Employee;
 use App\Models\HR\SalaryAdvance;
 use App\Services\HR\SalaryAdvanceService;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
+/**
+ * O ADIANTAMENTO SALARIAL: o serviço, e a porta por onde o ecrã o pede.
+ *
+ * O segundo ensaio era contra o componente Livewire, que deixou de existir;
+ * passou para a API, que chama o MESMO serviço — é ele que aplica o tecto e
+ * reparte pelas prestações.
+ */
 class SalaryAdvanceFlowTest extends TenantTestCase
 {
+    private const RAIZ = '/api/v1/invoicing/react/rh/pedidos/adiantamentos';
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->comModulo('rh');
+    }
+
     public function test_advance_service_creates_a_pending_request(): void
     {
         $employee = Employee::create([
@@ -40,8 +54,10 @@ class SalaryAdvanceFlowTest extends TenantTestCase
         $this->assertEquals(65000, $limits['available_amount']);
     }
 
-    public function test_advance_request_is_created_from_the_screen(): void
+    public function test_advance_request_is_created_from_the_api(): void
     {
+        $this->comPermissoes('hr.advances.view', 'hr.advances.create');
+
         $employee = Employee::create([
             'tenant_id' => $this->tenant->id,
             'employee_number' => 'QA-'.uniqid(),
@@ -52,14 +68,13 @@ class SalaryAdvanceFlowTest extends TenantTestCase
             'base_salary' => 150000,
         ]);
 
-        Livewire::test(SalaryAdvanceManagement::class)
-            ->set('employee_id', $employee->id)
-            ->set('requested_amount', 10000)
-            ->set('installments', 2)
-            ->set('reason', 'Teste automatizado de adiantamento salarial')
-            ->set('notes', 'Sem pagamento real')
-            ->call('save')
-            ->assertHasNoErrors();
+        $this->postJson(self::RAIZ, [
+            'employee_id' => $employee->id,
+            'requested_amount' => 10000,
+            'installments' => 2,
+            'reason' => 'Teste automatizado de adiantamento salarial',
+            'notes' => 'Sem pagamento real',
+        ])->assertCreated();
 
         $advance = SalaryAdvance::where('employee_id', $employee->id)->firstOrFail();
 

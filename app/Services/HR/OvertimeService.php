@@ -297,4 +297,76 @@ class OvertimeService
 
         return $stats;
     }
+
+    /**
+     * O ACRÉSCIMO NOCTURNO DE UM MÊS — a conta que o ecrã do turno nocturno
+     * fazia por dentro, trazida para aqui.
+     *
+     * NÃO É UMA HORA EXTRA. O que a lei angolana manda pagar a quem cumpre o
+     * turno da noite é um acréscimo de 25% sobre o valor do DIA, e não sobre
+     * a hora: conta-se por NOITES cumpridas no mês, não por horas.
+     *
+     *     diária = salário base ÷ dias úteis do mês
+     *     valor  = diária × noites × 25%
+     *
+     * Estava dentro do componente Livewire, e por isso não era chamável de
+     * lado nenhum — nem pela API, nem por um ensaio. As colunas antigas
+     * (`rate`, `amount`) continuam a ser escritas ao lado das novas: há
+     * relatórios que lêem umas e relatórios que lêem as outras.
+     *
+     * @param  array{tenant_id: int, employee_id: int, date: string, night_days: int, description?: ?string, notes?: ?string}  $dados
+     */
+    public function createNightShiftRecord(array $dados): Overtime
+    {
+        $empregado = Employee::findOrFail($dados['employee_id']);
+
+        $salarioBase = (float) ($empregado->base_salary ?? $empregado->salary ?? 0);
+        $data = Carbon::parse($dados['date']);
+        $noites = max(1, (int) $dados['night_days']);
+
+        $trabalhaAoSabado = (bool) HRSetting::get('work_on_saturday', false);
+
+        $diasUteis = \App\Helpers\PayrollCalculatorHelper::countWeekdays(
+            $data->copy()->startOfMonth(),
+            $data->copy()->endOfMonth(),
+            $trabalhaAoSabado,
+        );
+
+        if ($diasUteis <= 0) {
+            $diasUteis = (int) HRSetting::get('monthly_working_days', 22);
+        }
+
+        $percentagem = (float) HRSetting::get('night_shift_percentage', 25) / 100;
+
+        $diaria = round($salarioBase / $diasUteis, 2);
+        $valor = round($diaria * $noites * $percentagem, 2);
+        $porHora = round($salarioBase / ($diasUteis * (float) HRSetting::get('working_hours_per_day', 8)), 2);
+        $taxaNocturna = round($diaria * $percentagem, 2);
+
+        return Overtime::create([
+            'tenant_id' => $dados['tenant_id'],
+            'employee_id' => $empregado->id,
+            'overtime_number' => Overtime::generateTenantNumber('overtime_number', 'NS-', 6),
+            'date' => $dados['date'],
+            'input_type' => 'daily',
+            'period_type' => 'month',
+            'is_night_shift' => true,
+            'overtime_type' => 'night',
+            // Uma NOITE é a unidade: `direct_hours` e `total_hours` contam
+            // noites, não horas. Foi assim que o ecrã sempre gravou, e é o que
+            // os relatórios do mês somam.
+            'direct_hours' => $noites,
+            'total_hours' => $noites,
+            'hourly_rate' => $porHora,
+            'overtime_rate' => $taxaNocturna,
+            'rate' => $taxaNocturna,
+            'amount' => $valor,
+            'total_amount' => $valor,
+            'multiplier' => $percentagem,
+            'description' => $dados['description'] ?? null,
+            'notes' => $dados['notes'] ?? null,
+            'status' => 'pending',
+            'created_by' => auth()->id(),
+        ]);
+    }
 }

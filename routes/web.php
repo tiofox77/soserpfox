@@ -542,6 +542,31 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::delete('/rh/funcionarios/{id}/documentos/{tipo}', [\App\Http\Controllers\Api\Hr\FuncionariosApiController::class, 'apagarDocumento'])
             ->whereNumber('id')->where('tipo', '[a-z_]+')->name('rh.funcionarios.documento.apagar');
 
+        /*
+         * OS SEIS PEDIDOS — férias, licenças, horas extras, turno nocturno,
+         * adiantamentos e descontos. Uma API para todos, com o `tipo` na
+         * morada; o esquema é do `PedidosDeRh`.
+         *
+         * APROVAR é uma permissão à parte de criar: quem pede as suas férias
+         * não é quem as autoriza.
+         */
+        Route::prefix('rh/pedidos/{tipo}')->where(['tipo' => '[a-z-]+'])->name('rh.pedidos.')->group(function () {
+            $c = \App\Http\Controllers\Api\Hr\PedidosApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            // Quem está fora, e quando — só nos pedidos que ocupam dias.
+            Route::get('/calendario', [$c, 'calendario'])->name('calendario');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'guardar'])->name('guardar');
+            Route::get('/{id}', [$c, 'ficha'])->whereNumber('id')->name('ficha');
+            Route::delete('/{id}', [$c, 'eliminar'])->whereNumber('id')->name('eliminar');
+            Route::post('/{id}/aprovar', [$c, 'aprovar'])->whereNumber('id')->name('aprovar');
+            Route::post('/{id}/rejeitar', [$c, 'rejeitar'])->whereNumber('id')->name('rejeitar');
+            Route::post('/{id}/pagar', [$c, 'pagar'])->whereNumber('id')->name('pagar');
+            Route::post('/{id}/cancelar', [$c, 'cancelar'])->whereNumber('id')->name('cancelar');
+            Route::post('/{id}/anexo', [$c, 'anexo'])->whereNumber('id')->name('anexo');
+        });
+
         // Adiantamentos: as regras no EmissorDeAdiantamentos, o mesmo do Livewire.
         Route::get('/adiantamentos/opcoes', [\App\Http\Controllers\Api\Invoicing\AdiantamentoApiController::class, 'opcoes'])->name('adiantamentos.opcoes');
         Route::get('/adiantamentos/{id}', [\App\Http\Controllers\Api\Invoicing\AdiantamentoApiController::class, 'mostrar'])->whereNumber('id')->name('adiantamentos.mostrar');
@@ -1227,9 +1252,14 @@ Route::middleware(['auth', 'tenant.module:rh'])->prefix('hr')->name('hr.')->grou
     Route::middleware('permission:employees.view')
         ->get('/employees', \App\Support\EcraReact::pagina('rh/funcionarios', 'Funcionários'))
         ->name('employees.index');
-    Route::get('/employees/{id}/sheet', [\App\Http\Controllers\HR\EmployeeController::class, 'employeeSheet'])->name('employees.sheet');
-    Route::get('/vacations/{id}/pdf', [\App\Http\Controllers\HR\VacationController::class, 'generatePDF'])->name('vacations.pdf');
-    Route::get('/leaves/{id}/pdf', [\App\Http\Controllers\HR\LeaveController::class, 'generatePDF'])->name('leaves.pdf');
+    // A ficha em PDF leva a morada, o BI, o IBAN e o salário: pede a mesma
+    // permissão do ecrã de onde se abre.
+    Route::get('/employees/{id}/sheet', [\App\Http\Controllers\HR\EmployeeController::class, 'employeeSheet'])
+        ->middleware('permission:employees.view')->name('employees.sheet');
+    Route::get('/vacations/{id}/pdf', [\App\Http\Controllers\HR\VacationController::class, 'generatePDF'])
+        ->middleware('permission:hr.vacations.view')->name('vacations.pdf');
+    Route::get('/leaves/{id}/pdf', [\App\Http\Controllers\HR\LeaveController::class, 'generatePDF'])
+        ->middleware('permission:hr.leaves.view')->name('leaves.pdf');
     Route::get('/payroll', \App\Livewire\HR\PayrollManagement::class)->name('payroll');
     Route::get('/payroll/payslip/{id}/pdf', [\App\Http\Controllers\HR\PayrollController::class, 'generatePayslipPDF'])->name('payroll.payslip.pdf');
     Route::get('/payroll/{id}/payslips-pdf', [\App\Http\Controllers\HR\PayrollController::class, 'generateAllPayslipsPDF'])->name('payroll.payslips-all.pdf');
@@ -1252,15 +1282,40 @@ Route::middleware(['auth', 'tenant.module:rh'])->prefix('hr')->name('hr.')->grou
         ->get('/positions', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Cargos', ['tipo' => 'cargos']))
         ->name('positions.index');
     Route::get('/attendance', \App\Livewire\HR\AttendanceManagement::class)->name('attendance.index');
-    Route::get('/vacations', \App\Livewire\HR\VacationManagement::class)->name('vacations.index');
-    Route::get('/leaves', \App\Livewire\HR\LeaveManagement::class)->name('leaves');
-    Route::get('/advances', \App\Livewire\HR\SalaryAdvanceManagement::class)->name('advances');
-    Route::get('/advances/{id}/pdf', [\App\Http\Controllers\HR\SalaryAdvanceController::class, 'generatePDF'])->name('advances.pdf');
-    Route::get('/overtime', \App\Livewire\HR\OvertimeManagement::class)->name('overtime');
-    Route::get('/overtime/{id}/pdf', [\App\Http\Controllers\HR\OvertimeController::class, 'generatePDF'])->name('overtime.pdf');
-    Route::get('/overtime-night-shift', \App\Livewire\HR\OvertimeNightShiftManagement::class)->name('overtime-night-shift');
-    Route::get('/salary-discounts', \App\Livewire\HR\SalaryDiscountManagement::class)->name('salary-discounts');
-    Route::get('/salary-discounts/{id}/pdf', [\App\Http\Controllers\HR\SalaryDiscountController::class, 'generatePDF'])->name('salary-discounts.pdf');
+    /*
+     * OS CINCO ECRÃS DE PEDIDOS, no ecrã genérico e COM GUARDA.
+     *
+     * Férias, licenças, horas extras, turno nocturno, adiantamentos e
+     * descontos: as moradas são as de sempre, o `tipo` diz qual é, e cada uma
+     * exige a sua permissão de VER. Aprovar é outra, exigida na API.
+     *
+     * Os PDF ficam onde estavam — reescrever o gerador para migrar uma lista
+     * era trocar o risco de sítio sem ganhar nada.
+     */
+    Route::middleware('permission:hr.vacations.view')
+        ->get('/vacations', \App\Support\EcraReact::pagina('rh/pedidos', 'Férias', ['tipo' => 'ferias']))
+        ->name('vacations.index');
+    Route::middleware('permission:hr.leaves.view')
+        ->get('/leaves', \App\Support\EcraReact::pagina('rh/pedidos', 'Licenças e Faltas', ['tipo' => 'licencas']))
+        ->name('leaves');
+    Route::middleware('permission:hr.advances.view')
+        ->get('/advances', \App\Support\EcraReact::pagina('rh/pedidos', 'Adiantamentos', ['tipo' => 'adiantamentos']))
+        ->name('advances');
+    Route::get('/advances/{id}/pdf', [\App\Http\Controllers\HR\SalaryAdvanceController::class, 'generatePDF'])
+        ->middleware('permission:hr.advances.view')->name('advances.pdf');
+    Route::middleware('permission:hr.overtime.view')
+        ->get('/overtime', \App\Support\EcraReact::pagina('rh/pedidos', 'Horas Extras', ['tipo' => 'horas-extras']))
+        ->name('overtime');
+    Route::get('/overtime/{id}/pdf', [\App\Http\Controllers\HR\OvertimeController::class, 'generatePDF'])
+        ->middleware('permission:hr.overtime.view')->name('overtime.pdf');
+    Route::middleware('permission:hr.overtime.view')
+        ->get('/overtime-night-shift', \App\Support\EcraReact::pagina('rh/pedidos', 'Turno Nocturno', ['tipo' => 'turno-nocturno']))
+        ->name('overtime-night-shift');
+    Route::middleware('permission:hr.discounts.view')
+        ->get('/salary-discounts', \App\Support\EcraReact::pagina('rh/pedidos', 'Descontos Salariais', ['tipo' => 'descontos']))
+        ->name('salary-discounts');
+    Route::get('/salary-discounts/{id}/pdf', [\App\Http\Controllers\HR\SalaryDiscountController::class, 'generatePDF'])
+        ->middleware('permission:hr.discounts.view')->name('salary-discounts.pdf');
     Route::middleware('permission:hr.shifts.view')
         ->get('/shifts', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Turnos', ['tipo' => 'turnos']))
         ->name('shifts.index');

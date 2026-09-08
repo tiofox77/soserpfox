@@ -54,6 +54,20 @@ class PermissionSeeder extends Seeder
             'hr.departments.view', 'hr.departments.create', 'hr.departments.edit', 'hr.departments.delete',
             'hr.positions.view', 'hr.positions.create', 'hr.positions.edit', 'hr.positions.delete',
             'hr.shifts.view', 'hr.shifts.create', 'hr.shifts.edit', 'hr.shifts.delete',
+
+            /*
+             * RH - Pedidos (férias, licenças, horas extras, adiantamentos,
+             * descontos).
+             *
+             * APROVAR É UM VERBO PRÓPRIO, e não «editar»: quem pede as suas
+             * férias não é quem as autoriza, e essa é a permissão que separa
+             * as duas pessoas.
+             */
+            'hr.vacations.view', 'hr.vacations.create', 'hr.vacations.approve', 'hr.vacations.delete',
+            'hr.leaves.view', 'hr.leaves.create', 'hr.leaves.approve', 'hr.leaves.delete',
+            'hr.overtime.view', 'hr.overtime.create', 'hr.overtime.approve', 'hr.overtime.delete',
+            'hr.advances.view', 'hr.advances.create', 'hr.advances.approve', 'hr.advances.delete',
+            'hr.discounts.view', 'hr.discounts.create', 'hr.discounts.approve', 'hr.discounts.delete',
             
             // Contabilidade
             'accounting.view', 'accounting.create', 'accounting.edit', 

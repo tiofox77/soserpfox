@@ -132,7 +132,16 @@ class TraducoesTest extends TenantTestCase
             $dicionario = json_decode(file_get_contents(base_path("lang/{$lingua}.json")), true);
 
             foreach ($dicionario as $chave => $valor) {
-                preg_match_all('/:(\w+)/', $chave, $originais);
+                /*
+                 * UM PLACEHOLDER COMEÇA POR LETRA — `:n`, `:nome`, `:quantos`.
+                 *
+                 * Com `\w+` também apanhava o `:00` de uma HORA escrita na
+                 * frase («entre as 22:00 e as 06:00»), e exigia que a tradução
+                 * francesa — que escreve «22h00» — o conservasse. Era um alarme
+                 * a dizer que a tradução tinha perdido um placeholder que nunca
+                 * existiu.
+                 */
+                preg_match_all('/:([a-zA-Z]\w*)/', $chave, $originais);
 
                 foreach ($originais[1] as $p) {
                     $this->assertStringContainsString(

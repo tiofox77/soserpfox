@@ -8,15 +8,14 @@ use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
 /**
- * Cria as permissões `hr.departments.*`, `hr.positions.*` e `hr.shifts.*` e
+ * Cria as permissões do RH — os três catálogos e os cinco pedidos — e
  * reparte-as pelos papéis de TODAS as empresas.
  *
  * PORQUE É QUE ESTAS NASCEM AGORA. O módulo de RH tinha 26 rotas guardadas
  * apenas por `auth` e `tenant.module:rh` — nem uma permissão aplicada, nem nas
  * rotas, nem nos componentes, nem nos controladores que geram os PDF. Qualquer
  * utilizador de uma empresa com o RH activo abria a folha de pagamento e via o
- * salário de toda a gente. Cada ecrã que passa para React ganha a sua guarda, e
- * estes três catálogos são os primeiros.
+ * salário de toda a gente. Cada ecrã que passa para React ganha a sua guarda.
  *
  * A REPARTIÇÃO POR OMISSÃO não tira nada a ninguém que já usasse o módulo: quem
  * gere a empresa fica com tudo, quem trabalha nele fica a ver. Um papel à
@@ -31,11 +30,11 @@ use Spatie\Permission\Models\Role;
  */
 class SyncHrCatalogPermissions extends Command
 {
-    protected $signature = 'permissions:sync-rh-catalogos {--aplicar : escreve de facto}';
+    protected $signature = 'permissions:sync-rh {--aplicar : escreve de facto}';
 
-    protected $description = 'Cria hr.departments.*, hr.positions.* e hr.shifts.* e reparte-as pelos papéis (a seco por omissão)';
+    protected $description = 'Cria as permissões do RH (catálogos e pedidos) e reparte-as pelos papéis (a seco por omissão)';
 
-    /** As doze permissões, com o nome por que se lêem no ecrã de papéis. */
+    /** As permissões, com o nome por que se lêem no ecrã de papéis. */
     private const PERMISSOES = [
         'hr.departments.view' => 'Ver Departamentos',
         'hr.departments.create' => 'Criar Departamentos',
@@ -49,9 +48,35 @@ class SyncHrCatalogPermissions extends Command
         'hr.shifts.create' => 'Criar Turnos',
         'hr.shifts.edit' => 'Editar Turnos',
         'hr.shifts.delete' => 'Eliminar Turnos',
+
+        /*
+         * OS PEDIDOS. APROVAR é um verbo próprio e não «editar»: quem pede as
+         * suas férias não é quem as autoriza, e é esta permissão que separa as
+         * duas pessoas. Por isso os papéis de consulta NÃO a recebem.
+         */
+        'hr.vacations.view' => 'Ver Férias',
+        'hr.vacations.create' => 'Pedir Férias',
+        'hr.vacations.approve' => 'Aprovar Férias',
+        'hr.vacations.delete' => 'Eliminar Pedidos de Férias',
+        'hr.leaves.view' => 'Ver Licenças',
+        'hr.leaves.create' => 'Registar Licenças',
+        'hr.leaves.approve' => 'Aprovar Licenças',
+        'hr.leaves.delete' => 'Eliminar Licenças',
+        'hr.overtime.view' => 'Ver Horas Extras',
+        'hr.overtime.create' => 'Lançar Horas Extras',
+        'hr.overtime.approve' => 'Aprovar Horas Extras',
+        'hr.overtime.delete' => 'Eliminar Horas Extras',
+        'hr.advances.view' => 'Ver Adiantamentos',
+        'hr.advances.create' => 'Pedir Adiantamentos',
+        'hr.advances.approve' => 'Aprovar Adiantamentos',
+        'hr.advances.delete' => 'Eliminar Adiantamentos',
+        'hr.discounts.view' => 'Ver Descontos Salariais',
+        'hr.discounts.create' => 'Registar Descontos Salariais',
+        'hr.discounts.approve' => 'Aprovar Descontos Salariais',
+        'hr.discounts.delete' => 'Eliminar Descontos Salariais',
     ];
 
-    /** Estes gerem: ficam com as doze. */
+    /** Estes gerem: ficam com todas. */
     private const GESTAO = [
         'Super Admin', 'Admin', 'Administrador', 'Gestor', 'Gerente',
         'Director', 'Diretor', 'Recursos Humanos', 'RH',
@@ -92,11 +117,15 @@ class SyncHrCatalogPermissions extends Command
         }
 
         $todas = array_values($ids);
-        $verApenas = [
-            $ids['hr.departments.view'],
-            $ids['hr.positions.view'],
-            $ids['hr.shifts.view'],
-        ];
+
+        /*
+         * Quem consulta fica só com as de VER — nunca com as de aprovar.
+         * Aprovar férias ou um adiantamento é uma decisão que custa dinheiro,
+         * e não se dá a um papel por ele se chamar «Utilizador».
+         */
+        $verApenas = collect($ids)
+            ->filter(fn ($id, $nome) => str_ends_with($nome, '.view'))
+            ->values()->all();
 
         $linhas = [];
 
