@@ -6,11 +6,11 @@ import { expect, test } from '@playwright/test';
 import { entrar } from './apoio.js';
 
 /**
- * TODAS AS PÁGINAS DA FACTURAÇÃO, UMA A UMA, NUM BROWSER A SÉRIO.
+ * TODAS AS PÁGINAS DA FACTURAÇÃO E DA TESOURARIA, UMA A UMA, NUM BROWSER A SÉRIO.
  *
  * Os outros specs provam o que cada ecrã FAZ. Este prova uma coisa mais
  * simples e que nenhum deles cobre: que **todas** as moradas do módulo abrem
- * — as 77, incluindo as de editar um documento — que o React monta em cada
+ * — as 87, incluindo a tesouraria e as de editar um documento — que o React monta em cada
  * uma, e que nenhuma deixa erro na consola nem uma chamada à API falhada.
  *
  * É o varrimento que apanha o ecrã que ninguém abriu desde que mudou: um

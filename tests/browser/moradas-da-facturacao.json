@@ -75,5 +75,15 @@
     "/invoicing/taxes",
     "/invoicing/transport-guides",
     "/invoicing/warehouse-transfer",
-    "/invoicing/warehouses"
+    "/invoicing/warehouses",
+    "/treasury/accounts",
+    "/treasury/banks",
+    "/treasury/cash-registers",
+    "/treasury/dashboard",
+    "/treasury/payment-methods",
+    "/treasury/reports",
+    "/treasury/transaction-categories",
+    "/treasury/transaction-types",
+    "/treasury/transactions",
+    "/treasury/transfers"
 ]

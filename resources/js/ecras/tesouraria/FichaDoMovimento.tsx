@@ -42,7 +42,17 @@ export function FichaDoMovimento({ id, aoFechar }: { id: number | null; aoFechar
             largura="lg"
             rodape={<Botao onClick={aoFechar} icone="fa-times">{t('Fechar')}</Botao>}
         >
-            {ficha.isPending && <Carregando linhas={6} />}
+            {/*
+              * O ESQUELETO SÓ EXISTE ENQUANTO HÁ ALGO A CARREGAR.
+              *
+              * O conteúdo de um `<dialog>` está no DOM mesmo com a janela
+              * fechada, e uma consulta desligada (`enabled: false`) continua
+              * a dizer `isPending`. Sem o `id !== null`, ficava um esqueleto
+              * com `aria-busy="true"` permanentemente na página — invisível
+              * aos olhos, mas não a quem ouve o ecrã, e foi o varrimento de
+              * browser que o apanhou.
+              */}
+            {id !== null && ficha.isPending && <Carregando linhas={6} />}
 
             {ficha.isError && (
                 <div role="alert" className={cls('border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800', RAIO)}>
