@@ -112,7 +112,10 @@ class CatalogoApiController extends Controller
         $tenantId = activeTenantId();
         $dados = $this->validar($request, $def, null, $tenantId);
 
-        $m = $def['modelo']::create(array_merge($dados, ['tenant_id' => $tenantId]));
+        // O catálogo PARTILHADO não leva empresa: a tabela não tem a coluna.
+        $m = $def['modelo']::create(empty($def['partilhado'])
+            ? array_merge($dados, ['tenant_id' => $tenantId])
+            : $dados);
         $this->depois($def, $m);
 
         return response()->json([
@@ -259,7 +262,9 @@ class CatalogoApiController extends Controller
 
     private function encontrar(array $def, int $tenantId, int $id): Model
     {
-        return $def['modelo']::query()->where('tenant_id', $tenantId)->findOrFail($id);
+        return empty($def['partilhado'])
+            ? $def['modelo']::query()->where('tenant_id', $tenantId)->findOrFail($id)
+            : $def['modelo']::query()->findOrFail($id);
     }
 
     /**

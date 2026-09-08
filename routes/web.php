@@ -478,6 +478,12 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             ->whereNumber('serie')->name('definicoes.series.renomear');
         Route::post('/definicoes/series/{serie}/padrao', [\App\Http\Controllers\Api\Invoicing\DefinicoesApiController::class, 'tornarPadrao'])
             ->whereNumber('serie')->name('definicoes.series.padrao');
+        Route::get('/notification-gateways', [\App\Http\Controllers\Api\Invoicing\NotificationGatewaysApiController::class, 'mostrar'])->name('notification-gateways.mostrar');
+        Route::put('/notification-gateways', [\App\Http\Controllers\Api\Invoicing\NotificationGatewaysApiController::class, 'guardar'])->name('notification-gateways.guardar');
+        Route::post('/notification-gateways/testar-sms', [\App\Http\Controllers\Api\Invoicing\NotificationGatewaysApiController::class, 'testarSms'])->name('notification-gateways.testar-sms');
+        Route::post('/notification-gateways/testar-email', [\App\Http\Controllers\Api\Invoicing\NotificationGatewaysApiController::class, 'testarEmail'])->name('notification-gateways.testar-email');
+        Route::post('/notification-gateways/whatsapp/templates', [\App\Http\Controllers\Api\Invoicing\NotificationGatewaysApiController::class, 'templatesWhatsApp'])->name('notification-gateways.whatsapp.templates');
+        Route::post('/notification-gateways/whatsapp/testar', [\App\Http\Controllers\Api\Invoicing\NotificationGatewaysApiController::class, 'testarWhatsApp'])->name('notification-gateways.whatsapp.testar');
 
         // OS CATÁLOGOS: fornecedores, categorias, marcas, armazéns, condições
         // de pagamento e impostos — uma API só, o esquema vem do Catalogos.
@@ -884,8 +890,8 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
     // Configurações
     Route::middleware('permission:invoicing.settings.view')->get('/settings', \App\Support\EcraReact::pagina('facturacao/definicoes', 'Configurações de Faturação'))->name('settings');
     Route::middleware('permission:invoicing.settings.view')
-        ->get('/settings/notification-gateways', \App\Livewire\Settings\NotificationSettings::class)
-        ->defaults('tab', 'sms')->name('notification-gateways');
+        ->get('/settings/notification-gateways', \App\Support\EcraReact::pagina('facturacao/gateways-de-notificacao', 'Gateways de Notificação'))
+        ->name('notification-gateways');
 
     // Trilha de auditoria. Protegida pela mesma permissão das definições: quem
     // pode ver a configuração fiscal da empresa pode ver quem lhe mexeu.
@@ -1010,15 +1016,36 @@ Route::middleware(['auth', 'tenant.module:treasury'])->prefix('treasury')->name(
         ->name('reports.pdf');
     Route::get('/reports/excel', [\App\Http\Controllers\Treasury\ReportExportController::class, 'excel'])
         ->name('reports.excel');
-    Route::get('/payment-methods', \App\Livewire\Treasury\PaymentMethods::class)->name('payment-methods');
-    Route::get('/banks', \App\Livewire\Treasury\Banks::class)->name('banks');
+    /*
+     * OS CATÁLOGOS DA TESOURARIA, no ecrã genérico.
+     *
+     * Bancos, formas de pagamento, caixas, tipos e categorias de movimento
+     * tinham cinco componentes Livewire com o mesmo desenho — lista, modal,
+     * gravar, apagar. Passam pelo mesmo ecrã que os seis da facturação já
+     * usam; o que os distingue vive no `Catalogos`.
+     *
+     * E GANHAM GUARDA. As 23 permissões `treasury.*` existiam e nenhuma rota
+     * as aplicava: bastava ter o módulo activo para mexer em tudo. Agora a
+     * morada exige a de VER, e a API exige a de criar, editar ou apagar em
+     * cada acção.
+     */
+    Route::middleware('permission:treasury.payment-methods.view')
+        ->get('/payment-methods', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Formas de Pagamento', ['tipo' => 'formas-de-pagamento']))
+        ->name('payment-methods');
+    Route::middleware('permission:treasury.banks.view')
+        ->get('/banks', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Bancos', ['tipo' => 'bancos']))
+        ->name('banks');
+    Route::middleware('permission:treasury.cash-registers.view')
+        ->get('/cash-registers', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Caixas', ['tipo' => 'caixas']))
+        ->name('cash-registers');
+    Route::middleware('permission:treasury.transactions.view')
+        ->get('/transaction-types', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Tipos de Movimento', ['tipo' => 'tipos-de-movimento']))
+        ->name('transaction-types');
+    Route::middleware('permission:treasury.transactions.view')
+        ->get('/transaction-categories', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Categorias de Movimento', ['tipo' => 'categorias-de-movimento']))
+        ->name('transaction-categories');
     Route::get('/accounts', \App\Livewire\Treasury\Accounts::class)->name('accounts');
-    Route::get('/cash-registers', \App\Livewire\Treasury\CashRegisters::class)->name('cash-registers');
     Route::get('/transactions', \App\Livewire\Treasury\Transactions::class)->name('transactions');
-    Route::get('/transaction-types', \App\Livewire\Treasury\TransactionClassifications::class)
-        ->defaults('kind', 'type')->name('transaction-types');
-    Route::get('/transaction-categories', \App\Livewire\Treasury\TransactionClassifications::class)
-        ->defaults('kind', 'category')->name('transaction-categories');
     Route::get('/transfers', \App\Livewire\Treasury\TransfersManagement::class)->name('transfers');
 });
 

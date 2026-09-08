@@ -70,6 +70,18 @@ final class Catalogos
             'armazens' => self::armazens(),
             'condicoes-de-pagamento' => self::condicoesDePagamento(),
             'impostos' => self::impostos(),
+
+            /*
+             * OS DA TESOURARIA. Têm a mesma forma dos de cima — lista, modal,
+             * gravar, apagar — e por isso vivem no mesmo registo em vez de
+             * cinco componentes com o mesmo desenho. As permissões são as do
+             * módulo `treasury`, que existiam e nenhuma rota aplicava.
+             */
+            'bancos' => self::bancos(),
+            'formas-de-pagamento' => self::formasDePagamento(),
+            'caixas' => self::caixas(),
+            'tipos-de-movimento' => self::tiposDeMovimento(),
+            'categorias-de-movimento' => self::categoriasDeMovimento(),
         ];
     }
 
@@ -520,6 +532,335 @@ final class Catalogos
 
     /* ─── Por dentro ──────────────────────────────────────────────────── */
 
+    /* ─── Os catálogos da TESOURARIA ───────────────────────────────────── */
+
+    /**
+     * OS BANCOS — e são de toda a gente.
+     *
+     * A tabela `treasury_banks` NÃO TEM `tenant_id`: é a lista nacional dos
+     * bancos angolanos, dezasseis, igual para todas as empresas. Daí o
+     * `partilhado`.
+     *
+     * E daí também a permissão de MEXER ser a de apagar, e não a de criar: o
+     * ecrã de sempre deixava qualquer empresa apagar um banco que todas usam,
+     * com um `Bank::findOrFail($id)` sem escopo nenhum. Uma lista partilhada
+     * lê-se com `view` e altera-se com `delete`, que é a permissão mais
+     * restrita que o módulo tem.
+     */
+    private static function bancos(): array
+    {
+        return [
+            'modelo' => \App\Models\Treasury\Bank::class,
+            'partilhado' => true,
+            'titulo' => 'Bancos',
+            'singular' => 'Banco',
+            'icone' => 'fa-building-columns',
+            'cor' => 'primaria',
+            'descricao' => 'A lista de bancos, partilhada por todas as empresas',
+            'novo' => 'Novo Banco',
+            'rota' => '/treasury/banks',
+            'permissoes' => [
+                'ver' => 'treasury.banks.view',
+                'criar' => 'treasury.banks.delete',
+                'editar' => 'treasury.banks.delete',
+                'apagar' => 'treasury.banks.delete',
+            ],
+            'pesquisa' => ['name', 'code', 'swift_code'],
+            'pesquisa_ajuda' => 'Nome, código ou SWIFT',
+            'ordem' => [['name', 'asc']],
+            'colunas' => [
+                ['chave' => 'name', 'rotulo' => 'Nome', 'formato' => 'texto'],
+                ['chave' => 'code', 'rotulo' => 'Código', 'formato' => 'texto'],
+                ['chave' => 'swift_code', 'rotulo' => 'SWIFT', 'formato' => 'texto'],
+                ['chave' => 'phone', 'rotulo' => 'Telefone', 'formato' => 'texto'],
+                ['chave' => 'is_active', 'rotulo' => 'Activo', 'formato' => 'booleano'],
+            ],
+            'filtros' => [
+                ['chave' => 'is_active', 'rotulo' => 'Estado', 'opcoes' => [
+                    ['valor' => '1', 'rotulo' => 'Activos'],
+                    ['valor' => '0', 'rotulo' => 'Inactivos'],
+                ]],
+            ],
+            'campos' => [
+                self::campo('name', 'Nome', 'texto', obrigatorio: true),
+                self::campo('code', 'Código', 'texto', ajuda: 'O código do banco no BNA (ex.: 0006).'),
+                self::campo('swift_code', 'SWIFT / BIC', 'texto'),
+                self::campo('country', 'País', 'pais', omissao: Geografia::PAIS_PADRAO),
+                self::campo('phone', 'Telefone', 'texto'),
+                self::campo('website', 'Sítio na internet', 'texto'),
+                self::campo('logo_url', 'Logótipo (endereço)', 'texto', largura: 'inteira'),
+                self::campo('is_active', 'Activo', 'booleano', omissao: true),
+            ],
+            'regras' => [
+                'name' => 'required|max:150',
+                'code' => 'nullable|max:20',
+                'swift_code' => 'nullable|max:20',
+                'country' => 'nullable|max:2',
+                'phone' => 'nullable|max:40',
+                'website' => 'nullable|max:190',
+                'logo_url' => 'nullable|max:255',
+                'is_active' => 'boolean',
+            ],
+            /*
+             * NÃO SE APAGA UM BANCO QUE ALGUÉM USA — e «alguém» aqui é
+             * qualquer empresa do sistema, não só a de quem está a carregar.
+             */
+            'pode_apagar' => fn (Model $m) => ! \App\Models\Treasury\Account::where('bank_id', $m->id)->exists(),
+            'porque_nao_apaga' => 'Há contas bancárias neste banco.',
+            'accoes' => ['activar' => true, 'padrao' => false, 'logotipo' => false, 'apagar' => true],
+        ];
+    }
+
+    /** As formas de pagamento da tesouraria — para onde o dinheiro vai. */
+    private static function formasDePagamento(): array
+    {
+        $tipos = [
+            ['valor' => 'cash', 'rotulo' => 'Numerário'],
+            ['valor' => 'bank', 'rotulo' => 'Banco'],
+            ['valor' => 'card', 'rotulo' => 'Cartão / TPA'],
+            ['valor' => 'manual', 'rotulo' => 'Outra'],
+        ];
+
+        return [
+            'modelo' => \App\Models\Treasury\PaymentMethod::class,
+            'titulo' => 'Formas de Pagamento',
+            'singular' => 'Forma de pagamento',
+            'icone' => 'fa-credit-card',
+            'cor' => 'roxo',
+            'descricao' => 'Como o dinheiro entra e sai, e para onde vai',
+            'novo' => 'Nova Forma',
+            'rota' => '/treasury/payment-methods',
+            'permissoes' => self::porVerbo('treasury.payment-methods'),
+            'pesquisa' => ['name', 'code'],
+            'pesquisa_ajuda' => 'Nome ou código',
+            'ordem' => [['sort_order', 'asc'], ['name', 'asc']],
+            'colunas' => [
+                ['chave' => 'name', 'rotulo' => 'Nome', 'formato' => 'texto'],
+                ['chave' => 'code', 'rotulo' => 'Código', 'formato' => 'texto'],
+                ['chave' => 'type', 'rotulo' => 'Tipo', 'formato' => 'escolha'],
+                ['chave' => 'fee_percentage', 'rotulo' => 'Comissão', 'formato' => 'percentagem', 'alinhar' => 'direita'],
+                ['chave' => 'is_active', 'rotulo' => 'Activa', 'formato' => 'booleano'],
+            ],
+            'filtros' => [
+                ['chave' => 'type', 'rotulo' => 'Tipo', 'opcoes' => $tipos],
+            ],
+            'campos' => [
+                self::campo('name', 'Nome', 'texto', obrigatorio: true),
+                self::campo('code', 'Código', 'texto', obrigatorio: true, ajuda: 'É por ele que o POS e os recibos a identificam.'),
+                self::campo('type', 'Tipo', 'escolha', obrigatorio: true, omissao: 'manual', opcoes: $tipos),
+                self::campo('description', 'Descrição', 'texto'),
+                self::campo('icon', 'Ícone', 'texto', omissao: 'fa-money-bill'),
+                self::campo('color', 'Cor', 'texto', omissao: 'green'),
+                self::campo('fee_percentage', 'Comissão (%)', 'numero', omissao: 0, passo: 0.01, min: 0, max: 100),
+                self::campo('fee_fixed', 'Comissão fixa', 'numero', omissao: 0, passo: 0.01, min: 0),
+                self::campo('requires_account', 'Exige conta bancária', 'booleano', omissao: false),
+                self::campo('default_account_id', 'Conta por omissão', 'referencia', referencia: 'contas'),
+                self::campo('default_cash_register_id', 'Caixa por omissão', 'referencia', referencia: 'caixas'),
+                self::campo('is_active', 'Activa', 'booleano', omissao: true),
+            ],
+            'regras' => [
+                'name' => 'required|max:100',
+                'code' => 'required|max:30',
+                'type' => 'required|in:cash,bank,card,manual',
+                'description' => 'nullable|max:255',
+                'icon' => 'nullable|max:60',
+                'color' => 'nullable|max:30',
+                'fee_percentage' => 'nullable|numeric|min:0|max:100',
+                'fee_fixed' => 'nullable|numeric|min:0',
+                'requires_account' => 'boolean',
+                'default_account_id' => 'nullable|integer',
+                'default_cash_register_id' => 'nullable|integer',
+                'is_active' => 'boolean',
+            ],
+            'referencias' => fn (int $t) => [
+                // A conta bancária chama-se `account_name` e não `name`: a
+                // coluna «name» aqui não existe, e a consulta rebentava.
+                'contas' => \App\Models\Treasury\Account::where('tenant_id', $t)->where('is_active', true)
+                    ->orderBy('account_name')->get(['id', 'account_name'])
+                    ->map(fn ($x) => ['valor' => $x->id, 'rotulo' => $x->account_name])->all(),
+                'caixas' => \App\Models\Treasury\CashRegister::where('tenant_id', $t)->where('is_active', true)
+                    ->orderBy('name')->get(['id', 'name'])
+                    ->map(fn ($x) => ['valor' => $x->id, 'rotulo' => $x->name])->all(),
+            ],
+            /*
+             * UMA FORMA JÁ USADA NÃO SE APAGA. Um recibo que aponte para ela
+             * ficava a dizer que foi pago por uma forma que não existe — e a
+             * tesouraria não saberia de onde veio o dinheiro.
+             */
+            'pode_apagar' => fn (Model $m) => ! \App\Models\Treasury\Transaction::where('payment_method_id', $m->id)->exists(),
+            'porque_nao_apaga' => 'Há movimentos de tesouraria com esta forma.',
+            'accoes' => ['activar' => true, 'padrao' => false, 'logotipo' => false, 'apagar' => true],
+        ];
+    }
+
+    /**
+     * AS CAIXAS. Uma caixa ABERTA não se apaga: tem dinheiro contado lá dentro
+     * e um turno por fechar.
+     */
+    private static function caixas(): array
+    {
+        return [
+            'modelo' => \App\Models\Treasury\CashRegister::class,
+            'titulo' => 'Caixas',
+            'singular' => 'Caixa',
+            'icone' => 'fa-cash-register',
+            'cor' => 'bom',
+            'descricao' => 'As caixas do balcão e quem as opera',
+            'novo' => 'Nova Caixa',
+            'rota' => '/treasury/cash-registers',
+            'permissoes' => self::porVerbo('treasury.cash-registers'),
+            'pesquisa' => ['name', 'code'],
+            'pesquisa_ajuda' => 'Nome ou código',
+            'ordem' => [['name', 'asc']],
+            'colunas' => [
+                ['chave' => 'name', 'rotulo' => 'Nome', 'formato' => 'texto'],
+                ['chave' => 'code', 'rotulo' => 'Código', 'formato' => 'texto'],
+                ['chave' => 'user_id', 'rotulo' => 'Operador', 'formato' => 'escolha'],
+                ['chave' => 'current_balance', 'rotulo' => 'Saldo', 'formato' => 'dinheiro', 'alinhar' => 'direita'],
+                ['chave' => 'status', 'rotulo' => 'Estado', 'formato' => 'escolha'],
+                ['chave' => 'is_active', 'rotulo' => 'Activa', 'formato' => 'booleano'],
+            ],
+            'filtros' => [
+                ['chave' => 'status', 'rotulo' => 'Estado', 'opcoes' => [
+                    ['valor' => 'open', 'rotulo' => 'Aberta'],
+                    ['valor' => 'closed', 'rotulo' => 'Fechada'],
+                ]],
+            ],
+            'campos' => [
+                self::campo('name', 'Nome', 'texto', obrigatorio: true),
+                self::campo('code', 'Código', 'texto', obrigatorio: true),
+                self::campo('user_id', 'Operador', 'referencia', referencia: 'utilizadores', ajuda: 'Quem responde por esta caixa.'),
+                self::campo('opening_balance', 'Fundo de maneio', 'numero', omissao: 0, passo: 0.01, min: 0),
+                self::campo('opening_notes', 'Observações de abertura', 'textarea', largura: 'inteira'),
+                self::campo('is_active', 'Activa', 'booleano', omissao: true),
+            ],
+            'regras' => [
+                'name' => 'required|max:100',
+                'code' => 'required|max:30',
+                'user_id' => 'nullable|integer',
+                'opening_balance' => 'nullable|numeric|min:0',
+                'opening_notes' => 'nullable|string',
+                'is_active' => 'boolean',
+            ],
+            'referencias' => fn (int $t) => [
+                'utilizadores' => User::whereHas('tenants', fn ($q) => $q->where('tenants.id', $t))
+                    ->orderBy('name')->get(['id', 'name'])
+                    ->map(fn ($x) => ['valor' => $x->id, 'rotulo' => $x->name])->all(),
+            ],
+            // Uma caixa ABERTA tem dinheiro contado e um turno por fechar.
+            'pode_apagar' => fn (Model $m) => $m->status !== 'open',
+            'porque_nao_apaga' => 'A caixa está aberta. Feche o turno primeiro.',
+            'accoes' => ['activar' => true, 'padrao' => false, 'logotipo' => false, 'apagar' => true],
+        ];
+    }
+
+    /** Os TIPOS de movimento: o que é entrada e o que é saída. */
+    private static function tiposDeMovimento(): array
+    {
+        $naturezas = [
+            ['valor' => 'income', 'rotulo' => 'Entrada'],
+            ['valor' => 'expense', 'rotulo' => 'Saída'],
+        ];
+
+        return [
+            'modelo' => \App\Models\Treasury\TransactionType::class,
+            'titulo' => 'Tipos de Movimento',
+            'singular' => 'Tipo de movimento',
+            'icone' => 'fa-right-left',
+            'cor' => 'ciano',
+            'descricao' => 'O que conta como entrada e o que conta como saída',
+            'novo' => 'Novo Tipo',
+            'rota' => '/treasury/transaction-types',
+            'permissoes' => self::porVerbo('treasury.transactions'),
+            'pesquisa' => ['name', 'code'],
+            'pesquisa_ajuda' => 'Nome ou código',
+            'ordem' => [['nature', 'asc'], ['name', 'asc']],
+            'colunas' => [
+                ['chave' => 'name', 'rotulo' => 'Nome', 'formato' => 'texto'],
+                ['chave' => 'code', 'rotulo' => 'Código', 'formato' => 'texto'],
+                ['chave' => 'nature', 'rotulo' => 'Natureza', 'formato' => 'escolha'],
+                ['chave' => 'is_active', 'rotulo' => 'Activo', 'formato' => 'booleano'],
+            ],
+            'filtros' => [
+                ['chave' => 'nature', 'rotulo' => 'Natureza', 'opcoes' => $naturezas],
+            ],
+            'campos' => [
+                self::campo('name', 'Nome', 'texto', obrigatorio: true),
+                self::campo('code', 'Código', 'texto', obrigatorio: true),
+                self::campo('nature', 'Natureza', 'escolha', obrigatorio: true, omissao: 'income', opcoes: $naturezas),
+                self::campo('description', 'Descrição', 'textarea', largura: 'inteira'),
+                self::campo('color', 'Cor', 'texto', omissao: 'blue'),
+                self::campo('icon', 'Ícone', 'texto', omissao: 'fa-right-left'),
+                self::campo('is_active', 'Activo', 'booleano', omissao: true),
+            ],
+            'regras' => [
+                'name' => 'required|max:100',
+                'code' => 'required|max:30',
+                'nature' => 'required|in:income,expense',
+                'description' => 'nullable|string',
+                'color' => 'nullable|max:30',
+                'icon' => 'nullable|max:60',
+                'is_active' => 'boolean',
+            ],
+            /*
+             * Um tipo com CATEGORIAS por baixo, ou já usado num MOVIMENTO, não
+             * desaparece: o histórico deixaria de saber o que aquilo era.
+             */
+            'pode_apagar' => fn (Model $m) => ! \App\Models\Treasury\TransactionCategory::where('transaction_type_id', $m->id)->exists()
+                && ! \App\Models\Treasury\Transaction::where('transaction_type_id', $m->id)->exists(),
+            'porque_nao_apaga' => 'Há categorias ou movimentos deste tipo.',
+            'accoes' => ['activar' => true, 'padrao' => false, 'logotipo' => false, 'apagar' => true],
+        ];
+    }
+
+    /** As CATEGORIAS, que penduram de um tipo. */
+    private static function categoriasDeMovimento(): array
+    {
+        return [
+            'modelo' => \App\Models\Treasury\TransactionCategory::class,
+            'titulo' => 'Categorias de Movimento',
+            'singular' => 'Categoria de movimento',
+            'icone' => 'fa-tags',
+            'cor' => 'rosa',
+            'descricao' => 'O detalhe dentro de cada tipo de movimento',
+            'novo' => 'Nova Categoria',
+            'rota' => '/treasury/transaction-categories',
+            'permissoes' => self::porVerbo('treasury.transactions'),
+            'pesquisa' => ['name', 'code'],
+            'pesquisa_ajuda' => 'Nome ou código',
+            'ordem' => [['name', 'asc']],
+            'colunas' => [
+                ['chave' => 'name', 'rotulo' => 'Nome', 'formato' => 'texto'],
+                ['chave' => 'code', 'rotulo' => 'Código', 'formato' => 'texto'],
+                ['chave' => 'transaction_type_id', 'rotulo' => 'Tipo', 'formato' => 'escolha'],
+                ['chave' => 'is_active', 'rotulo' => 'Activa', 'formato' => 'booleano'],
+            ],
+            'filtros' => [],
+            'campos' => [
+                self::campo('name', 'Nome', 'texto', obrigatorio: true),
+                self::campo('code', 'Código', 'texto', obrigatorio: true),
+                self::campo('transaction_type_id', 'Tipo de movimento', 'referencia', obrigatorio: true, referencia: 'tipos'),
+                self::campo('description', 'Descrição', 'textarea', largura: 'inteira'),
+                self::campo('is_active', 'Activa', 'booleano', omissao: true),
+            ],
+            'regras' => [
+                'name' => 'required|max:100',
+                'code' => 'required|max:30',
+                'transaction_type_id' => 'required|integer',
+                'description' => 'nullable|string',
+                'is_active' => 'boolean',
+            ],
+            'referencias' => fn (int $t) => [
+                'tipos' => \App\Models\Treasury\TransactionType::where('tenant_id', $t)->where('is_active', true)
+                    ->orderBy('name')->get(['id', 'name'])
+                    ->map(fn ($x) => ['valor' => $x->id, 'rotulo' => $x->name])->all(),
+            ],
+            'pode_apagar' => fn (Model $m) => ! \App\Models\Treasury\Transaction::where('transaction_category_id', $m->id)->exists(),
+            'porque_nao_apaga' => 'Há movimentos nesta categoria.',
+            'accoes' => ['activar' => true, 'padrao' => false, 'logotipo' => false, 'apagar' => true],
+        ];
+    }
+
     private static function porVerbo(string $prefixo): array
     {
         return ['ver' => "$prefixo.view", 'criar' => "$prefixo.create", 'editar' => "$prefixo.edit", 'apagar' => "$prefixo.delete"];
@@ -565,7 +906,19 @@ final class Catalogos
     /** A consulta base do catálogo, já com a empresa, a procura, os filtros e a ordem. */
     public static function consulta(array $def, int $tenantId, array $filtros): Builder
     {
-        $q = $def['modelo']::query()->where('tenant_id', $tenantId);
+        /*
+         * O CATÁLOGO PARTILHADO NÃO SE ESCOPA — porque não tem por onde.
+         *
+         * Os bancos angolanos são uma lista nacional: dezasseis, iguais para
+         * toda a gente, e a tabela nem sequer tem `tenant_id`. Filtrar por uma
+         * coluna que não existe deitava a consulta abaixo.
+         *
+         * Quem os pode MUDAR é outra conversa, e resolve-se nas permissões:
+         * ver a nota em `bancos()`.
+         */
+        $q = empty($def['partilhado'])
+            ? $def['modelo']::query()->where('tenant_id', $tenantId)
+            : $def['modelo']::query();
 
         if (! empty($filtros['procura'])) {
             $q->where(function (Builder $w) use ($def, $filtros) {
