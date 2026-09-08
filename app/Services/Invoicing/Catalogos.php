@@ -83,6 +83,14 @@ final class Catalogos
             'caixas' => self::caixas(),
             'tipos-de-movimento' => self::tiposDeMovimento(),
             'categorias-de-movimento' => self::categoriasDeMovimento(),
+
+            /*
+             * OS DOS RECURSOS HUMANOS. Mesma forma, mesmo ecrã — e permissões
+             * NOVAS, porque o módulo inteiro não tinha nenhuma aplicada.
+             */
+            'departamentos' => self::departamentos(),
+            'cargos' => self::cargos(),
+            'turnos' => self::turnos(),
         ];
     }
 
@@ -1151,6 +1159,272 @@ final class Catalogos
         ];
     }
 
+    /* ─── Os catálogos dos RECURSOS HUMANOS ────────────────────────────── */
+
+    /*
+     * Departamentos, cargos e turnos são o mesmo que os de cima: lista com
+     * procura, formulário num modal, gravar, apagar. Em Livewire eram dois
+     * componentes (o dos departamentos fazia também os cargos, com dois
+     * conjuntos de métodos iguais) e 480 linhas.
+     *
+     * AS PERMISSÕES SÃO NOVAS, e é de propósito: nenhuma das 26 rotas do RH
+     * tinha guarda nenhuma — qualquer utilizador de uma empresa com o módulo
+     * activo abria a folha de pagamento. Cada catálogo que passa para aqui
+     * ganha a sua, e a rota passa a exigi-la.
+     */
+
+    private static function departamentos(): array
+    {
+        return [
+            'modelo' => \App\Models\HR\Department::class,
+            'titulo' => 'Departamentos',
+            'singular' => 'Departamento',
+            'icone' => 'fa-building',
+            'cor' => 'roxo',
+            'descricao' => 'Gerir os departamentos da empresa',
+            'novo' => 'Novo Departamento',
+            'rota' => '/hr/departments',
+            'permissoes' => self::porVerbo('hr.departments'),
+            'pesquisa' => ['name', 'code', 'description'],
+            'pesquisa_ajuda' => 'Nome, código ou descrição',
+            'ordem' => [['name', 'asc']],
+            'colunas' => [
+                ['chave' => 'name', 'rotulo' => 'Nome', 'formato' => 'texto'],
+                ['chave' => 'code', 'rotulo' => 'Código', 'formato' => 'texto'],
+                ['chave' => 'manager_id', 'rotulo' => 'Responsável', 'formato' => 'escolha'],
+                ['chave' => 'description', 'rotulo' => 'Descrição', 'formato' => 'texto'],
+            ],
+            'filtros' => [],
+            'campos' => [
+                self::campo('name', 'Nome', 'texto', obrigatorio: true),
+                self::campo('code', 'Código', 'texto', obrigatorio: true, ajuda: 'Curto e único nesta empresa — RH, FIN, OPS.'),
+                self::campo('manager_id', 'Responsável', 'referencia', referencia: 'utilizadores'),
+                self::campo('is_active', 'Activo', 'booleano', omissao: true),
+                self::campo('description', 'Descrição', 'textarea', largura: 'inteira'),
+            ],
+            'regras' => [
+                'name' => 'required|string|min:2|max:255',
+                'code' => 'required|string|max:50',
+                'manager_id' => 'nullable|integer',
+                'description' => 'nullable|string|max:2000',
+                'is_active' => 'boolean',
+            ],
+            'validar' => self::tudoIsto([
+                self::codigoUnico(\App\Models\HR\Department::class, 'Já existe um departamento com esse código.'),
+                /* O `daCasa` não serve aqui: a tabela `users` não tem
+                   `tenant_id` — a pertença é pela tabela do meio. */
+                function (array $d, ?Model $m, int $tenantId): array {
+                    if (empty($d['manager_id'])) {
+                        return [];
+                    }
+
+                    $daCasa = User::whereKey($d['manager_id'])
+                        ->whereHas('tenants', fn ($q) => $q->where('tenants.id', $tenantId))->exists();
+
+                    return $daCasa ? [] : ['manager_id' => __('Esse utilizador não pertence a esta empresa.')];
+                },
+            ]),
+            'preparar' => fn (array $d) => array_merge($d, [
+                'code' => trim((string) ($d['code'] ?? '')),
+                'manager_id' => ($d['manager_id'] ?? null) ?: null,
+            ]),
+            'referencias' => fn (int $t) => [
+                'utilizadores' => User::whereHas('tenants', fn ($q) => $q->where('tenants.id', $t))
+                    ->orderBy('name')->get()->map(fn ($u) => ['valor' => (string) $u->id, 'rotulo' => $u->name])->all(),
+            ],
+            /*
+             * Um departamento com gente dentro não se apaga — nem com cargos
+             * pendurados nele. Apagá-lo deixava funcionários a apontar para um
+             * departamento que já não existe, e a folha a agrupar por nada.
+             */
+            'pode_apagar' => fn (Model $m) => ! \App\Models\HR\Employee::where('department_id', $m->id)->exists()
+                && ! \App\Models\HR\Position::where('department_id', $m->id)->exists(),
+            'porque_nao_apaga' => 'Há funcionários ou cargos neste departamento.',
+            'accoes' => ['activar' => true, 'padrao' => false, 'logotipo' => false, 'apagar' => true],
+        ];
+    }
+
+    private static function cargos(): array
+    {
+        return [
+            'modelo' => \App\Models\HR\Position::class,
+            'titulo' => 'Cargos',
+            'singular' => 'Cargo',
+            'icone' => 'fa-user-tie',
+            'cor' => 'ciano',
+            'descricao' => 'Gerir os cargos e as bandas salariais',
+            'novo' => 'Novo Cargo',
+            'rota' => '/hr/positions',
+            'permissoes' => self::porVerbo('hr.positions'),
+            'pesquisa' => ['title', 'code', 'description'],
+            'pesquisa_ajuda' => 'Título, código ou descrição',
+            'ordem' => [['title', 'asc']],
+            'colunas' => [
+                ['chave' => 'title', 'rotulo' => 'Cargo', 'formato' => 'texto'],
+                ['chave' => 'code', 'rotulo' => 'Código', 'formato' => 'texto'],
+                ['chave' => 'department_id', 'rotulo' => 'Departamento', 'formato' => 'escolha'],
+                ['chave' => 'min_salary', 'rotulo' => 'Salário mínimo', 'formato' => 'dinheiro', 'alinhar' => 'direita'],
+                ['chave' => 'max_salary', 'rotulo' => 'Salário máximo', 'formato' => 'dinheiro', 'alinhar' => 'direita'],
+            ],
+            'filtros' => [],
+            'campos' => [
+                self::campo('title', 'Cargo', 'texto', obrigatorio: true),
+                self::campo('code', 'Código', 'texto', obrigatorio: true),
+                self::campo('department_id', 'Departamento', 'referencia', referencia: 'departamentos'),
+                self::campo('is_active', 'Activo', 'booleano', omissao: true),
+                self::campo('min_salary', 'Salário mínimo (Kz)', 'numero', passo: 0.01, min: 0),
+                self::campo('max_salary', 'Salário máximo (Kz)', 'numero', passo: 0.01, min: 0),
+                self::campo('description', 'Descrição', 'textarea', largura: 'inteira'),
+            ],
+            'regras' => [
+                'title' => 'required|string|min:2|max:255',
+                'code' => 'required|string|max:50',
+                'department_id' => 'nullable|integer',
+                'min_salary' => 'nullable|numeric|min:0',
+                'max_salary' => 'nullable|numeric|min:0',
+                'description' => 'nullable|string|max:2000',
+                'is_active' => 'boolean',
+            ],
+            'validar' => self::tudoIsto([
+                self::codigoUnico(\App\Models\HR\Position::class, 'Já existe um cargo com esse código.'),
+                self::daCasa('department_id', \App\Models\HR\Department::class, 'Esse departamento não é desta empresa.'),
+                /*
+                 * A BANDA SALARIAL TEM DE FAZER SENTIDO. Um mínimo acima do
+                 * máximo passava calado e depois nada o usava para nada — o
+                 * cargo ficava com uma banda impossível na ficha.
+                 */
+                function (array $d): array {
+                    $min = $d['min_salary'] ?? null;
+                    $max = $d['max_salary'] ?? null;
+
+                    return ($min !== null && $max !== null && $min !== '' && $max !== '' && (float) $min > (float) $max)
+                        ? ['max_salary' => __('O máximo não pode ser menor do que o mínimo.')]
+                        : [];
+                },
+            ]),
+            'preparar' => fn (array $d) => array_merge($d, [
+                'code' => trim((string) ($d['code'] ?? '')),
+                'department_id' => ($d['department_id'] ?? null) ?: null,
+                'min_salary' => ($d['min_salary'] ?? '') === '' ? null : (float) $d['min_salary'],
+                'max_salary' => ($d['max_salary'] ?? '') === '' ? null : (float) $d['max_salary'],
+            ]),
+            'referencias' => fn (int $t) => [
+                'departamentos' => \App\Models\HR\Department::withoutGlobalScopes()
+                    ->where('tenant_id', $t)->orderBy('name')
+                    ->get()->map(fn ($d) => ['valor' => (string) $d->id, 'rotulo' => $d->name])->all(),
+            ],
+            'pode_apagar' => fn (Model $m) => ! \App\Models\HR\Employee::where('position_id', $m->id)->exists(),
+            'porque_nao_apaga' => 'Há funcionários com este cargo.',
+            'accoes' => ['activar' => true, 'padrao' => false, 'logotipo' => false, 'apagar' => true],
+        ];
+    }
+
+    private static function turnos(): array
+    {
+        return [
+            'modelo' => \App\Models\HR\Shift::class,
+            'titulo' => 'Turnos',
+            'singular' => 'Turno',
+            'icone' => 'fa-clock',
+            'cor' => 'primaria',
+            'descricao' => 'Horários de trabalho e dias de cada turno',
+            'novo' => 'Novo Turno',
+            'rota' => '/hr/shifts',
+            'permissoes' => self::porVerbo('hr.shifts'),
+            'pesquisa' => ['name', 'code', 'description'],
+            'pesquisa_ajuda' => 'Nome, código ou descrição',
+            'ordem' => [['display_order', 'asc'], ['start_time', 'asc']],
+            'colunas' => [
+                ['chave' => 'name', 'rotulo' => 'Turno', 'formato' => 'texto'],
+                ['chave' => 'start_time', 'rotulo' => 'Entrada', 'formato' => 'hora'],
+                ['chave' => 'end_time', 'rotulo' => 'Saída', 'formato' => 'hora'],
+                ['chave' => 'hours_per_day', 'rotulo' => 'Horas/dia', 'formato' => 'numero', 'alinhar' => 'direita'],
+                ['chave' => 'work_days', 'rotulo' => 'Dias', 'formato' => 'dias'],
+                ['chave' => 'color', 'rotulo' => 'Cor', 'formato' => 'cor'],
+                ['chave' => 'is_night_shift', 'rotulo' => 'Nocturno', 'formato' => 'booleano'],
+            ],
+            'filtros' => [],
+            'campos' => [
+                self::campo('name', 'Nome', 'texto', obrigatorio: true),
+                self::campo('code', 'Código', 'texto'),
+                self::campo('start_time', 'Entrada', 'hora', obrigatorio: true, omissao: '08:00'),
+                self::campo('end_time', 'Saída', 'hora', obrigatorio: true, omissao: '17:00'),
+                self::campo('hours_per_day', 'Horas por dia', 'numero', obrigatorio: true, omissao: 8, passo: 0.25, min: 0, max: 24),
+                self::campo('work_days', 'Dias de trabalho', 'dias', omissao: [1, 2, 3, 4, 5], largura: 'inteira',
+                    ajuda: 'Os dias em que este turno é cumprido.'),
+                self::campo('color', 'Cor', 'cor', omissao: '#3b82f6',
+                    ajuda: 'É por ela que o turno se distingue no calendário de presenças.'),
+                self::campo('display_order', 'Ordem', 'numero', omissao: 0),
+                /*
+                 * NOCTURNO NÃO É UMA ETIQUETA: é o que faz a lei angolana
+                 * acrescentar 25% às horas cumpridas entre as 22:00 e as
+                 * 06:00. Fica escrito no campo, porque quem cria um turno de
+                 * madrugada tem de saber que isto muda o que se paga.
+                 */
+                self::campo('is_night_shift', 'Turno nocturno (acréscimo de 25%)', 'booleano', omissao: false),
+                self::campo('is_active', 'Activo', 'booleano', omissao: true),
+                self::campo('description', 'Descrição', 'textarea', largura: 'inteira'),
+            ],
+            'regras' => [
+                'name' => 'required|string|min:2|max:255',
+                'code' => 'nullable|string|max:50',
+                'start_time' => 'required|date_format:H:i',
+                'end_time' => 'required|date_format:H:i',
+                'hours_per_day' => 'required|numeric|min:0|max:24',
+                'work_days' => 'nullable|array',
+                'work_days.*' => 'integer|min:1|max:7',
+                'color' => 'nullable|string|max:7',
+                'display_order' => 'nullable|integer|min:0',
+                'is_night_shift' => 'boolean',
+                'is_active' => 'boolean',
+                'description' => 'nullable|string|max:2000',
+            ],
+            'validar' => self::codigoUnico(\App\Models\HR\Shift::class, 'Já existe um turno com esse código.'),
+            'preparar' => fn (array $d) => array_merge($d, [
+                'code' => ($d['code'] ?? '') === '' ? null : trim((string) $d['code']),
+                // Um turno sem dia nenhum não é um turno: sem escolha, a
+                // semana de trabalho de segunda a sexta.
+                'work_days' => array_values(array_unique(array_map('intval', $d['work_days'] ?? []))) ?: [1, 2, 3, 4, 5],
+                'display_order' => (int) ($d['display_order'] ?? 0),
+                'hours_per_day' => (float) ($d['hours_per_day'] ?? 8),
+            ]),
+            /*
+             * Um turno com gente ou com presenças marcadas não se apaga: as
+             * presenças passadas ficariam a apontar para um horário que já não
+             * existe, e o cálculo do atraso deixava de ter contra o que medir.
+             */
+            'pode_apagar' => fn (Model $m) => ! \App\Models\HR\Employee::where('shift_id', $m->id)->exists()
+                && ! \App\Models\HR\Attendance::where('shift_id', $m->id)->exists(),
+            'porque_nao_apaga' => 'Há funcionários ou presenças neste turno.',
+            'accoes' => ['activar' => true, 'padrao' => false, 'logotipo' => false, 'apagar' => true, 'atribuir' => true],
+
+            /*
+             * ATRIBUIR EM LOTE — o que o ecrã em Livewire tinha e não se
+             * podia perder.
+             *
+             * Pôr trinta pessoas no turno da manhã um a um, pela ficha de cada
+             * uma, é meia hora de trabalho. O modal escolhe-as todas de uma vez.
+             *
+             * A DESCRIÇÃO fica aqui e não no ecrã: é o esquema que sabe quem se
+             * atribui a quê. Qualquer catálogo que declare isto ganha o mesmo
+             * modal — é a mesma ideia de todo este registo.
+             */
+            'atribuir' => [
+                'modelo' => \App\Models\HR\Employee::class,
+                'coluna' => 'shift_id',
+                'titulo' => 'Atribuir funcionários ao turno',
+                'nada' => 'Ainda não há funcionários activos nesta empresa.',
+                'pesquisa' => ['first_name', 'last_name', 'employee_number'],
+                'pesquisa_ajuda' => 'Nome ou número',
+                // Só quem está ao serviço: um funcionário cessado não entra
+                // em turno nenhum.
+                'onde' => fn ($q) => $q->where('status', 'active'),
+                'nome' => fn (Model $e) => trim(($e->first_name ?? '') . ' ' . ($e->last_name ?? '')) ?: ($e->full_name ?? '—'),
+                'nota' => fn (Model $e) => $e->employee_number,
+            ],
+        ];
+    }
+
     private static function porVerbo(string $prefixo): array
     {
         return ['ver' => "$prefixo.view", 'criar' => "$prefixo.create", 'editar' => "$prefixo.edit", 'apagar' => "$prefixo.delete"];
@@ -1344,6 +1618,20 @@ final class Catalogos
         foreach ($def['campos'] as $c) {
             $valor = $m->{$c['chave']};
             $linha[$c['chave']] = $valor;
+
+            /*
+             * UMA HORA SAI `08:00`, e não a data inteira.
+             *
+             * O modelo do turno converte `start_time` para Carbon; em JSON
+             * isso vai como `2026-09-08T08:00:00Z`, que o `<input type="time">`
+             * não sabe ler — o campo abria vazio e gravar apagava a hora que
+             * lá estava.
+             */
+            if (($c['tipo'] ?? '') === 'hora') {
+                $linha[$c['chave']] = $valor instanceof \DateTimeInterface
+                    ? $valor->format('H:i')
+                    : ($valor ? substr((string) $valor, 0, 5) : null);
+            }
 
             if ($c['tipo'] === 'escolha') {
                 $linha['rotulos'][$c['chave']] = collect($c['opcoes'])->firstWhere('valor', (string) $valor)['rotulo'] ?? (string) $valor;

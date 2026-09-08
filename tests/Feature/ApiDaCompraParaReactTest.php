@@ -352,4 +352,109 @@ class ApiDaCompraParaReactTest extends TenantTestCase
             'o fornecedor criado do emissor tem de aparecer nas opções da compra'
         );
     }
+
+    /* ─── O que o editor precisa de reencontrar ───────────────────────── */
+
+    /**
+     * O ARMAZÉM PADRÃO VEM NAS OPÇÕES, para a compra nova nascer com ele.
+     *
+     * A compra dá entrada de stock e o armazém é obrigatório: escolhê-lo à mão
+     * de cada vez era uma paragem em todas as compras.
+     *
+     * @test
+     */
+    public function as_opcoes_dizem_qual_e_o_armazem_padrao(): void
+    {
+        $this->comPermissoes('invoicing.purchases.invoices.create');
+
+        $this->armazem->update(['is_default' => true]);
+
+        $this->getJson(self::RAIZ . '/opcoes')
+            ->assertOk()
+            ->assertJsonPath('armazem_padrao', $this->armazem->id);
+    }
+
+    /**
+     * REABRIR UM RASCUNHO DEVOLVE TUDO O QUE SE ESCREVEU — e não só parte.
+     *
+     * O `abrir` deixava de fora os TERMOS, o DESCONTO LEGADO, a data de
+     * FABRICO e os DIAS DE ALERTA de cada linha. Todos eles se gravavam; só
+     * não voltavam ao editor. Quem reabria um rascunho via os campos vazios e,
+     * ao guardar outra vez, apagava-os — em silêncio, e depois de o lote já
+     * ter nascido com a data certa.
+     *
+     * @test
+     */
+    public function reabrir_um_rascunho_devolve_os_termos_o_desconto_e_o_lote_inteiro(): void
+    {
+        $this->comPermissoes('invoicing.purchases.invoices.create', 'invoicing.purchases.invoices.view');
+
+        $artigo = $this->artigo(true, true);
+        $fabrico = now()->subMonth()->toDateString();
+        $validade = now()->addYear()->toDateString();
+
+        $id = $this->postJson(self::RAIZ, $this->corpo([
+            'status' => 'draft',
+            'terms' => 'Pagamento a 30 dias.',
+            'discount_amount' => 50,
+            'discount_commercial' => 100,
+            'discount_financial' => 25,
+            'linhas' => [[
+                'product_id' => $artigo->id, 'quantity' => 5, 'price' => 200,
+                'batch_number' => 'L-ABRIR-1', 'expiry_date' => $validade,
+                'manufacturing_date' => $fabrico, 'alert_days' => 7,
+            ]],
+        ]))->assertCreated()->json('id');
+
+        $aberta = $this->getJson(self::RAIZ . '/' . $id)->assertOk();
+
+        $this->assertSame('Pagamento a 30 dias.', $aberta->json('documento.terms'));
+        $this->assertEqualsWithDelta(50, $aberta->json('documento.discount_amount'), 0.01);
+        $this->assertEqualsWithDelta(100, $aberta->json('documento.discount_commercial'), 0.01);
+        $this->assertEqualsWithDelta(25, $aberta->json('documento.discount_financial'), 0.01);
+
+        $this->assertSame('L-ABRIR-1', $aberta->json('linhas.0.batch_number'));
+        $this->assertSame($fabrico, $aberta->json('linhas.0.manufacturing_date'));
+        $this->assertSame($validade, $aberta->json('linhas.0.expiry_date'));
+        $this->assertSame(7, $aberta->json('linhas.0.alert_days'));
+    }
+
+    /**
+     * O DESCONTO LEGADO SOMA AO COMERCIAL — na conta do ecrã e na gravada.
+     *
+     * 1000 de bruto, menos 100 de comercial e 50 de legado, dá 850 de
+     * incidência de IVA; o financeiro entra depois do imposto apurado.
+     *
+     * @test
+     */
+    public function o_desconto_legado_soma_ao_comercial(): void
+    {
+        $this->comPermissoes('invoicing.purchases.invoices.create');
+
+        $artigo = $this->artigo(false);
+        $linhas = [['product_id' => $artigo->id, 'quantity' => 1, 'price' => 1000]];
+
+        $conta = $this->postJson(self::RAIZ . '/calcular', [
+            'linhas' => $linhas,
+            'discount_commercial' => 100,
+            'discount_amount' => 50,
+            'discount_financial' => 50,
+        ])->assertOk();
+
+        $this->assertEqualsWithDelta(150, $conta->json('totais.desconto_comercial'), 0.01);
+        $this->assertEqualsWithDelta(850, $conta->json('totais.base'), 0.01);
+        $this->assertEqualsWithDelta(800, $conta->json('totais.total'), 0.01);
+
+        $id = $this->postJson(self::RAIZ, $this->corpo([
+            'discount_commercial' => 100,
+            'discount_amount' => 50,
+            'discount_financial' => 50,
+            'linhas' => $linhas,
+        ]))->assertCreated()->json('id');
+
+        $f = PurchaseInvoice::findOrFail($id);
+
+        $this->assertEqualsWithDelta(50, (float) $f->discount_amount, 0.01);
+        $this->assertEqualsWithDelta(800, (float) $f->total, 0.01);
+    }
 }

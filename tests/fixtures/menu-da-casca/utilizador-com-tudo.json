@@ -446,6 +446,11 @@
         },
         {
             "tag": "a",
+            "href": "/hr/positions",
+            "texto": "Cargos"
+        },
+        {
+            "tag": "a",
             "href": "/hr/attendance",
             "texto": "Presenças"
         },

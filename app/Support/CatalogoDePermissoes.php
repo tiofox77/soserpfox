@@ -72,6 +72,8 @@ final class CatalogoDePermissoes
         'contagem' => 'Contagens', 'requisicoes' => 'Requisições', 'encomendas' => 'Encomendas',
         'tarefas' => 'Tarefas', 'horas' => 'Horas', 'roles' => 'Papéis e Permissões',
         'employees' => 'Funcionários', 'payroll' => 'Salários', 'attendance' => 'Assiduidade', 'payments' => 'Pagamentos',
+        // RH: os catálogos que passaram para o ecrã genérico e ganharam guarda.
+        'departments' => 'Departamentos', 'positions' => 'Cargos', 'shifts' => 'Turnos',
         // Nomes de duas partes: o primeiro segmento é a própria entidade.
         'users' => 'Utilizadores', 'billing' => 'Pacote e Faturação da Empresa', 'notifications' => 'Notificações',
         'compras' => 'Compras', 'projetos' => 'Projetos', 'inventario' => 'Inventário', 'crm' => 'CRM',

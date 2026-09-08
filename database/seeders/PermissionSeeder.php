@@ -43,6 +43,17 @@ class PermissionSeeder extends Seeder
             
             // RH - Outros
             'attendance.manage', 'payroll.process', 'rh.reports',
+
+            /*
+             * RH - Catálogos (departamentos, cargos, turnos)
+             *
+             * NASCEM COM A MIGRAÇÃO PARA REACT. O módulo inteiro não tinha
+             * permissão nenhuma aplicada — 26 rotas com `auth` e mais nada —
+             * e cada ecrã que passa para o React ganha a sua.
+             */
+            'hr.departments.view', 'hr.departments.create', 'hr.departments.edit', 'hr.departments.delete',
+            'hr.positions.view', 'hr.positions.create', 'hr.positions.edit', 'hr.positions.delete',
+            'hr.shifts.view', 'hr.shifts.create', 'hr.shifts.edit', 'hr.shifts.delete',
             
             // Contabilidade
             'accounting.view', 'accounting.create', 'accounting.edit', 

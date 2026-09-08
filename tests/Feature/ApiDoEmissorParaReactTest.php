@@ -491,4 +491,170 @@ class ApiDoEmissorParaReactTest extends TenantTestCase
 
         $this->assertNull(SalesQuote::findOrFail($id)->quote_template_id);
     }
+
+    /* ─── Os descontos do documento ───────────────────────────────────── */
+
+    /**
+     * OS TRÊS DESCONTOS ENTRAM NA CONTA, FICAM GRAVADOS E VOLTAM NO ABRIR.
+     *
+     * O ecrã de sempre pedia os três — comercial (antes do IVA), o legado
+     * (`discount_amount`, que SOMA ao comercial) e o financeiro (depois do
+     * IVA) — e a base guarda os três há muito. O editor em React não os
+     * oferecia e o servidor mandava zero fixo no lugar do legado: uma proposta
+     * com desconto aberta para editar mostrava as caixas vazias, e a primeira
+     * gravação apagava o desconto que ela tinha.
+     *
+     * A conta: 1000 de bruto, menos 100 de comercial e 50 de legado, dá 850 de
+     * incidência de IVA — o financeiro NÃO baixa a incidência, entra depois do
+     * imposto apurado. Isento de IVA, o total é 850 − 50 = 800.
+     *
+     * @test
+     */
+    public function os_tres_descontos_contam_gravam_e_voltam(): void
+    {
+        $this->comPermissoes('invoicing.sales.proformas.create', 'invoicing.sales.proformas.view', 'invoicing.sales.proformas.edit');
+
+        $linhas = [['product_id' => $this->artigo()->id, 'quantity' => 1, 'price' => 1000]];
+
+        $conta = $this->postJson($this->rota('proformas-venda', '/calcular'), [
+            'linhas' => $linhas,
+            'desconto_comercial' => 100,
+            'desconto_legado' => 50,
+            'desconto_financeiro' => 50,
+        ])->assertOk();
+
+        $this->assertEqualsWithDelta(150, $conta->json('totais.desconto_comercial'), 0.01, 'o legado soma ao comercial');
+        $this->assertEqualsWithDelta(850, $conta->json('totais.base'), 0.01, 'o financeiro não baixa a incidência');
+        $this->assertEqualsWithDelta(800, $conta->json('totais.total'), 0.01);
+
+        $id = $this->postJson($this->rota('proformas-venda'), [
+            'parte_id' => $this->clienteEmpresa()->id,
+            'warehouse_id' => $this->armazem->id,
+            'data' => now()->toDateString(),
+            'desconto_comercial' => 100,
+            'desconto_legado' => 50,
+            'desconto_financeiro' => 50,
+            'linhas' => $linhas,
+        ])->assertCreated()->json('id');
+
+        $p = SalesProforma::findOrFail($id);
+
+        $this->assertEqualsWithDelta(100, (float) $p->discount_commercial, 0.01);
+        $this->assertEqualsWithDelta(50, (float) $p->discount_amount, 0.01);
+        $this->assertEqualsWithDelta(50, (float) $p->discount_financial, 0.01);
+        $this->assertEqualsWithDelta(800, (float) $p->total, 0.01);
+
+        $aberta = $this->getJson($this->rota('proformas-venda', '/' . $id))->assertOk();
+
+        $this->assertEqualsWithDelta(100, $aberta->json('documento.desconto_comercial'), 0.01);
+        $this->assertEqualsWithDelta(50, $aberta->json('documento.desconto_legado'), 0.01);
+        $this->assertEqualsWithDelta(50, $aberta->json('documento.desconto_financeiro'), 0.01);
+    }
+
+    /* ─── Guardar, enviar, e o que já não se mexe ─────────────────────── */
+
+    /**
+     * «GUARDAR E ENVIAR» PÕE A PROPOSTA EM ENVIADA — E ELA AINDA SE CORRIGE.
+     *
+     * Eram os dois botões do ecrã de sempre: guardar deixa em rascunho para se
+     * acabar depois, enviar diz que a proposta saiu para a outra parte. Uma
+     * proposta NÃO é documento fiscal — não tem hash nem cadeia e a AGT nunca a
+     * vê — por isso enviá-la não a fecha: quando o cliente responde «troque a
+     * quantidade», corrige-se a mesma e reenvia-se.
+     *
+     * E guardar de novo NÃO a devolve a rascunho: quem corrige uma proposta que
+     * saiu continua a ter uma proposta que saiu.
+     *
+     * @test
+     */
+    public function guardar_e_enviar_marca_como_enviada_e_ainda_se_corrige(): void
+    {
+        $this->comPermissoes('invoicing.sales.proformas.create', 'invoicing.sales.proformas.view', 'invoicing.sales.proformas.edit');
+
+        $corpo = [
+            'parte_id' => $this->clienteEmpresa()->id,
+            'warehouse_id' => $this->armazem->id,
+            'data' => now()->toDateString(),
+            'linhas' => [['product_id' => $this->artigo()->id, 'quantity' => 1, 'price' => 1000]],
+        ];
+
+        $r = $this->postJson($this->rota('proformas-venda'), $corpo + ['estado' => 'sent'])->assertCreated();
+
+        $id = $r->json('id');
+
+        $this->assertSame('sent', $r->json('estado'));
+        $this->assertSame('sent', SalesProforma::findOrFail($id)->status);
+
+        // Enviada, continua a abrir para edição — e a dizer que se pode mexer.
+        $this->getJson($this->rota('proformas-venda', '/' . $id))
+            ->assertOk()
+            ->assertJsonPath('documento.pode_editar', true);
+
+        // Guardar de novo sem falar do estado deixa-a enviada.
+        $corpo['linhas'][0]['quantity'] = 3;
+
+        $this->putJson($this->rota('proformas-venda', '/' . $id), $corpo)->assertOk();
+
+        $p = SalesProforma::findOrFail($id);
+
+        $this->assertSame('sent', $p->status, 'corrigir uma proposta enviada não a devolve a rascunho');
+        $this->assertEqualsWithDelta(3000, (float) $p->total, 0.01);
+    }
+
+    /**
+     * UMA PROPOSTA CONVERTIDA JÁ NÃO SE ALTERA.
+     *
+     * Convertida deu origem a uma factura: mudá-la agora punha a factura a
+     * divergir da proposta que a justifica. É o mesmo travão que a lista já
+     * aplica a eliminar — e a guarda cobre também `cancelled`, que hoje o enum
+     * da coluna nem aceita mas que os outros documentos usam.
+     *
+     * @test
+     */
+    public function uma_proposta_convertida_nao_se_altera(): void
+    {
+        $this->comPermissoes('invoicing.sales.proformas.create', 'invoicing.sales.proformas.view', 'invoicing.sales.proformas.edit');
+
+        $corpo = [
+            'parte_id' => $this->clienteEmpresa()->id,
+            'warehouse_id' => $this->armazem->id,
+            'data' => now()->toDateString(),
+            'linhas' => [['product_id' => $this->artigo()->id, 'quantity' => 1, 'price' => 1000]],
+        ];
+
+        $id = $this->postJson($this->rota('proformas-venda'), $corpo)->assertCreated()->json('id');
+
+        SalesProforma::findOrFail($id)->update(['status' => 'converted']);
+
+        $this->putJson($this->rota('proformas-venda', '/' . $id), $corpo)
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Este documento já foi convertido ou anulado e não se altera.');
+
+        $this->getJson($this->rota('proformas-venda', '/' . $id))
+            ->assertOk()
+            ->assertJsonPath('documento.pode_editar', false);
+    }
+
+    /**
+     * O ESTADO QUE SE ESCOLHE DAQUI SÃO DOIS, E SÓ DOIS.
+     *
+     * Convertida põe-na o conversor (que cria mesmo a factura) e anulada põe-na
+     * quem anula. Deixar o pedido escrever qualquer estado era oferecer um
+     * atalho para marcar uma proposta como convertida sem factura nenhuma do
+     * outro lado.
+     *
+     * @test
+     */
+    public function o_pedido_nao_escreve_um_estado_qualquer(): void
+    {
+        $this->comPermissoes('invoicing.sales.proformas.create', 'invoicing.sales.proformas.view');
+
+        $this->postJson($this->rota('proformas-venda'), [
+            'parte_id' => $this->clienteEmpresa()->id,
+            'warehouse_id' => $this->armazem->id,
+            'data' => now()->toDateString(),
+            'estado' => 'converted',
+            'linhas' => [['product_id' => $this->artigo()->id, 'quantity' => 1, 'price' => 1000]],
+        ])->assertStatus(422)->assertJsonValidationErrors('estado');
+    }
 }

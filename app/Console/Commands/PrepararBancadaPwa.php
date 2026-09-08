@@ -341,7 +341,10 @@ class PrepararBancadaPwa extends Command
         // das Mesas no PWA e que traz a sala na sincronização. Sem o módulo, o
         // ensaio do restaurante não teria como distinguir "não implementado"
         // de "não contratado".
-        foreach (['invoicing', 'treasury', 'restaurant'] as $slug) {
+        //
+        // O RH entra pela mesma razão: os catálogos (departamentos, cargos,
+        // turnos) já são React e os ensaios de browser abrem-nos.
+        foreach (['invoicing', 'treasury', 'restaurant', 'rh'] as $slug) {
             $modulo = Module::firstOrCreate(
                 ['slug' => $slug],
                 ['name' => ucfirst($slug), 'is_active' => true]

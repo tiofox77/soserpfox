@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -62,6 +63,17 @@ class CatalogoApiController extends Controller
             // Se este catálogo tem extrato — a janela de VER com as contas.
             'extrato' => ! empty($def['extrato']),
             'accoes' => $def['accoes'],
+            /*
+             * A ATRIBUIÇÃO EM LOTE, e como se chama neste catálogo.
+             *
+             * Só o ecrã precisa do título e da dica da procura; quem se
+             * atribui a quê é decisão do esquema e nunca chega ao browser.
+             */
+            'atribuir' => ! empty($def['accoes']['atribuir']) ? [
+                'titulo' => __($def['atribuir']['titulo']),
+                'nada' => __($def['atribuir']['nada']),
+                'pesquisa_ajuda' => __($def['atribuir']['pesquisa_ajuda']),
+            ] : null,
             'referencias' => $this->referencias($def, $tenantId),
             'geografia' => ! empty($def['geografia']) ? [
                 'paises' => collect(Geografia::paises())->map(fn ($nome, $codigo) => ['valor' => $codigo, 'rotulo' => $nome])->values(),
@@ -197,6 +209,118 @@ class CatalogoApiController extends Controller
             'data' => Catalogos::linha($def, $m->fresh(), $this->referencias($def, $tenantId)),
             'message' => $mensagem,
         ]);
+    }
+
+    /**
+     * QUEM SE PODE ATRIBUIR A ESTE REGISTO — e quem já lá está.
+     *
+     * Serve o modal de atribuição em lote: a lista de candidatos desta
+     * empresa, com procura, e os que já pertencem marcados. Quem é candidato
+     * decide-o o esquema (`atribuir.modelo` e `atribuir.onde`) — o ecrã não
+     * sabe o que é um funcionário.
+     */
+    public function atribuiveis(Request $request, string $tipo, int $id): JsonResponse
+    {
+        [$def, $atribuir, $m, $tenantId] = $this->paraAtribuir($request, $tipo, $id, null);
+
+        $procura = trim((string) $request->query('procura', ''));
+
+        $candidatos = $atribuir['modelo']::query()
+            ->where('tenant_id', $tenantId)
+            ->when(isset($atribuir['onde']), fn ($q) => $atribuir['onde']($q))
+            ->when($procura !== '', fn ($q) => $q->where(function ($sub) use ($atribuir, $procura) {
+                foreach ($atribuir['pesquisa'] as $coluna) {
+                    $sub->orWhere($coluna, 'like', "%{$procura}%");
+                }
+            }))
+            // Uma lista de escolha não é uma lista de tudo: com trezentos
+            // funcionários, quem procura afina — e o servidor não despeja a
+            // tabela inteira para o browser.
+            ->limit(300)
+            ->get();
+
+        return response()->json([
+            'data' => $candidatos->map(fn (Model $c) => [
+                'id' => $c->id,
+                'nome' => ($atribuir['nome'])($c),
+                'nota' => isset($atribuir['nota']) ? (string) ($atribuir['nota'])($c) : null,
+                'atribuido' => (int) $c->{$atribuir['coluna']} === (int) $m->id,
+            ])->sortBy('nome')->values(),
+            'total' => $candidatos->count(),
+        ]);
+    }
+
+    /**
+     * ATRIBUIR EM LOTE — e DESATRIBUIR o que ficou de fora.
+     *
+     * O modal manda a lista COMPLETA de quem fica: quem lá está e não vem na
+     * lista sai. Mandar só os novos deixava sem maneira de tirar alguém do
+     * turno sem ir à ficha dele — que é precisamente o trabalho que este modal
+     * existe para poupar.
+     *
+     * Os ids são confirmados contra esta empresa antes de se escrever: um id
+     * de fora vinha do pedido e não é prova de nada.
+     */
+    public function atribuir(Request $request, string $tipo, int $id): JsonResponse
+    {
+        // Atribuir é ESCREVER: pede a permissão de editar, não a de ver.
+        [$def, $atribuir, $m, $tenantId] = $this->paraAtribuir(
+            $request, $tipo, $id, $this->definicao($tipo)['permissoes']['editar'],
+        );
+
+        $dados = $request->validate([
+            'ids' => ['present', 'array'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $daCasa = $atribuir['modelo']::query()
+            ->where('tenant_id', $tenantId)
+            ->whereIn('id', $dados['ids'])
+            ->pluck('id');
+
+        $coluna = $atribuir['coluna'];
+
+        DB::transaction(function () use ($atribuir, $m, $tenantId, $daCasa, $coluna) {
+            // Sai quem estava e já não vem.
+            $atribuir['modelo']::query()
+                ->where('tenant_id', $tenantId)
+                ->where($coluna, $m->id)
+                ->whereNotIn('id', $daCasa)
+                ->update([$coluna => null]);
+
+            // Entra quem vem.
+            if ($daCasa->isNotEmpty()) {
+                $atribuir['modelo']::query()
+                    ->where('tenant_id', $tenantId)
+                    ->whereIn('id', $daCasa)
+                    ->update([$coluna => $m->id]);
+            }
+        });
+
+        return response()->json([
+            'quantos' => $daCasa->count(),
+            'message' => $daCasa->isEmpty()
+                ? __('Ninguém ficou atribuído.')
+                : __(':quantos atribuição(ões) gravada(s).', ['quantos' => $daCasa->count()]),
+        ]);
+    }
+
+    /**
+     * O que os dois pontos de atribuição precisam, resolvido de uma vez: o
+     * esquema, a descrição da atribuição, o registo desta empresa e o id.
+     *
+     * @return array{0: array, 1: array, 2: Model, 3: int}
+     */
+    private function paraAtribuir(Request $request, string $tipo, int $id, ?string $permissao): array
+    {
+        $def = $this->definicao($tipo);
+        $this->exigir($request, $permissao ?? $def['permissoes']['ver']);
+
+        abort_unless(! empty($def['accoes']['atribuir']), 404, __('Aqui não se atribui nada.'));
+
+        $tenantId = activeTenantId();
+
+        return [$def, $def['atribuir'], $this->encontrar($def, $tenantId, $id), $tenantId];
     }
 
     /**

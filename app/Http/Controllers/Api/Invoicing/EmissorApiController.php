@@ -63,6 +63,11 @@ class EmissorApiController extends Controller
             'linhas.*.price' => ['nullable', 'numeric', 'min:0'],
             'linhas.*.discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'desconto_comercial' => ['nullable', 'numeric', 'min:0'],
+            // O DESCONTO DE SEMPRE (`discount_amount`): existe na base desde
+            // antes dos outros dois e SOMA ao comercial. Estava a entrar aqui
+            // como zero fixo — uma proposta antiga aberta para editar mostrava
+            // um total sem o desconto que ela tinha.
+            'desconto_legado' => ['nullable', 'numeric', 'min:0'],
             'desconto_financeiro' => ['nullable', 'numeric', 'min:0'],
             'is_service' => ['nullable', 'boolean'],
         ]);
@@ -70,7 +75,7 @@ class EmissorApiController extends Controller
         return response()->json($calculadora->calcular(
             $dados['linhas'] ?? [],
             (float) ($dados['desconto_comercial'] ?? 0),
-            0,
+            (float) ($dados['desconto_legado'] ?? 0),
             (float) ($dados['desconto_financeiro'] ?? 0),
             // Prestação de serviço: retém-se IRT a 6,5%. Sem isto o ecrã
             // mostrava um total e o documento gravava outro.
@@ -211,11 +216,23 @@ class EmissorApiController extends Controller
                 'id' => $d->id,
                 'numero' => $d->{$def['numero']},
                 'estado' => $d->status,
-                'pode_editar' => $d->status === 'draft',
+                'pode_editar' => self::seMexe($d),
                 'parte_id' => $d->{$editor['parte_id']},
                 'warehouse_id' => $d->warehouse_id,
                 'data' => $data($d->{$def['data']}),
                 'valido_ate' => $data($d->valid_until ?? null),
+                /*
+                 * OS TRÊS DESCONTOS DO DOCUMENTO.
+                 *
+                 * O ecrã de sempre pedia-os e a base guarda-os há muito
+                 * (`discount_commercial`, `discount_amount`, `discount_financial`).
+                 * Sem eles aqui, reabrir uma proposta com desconto mostrava o
+                 * total certo — o gravado — mas as caixas vazias, e a primeira
+                 * gravação apagava o desconto sem ninguém dar por isso.
+                 */
+                'desconto_comercial' => (float) ($d->discount_commercial ?? 0),
+                'desconto_legado' => (float) ($d->discount_amount ?? 0),
+                'desconto_financeiro' => (float) ($d->discount_financial ?? 0),
                 // A região gravada é a das LINHAS: é lá que ela conta.
                 'tax_country_region' => $linhas->first()?->tax_country_region,
                 // Prestação de serviço (IRT 6,5%) e as condições que saem no
@@ -247,18 +264,36 @@ class EmissorApiController extends Controller
         return $this->gravarPedido($request, $tipo, $calculadora, null);
     }
 
-    /** Guarda de novo um rascunho: as linhas nascem de novo, o número fica. */
+    /** Guarda de novo: as linhas nascem de novo, o número fica. */
     public function actualizar(Request $request, string $tipo, CalculadoraDeDocumento $calculadora, int $id): JsonResponse
     {
         $this->definicao($request, $tipo, 'edit');
 
         $existente = $this->baseDoAutor()->findOrFail($id);
 
-        if ($existente->status !== 'draft') {
-            return response()->json(['message' => __('Só um rascunho se altera. Este documento já seguiu.')], 422);
+        if (! self::seMexe($existente)) {
+            return response()->json(['message' => __('Este documento já foi convertido ou anulado e não se altera.')], 422);
         }
 
         return $this->gravarPedido($request, $tipo, $calculadora, $existente);
+    }
+
+    /**
+     * UMA PROPOSTA ENVIADA AINDA SE CORRIGE.
+     *
+     * Uma proposta NÃO é um documento fiscal: não tem hash, não tem cadeia e
+     * a AGT nunca a vê. Enviá-la ao cliente é dizer que já saiu, não é assiná-la
+     * — e quando ele responde «troque a quantidade», corrige-se a mesma e
+     * reenvia-se, que é o que o ecrã de sempre fazia.
+     *
+     * O que NÃO se mexe é o que já não é só nosso: uma proposta CONVERTIDA deu
+     * origem a uma factura (mudá-la agora punha a factura a divergir da
+     * proposta que a justifica), e uma ANULADA está fora de circulação. São os
+     * mesmos dois estados que a lista já recusa eliminar.
+     */
+    private static function seMexe(object $d): bool
+    {
+        return ! in_array($d->status, ['converted', 'cancelled'], true);
     }
 
     private function gravarPedido(Request $request, string $tipo, CalculadoraDeDocumento $calculadora, $existente): JsonResponse
@@ -278,7 +313,17 @@ class EmissorApiController extends Controller
             'campos_proposta.*' => ['nullable', 'string', 'max:5000'],
             'tax_country_region' => ['nullable', 'in:AO,AO-CAB'],
             'desconto_comercial' => ['nullable', 'numeric', 'min:0'],
+            'desconto_legado' => ['nullable', 'numeric', 'min:0'],
             'desconto_financeiro' => ['nullable', 'numeric', 'min:0'],
+            /*
+             * GUARDAR OU GUARDAR E ENVIAR — os dois botões do ecrã de sempre.
+             *
+             * «Enviada» quer dizer que a proposta saiu para a outra parte; não
+             * é um estado fiscal e não fecha o documento à edição. Só estes
+             * dois se escolhem daqui: convertida põe-na o conversor, e anulada
+             * põe-na quem anula.
+             */
+            'estado' => ['nullable', 'in:draft,sent'],
             'linhas' => ['required', 'array', 'min:1'],
             'linhas.*.product_id' => ['nullable', 'integer', 'exists:invoicing_products,id'],
             'linhas.*.description' => ['nullable', 'string', 'max:500'],
@@ -313,14 +358,13 @@ class EmissorApiController extends Controller
             ], 422);
         }
 
+        // OS TRÊS DESCONTOS DO DOCUMENTO, que entram na conta e ficam gravados.
+        $comercial = (float) ($dados['desconto_comercial'] ?? 0);
+        $legado = (float) ($dados['desconto_legado'] ?? 0);
+        $financeiro = (float) ($dados['desconto_financeiro'] ?? 0);
+
         // A CONTA É FEITA AQUI. O que o browser mandou de totais é ignorado.
-        $conta = $calculadora->calcular(
-            $dados['linhas'],
-            (float) ($dados['desconto_comercial'] ?? 0),
-            0,
-            (float) ($dados['desconto_financeiro'] ?? 0),
-            $eServico
-        );
+        $conta = $calculadora->calcular($dados['linhas'], $comercial, $legado, $financeiro, $eServico);
 
         $modelo = $def['modelo'];
         $regiao = $this->regiaoDaOperacao($dados, $editor);
@@ -334,7 +378,7 @@ class EmissorApiController extends Controller
             ? Warehouse::where('tenant_id', activeTenantId())->whereKey($dados['warehouse_id'])->value('id')
             : null;
 
-        $documento = DB::transaction(function () use ($def, $editor, $dados, $conta, $modelo, $existente, $regiao, $eServico, $temModelo, $mexeNoArmazem, $armazemPedido) {
+        $documento = DB::transaction(function () use ($def, $editor, $dados, $conta, $modelo, $existente, $regiao, $eServico, $temModelo, $mexeNoArmazem, $armazemPedido, $comercial, $legado, $financeiro) {
             if ($existente) {
                 $editor['itens']::where($editor['chave'], $existente->id)->delete();
             }
@@ -347,10 +391,24 @@ class EmissorApiController extends Controller
                 $d->status = 'draft';
             }
 
+            /*
+             * O ESTADO SÓ MUDA SE O PEDIDO O DISSER.
+             *
+             * Guardar uma proposta já enviada não a devolve a rascunho: quem
+             * corrige uma proposta que saiu continua a ter uma proposta que
+             * saiu. Só o botão «Guardar e enviar» a faz mudar.
+             */
+            if (! empty($dados['estado'])) {
+                $d->status = $dados['estado'];
+            }
+
             $d->{$editor['parte_id']} = $dados['parte_id'];
             $d->{$def['data']} = $dados['data'];            $d->notes = $dados['notas'] ?? null;
             $d->terms = $dados['condicoes'] ?? null;
             $d->is_service = $eServico;
+            $d->discount_commercial = $comercial;
+            $d->discount_amount = $legado;
+            $d->discount_financial = $financeiro;
 
             if ($mexeNoArmazem) {
                 $d->warehouse_id = $armazemPedido;
@@ -415,9 +473,12 @@ class EmissorApiController extends Controller
             'numero' => $documento->{$def['numero']},
             'total' => round((float) $documento->total, 2),
             'abrir' => $def['rota'] . '/' . $documento->id . '/edit',
-            'message' => $existente
-                ? __('Documento :n actualizado.', ['n' => $documento->{$def['numero']}])
-                : __('Documento :n gravado como rascunho.', ['n' => $documento->{$def['numero']}]),
+            'estado' => $documento->status,
+            'message' => match (true) {
+                $documento->status === 'sent' => __('Documento :n gravado e dado como enviado.', ['n' => $documento->{$def['numero']}]),
+                (bool) $existente => __('Documento :n actualizado.', ['n' => $documento->{$def['numero']}]),
+                default => __('Documento :n gravado como rascunho.', ['n' => $documento->{$def['numero']}]),
+            },
         ], $existente ? 200 : 201);
     }
 

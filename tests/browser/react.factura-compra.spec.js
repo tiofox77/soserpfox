@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { entrar } from './apoio.js';
+import { entrar, escolherParte } from './apoio.js';
 
 /**
  * REGISTAR UMA FACTURA DE COMPRA EM REACT.
@@ -80,9 +80,9 @@ test('duplicar traz o conteudo da compra e nao regista nada', async ({ page }) =
     await expect(page.locator('[data-duplicado-de]')).toBeVisible({ timeout: 20_000 });
     await expect(page.locator('[data-documento-aberto]')).toHaveCount(0);
 
-    // O conteúdo veio. Em expressão regular e sem ligar a maiúsculas: o
-    // rótulo dos campos obrigatórios é «Fornecedor* (obrigatório)».
-    await expect(page.getByLabel(/^fornecedor\b/i)).not.toHaveValue('');
+    // O conteúdo veio. A caixa do fornecedor mostra o NOME de quem ficou
+    // escolhido — é um combobox, não um `<select>`.
+    await expect(page.getByRole('combobox', { name: /^Fornecedor/ })).not.toHaveValue('');
     await expect(page.getByLabel('Artigo da linha 1')).not.toHaveValue('');
 
     // E o que se pode fazer é REGISTAR uma compra nova — não actualizar a velha.
@@ -116,7 +116,7 @@ test('duplicar um documento que nao existe diz que nao abriu', async ({ page }) 
  * A criação passa pela porta de sempre (`POST /react/catalogos/fornecedores`).
  */
 test('o fornecedor rapido cria e fica escolhido no documento', async ({ page }) => {
-    const escolha = page.getByLabel(/^fornecedor\b/i);
+    const escolha = page.getByRole('combobox', { name: /^Fornecedor/ });
     await expect(escolha).toHaveValue('');
 
     await page.getByRole('button', { name: /^Novo fornecedor$/ }).click();
@@ -162,15 +162,92 @@ test('o botao de criar fornecedor segue o que o servidor disser', async ({ page 
     await expect(page.getByRole('table')).toBeVisible({ timeout: 20_000 });
 
     await expect(page.getByRole('button', { name: /^Novo fornecedor$/ })).toHaveCount(pode ? 1 : 0);
-    await expect(page.getByLabel('Procurar fornecedor')).toBeVisible();
+
+    // A PROCURA CONTINUA LÁ: não depende de permissão nenhuma, e é ela que
+    // torna utilizável uma lista com centenas de fornecedores.
+    await expect(page.getByRole('combobox', { name: /^Fornecedor/ })).toBeVisible();
 });
 
-/** A procura filtra a lista — um `<select>` com todos os fornecedores não se usa. */
-test('a procura filtra a lista de fornecedores', async ({ page }) => {
-    const escolha = page.getByLabel(/^fornecedor\b/i);
+/**
+ * O FORNECEDOR É UM CONTROLO SÓ — escreve-se, aparecem os resultados,
+ * carrega-se num. Um `<select>` com todos os fornecedores não se usa.
+ */
+test('a procura mostra os resultados e escolher preenche a caixa', async ({ page }) => {
+    const caixa = page.getByRole('combobox', { name: /^Fornecedor/ });
 
-    await page.getByLabel('Procurar fornecedor').fill('zzz-nao-existe-zzz');
+    await caixa.click();
+    await caixa.fill('zzz-nao-existe-zzz');
+    await expect(page.getByText('Nada encontrado.')).toBeVisible();
 
-    await expect(page.getByText('Nada encontrado')).toBeVisible();
-    expect(await escolha.locator('option').count()).toBe(1);
+    await caixa.fill('');
+
+    const nome = await escolherParte(page, /^Fornecedor/);
+
+    await expect(caixa).toHaveValue(nome);
+    await expect(page.locator('#lista-de-partes')).toHaveCount(0);
+});
+
+/**
+ * O RESUMO FICA À DIREITA, COLADO AO TOPO — e os botões debaixo dele.
+ *
+ * É o que se consulta o tempo todo enquanto se lançam linhas: «quanto é que
+ * esta factura dá?». Em coluna única ficava lá em baixo, fora de vista, e
+ * conferia-se às cegas o que o fornecedor cobrou.
+ */
+test('o resumo e os botoes vivem na coluna da direita', async ({ page }) => {
+    await page.getByLabel('Artigo da linha 1').selectOption({ index: 1 });
+    await expect(page.getByText('Contado no servidor')).toBeVisible({ timeout: 20_000 });
+
+    const resumo = page.getByRole('heading', { name: 'Resumo' });
+    await expect(resumo).toBeVisible();
+
+    // A natureza do documento e o total vivem no mesmo cartão.
+    await expect(page.getByLabel(/Prestação de serviço/)).toBeVisible();
+    await expect(page.getByText('Total a pagar')).toBeVisible();
+    await expect(page.getByText('Incidência IVA (base)')).toBeVisible();
+
+    // E os três botões, um por linha, à direita e abaixo do resumo.
+    const registar = page.getByRole('button', { name: /^Registar compra$/ });
+    await expect(registar).toBeVisible();
+
+    /* NA COLUNA DA DIREITA: os dois começam depois do meio da página, e o
+       botão vem abaixo do resumo. Comparar o x ao pixel era medir o padding
+       do cartão, que não é o que aqui interessa. */
+    const meio = page.viewportSize().width / 2;
+    const caixaDoResumo = await resumo.boundingBox();
+    const caixaDoBotao = await registar.boundingBox();
+
+    expect(caixaDoResumo.x).toBeGreaterThan(meio);
+    expect(caixaDoBotao.x).toBeGreaterThan(meio);
+    expect(caixaDoBotao.y).toBeGreaterThan(caixaDoResumo.y);
+});
+
+/**
+ * OS TRÊS DESCONTOS DO DOCUMENTO estão no ecrã — o comercial, o legado e o
+ * financeiro. O legado existia na base e a API sempre o aceitou; o ecrã é que
+ * não o oferecia, e reabrir uma compra que o tivesse apagava-o em silêncio.
+ */
+test('os tres descontos estao no ecra', async ({ page }) => {
+    await expect(page.getByLabel(/^Desconto comercial/)).toBeVisible();
+    await expect(page.getByLabel(/^Desconto \(legado\)/)).toBeVisible();
+    await expect(page.getByLabel(/^Desconto financeiro/)).toBeVisible();
+});
+
+/**
+ * O ARMAZÉM JÁ VEM ESCOLHIDO numa compra nova.
+ *
+ * A compra dá entrada de stock e o armazém é obrigatório: escolhê-lo à mão de
+ * cada vez era uma paragem em todas as compras. Vale o marcado como padrão da
+ * empresa — e o ensaio só o exige quando o servidor diz que existe um.
+ */
+test('o armazem padrao ja vem escolhido', async ({ page }) => {
+    const opcoes = await page.request.get('/api/v1/invoicing/react/compra/opcoes');
+    const padrao = (await opcoes.json()).armazem_padrao;
+
+    test.skip(!padrao, 'a empresa de bancada não tem armazém marcado como padrão');
+
+    await page.goto(ECRA);
+    await expect(page.getByRole('table')).toBeVisible({ timeout: 20_000 });
+
+    await expect(page.getByLabel(/^Armazém/)).toHaveValue(String(padrao));
 });

@@ -29,6 +29,36 @@ export async function entrar(page) {
 }
 
 /**
+ * ESCOLHE O CLIENTE OU O FORNECEDOR num editor de documentos.
+ *
+ * A escolha da outra parte é UM CONTROLO SÓ — uma caixa com procura que abre
+ * uma lista por baixo (`EscolhaDaParte`). Não é um `<select>`: escreve-se,
+ * aparecem os resultados, carrega-se num.
+ *
+ * A lista procura-se por `#lista-de-partes` e não por `getByRole('option')`:
+ * esse apanha as opções de TODOS os `<select>` da página — armazém, série,
+ * IEC, selo — e um editor tem quase duzentas.
+ *
+ * Devolve o nome de quem ficou escolhido.
+ */
+export async function escolherParte(page, rotulo = /^Cliente/) {
+    const caixa = page.getByRole('combobox', { name: rotulo });
+
+    await caixa.click();
+
+    const lista = page.locator('#lista-de-partes');
+    const primeiro = lista.getByRole('option').first();
+
+    await primeiro.waitFor({ state: 'visible', timeout: 20_000 });
+
+    const nome = (await primeiro.innerText()).split('\n')[0].trim();
+
+    await primeiro.click();
+
+    return nome;
+}
+
+/**
  * Espera que o service worker esteja a CONTROLAR a página.
  *
  * Registado não chega: na primeira visita instala mas só assume o controlo no

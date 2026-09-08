@@ -20,7 +20,9 @@ export type GrupoDeIcones = {
 
 export type TipoDeCampo =
     | 'texto' | 'numero' | 'email' | 'url' | 'textarea' | 'booleano' | 'cor' | 'icone'
-    | 'escolha' | 'referencia' | 'pais' | 'provincia' | 'municipio' | 'cidade';
+    | 'escolha' | 'referencia' | 'pais' | 'provincia' | 'municipio' | 'cidade'
+    /** Uma hora do dia (`08:00`) e os dias da semana em que se trabalha. */
+    | 'hora' | 'dias';
 
 export type Campo = {
     chave: string;
@@ -41,7 +43,8 @@ export type Campo = {
 export type Coluna = {
     chave: string;
     rotulo: string;
-    formato: 'texto' | 'escolha' | 'booleano' | 'numero' | 'percentagem' | 'cor' | 'icone' | 'padrao' | 'dinheiro';
+    formato: 'texto' | 'escolha' | 'booleano' | 'numero' | 'percentagem' | 'cor' | 'icone' | 'padrao' | 'dinheiro'
+        | 'hora' | 'dias';
     alinhar?: 'direita';
 };
 
@@ -73,7 +76,9 @@ export type OpcoesDoCatalogo = {
     datas: boolean;
     /** Se tem ficha de VER com extrato — hoje, só os fornecedores. */
     extrato: boolean;
-    accoes: { activar: boolean; padrao: boolean; logotipo: boolean; apagar: boolean };
+    accoes: { activar: boolean; padrao: boolean; logotipo: boolean; apagar: boolean; atribuir?: boolean };
+    /** Como se chama a atribuição em lote neste catálogo — nulo onde não há. */
+    atribuir: { titulo: string; nada: string; pesquisa_ajuda: string } | null;
     referencias: Record<string, Escolha[]>;
     geografia: { paises: Escolha[]; provincias: string[]; municipios: Record<string, string[]>; pais_padrao: string } | null;
     /**
@@ -97,6 +102,15 @@ export type Linha = {
     /** Os rótulos das escolhas e referências, prontos a mostrar. */
     rotulos: Record<string, string>;
 } & Record<string, unknown>;
+
+/** Um candidato à atribuição em lote — um funcionário, num turno. */
+export type Atribuivel = {
+    id: number;
+    nome: string;
+    /** A segunda linha: o número do funcionário, o código. */
+    nota: string | null;
+    atribuido: boolean;
+};
 
 export type FiltrosDoCatalogo = {
     procura?: string;
@@ -122,6 +136,17 @@ export const catalogos = {
 
     accao: (tipo: string, id: number, accao: 'activar' | 'padrao') =>
         api.criar<{ data: Linha; message: string }>(`/catalogos/${tipo}/${id}/${accao}`, {}),
+
+    /** Quem se pode atribuir a este registo, e quem já lá está. */
+    atribuiveis: (tipo: string, id: number, procura: string) =>
+        api.ler<{ data: Atribuivel[]; total: number }>(`/catalogos/${tipo}/${id}/atribuiveis`, { procura }),
+
+    /**
+     * A lista COMPLETA de quem fica: quem lá está e não vem, sai. Mandar só
+     * os novos deixava sem maneira de tirar alguém sem ir à ficha dele.
+     */
+    atribuir: (tipo: string, id: number, ids: number[]) =>
+        api.criar<{ quantos: number; message: string }>(`/catalogos/${tipo}/${id}/atribuir`, { ids }),
 
     logotipo: (tipo: string, id: number, ficheiro: File) => {
         const corpo = new FormData();

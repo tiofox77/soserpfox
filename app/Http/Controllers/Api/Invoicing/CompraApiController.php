@@ -130,8 +130,16 @@ class CompraApiController extends Controller
                 'tax_country_region' => $f->tax_country_region ?? $f->items->first()?->tax_country_region ?? 'AO',
                 'is_service' => (bool) ($f->is_service ?? false),
                 'discount_commercial' => (float) ($f->discount_commercial ?? 0),
+                // O DESCONTO DE SEMPRE, que soma ao comercial. A base guarda-o,
+                // o ecrã pedia-o e a validação aceitava-o — só não voltava ao
+                // editor, e a primeira gravação de uma compra que o tivesse
+                // apagava-o em silêncio.
+                'discount_amount' => (float) ($f->discount_amount ?? 0),
                 'discount_financial' => (float) ($f->discount_financial ?? 0),
                 'notes' => $f->notes,
+                // AS CONDIÇÕES que ficam escritas no documento (prazo, garantia).
+                // Gravavam-se e não voltavam: reabrir a compra apagava-as.
+                'terms' => $f->terms,
             ],
             'linhas' => $f->items->map(fn ($i) => [
                 'product_id' => $i->product_id,
@@ -140,7 +148,12 @@ class CompraApiController extends Controller
                 'price' => (float) $i->unit_price,
                 'discount_percent' => (float) ($i->discount_percent ?? 0),
                 'batch_number' => $i->batch_number ?? '',
+                // O FABRICO E OS DIAS DE ALERTA do lote: sem eles, reabrir um
+                // rascunho perdia a data que separa duas remessas com a mesma
+                // validade, e o aviso voltava aos 30 dias por omissão.
+                'manufacturing_date' => $data($i->manufacturing_date) ?? '',
                 'expiry_date' => $data($i->expiry_date) ?? '',
+                'alert_days' => (int) ($i->alert_days ?? 30),
             ])->values(),
         ];
     }
@@ -164,6 +177,12 @@ class CompraApiController extends Controller
                 ]),
 
             'armazens' => Warehouse::where('tenant_id', $tenantId)->where('is_active', true)->orderBy('name')->get(['id', 'name']),
+
+            // O armazém marcado como padrão da empresa, para uma compra nova
+            // nascer com ele já escolhido — a compra dá entrada de stock e o
+            // armazém é obrigatório, por isso escolhê-lo à mão de cada vez era
+            // uma paragem em todas as compras.
+            'armazem_padrao' => Warehouse::getDefault($tenantId)?->id,
 
             'regioes' => [
                 ['valor' => 'AO', 'rotulo' => 'Angola (continente)'],

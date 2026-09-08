@@ -81,6 +81,16 @@ export type ConteudoDaProposta = {
     notas: string | null;
     /** As condições que saem no papel (termos e condições). */
     condicoes: string | null;
+    /**
+     * OS TRÊS DESCONTOS DO DOCUMENTO, em kwanzas.
+     *
+     * O comercial desconta antes do IVA, o financeiro depois, e o «legado» é o
+     * campo antigo (`discount_amount`) que soma ao comercial — existe na base
+     * desde antes dos outros dois e as propostas antigas têm-no preenchido.
+     */
+    desconto_comercial: number;
+    desconto_legado: number;
+    desconto_financeiro: number;
     /** Só no orçamento: o modelo por que a proposta é desenhada. */
     quote_template_id: number | null;
     campos_proposta: Record<string, string>;
@@ -99,11 +109,11 @@ export type PropostaDuplicada = {
     linhas: LinhaDoEditor[];
 };
 
-type Gravada = { id: number; numero: string; total: number; abrir: string; message: string };
+type Gravada = { id: number; numero: string; total: number; abrir: string; estado: string; message: string };
 
 export const emissor = {
     opcoes: (tipo: string) => api.ler<OpcoesDoEmissor>(`/emissor/${tipo}/opcoes`),
-    calcular: (tipo: string, corpo: { linhas: LinhaDoEditor[]; desconto_comercial?: number; desconto_financeiro?: number; is_service?: boolean }) =>
+    calcular: (tipo: string, corpo: { linhas: LinhaDoEditor[]; desconto_comercial?: number; desconto_legado?: number; desconto_financeiro?: number; is_service?: boolean }) =>
         api.criar<{ linhas: LinhaCalculada[]; totais: Totais }>(`/emissor/${tipo}/calcular`, corpo),
     guardar: (tipo: string, corpo: Record<string, unknown>) => api.criar<Gravada>(`/emissor/${tipo}`, corpo),
     abrir: (tipo: string, id: number) => api.ler<PropostaAberta>(`/emissor/${tipo}/${id}`),

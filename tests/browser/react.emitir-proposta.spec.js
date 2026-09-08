@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { entrar } from './apoio.js';
+import { entrar, escolherParte } from './apoio.js';
 
 /**
  * EMITIR UMA PROPOSTA EM REACT.
@@ -19,7 +19,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('abre com uma linha e sem totais', async ({ page }) => {
-    await expect(page.getByLabel(/^Cliente\b/)).toBeVisible();
+    await expect(page.getByRole('combobox', { name: /^Cliente/ })).toBeVisible();
     expect(await page.locator('tbody tr').count()).toBe(1);
 
     // Sem quantidade não há nada para contar, e diz-se em vez de mostrar zeros.
@@ -95,7 +95,7 @@ test('acrescenta e apaga linhas', async ({ page }) => {
 });
 
 test('grava e devolve o numero da serie', async ({ page }) => {
-    await page.getByLabel(/^Cliente\b/).selectOption({ index: 1 });
+    await escolherParte(page);
     await page.getByLabel('Artigo da linha 1').selectOption({ index: 1 });
     await page.getByLabel('Quantidade da linha 1').fill('3');
 
@@ -105,6 +105,108 @@ test('grava e devolve o numero da serie', async ({ page }) => {
 
     await expect(page.getByText('Gravado como rascunho')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole('button', { name: /Abrir o documento/ })).toBeVisible();
+});
+
+/**
+ * «GUARDAR E ENVIAR» — o segundo botão do ecrã de sempre.
+ *
+ * Guardar deixa a proposta em rascunho para se acabar depois; enviar diz que
+ * ela saiu para o cliente. Uma proposta não é documento fiscal: enviá-la não a
+ * fecha, e o servidor devolve o estado com que ficou.
+ */
+test('guardar e enviar deixa a proposta como enviada', async ({ page }) => {
+    await escolherParte(page);
+    await page.getByLabel('Artigo da linha 1').selectOption({ index: 1 });
+    await page.getByLabel('Quantidade da linha 1').fill('2');
+
+    await expect(page.getByText('Contado no servidor')).toBeVisible({ timeout: 20_000 });
+
+    const gravado = page.waitForResponse(
+        (r) => r.url().includes('/emissor/proformas-venda') && r.request().method() === 'POST' && !r.url().includes('/calcular'),
+        { timeout: 20_000 },
+    );
+
+    await page.getByRole('button', { name: /^Guardar e enviar$/ }).click();
+
+    const resposta = await gravado;
+
+    expect(resposta.status()).toBe(201);
+    expect((await resposta.json()).estado).toBe('sent');
+
+    await expect(page.getByText('dado como enviado')).toBeVisible({ timeout: 20_000 });
+});
+
+/**
+ * O RESUMO FICA À DIREITA, COLADO AO TOPO — e os botões debaixo dele.
+ *
+ * É o que se consulta o tempo todo enquanto se lançam linhas: «quanto vai dar
+ * isto?». Em coluna única ficava lá em baixo, fora de vista, e a proposta
+ * preenchia-se às cegas.
+ */
+test('o resumo e os botoes vivem na coluna da direita', async ({ page }) => {
+    await page.getByLabel('Artigo da linha 1').selectOption({ index: 1 });
+    await expect(page.getByText('Contado no servidor')).toBeVisible({ timeout: 20_000 });
+
+    const resumo = page.getByRole('heading', { name: 'Resumo' });
+    await expect(resumo).toBeVisible();
+
+    // A natureza do documento e a base vivem no mesmo cartão do total.
+    await expect(page.getByLabel(/Prestação de Serviço/)).toBeVisible();
+    await expect(page.getByText('Incidência IVA (base)')).toBeVisible();
+
+    const enviar = page.getByRole('button', { name: /^Guardar e enviar$/ });
+    await expect(enviar).toBeVisible();
+
+    /* NA COLUNA DA DIREITA: os dois começam depois do meio da página, e o
+       botão vem abaixo do resumo. Comparar o x ao pixel era medir o padding
+       do cartão, que não é o que aqui interessa. */
+    const meio = page.viewportSize().width / 2;
+    const caixaDoResumo = await resumo.boundingBox();
+    const caixaDoBotao = await enviar.boundingBox();
+
+    expect(caixaDoResumo.x).toBeGreaterThan(meio);
+    expect(caixaDoBotao.x).toBeGreaterThan(meio);
+    expect(caixaDoBotao.y).toBeGreaterThan(caixaDoResumo.y);
+});
+
+/**
+ * OS TRÊS DESCONTOS DO DOCUMENTO estão no ecrã — o comercial, o legado e o
+ * financeiro. Existiam no ecrã em Blade, a base guarda-os, e o editor em React
+ * não os oferecia: uma proposta com desconto perdia-o ao ser gravada.
+ */
+test('os tres descontos estao no ecra e contam no total', async ({ page }) => {
+    await expect(page.getByLabel(/^Desconto comercial/)).toBeVisible();
+    await expect(page.getByLabel(/^Desconto \(legado\)/)).toBeVisible();
+    await expect(page.getByLabel(/^Desconto financeiro/)).toBeVisible();
+
+    await page.getByLabel('Artigo da linha 1').selectOption({ index: 1 });
+    await page.getByLabel('Quantidade da linha 1').fill('1');
+    await expect(page.getByText('Contado no servidor')).toBeVisible({ timeout: 20_000 });
+
+    // Mexer no desconto volta a PERGUNTAR os totais ao servidor: o ecrã não os
+    // calcula, nem sequer para um desconto que ele próprio escreveu.
+    const pedido = page.waitForResponse(
+        (r) => r.url().includes('/emissor/proformas-venda/calcular') && r.request().method() === 'POST',
+        { timeout: 20_000 },
+    );
+
+    await page.getByLabel(/^Desconto comercial/).fill('100');
+
+    expect((await pedido).ok()).toBe(true);
+    await expect(page.getByText('Desconto comercial').last()).toBeVisible();
+});
+
+/** O armazém padrão da empresa já vem escolhido numa proposta nova. */
+test('o armazem padrao ja vem escolhido', async ({ page }) => {
+    const opcoes = await page.request.get('/api/v1/invoicing/react/emissor/proformas-venda/opcoes');
+    const padrao = (await opcoes.json()).armazem_padrao;
+
+    test.skip(!padrao, 'a empresa de bancada não tem armazém marcado como padrão');
+
+    await page.goto(ECRA);
+    await expect(page.getByRole('table')).toBeVisible({ timeout: 20_000 });
+
+    await expect(page.getByLabel(/^Armazém/)).toHaveValue(String(padrao));
 });
 
 /** Sem cliente, o servidor recusa e o ecrã diz onde. */

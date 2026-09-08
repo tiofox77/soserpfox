@@ -224,6 +224,10 @@ final class MenuDaCasca
                     ['separador' => true],
                     ['rota' => 'hr.employees.index', 'rotulo' => 'Funcionários', 'icone' => 'fa-users', 'cor' => 'blue-400', 'activo' => 'hr.employees*'],
                     ['rota' => 'hr.departments.index', 'rotulo' => 'Departamentos', 'icone' => 'fa-building', 'cor' => 'purple-400', 'activo' => 'hr.departments*'],
+                    // OS CARGOS ganham entrada própria: em Livewire estavam
+                    // escondidos dentro do ecrã dos departamentos e ninguém
+                    // que não soubesse lá chegava.
+                    ['rota' => 'hr.positions.index', 'rotulo' => 'Cargos', 'icone' => 'fa-user-tie', 'cor' => 'cyan-400', 'activo' => 'hr.positions*'],
                     ['separador' => true],
                     ['rota' => 'hr.attendance.index', 'rotulo' => 'Presenças', 'icone' => 'fa-clock', 'cor' => 'green-400', 'activo' => 'hr.attendance*'],
                     ['rota' => 'hr.vacations.index', 'rotulo' => 'Férias', 'icone' => 'fa-umbrella-beach', 'cor' => 'yellow-400', 'activo' => 'hr.vacations*'],

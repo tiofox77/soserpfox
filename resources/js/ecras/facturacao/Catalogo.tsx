@@ -31,7 +31,10 @@ import { etiquetaIntl, t, tPartes } from '@/i18n';
  * mesma do Livewire. Esconder um botão aqui é conveniência, nunca segurança.
  */
 
-type Valores = Record<string, string | number | boolean | null>;
+/* O `number[]` é dos DIAS DA SEMANA de um turno — o único campo que guarda
+   uma lista e não um valor só. */
+type Valor = string | number | boolean | number[] | null;
+type Valores = Record<string, Valor>;
 
 /**
  * A cor da faixa, traduzida para o tom do cartão de número.
@@ -64,6 +67,8 @@ export default function Catalogo({ tipo }: { tipo: string }) {
     const [recado, porRecado] = useState('');
     /** A linha cuja FICHA está aberta — só nos catálogos que têm extrato. */
     const [aVer, porAVer] = useState<Linha | null>(null);
+    /** A linha a quem se está a atribuir gente — só onde o esquema o oferece. */
+    const [aAtribuir, porAAtribuir] = useState<Linha | null>(null);
 
     const opcoes = useQuery({ queryKey: ['catalogo', tipo, 'opcoes'], queryFn: () => catalogos.opcoes(tipo), staleTime: 5 * 60_000 });
     const lista = useQuery({ queryKey: ['catalogo', tipo, filtros], queryFn: () => catalogos.lista(tipo, filtros), placeholderData: keepPreviousData });
@@ -98,7 +103,11 @@ export default function Catalogo({ tipo }: { tipo: string }) {
     const linhas = lista.data?.data ?? [];
     const contas = lista.data?.meta;
 
-    const vazio = (): Valores => Object.fromEntries(o.campos.map((c) => [c.chave, c.omissao ?? (c.tipo === 'booleano' ? false : '')]));
+    const vazio = (): Valores => Object.fromEntries(o.campos.map((c) => {
+        if (c.tipo === 'dias') return [c.chave, Array.isArray(c.omissao) ? c.omissao : []];
+
+        return [c.chave, c.omissao ?? (c.tipo === 'booleano' ? false : '')];
+    }));
 
     const abrirNovo = () => { porAEditar(null); porErros({}); porFormulario(vazio()); };
     const abrirEdicao = (l: Linha) => {
@@ -106,6 +115,9 @@ export default function Catalogo({ tipo }: { tipo: string }) {
         porFormulario(Object.fromEntries(o.campos.map((c) => {
             const v = l[c.chave];
             if (c.tipo === 'booleano') return [c.chave, Boolean(v)];
+            // Uma LISTA fica lista: passá-la por `String()` dava «1,2,3» na
+            // caixa e um erro de validação ao gravar.
+            if (c.tipo === 'dias') return [c.chave, Array.isArray(v) ? v.map(Number) : []];
             return [c.chave, v === null || v === undefined ? '' : String(v)];
         })));
     };
@@ -359,6 +371,21 @@ export default function Catalogo({ tipo }: { tipo: string }) {
                                                 {o.accoes.activar && (
                                                     <button type="button" onClick={() => accao.mutate({ l, qual: 'activar' })} title={l.is_active ? t('Desactivar') : t('Activar')} aria-label={t(l.is_active ? 'Desactivar: :nome' : 'Activar: :nome', { nome: String(l.name ?? l.id) })} className={cls('p-2 text-slate-400 transition-all duration-200 hover:scale-110 active:scale-100 hover:text-slate-700', RAIO, FOCO)}><i className={cls('fas', l.is_active ? 'fa-toggle-on text-emerald-500' : 'fa-toggle-off')} aria-hidden="true" /></button>
                                                 )}
+                                                {/* ATRIBUIR EM LOTE — pôr trinta
+                                                    pessoas neste turno de uma
+                                                    vez, em vez de uma a uma
+                                                    pela ficha de cada uma. */}
+                                                {o.accoes.atribuir && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => porAAtribuir(l)}
+                                                        title={t('Atribuir')}
+                                                        aria-label={t('Atribuir a :nome', { nome: String(l.name ?? l.id) })}
+                                                        className={cls('p-2 text-slate-400 transition-all duration-200 hover:scale-110 active:scale-100 hover:text-emerald-600', RAIO, FOCO)}
+                                                    >
+                                                        <i className="fas fa-user-plus" aria-hidden="true" />
+                                                    </button>
+                                                )}
                                                 {o.accoes.logotipo && (
                                                     <label title={t('Logótipo')} className={cls('cursor-pointer p-2 text-slate-400 transition-all duration-200 hover:scale-110 active:scale-100 hover:text-indigo-600', RAIO)}>
                                                         <i className="fas fa-image" aria-hidden="true" />
@@ -413,7 +440,181 @@ export default function Catalogo({ tipo }: { tipo: string }) {
             >
                 <p className="text-sm text-slate-700">{tPartes('Vai apagar :nome. Não há volta.', { nome: <strong>{String(aApagar?.name ?? '')}</strong> })}</p>
             </Modal>
+
+            {/* ATRIBUIR EM LOTE — o modal que o ecrã dos turnos em Blade tinha. */}
+            {o.atribuir && aAtribuir && (
+                <Atribuicao
+                    tipo={tipo}
+                    linha={aAtribuir}
+                    descricao={o.atribuir}
+                    aoFechar={() => porAAtribuir(null)}
+                    aoGravar={(m) => { porAAtribuir(null); porRecado(m); invalidar(); }}
+                />
+            )}
         </div>
+    );
+}
+
+/* ─── Atribuir em lote ──────────────────────────────────────────────── */
+
+/**
+ * PÔR GENTE NESTE REGISTO, DE UMA VEZ.
+ *
+ * Trinta pessoas no turno da manhã, uma a uma pela ficha de cada uma, é meia
+ * hora de trabalho. Aqui procura-se, marcam-se todas, grava-se uma vez.
+ *
+ * O QUE SE GRAVA É A LISTA COMPLETA de quem fica — e por isso desmarcar
+ * alguém tira-o mesmo. Mandar só os novos deixava sem maneira de tirar uma
+ * pessoa do turno sem ir à ficha dela, que é precisamente o trabalho que este
+ * modal existe para poupar. A frase por baixo do título di-lo.
+ */
+function Atribuicao({ tipo, linha, descricao, aoFechar, aoGravar }: {
+    tipo: string;
+    linha: Linha;
+    descricao: { titulo: string; nada: string; pesquisa_ajuda: string };
+    aoFechar: () => void;
+    aoGravar: (mensagem: string) => void;
+}) {
+    const [procura, porProcura] = useState('');
+    /* `null` enquanto a lista não chegou: só então se sabe quem já lá está. */
+    const [escolhidos, porEscolhidos] = useState<Set<number> | null>(null);
+
+    const q = useQuery({
+        queryKey: ['catalogo', tipo, 'atribuiveis', linha.id, procura],
+        queryFn: () => catalogos.atribuiveis(tipo, linha.id, procura),
+        placeholderData: keepPreviousData,
+    });
+
+    const candidatos = q.data?.data ?? [];
+
+    /*
+     * A ESCOLHA NASCE DE QUEM JÁ LÁ ESTÁ — e uma vez só.
+     *
+     * Refazê-la a cada resposta apagava o que a pessoa tinha acabado de
+     * marcar assim que escrevesse na procura.
+     */
+    if (escolhidos === null && q.data) {
+        porEscolhidos(new Set(candidatos.filter((c) => c.atribuido).map((c) => c.id)));
+    }
+
+    const marcados = escolhidos ?? new Set<number>();
+
+    const alternar = (id: number) => porEscolhidos((antes) => {
+        const novo = new Set(antes ?? []);
+        novo.has(id) ? novo.delete(id) : novo.add(id);
+
+        return novo;
+    });
+
+    /* «Todos» é todos OS QUE SE VÊEM: com a procura posta, marca só esses. */
+    const todosAVista = candidatos.length > 0 && candidatos.every((c) => marcados.has(c.id));
+
+    const alternarTodos = () => porEscolhidos((antes) => {
+        const novo = new Set(antes ?? []);
+        candidatos.forEach((c) => (todosAVista ? novo.delete(c.id) : novo.add(c.id)));
+
+        return novo;
+    });
+
+    const gravar = useMutation({
+        mutationFn: () => catalogos.atribuir(tipo, linha.id, [...marcados]),
+        onSuccess: (r) => aoGravar(r.message),
+    });
+
+    return (
+        <Modal
+            aberto
+            aoFechar={aoFechar}
+            titulo={descricao.titulo}
+            subtitulo={String(linha.name ?? '')}
+            icone="fa-user-plus"
+            cor="bom"
+            largura="md"
+            rodape={
+                <>
+                    <Botao onClick={aoFechar}>{t('Cancelar')}</Botao>
+                    <Botao cor="bom" tom="solida" icone="fa-check" aTrabalhar={gravar.isPending} onClick={() => gravar.mutate()}>
+                        {t('Gravar atribuição')}
+                    </Botao>
+                </>
+            }
+        >
+            <AvisoDeErro erro={gravar.error} />
+
+            <div className="space-y-3">
+                <div className="relative">
+                    <i className="fas fa-magnifying-glass pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400" aria-hidden="true" />
+                    <input
+                        type="search"
+                        value={procura}
+                        onChange={(e) => porProcura(e.target.value)}
+                        placeholder={descricao.pesquisa_ajuda}
+                        aria-label={descricao.pesquisa_ajuda}
+                        className={cls(entrada, 'pl-9')}
+                    />
+                </div>
+
+                <div className="flex items-center justify-between text-sm">
+                    <button
+                        type="button"
+                        onClick={alternarTodos}
+                        disabled={candidatos.length === 0}
+                        className={cls('inline-flex items-center gap-2 px-2 py-1 font-semibold text-indigo-600 transition-colors hover:bg-indigo-50 disabled:opacity-40', RAIO, FOCO)}
+                    >
+                        <i className={cls('fas', todosAVista ? 'fa-square-check' : 'fa-square')} aria-hidden="true" />
+                        {todosAVista ? t('Desmarcar todos') : t('Marcar todos')}
+                    </button>
+
+                    <span className="tabular-nums text-slate-500">
+                        {t(':quantos escolhido(s)', { quantos: marcados.size })}
+                    </span>
+                </div>
+
+                <div className={cls('max-h-72 overflow-y-auto border border-slate-200 divide-y divide-slate-100', RAIO)}>
+                    {q.isPending ? (
+                        <Carregando linhas={4} />
+                    ) : candidatos.length === 0 ? (
+                        <p className="px-4 py-8 text-center text-sm text-slate-400">
+                            {procura ? t('Nada encontrado.') : descricao.nada}
+                        </p>
+                    ) : (
+                        candidatos.map((c, i) => {
+                            const marcado = marcados.has(c.id);
+
+                            return (
+                                <label
+                                    key={c.id}
+                                    style={{ '--i': Math.min(i, 12) } as React.CSSProperties}
+                                    className={cls(
+                                        'entra flex cursor-pointer items-center gap-3 px-3 py-2.5 text-sm transition-colors duration-150',
+                                        marcado ? 'bg-emerald-50/70' : 'hover:bg-slate-50',
+                                    )}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={marcado}
+                                        onChange={() => alternar(c.id)}
+                                        className="h-4 w-4 rounded border-slate-300 text-emerald-600"
+                                    />
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block truncate font-semibold text-slate-800">{c.nome}</span>
+                                        {c.nota && <span className="block font-mono text-xs text-slate-400">{c.nota}</span>}
+                                    </span>
+                                    {c.atribuido && !marcado && (
+                                        <Etiqueta cor="aviso" icone="fa-arrow-right-from-bracket">{t('Vai sair')}</Etiqueta>
+                                    )}
+                                </label>
+                            );
+                        })
+                    )}
+                </div>
+
+                <p className="text-xs text-slate-500">
+                    <i className="fas fa-circle-info mr-1" aria-hidden="true" />
+                    {t('Grava-se a lista completa: quem estiver aqui e for desmarcado sai.')}
+                </p>
+            </div>
+        </Modal>
     );
 }
 
@@ -439,6 +640,41 @@ function Celula({ c, l }: { c: Coluna; l: Linha }) {
             return v ? <span className="inline-flex items-center gap-2"><span className="inline-block h-4 w-4 rounded border border-slate-200" style={{ background: String(v) }} aria-hidden="true" /><span className="font-mono text-xs">{String(v)}</span></span> : null;
         case 'icone':
             return v ? <span className="inline-flex items-center gap-2"><i className={cls('fas', String(v), 'text-slate-500')} aria-hidden="true" /><span className="font-mono text-xs">{String(v)}</span></span> : null;
+        /* A HORA sai sempre `08:00`, mesmo que a coluna seja um `datetime`. */
+        case 'hora':
+            return v ? <span className="inline-flex items-center gap-1.5 tabular-nums"><i className="fas fa-clock text-xs text-slate-400" aria-hidden="true" />{String(v).slice(0, 5)}</span> : null;
+        /* OS DIAS EM CRACHÁS, e não «1, 2, 3, 4, 5»: quem olha a lista quer
+           ver de relance que o turno não trabalha ao sábado. */
+        case 'dias':
+            return (
+                /* SEM QUEBRA: os sete crachás são uma semana e lêem-se em
+                   linha. A envolver, empilhavam-se um por cima do outro e a
+                   linha da tabela crescia sete vezes — a tabela é que rola. */
+                <span className="inline-flex flex-nowrap gap-0.5">
+                    {DIAS_DA_SEMANA.map((d) => {
+                        const marcado = Array.isArray(v) && (v as unknown[]).some((x) => Number(x) === d.valor);
+
+                        return (
+                            <span
+                                key={d.valor}
+                                title={d.nome}
+                                className={cls(
+                                    'inline-grid h-5 w-5 place-items-center rounded text-[9px] font-bold uppercase transition-colors duration-200',
+                                    marcado ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-300',
+                                )}
+                            >
+                                {/* A letra só se lê com a posição: a ordem é
+                                    sempre de segunda a domingo. Quem ouve o
+                                    ecrã ouve o dia por extenso. */}
+                                <span aria-hidden="true">{t(d.curto).slice(0, 1)}</span>
+                                <span className="sr-only">
+                                    {marcado ? t(':dia: sim', { dia: t(d.nome) }) : t(':dia: não', { dia: t(d.nome) })}
+                                </span>
+                            </span>
+                        );
+                    })}
+                </span>
+            );
         default:
             return <>{v === null || v === undefined ? '' : String(v)}</>;
     }
@@ -461,7 +697,7 @@ function Formulario({ o, valores, erros, titulo, subtitulo, aGravar, erroGeral, 
     const paisPadrao = o.geografia?.pais_padrao ?? 'AO';
     const emAngola = String(valores.country ?? paisPadrao) === paisPadrao;
 
-    const mudar = (chave: string, valor: string | number | boolean | null) => {
+    const mudar = (chave: string, valor: Valor) => {
         const novo: Valores = { ...valores, [chave]: valor };
 
         // A morada concorda consigo própria: mudar de país limpa a província
@@ -505,13 +741,89 @@ function Formulario({ o, valores, erros, titulo, subtitulo, aGravar, erroGeral, 
     );
 }
 
+/**
+ * OS DIAS DA SEMANA, como o modelo os guarda: 1 = Segunda … 7 = Domingo.
+ *
+ * A ordem é a portuguesa — a semana começa à segunda — e é a mesma do
+ * acessor `work_days_formatted` do `Shift`. Mudar aqui sem mudar lá punha o
+ * ecrã a dizer «Seg» e o papel a dizer «Dom».
+ */
+const DIAS_DA_SEMANA = [
+    { valor: 1, curto: 'Seg', nome: 'Segunda-feira' },
+    { valor: 2, curto: 'Ter', nome: 'Terça-feira' },
+    { valor: 3, curto: 'Qua', nome: 'Quarta-feira' },
+    { valor: 4, curto: 'Qui', nome: 'Quinta-feira' },
+    { valor: 5, curto: 'Sex', nome: 'Sexta-feira' },
+    { valor: 6, curto: 'Sáb', nome: 'Sábado' },
+    { valor: 7, curto: 'Dom', nome: 'Domingo' },
+] as const;
+
+/**
+ * ESCOLHER OS DIAS EM QUE O TURNO TRABALHA.
+ *
+ * Sete botões que se ligam e desligam, e não uma caixa onde se escreve
+ * «1,2,3,4,5» — que é o que a base guarda e ninguém devia ter de saber. O dia
+ * aceso levanta-se um pouco; o apagado fica cinzento e continua a ler-se.
+ *
+ * Cada botão é um `aria-pressed` a sério, para quem navega por teclado ouvir
+ * o estado em vez de o adivinhar pela cor.
+ */
+function EscolherDias({ valor, aoMudar, etiqueta }: {
+    valor: Valor | undefined;
+    aoMudar: (v: number[]) => void;
+    etiqueta: string;
+}) {
+    const escolhidos = Array.isArray(valor) ? valor.map(Number) : [];
+
+    const alternar = (dia: number) =>
+        aoMudar(escolhidos.includes(dia)
+            ? escolhidos.filter((d) => d !== dia)
+            : [...escolhidos, dia].sort((a, b) => a - b));
+
+    return (
+        <div role="group" aria-label={etiqueta} className="flex flex-wrap gap-1.5">
+            {DIAS_DA_SEMANA.map((d) => {
+                const aceso = escolhidos.includes(d.valor);
+
+                return (
+                    <button
+                        key={d.valor}
+                        type="button"
+                        onClick={() => alternar(d.valor)}
+                        aria-pressed={aceso}
+                        title={d.nome}
+                        className={cls(
+                            'min-w-[3.25rem] border px-2.5 py-1.5 text-xs font-bold transition-all duration-200',
+                            'hover:-translate-y-0.5 active:translate-y-0',
+                            RAIO,
+                            FOCO,
+                            aceso
+                                ? 'border-indigo-500 bg-indigo-50 text-indigo-700 shadow-sm'
+                                : 'border-slate-200 bg-white text-slate-400 hover:border-slate-300 hover:text-slate-600',
+                        )}
+                    >
+                        <i
+                            className={cls(
+                                'fas mr-1 text-[10px] transition-opacity duration-200',
+                                aceso ? 'fa-check opacity-100' : 'fa-minus opacity-40',
+                            )}
+                            aria-hidden="true"
+                        />
+                        {t(d.curto)}
+                    </button>
+                );
+            })}
+        </div>
+    );
+}
+
 function CampoDeEsquema({ c, valor, erro, o, valores, aoMudar }: {
     c: Campo;
-    valor: string | number | boolean | null | undefined;
+    valor: Valor | undefined;
     erro?: string[];
     o: OpcoesDoCatalogo;
     valores: Valores;
-    aoMudar: (v: string | number | boolean | null) => void;
+    aoMudar: (v: Valor) => void;
 }) {
     const texto = valor === null || valor === undefined ? '' : String(valor);
 
@@ -599,6 +911,31 @@ function CampoDeEsquema({ c, valor, erro, o, valores, aoMudar }: {
          */
         case 'icone':
             controlo = <EscolherIcone valor={texto} aoMudar={aoMudar} etiqueta={c.rotulo} galeria={o.galeria_de_icones ?? []} />;
+            break;
+        /*
+         * A HORA, com o relógio à esquerda.
+         *
+         * `type="time"` traz o selector do sistema e a máscara certa em cada
+         * língua — escrever «8h» numa caixa de texto e esperar que o servidor
+         * adivinhe era o que havia antes.
+         */
+        case 'hora':
+            controlo = (
+                <span className="relative block">
+                    <i className="fas fa-clock pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400" aria-hidden="true" />
+                    <input
+                        type="time"
+                        value={texto.slice(0, 5)}
+                        onChange={(e) => aoMudar(e.target.value)}
+                        aria-label={c.rotulo}
+                        className={cls(entrada, 'pl-9 tabular-nums')}
+                    />
+                </span>
+            );
+            break;
+        /* OS DIAS DA SEMANA: sete botões que se acendem — ver `EscolherDias`. */
+        case 'dias':
+            controlo = <EscolherDias valor={valor} aoMudar={aoMudar} etiqueta={c.rotulo} />;
             break;
         default:
             controlo = <input type={c.tipo === 'email' ? 'email' : c.tipo === 'url' ? 'url' : 'text'} value={texto} onChange={(e) => aoMudar(e.target.value)} className={entrada} />;

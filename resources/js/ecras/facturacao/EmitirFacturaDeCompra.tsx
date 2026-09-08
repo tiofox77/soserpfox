@@ -9,7 +9,7 @@ import { Botao } from '@/ui/Botao';
 import { Campo, entrada } from '@/ui/Campo';
 import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
-import { cls, kz } from '@/ui/tokens';
+import { CARTAO, RAIO, cls, kz } from '@/ui/tokens';
 import { t } from '@/i18n';
 import { EscolhaDaParte } from './EscolhaDaParte';
 import { EscolhaDeArtigo, juntarArtigo } from './EscolhaDeArtigo';
@@ -60,6 +60,14 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
     const [regiao, porRegiao] = useState('AO');
     const [eServico, porEServico] = useState(false);
     const [descontoComercial, porDescontoComercial] = useState('');
+    /**
+     * O DESCONTO DE SEMPRE (`discount_amount`), que soma ao comercial.
+     *
+     * Existe na base desde antes dos outros dois, a validação sempre o aceitou
+     * e o ecrã não o oferecia: uma compra antiga aberta para editar perdia o
+     * desconto que tinha, calada, na primeira gravação.
+     */
+    const [descontoLegado, porDescontoLegado] = useState('');
     const [descontoFinanceiro, porDescontoFinanceiro] = useState('');
     const [notas, porNotas] = useState('');
     /**
@@ -95,15 +103,30 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
         porRegiao(d.tax_country_region || 'AO');
         porEServico(d.is_service);
         porDescontoComercial(d.discount_commercial ? String(d.discount_commercial) : '');
+        porDescontoLegado(d.discount_amount ? String(d.discount_amount) : '');
         porDescontoFinanceiro(d.discount_financial ? String(d.discount_financial) : '');
         porNotas(d.notes ?? '');
+        porTermos(d.terms ?? '');
         porLinhas(carregado.linhas.length > 0 ? carregado.linhas : [{ ...LINHA_NOVA }]);
     }, [carregado]);
 
-    /* O armazém por omissão, quando só há um — numa compra nova e vazia. */
+    /*
+     * UMA COMPRA NOVA NASCE COM O ARMAZÉM POR OMISSÃO DA EMPRESA.
+     *
+     * A compra dá entrada de stock e o armazém é obrigatório: escolhê-lo à mão
+     * de cada vez era uma paragem em todas as compras. Vale o marcado como
+     * padrão; e onde não há nenhum marcado mas só existe um armazém, é esse.
+     * Uma compra aberta ou duplicada traz o seu, e não passa por aqui.
+     */
     useEffect(() => {
-        const unico = opcoes.data?.armazens.length === 1 ? opcoes.data.armazens[0] : undefined;
-        if (unico && id === undefined && duplicarDe === undefined) porArmazemId(String(unico.id));
+        if (!opcoes.data || id !== undefined || duplicarDe !== undefined) return;
+
+        /* Sem padrão marcado, só se escolhe sozinho havendo UM armazém: com
+           vários, adivinhar dava entrada do stock no armazém errado. */
+        const unico = opcoes.data.armazens.length === 1 ? opcoes.data.armazens[0]?.id : null;
+        const escolha = opcoes.data.armazem_padrao ?? unico;
+
+        if (escolha) porArmazemId(String(escolha));
     }, [opcoes.data, id, duplicarDe]);
 
     /* Uma linha sem artigo, sem preço e sem descrição ainda não é uma linha. */
@@ -127,6 +150,7 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
                 .calcular({
                     linhas: comLinhas,
                     discount_commercial: Number(descontoComercial) || 0,
+                    discount_amount: Number(descontoLegado) || 0,
                     discount_financial: Number(descontoFinanceiro) || 0,
                     is_service: eServico,
                 })
@@ -136,7 +160,7 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
         }, 400);
 
         return () => { cancelado = true; clearTimeout(pausa); };
-    }, [linhas, descontoComercial, descontoFinanceiro, eServico]);
+    }, [linhas, descontoComercial, descontoLegado, descontoFinanceiro, eServico]);
 
     const guardar = useMutation({
         mutationFn: (status: Estado) => {
@@ -148,6 +172,7 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
                 tax_country_region: regiao,
                 is_service: eServico,
                 discount_commercial: Number(descontoComercial) || 0,
+                discount_amount: Number(descontoLegado) || 0,
                 discount_financial: Number(descontoFinanceiro) || 0,
                 notes: notas || null,
                 terms: termos || null,
@@ -219,9 +244,20 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
                 </FaixaDeDuplicado>
             )}
 
-            <fieldset disabled={soLeitura} className="min-w-0 space-y-4 border-0 p-0">
+            {/*
+              * DUAS COLUNAS: o formulário à esquerda, o resumo à direita.
+              *
+              * O ecrã de sempre era assim e é melhor. O resumo é o que se
+              * consulta o TEMPO TODO enquanto se lançam linhas — «quanto é que
+              * esta factura dá?» — e em coluna única ficava lá em baixo, fora
+              * de vista, o que numa compra é conferir às cegas o que o
+              * fornecedor cobrou.
+              */}
+            <div className="grid gap-4 lg:grid-cols-3">
+
+            <fieldset disabled={soLeitura} className="min-w-0 space-y-4 border-0 p-0 lg:col-span-2">
             <Cartao titulo={t('Documento do fornecedor')} icone="fa-circle-info">
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-4 sm:grid-cols-2">
                     {/* O fornecedor escolhe-se com procura, e cria-se aqui
                         mesmo quando ainda não existe — ver `EscolhaDaParte`. */}
                     <EscolhaDaParte
@@ -230,21 +266,33 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
                         valor={fornecedorId}
                         aoEscolher={porFornecedorId}
                         erro={erros.supplier_id}
-                        className="lg:col-span-2"
+                        className="sm:col-span-2"
                     />
 
+                    {/*
+                      * A REGIÃO FISCAL ESTÁ ESCONDIDA, DE PROPÓSITO — o mesmo
+                      * que na factura de venda e nas propostas.
+                      *
+                      * Fica em automática. Cabinda tem regime próprio e o que
+                      * manda é o LOCAL DA OPERAÇÃO, mas quem compra em Luanda
+                      * não decide isso em cada factura — e um campo que se
+                      * deixa sempre como está é ruído entre os que é preciso
+                      * preencher. O estado e o envio continuam: tirar o
+                      * `false &&` abaixo volta a mostrar o controlo.
+                      */}
+                    {false && (
+                    <Campo etiqueta={t('Região fiscal')} erro={erros.tax_country_region} className="sm:col-span-2">
+                        <select value={regiao} onChange={(e) => porRegiao(e.target.value)} className={entrada}>
+                            {o.regioes.map((r) => <option key={r.valor} value={r.valor}>{r.rotulo}</option>)}
+                        </select>
+                    </Campo>
+                    )}
+
                     {/* A compra dá entrada de stock: o armazém é sempre obrigatório. */}
-                    <Campo etiqueta={t('Armazém')} erro={erros.warehouse_id} obrigatorio>
+                    <Campo etiqueta={t('Armazém')} erro={erros.warehouse_id} obrigatorio className="sm:col-span-2">
                         <select value={armazemId} onChange={(e) => porArmazemId(e.target.value)} className={entrada}>
                             <option value="">{t('Escolher…')}</option>
                             {o.armazens.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                        </select>
-                    </Campo>
-
-                    {/* Cabinda tem regime próprio; o que manda é o local da operação. */}
-                    <Campo etiqueta={t('Região fiscal')} erro={erros.tax_country_region}>
-                        <select value={regiao} onChange={(e) => porRegiao(e.target.value)} className={entrada}>
-                            {o.regioes.map((r) => <option key={r.valor} value={r.valor}>{r.rotulo}</option>)}
                         </select>
                     </Campo>
 
@@ -255,11 +303,6 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
                     <Campo etiqueta={t('Vencimento')} erro={erros.due_date}>
                         <input type="date" value={vencimento} onChange={(e) => porVencimento(e.target.value)} className={entrada} />
                     </Campo>
-
-                    <label className="flex items-center gap-2 self-end pb-2 text-sm text-slate-700">
-                        <input type="checkbox" checked={eServico} onChange={(e) => porEServico(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
-                        {t('Prestação de serviço (retém IRT 6,5%)')}
-                    </label>
                 </div>
             </Cartao>
 
@@ -283,30 +326,45 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
                 }
                 semPadding
             >
+                {/*
+                  * A LINHA DA COMPRA TEM MAIS DO QUE CABE, e por isso a tabela
+                  * tem largura mínima e a caixa é que rola.
+                  *
+                  * São sete colunas — e uma delas é o lote inteiro. Sem o
+                  * mínimo, o browser espremia a quantidade para 35px e o
+                  * desconto para 40: caixas onde não se lê o que lá está
+                  * escrito. Numa secretária larga não rola nada.
+                  */}
                 <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <table className="w-full min-w-[55rem] text-sm">
                         <thead className={CABECALHO_DA_TABELA}>
                             <tr className="border-b border-slate-200">
                                 <th className={CELULA_DO_CABECALHO}>{t('Artigo')}</th>
-                                <th className={cls('w-24 text-right', CELULA_DO_CABECALHO)}>{t('Qtd.')}</th>
-                                <th className={cls('w-32 text-right', CELULA_DO_CABECALHO)}>{t('Preço de compra')}</th>
-                                <th className={cls('w-24 text-right', CELULA_DO_CABECALHO)}>{t('Desc. %')}</th>
-                                <th className={cls('w-32', CELULA_DO_CABECALHO)}>{t('Lote')}</th>
-                                {/* FABRICO e DIAS DE ALERTA: o ecrã de sempre pedia-os
-                                    na linha e a API sempre os aceitou. Sem a fabricação
-                                    não se separam duas remessas com a mesma validade; sem
-                                    os dias de alerta o lote avisa com os 30 por omissão,
-                                    que num fresco chega tarde. */}
-                                <th className={cls('w-36', CELULA_DO_CABECALHO)}>{t('Fabrico')}</th>
-                                <th className={cls('w-36', CELULA_DO_CABECALHO)}>{t('Validade')}</th>
-                                <th className={cls('w-24', CELULA_DO_CABECALHO)}>{t('Alerta (dias)')}</th>
+                                <th className={cls('w-20 text-right', CELULA_DO_CABECALHO)}>{t('Qtd.')}</th>
+                                <th className={cls('w-28 text-right', CELULA_DO_CABECALHO)}>{t('Preço de compra')}</th>
+                                <th className={cls('w-20 text-right', CELULA_DO_CABECALHO)}>{t('Desc. %')}</th>
+                                {/* LOTE, FABRICO, VALIDADE e DIAS DE ALERTA numa
+                                    coluna só, como no ecrã de sempre: são quatro
+                                    campos de UMA coisa — o lote que entra — e
+                                    espalhados por quatro colunas empurravam o
+                                    total para fora do ecrã.
+
+                                    Sem a fabricação não se separam duas remessas
+                                    com a mesma validade; sem os dias de alerta o
+                                    lote avisa com os 30 por omissão, que num
+                                    fresco chega tarde. */}
+                                <th className={cls('w-64', CELULA_DO_CABECALHO)}>{t('Lote / Validade')}</th>
+                                <th className={cls('w-28 text-right', CELULA_DO_CABECALHO)}>{t('Total')}</th>
                                 <th className={cls('w-12', CELULA_DO_CABECALHO)}></th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {linhas.map((l, i) => (
+                            {linhas.map((l, i) => {
+                                const artigo = o.artigos.find((a) => a.id === l.product_id);
+
+                                return (
                                 <tr key={i} className={LINHA_DA_TABELA} style={cascata(i)}>
-                                    <td className="px-4 py-2">
+                                    <td className="px-4 py-2 align-top">
                                         <select value={l.product_id ?? ''} onChange={(e) => mudarLinha(i, 'product_id', e.target.value)} aria-label={t('Artigo da linha :n', { n: i + 1 })} className={entrada}>
                                             <option value="">{t('Escolher…')}</option>
                                             {o.artigos.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -314,14 +372,59 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
                                         {l.product_id === null && (
                                             <input value={l.description} onChange={(e) => mudarLinha(i, 'description', e.target.value)} placeholder={t('Ou descreva a linha…')} aria-label={t('Descrição da linha :n', { n: i + 1 })} className={cls(entrada, 'mt-1')} />
                                         )}
+                                        {/* O QUE É E EM QUE SE COMPRA: o crachá de
+                                            produto/serviço e a unidade. Numa compra
+                                            é o que faz reparar que a linha «serviço»
+                                            não dá entrada de stock nenhuma. */}
+                                        {artigo && (
+                                            <p className="mt-1 flex items-center gap-2 text-xs">
+                                                <span className={cls(
+                                                    'rounded-full px-2 py-0.5 font-semibold',
+                                                    artigo.type === 'servico'
+                                                        ? 'bg-sky-100 text-sky-700'
+                                                        : 'bg-purple-100 text-purple-700',
+                                                )}>
+                                                    <i className={cls('mr-1 fas', artigo.type === 'servico' ? 'fa-concierge-bell' : 'fa-box')} aria-hidden="true" />
+                                                    {artigo.type === 'servico' ? t('Serviço') : t('Produto')}
+                                                </span>
+                                                {artigo.unit && <span className="text-slate-400">{artigo.unit}</span>}
+                                            </p>
+                                        )}
                                     </td>
                                     <td className="px-4 py-2 align-top"><input type="number" min="0" step="0.001" value={l.quantity} onChange={(e) => mudarLinha(i, 'quantity', e.target.value)} aria-label={t('Quantidade da linha :n', { n: i + 1 })} className={cls(entrada, 'text-right tabular-nums')} /></td>
                                     <td className="px-4 py-2 align-top"><input type="number" min="0" step="0.01" value={l.price} onChange={(e) => mudarLinha(i, 'price', e.target.value)} aria-label={t('Preço da linha :n', { n: i + 1 })} className={cls(entrada, 'text-right tabular-nums')} /></td>
                                     <td className="px-4 py-2 align-top"><input type="number" min="0" max="100" step="0.01" value={l.discount_percent} onChange={(e) => mudarLinha(i, 'discount_percent', e.target.value)} aria-label={t('Desconto da linha :n', { n: i + 1 })} className={cls(entrada, 'text-right tabular-nums')} /></td>
-                                    <td className="px-4 py-2 align-top"><input value={l.batch_number} onChange={(e) => mudarLinha(i, 'batch_number', e.target.value)} aria-label={t('Lote da linha :n', { n: i + 1 })} className={entrada} /></td>
-                                    <td className="px-4 py-2 align-top"><input type="date" value={l.manufacturing_date} onChange={(e) => mudarLinha(i, 'manufacturing_date', e.target.value)} aria-label={t('Fabrico da linha :n', { n: i + 1 })} className={entrada} /></td>
-                                    <td className="px-4 py-2 align-top"><input type="date" value={l.expiry_date} onChange={(e) => mudarLinha(i, 'expiry_date', e.target.value)} aria-label={t('Validade da linha :n', { n: i + 1 })} className={entrada} /></td>
-                                    <td className="px-4 py-2 align-top"><input type="number" min="0" step="1" value={l.alert_days} onChange={(e) => mudarLinha(i, 'alert_days', e.target.value)} aria-label={t('Dias de alerta da linha :n', { n: i + 1 })} className={cls(entrada, 'text-right tabular-nums')} /></td>
+                                    {/* O LOTE INTEIRO NUMA CÉLULA: o número em
+                                        cima, as duas datas lado a lado e os dias
+                                        de alerta por baixo. Cada campo mantém o
+                                        seu nome — quem trabalha por teclado
+                                        continua a chegar a todos. */}
+                                    <td className="px-4 py-2 align-top">
+                                        {/* O mínimo é o que uma caixa de data
+                                            precisa para mostrar `dd/mm/aaaa`:
+                                            mais estreita, o browser corta a
+                                            máscara e ninguém sabe o que
+                                            escrever. A tabela rola se for
+                                            preciso. */}
+                                        <div className="min-w-[14rem] space-y-1">
+                                            <input value={l.batch_number} onChange={(e) => mudarLinha(i, 'batch_number', e.target.value)} placeholder={t('Lote')} aria-label={t('Lote da linha :n', { n: i + 1 })} className={cls(entrada, 'h-8 text-xs')} />
+                                            <div className="grid grid-cols-2 gap-1">
+                                                <input type="date" value={l.manufacturing_date} onChange={(e) => mudarLinha(i, 'manufacturing_date', e.target.value)} title={t('Fabrico')} aria-label={t('Fabrico da linha :n', { n: i + 1 })} className={cls(entrada, 'h-8 px-1 text-xs')} />
+                                                <input type="date" value={l.expiry_date} onChange={(e) => mudarLinha(i, 'expiry_date', e.target.value)} title={t('Validade')} aria-label={t('Validade da linha :n', { n: i + 1 })} className={cls(entrada, 'h-8 px-1 text-xs')} />
+                                            </div>
+                                            <input type="number" min="0" step="1" value={l.alert_days} onChange={(e) => mudarLinha(i, 'alert_days', e.target.value)} title={t('Alerta (dias)')} aria-label={t('Dias de alerta da linha :n', { n: i + 1 })} className={cls(entrada, 'h-8 text-right text-xs tabular-nums')} />
+                                        </div>
+                                    </td>
+
+                                    {/* O TOTAL DA LINHA, sem imposto: é o que se
+                                        confere contra a factura do fornecedor. */}
+                                    <td className="px-4 py-2 text-right align-top">
+                                        <span className="font-bold tabular-nums text-slate-900">
+                                            {kz(Number(l.quantity || 0) * Number(l.price || 0) * (1 - Number(l.discount_percent || 0) / 100))}
+                                        </span>
+                                        <span className="block text-xs text-slate-400">Kz</span>
+                                    </td>
+
                                     <td className="px-4 py-2 text-right align-top">
                                         {/* A última linha não se apaga: um documento sem linhas não é um documento. */}
                                         {linhas.length > 1 && !soLeitura && (
@@ -329,35 +432,83 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
                                         )}
                                     </td>
                                 </tr>
-                            ))}
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
                 {erros.linhas?.[0] && <p role="alert" className="border-t border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{erros.linhas[0]}</p>}
             </Cartao>
 
-            <div className="grid gap-4 lg:grid-cols-2">
-                <Cartao titulo={t('Descontos e observações')} icone="fa-tags">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        <Campo etiqueta={t('Desconto comercial (Kz)')} erro={erros.discount_commercial}>
-                            <input type="number" min="0" step="0.01" value={descontoComercial} onChange={(e) => porDescontoComercial(e.target.value)} className={cls(entrada, 'text-right tabular-nums')} />
-                        </Campo>
-                        <Campo etiqueta={t('Desconto financeiro (Kz)')} erro={erros.discount_financial}>
-                            <input type="number" min="0" step="0.01" value={descontoFinanceiro} onChange={(e) => porDescontoFinanceiro(e.target.value)} className={cls(entrada, 'text-right tabular-nums')} />
-                        </Campo>
-                    </div>
-                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                        <Campo etiqueta={t('Observações')} erro={erros.notes}>
-                            <textarea rows={3} value={notas} onChange={(e) => porNotas(e.target.value)} className={cls(entrada, 'h-auto py-2')} />
-                        </Campo>
-                        <Campo etiqueta={t('Termos e Condições')} erro={erros.terms}>
-                            <textarea rows={3} value={termos} onChange={(e) => porTermos(e.target.value)} className={cls(entrada, 'h-auto py-2')} />
-                        </Campo>
-                    </div>
-                </Cartao>
+            {/* OS DESCONTOS DO DOCUMENTO, os três, numa fileira — como no
+                ecrã de sempre. Os das LINHAS são outra coisa e ficam lá. */}
+            <Cartao titulo={t('Descontos')} icone="fa-tags">
+                <div className="grid gap-4 sm:grid-cols-3">
+                    <Campo etiqueta={t('Desconto comercial (antes IVA)')} erro={erros.discount_commercial}>
+                        <input type="number" min="0" step="0.01" value={descontoComercial} onChange={(e) => porDescontoComercial(e.target.value)} className={cls(entrada, 'text-right tabular-nums')} />
+                    </Campo>
 
-                {/* OS TOTAIS SÃO OS DO SERVIDOR. */}
-                <CartaoDeTotais titulo={t('Totais')} aContar={aContar}>
+                    {/* O DESCONTO DE SEMPRE: soma ao comercial no cálculo do
+                        servidor. Tirá-lo do formulário fazia uma compra antiga
+                        aberta para editar perder o desconto que tinha, calada. */}
+                    <Campo
+                        etiqueta={t('Desconto (legado)')}
+                        erro={erros.discount_amount}
+                        ajuda={t('Campo antigo, mantido para os documentos que o têm. Soma ao comercial.')}
+                    >
+                        <input type="number" min="0" step="0.01" value={descontoLegado} onChange={(e) => porDescontoLegado(e.target.value)} className={cls(entrada, 'text-right tabular-nums')} />
+                    </Campo>
+
+                    <Campo etiqueta={t('Desconto financeiro (após IVA)')} erro={erros.discount_financial}>
+                        <input type="number" min="0" step="0.01" value={descontoFinanceiro} onChange={(e) => porDescontoFinanceiro(e.target.value)} className={cls(entrada, 'text-right tabular-nums')} />
+                    </Campo>
+                </div>
+            </Cartao>
+
+            <Cartao titulo={t('Observações')} icone="fa-sticky-note">
+                <div className="space-y-4">
+                    <Campo etiqueta={t('Observações')} erro={erros.notes}>
+                        <textarea rows={3} value={notas} onChange={(e) => porNotas(e.target.value)} placeholder={t('Informações adicionais…')} className={cls(entrada, 'h-auto py-2')} />
+                    </Campo>
+                    <Campo etiqueta={t('Termos e Condições')} erro={erros.terms}>
+                        <textarea rows={3} value={termos} onChange={(e) => porTermos(e.target.value)} placeholder={t('Condições de pagamento, garantias, etc.')} className={cls(entrada, 'h-auto py-2')} />
+                    </Campo>
+                </div>
+            </Cartao>
+            </fieldset>
+
+            {/*
+              * O RESUMO — um cartão só, colado ao topo.
+              *
+              * Tudo o que responde a «quanto é que isto dá» está aqui dentro:
+              * a natureza do documento, as parcelas e o total a pagar. OS
+              * TOTAIS SÃO OS DO SERVIDOR — este bloco não calcula nada.
+              */}
+            <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+                <CartaoDeTotais titulo={t('Resumo')} aContar={aContar}>
+                    {/* PRESTAÇÃO DE SERVIÇO: retém-se IRT a 6,5%. Vive no
+                        resumo porque é aqui que se vê o que ela faz ao total.
+                        Fieldset próprio: os botões abaixo têm de continuar a
+                        funcionar numa compra só de leitura. */}
+                    <fieldset disabled={soLeitura} className="space-y-3 border-0 px-5 pt-4 pb-1">
+                        <label className={cls(
+                            'flex cursor-pointer items-center gap-3 border p-3 text-sm transition-colors',
+                            RAIO,
+                            eServico ? 'border-indigo-400 bg-indigo-50' : 'border-slate-200',
+                        )}>
+                            <input
+                                type="checkbox"
+                                checked={eServico}
+                                onChange={(e) => porEServico(e.target.checked)}
+                                className="h-5 w-5 rounded border-slate-300 text-indigo-600"
+                            />
+                            <span className="font-bold text-slate-700">
+                                <i className="fas fa-concierge-bell mr-1.5 text-indigo-600" aria-hidden="true" />
+                                {t('Prestação de serviço (retém IRT 6,5%)')}
+                            </span>
+                        </label>
+                    </fieldset>
+
                     {totais ? (
                         <>
                             <dl className={cls('px-5 pt-3', aContar && 'opacity-60')}>
@@ -368,28 +519,60 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
                                 {Number(descontoFinanceiro) > 0 && <ParcelaDoTotal rotulo={t('Desconto financeiro')} valor={kz(-Number(descontoFinanceiro))} icone="fa-scissors" />}
                                 {totais.retencao > 0 && <ParcelaDoTotal rotulo={t('Retenção IRT (6,5%)')} valor={kz(-totais.retencao)} icone="fa-hand-holding-dollar" realce="retencao" />}
                             </dl>
+
                             <TotalGrande
                                 rotulo={t('Total a pagar')}
                                 valor={<>{kz(totais.total)} <span className="text-base font-normal text-emerald-800/60">Kz</span></>}
                                 nota={t('Contado no servidor.')}
                             />
+
+                            {/* A BASE E A LEI QUE MANDA NA CONTA — é o que um
+                                contabilista procura para conferir a factura do
+                                fornecedor contra o que aqui ficou registado. */}
+                            <div className={cls('mt-4 bg-blue-50 px-3 py-2.5 text-xs text-slate-600', RAIO)}>
+                                <p className="flex justify-between">
+                                    <span>{t('Incidência IVA (base)')}:</span>
+                                    <span className="font-semibold tabular-nums">{kz(totais.base)} Kz</span>
+                                </p>
+                                <p className="mt-2 text-[10px] text-slate-500">
+                                    <i className="fas fa-circle-info mr-1" aria-hidden="true" />
+                                    {t('Cálculo conforme Decreto Presidencial 312/18 — AGT Angola')}
+                                </p>
+                            </div>
                         </>
                     ) : (
                         <SemNada icone="fa-calculator">{t('Escolha um artigo e uma quantidade para ver os totais.')}</SemNada>
                     )}
                 </CartaoDeTotais>
-            </div>
-            </fieldset>
 
-            <div className="flex flex-wrap items-center justify-end gap-2">
-                <Botao onClick={() => (window.location.href = '/invoicing/purchases/invoices')}>{soLeitura ? t('Voltar às compras') : t('Cancelar')}</Botao>
-                {!soLeitura && <Botao icone="fa-file" aTrabalhar={aGuardar('draft')} onClick={() => guardar.mutate('draft')}>{t('Guardar rascunho')}</Botao>}
-                {!soLeitura && <Botao icone="fa-money-bill" aTrabalhar={aGuardar('paid')} disabled={!o.permissoes.pode_criar} onClick={() => guardar.mutate('paid')}>{t('Registar como paga')}</Botao>}
-                {!soLeitura && (
-                    <Botao cor="primaria" tom="solida" altura="grande" icone="fa-truck-ramp-box" aTrabalhar={aGuardar('pending')} disabled={!o.permissoes.pode_criar} onClick={() => guardar.mutate('pending')}>
-                        {t('Registar compra')}
+                {/*
+                  * OS BOTÕES, debaixo do resumo e um por linha.
+                  *
+                  * São decisões diferentes: guardar para acabar depois,
+                  * REGISTAR (que dá entrada do stock e não se desfaz sem
+                  * anular), ou registar já paga. Um por linha para não se
+                  * carregar no de baixo a pensar no de cima.
+                  *
+                  * Fora do fieldset: numa compra só de leitura os campos
+                  * fecham-se, mas voltar à lista tem de continuar a funcionar.
+                  */}
+                <div className={cls(CARTAO, 'space-y-3 p-5')}>
+                    {!soLeitura && <Botao className="w-full" icone="fa-file" aTrabalhar={aGuardar('draft')} onClick={() => guardar.mutate('draft')}>{t('Guardar rascunho')}</Botao>}
+
+                    {!soLeitura && (
+                        <Botao className="w-full" cor="primaria" tom="solida" altura="grande" icone="fa-truck-ramp-box" aTrabalhar={aGuardar('pending')} disabled={!o.permissoes.pode_criar} onClick={() => guardar.mutate('pending')}>
+                            {t('Registar compra')}
+                        </Botao>
+                    )}
+
+                    {!soLeitura && <Botao className="w-full" icone="fa-money-bill" aTrabalhar={aGuardar('paid')} disabled={!o.permissoes.pode_criar} onClick={() => guardar.mutate('paid')}>{t('Registar como paga')}</Botao>}
+
+                    <Botao className="w-full" icone="fa-arrow-left" onClick={() => (window.location.href = '/invoicing/purchases/invoices')}>
+                        {soLeitura ? t('Voltar às compras') : t('Cancelar')}
                     </Botao>
-                )}
+                </div>
+            </div>
+
             </div>
         </div>
     );

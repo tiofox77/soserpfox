@@ -508,6 +508,16 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             ->where('tipo', '[a-z-]+')->whereNumber('id')->name('catalogos.destroy');
         Route::post('/catalogos/{tipo}/{id}/logotipo', [\App\Http\Controllers\Api\Invoicing\CatalogoApiController::class, 'logotipo'])
             ->where('tipo', '[a-z-]+')->whereNumber('id')->name('catalogos.logotipo');
+        /*
+         * ATRIBUIR EM LOTE — quem se pode atribuir, e atribuir.
+         *
+         * Antes do `{accao}` genérico de propósito: `atribuir` é POST com
+         * corpo e o outro não, e a rota curinga apanhava-o primeiro.
+         */
+        Route::get('/catalogos/{tipo}/{id}/atribuiveis', [\App\Http\Controllers\Api\Invoicing\CatalogoApiController::class, 'atribuiveis'])
+            ->where('tipo', '[a-z-]+')->whereNumber('id')->name('catalogos.atribuiveis');
+        Route::post('/catalogos/{tipo}/{id}/atribuir', [\App\Http\Controllers\Api\Invoicing\CatalogoApiController::class, 'atribuir'])
+            ->where('tipo', '[a-z-]+')->whereNumber('id')->name('catalogos.atribuir');
         Route::post('/catalogos/{tipo}/{id}/{accao}', [\App\Http\Controllers\Api\Invoicing\CatalogoApiController::class, 'accao'])
             ->where('tipo', '[a-z-]+')->whereNumber('id')->where('accao', 'activar|padrao')->name('catalogos.accao');
 
@@ -1201,7 +1211,23 @@ Route::middleware(['auth', 'tenant.module:rh'])->prefix('hr')->name('hr.')->grou
     Route::get('/payroll/payslip/{id}/pdf', [\App\Http\Controllers\HR\PayrollController::class, 'generatePayslipPDF'])->name('payroll.payslip.pdf');
     Route::get('/payroll/{id}/payslips-pdf', [\App\Http\Controllers\HR\PayrollController::class, 'generateAllPayslipsPDF'])->name('payroll.payslips-all.pdf');
     Route::get('/payroll/{id}/excel', [\App\Http\Controllers\HR\PayrollController::class, 'exportExcel'])->name('payroll.excel');
-    Route::get('/departments', \App\Livewire\HR\DepartmentManagement::class)->name('departments.index');
+    /*
+     * OS CATÁLOGOS DO RH, em React e COM GUARDA.
+     *
+     * As moradas são as de sempre. O que muda é que passam pelo ecrã genérico
+     * de catálogos (o mesmo dos fornecedores e dos bancos) e que exigem a
+     * permissão que o módulo inteiro nunca teve — ver
+     * `permissions:sync-rh-catalogos`.
+     *
+     * Os CARGOS ganham morada própria: em Livewire viviam dentro do ecrã dos
+     * departamentos, com um segundo conjunto de métodos igual ao primeiro.
+     */
+    Route::middleware('permission:hr.departments.view')
+        ->get('/departments', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Departamentos', ['tipo' => 'departamentos']))
+        ->name('departments.index');
+    Route::middleware('permission:hr.positions.view')
+        ->get('/positions', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Cargos', ['tipo' => 'cargos']))
+        ->name('positions.index');
     Route::get('/attendance', \App\Livewire\HR\AttendanceManagement::class)->name('attendance.index');
     Route::get('/vacations', \App\Livewire\HR\VacationManagement::class)->name('vacations.index');
     Route::get('/leaves', \App\Livewire\HR\LeaveManagement::class)->name('leaves');
@@ -1212,7 +1238,9 @@ Route::middleware(['auth', 'tenant.module:rh'])->prefix('hr')->name('hr.')->grou
     Route::get('/overtime-night-shift', \App\Livewire\HR\OvertimeNightShiftManagement::class)->name('overtime-night-shift');
     Route::get('/salary-discounts', \App\Livewire\HR\SalaryDiscountManagement::class)->name('salary-discounts');
     Route::get('/salary-discounts/{id}/pdf', [\App\Http\Controllers\HR\SalaryDiscountController::class, 'generatePDF'])->name('salary-discounts.pdf');
-    Route::get('/shifts', \App\Livewire\HR\ShiftsManagement::class)->name('shifts.index');
+    Route::middleware('permission:hr.shifts.view')
+        ->get('/shifts', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Turnos', ['tipo' => 'turnos']))
+        ->name('shifts.index');
     Route::get('/reports', \App\Livewire\HR\HRReports::class)->name('reports');
 
     // Mapa de IRT: o imposto retido aos trabalhadores no mês, para declarar
