@@ -184,6 +184,16 @@ class SyncController extends Controller
             // artigos que nao o controlam.
             'manage_stock' => (bool) $p->manage_stock,
             'warehouse_id' => $whId,
+            /*
+             * «PREÇO NO POS»: PERGUNTAR O PREÇO AO BALCÃO.
+             *
+             * Não vinha, e os dois balcões diziam coisas diferentes: o online
+             * abre um modal e pergunta; o offline metia o artigo ao preço de
+             * catálogo sem dizer nada. É o artigo que se vende a peso ou por
+             * acordo — offline ia sempre ao preço errado, e sem servidor
+             * nenhum a rever o que sai daqui.
+             */
+            'preco_no_pos' => (bool) $p->preco_no_pos,
             'category' => $p->category_id ? ($categoryMap[$p->category_id] ?? null) : null,
 
             // Farmácia, vestuário, cosmética e mercearia — enviados SEMPRE,

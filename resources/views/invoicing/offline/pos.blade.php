@@ -963,6 +963,37 @@ function posOffline() {
                 return;
             }
 
+            /*
+             * O PREÇO PERGUNTADO AO BALCÃO.
+             *
+             * Alguns artigos não têm preço fixo — vendem-se a peso, ao corte
+             * ou por acordo — e trazem `preco_no_pos` ligado. O balcão online
+             * abre um modal e pergunta; aqui pergunta-se com o `prompt`, que é
+             * o mesmo caminho do aviso dos controlados logo acima.
+             *
+             * Sem isto o artigo entrava ao preço de catálogo sem ninguém dar
+             * por ela — e offline não há servidor nenhum a rever o que sai
+             * daqui, nem forma de corrigir depois de o talão estar impresso.
+             */
+            let precoEscrito = null;
+
+            if (p.preco_no_pos) {
+                const resposta = prompt(
+                    __(':artigo tem o preço perguntado ao balcão. Preço unitário:', { artigo: p.name }),
+                    String(parseFloat(p.price) || 0),
+                );
+
+                // Cancelar não vende: é diferente de escrever zero.
+                if (resposta === null) return;
+
+                precoEscrito = parseFloat(String(resposta).replace(',', '.'));
+
+                if (!Number.isFinite(precoEscrito) || precoEscrito <= 0) {
+                    alert(__('O preço tem de ser um número maior que zero.'));
+                    return;
+                }
+            }
+
             const pid = Number.isInteger(p.id) ? p.id : null;
             const existing = this.cart.find(i => i.product_id === pid && i.product_name === p.name);
             if (existing) {
@@ -972,7 +1003,8 @@ function posOffline() {
                     product_id: pid,
                     product_name: p.name,
                     quantity: 1,
-                    unit_price: parseFloat(p.price) || 0,
+                    // O preço escrito ao balcão ganha ao de catálogo.
+                    unit_price: precoEscrito ?? (parseFloat(p.price) || 0),
                     // NÃO usar "|| 14": 0% (isento) é falsy e viraria 14%.
                     tax_rate: Number.isFinite(parseFloat(p.tax_rate)) ? parseFloat(p.tax_rate) : 0,
                     discount_percent: 0,

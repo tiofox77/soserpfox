@@ -418,6 +418,10 @@ class PosApiController extends Controller
                 'talao' => "/invoicing/sales/invoices/{$factura->id}/talao",
                 'a4' => "/invoicing/sales/invoices/{$factura->id}/preview",
             ],
+            // Compatibilidade com o contrato anterior do POS. Aplicacoes e
+            // integracoes que ainda leem `preview` continuam a abrir o A4,
+            // enquanto o ecra novo escolhe entre os dois papeis acima.
+            'preview' => "/invoicing/sales/invoices/{$factura->id}/preview",
             'message' => __('Venda :numero registada.', ['numero' => $factura->invoice_number]),
         ], 201);
     }

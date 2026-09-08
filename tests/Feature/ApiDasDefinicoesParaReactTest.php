@@ -195,4 +195,49 @@ class ApiDasDefinicoesParaReactTest extends TenantTestCase
         $this->assertTrue((bool) $nova->fresh()->is_default);
         $this->assertFalse((bool) $emUso->fresh()->is_default, 'só há uma padrão por tipo');
     }
+
+    /**
+     * A TAXA DO IVA NASCE DO IMPOSTO ESCOLHIDO — nunca do que se escreve.
+     *
+     * Eram duas verdades a competir: `default_tax_id` (o imposto do catálogo)
+     * e `default_tax_rate` (uma percentagem à parte). Nada as obrigava a
+     * concordar, e o número sozinho não sabe nada do regime da empresa: em
+     * regime de isenção dá 0% e a linha segue sem código de isenção — a AGT
+     * recusa uma linha sem imposto e sem motivo. O `SalonPOS` já tinha
+     * deixado de o usar por isso mesmo.
+     *
+     * A RETENÇÃO (IRT) é o contrário e continua a escrever-se: não vem de
+     * imposto nenhum do catálogo, é uma percentagem retida na fonte.
+     *
+     * @test
+     */
+    public function a_taxa_do_iva_vem_do_imposto_e_nao_do_que_se_escreve(): void
+    {
+        $this->comPermissoes('invoicing.settings.view', 'invoicing.settings.edit');
+
+        $imposto = \App\Models\Invoicing\Tax::create([
+            'tenant_id' => $this->tenant->id,
+            'code' => 'IVA7E',
+            'name' => 'IVA 7% de ensaio',
+            'rate' => 7,
+            'is_active' => true,
+            'saft_code' => 'RED',
+        ]);
+
+        // O pedido MENTE: escolhe o imposto de 7% e diz que a taxa é 14%.
+        $this->putJson(self::RAIZ, $this->corpo([
+            'default_tax_id' => $imposto->id,
+            'default_tax_rate' => 14,
+            'default_irt_rate' => 6.5,
+        ]))->assertOk();
+
+        $d = InvoicingSettings::where('tenant_id', $this->tenant->id)->first();
+
+        $this->assertEqualsWithDelta(7, (float) $d->default_tax_rate, 0.01,
+            'a taxa tem de vir do imposto escolhido, não do número do pedido');
+
+        // A retenção é escrita, e fica como veio.
+        $this->assertEqualsWithDelta(6.5, (float) $d->default_irt_rate, 0.01,
+            'o IRT não vem de imposto nenhum: continua a escrever-se');
+    }
 }

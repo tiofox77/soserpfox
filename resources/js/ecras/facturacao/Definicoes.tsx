@@ -96,6 +96,15 @@ export default function Definicoes() {
     }
 
     const o = ecra.data.opcoes;
+
+    /*
+     * O IMPOSTO PADRÃO ESCOLHIDO — é dele que sai a taxa que se mostra.
+     *
+     * A percentagem deixou de ser um campo escrito: escrever um número ao lado
+     * do imposto do catálogo eram duas verdades a competir, e a que se escreve
+     * à mão não sabe nada do regime de isenção da empresa.
+     */
+    const impostoEscolhido = o.impostos.find((i) => i.id === Number(forma.default_tax_id)) ?? null;
     const podeEditar = ecra.data.permissoes.pode_editar;
 
     const mudar = <K extends keyof Valores>(campo: K, valor: Valores[K]) =>
@@ -228,8 +237,23 @@ export default function Definicoes() {
                 <div className="grid gap-4 lg:grid-cols-2">
                     <Cartao titulo={t('Impostos')} icone="fa-percent">
                         <div className="grid gap-4 sm:grid-cols-2">
-                            <Campo etiqueta={t('IVA padrão (%)')} erro={erros.default_tax_rate} obrigatorio>
-                                <input type="number" min="0" max="100" step="0.01" value={forma.default_tax_rate} onChange={texto('default_tax_rate')} className={cls(entrada, 'text-right tabular-nums')} />
+                            {/* O IVA PADRÃO NÃO SE ESCREVE: vem do imposto
+                                escolhido em «Padrões». Eram duas verdades a
+                                competir, e o número sozinho mente sobre o
+                                regime — quando dá 0% por ser isento, a linha
+                                seguia sem código de isenção e a AGT recusa-a.
+
+                                Quem quiser outra taxa muda o imposto, ou
+                                cria-o no catálogo de impostos. */}
+                            <Campo etiqueta={t('IVA padrão (%)')} ajuda={t('Vem do imposto padrão escolhido em Padrões.')}>
+                                <div className={cls(entrada, 'flex items-center justify-between bg-slate-50')}>
+                                    <span className="font-semibold tabular-nums text-slate-700">
+                                        {impostoEscolhido ? `${impostoEscolhido.rate}%` : t('— sem imposto escolhido —')}
+                                    </span>
+                                    {impostoEscolhido && (
+                                        <span className="text-xs text-slate-500">{impostoEscolhido.name}</span>
+                                    )}
+                                </div>
                             </Campo>
                             <Campo etiqueta={t('IRT nos serviços (%)')} erro={erros.default_irt_rate} obrigatorio>
                                 <input type="number" min="0" max="100" step="0.01" value={forma.default_irt_rate} onChange={texto('default_irt_rate')} className={cls(entrada, 'text-right tabular-nums')} />

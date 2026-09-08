@@ -215,6 +215,32 @@ class DefinicoesDaFacturacao
             )));
         }
 
+        /*
+         * A TAXA NASCE DO IMPOSTO ESCOLHIDO, e não de um número escrito à mão.
+         *
+         * Eram duas verdades a competir — `default_tax_id` (o imposto do
+         * catálogo) e `default_tax_rate` (uma percentagem à parte) — e nada as
+         * obrigava a concordar. Hoje ainda concordam nas 6 empresas que têm as
+         * duas; o problema são as outras 6, que não têm imposto escolhido e
+         * ficam só com o número.
+         *
+         * E o número sozinho MENTE sobre o regime: o `SalonPOS` já tinha
+         * deixado de o usar por isso mesmo — «o default_tax_rate ignorava o
+         * regime de isenção e, quando dava 0%, a linha seguia sem código de
+         * isenção; a AGT recusa uma linha sem imposto e sem motivo».
+         *
+         * Passa a derivar-se. A RETENÇÃO (IRT) não: essa não vem de nenhum
+         * imposto do catálogo — é uma percentagem retida na fonte, e continua
+         * a escrever-se.
+         */
+        if (! empty($valores['default_tax_id'])) {
+            $imposto = Tax::where('tenant_id', $tenantId)->find($valores['default_tax_id']);
+
+            if ($imposto) {
+                $valores['default_tax_rate'] = (float) $imposto->rate;
+            }
+        }
+
         $definicoes->update($valores);
 
         return $this->fixarArmazemPrincipal($definicoes, $tenantId);
