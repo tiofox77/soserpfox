@@ -75,6 +75,12 @@ export const ecras: Record<string, Ecra> = {
     'rh/pedidos': () =>
         import('./rh/Pedidos'),
 
+    // O ponto de cada dia, e a folha de pagamento do mês.
+    'rh/presencas': () =>
+        import('./rh/Presencas'),
+    'rh/folha': () =>
+        import('./rh/Folha'),
+
     // A casca: a barra lateral com o menu, o suporte e o utilizador.
     'casca': () =>
         import('./casca/Casca'),

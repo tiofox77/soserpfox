@@ -567,6 +567,43 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::post('/{id}/anexo', [$c, 'anexo'])->whereNumber('id')->name('anexo');
         });
 
+        /*
+         * O PONTO. É a origem do que a folha desconta: uma falta a menos aqui
+         * é dinheiro a mais no salário.
+         */
+        Route::prefix('rh/presencas')->name('rh.presencas.')->group(function () {
+            $c = \App\Http\Controllers\Api\Hr\PresencasApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/calendario', [$c, 'calendario'])->name('calendario');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'guardar'])->name('guardar');
+            Route::post('/importar', [$c, 'importar'])->name('importar');
+            Route::post('/entrada/{funcionario}', [$c, 'entrada'])->whereNumber('funcionario')->name('entrada');
+            Route::put('/{id}', [$c, 'actualizar'])->whereNumber('id')->name('actualizar');
+            Route::post('/{id}/saida', [$c, 'saida'])->whereNumber('id')->name('saida');
+            Route::delete('/{id}', [$c, 'eliminar'])->whereNumber('id')->name('eliminar');
+        });
+
+        /*
+         * A FOLHA DE PAGAMENTO. Nenhuma conta aqui: cada passo é uma chamada
+         * ao `PayrollService`.
+         */
+        Route::prefix('rh/folha')->name('rh.folha.')->group(function () {
+            $c = \App\Http\Controllers\Api\Hr\FolhaApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'guardar'])->name('guardar');
+            Route::get('/{id}', [$c, 'ficha'])->whereNumber('id')->name('ficha');
+            Route::delete('/{id}', [$c, 'eliminar'])->whereNumber('id')->name('eliminar');
+            Route::post('/{id}/processar', [$c, 'processar'])->whereNumber('id')->name('processar');
+            Route::post('/{id}/aprovar', [$c, 'aprovar'])->whereNumber('id')->name('aprovar');
+            Route::post('/{id}/pagar', [$c, 'pagar'])->whereNumber('id')->name('pagar');
+            Route::post('/{id}/recalcular', [$c, 'recalcular'])->whereNumber('id')->name('recalcular');
+            Route::put('/{id}/linhas/{linha}', [$c, 'acertarLinha'])->whereNumber('id')->whereNumber('linha')->name('linha');
+        });
+
         // Adiantamentos: as regras no EmissorDeAdiantamentos, o mesmo do Livewire.
         Route::get('/adiantamentos/opcoes', [\App\Http\Controllers\Api\Invoicing\AdiantamentoApiController::class, 'opcoes'])->name('adiantamentos.opcoes');
         Route::get('/adiantamentos/{id}', [\App\Http\Controllers\Api\Invoicing\AdiantamentoApiController::class, 'mostrar'])->whereNumber('id')->name('adiantamentos.mostrar');
@@ -1260,10 +1297,22 @@ Route::middleware(['auth', 'tenant.module:rh'])->prefix('hr')->name('hr.')->grou
         ->middleware('permission:hr.vacations.view')->name('vacations.pdf');
     Route::get('/leaves/{id}/pdf', [\App\Http\Controllers\HR\LeaveController::class, 'generatePDF'])
         ->middleware('permission:hr.leaves.view')->name('leaves.pdf');
-    Route::get('/payroll', \App\Livewire\HR\PayrollManagement::class)->name('payroll');
-    Route::get('/payroll/payslip/{id}/pdf', [\App\Http\Controllers\HR\PayrollController::class, 'generatePayslipPDF'])->name('payroll.payslip.pdf');
-    Route::get('/payroll/{id}/payslips-pdf', [\App\Http\Controllers\HR\PayrollController::class, 'generateAllPayslipsPDF'])->name('payroll.payslips-all.pdf');
-    Route::get('/payroll/{id}/excel', [\App\Http\Controllers\HR\PayrollController::class, 'exportExcel'])->name('payroll.excel');
+    /*
+     * A FOLHA DE PAGAMENTO — o ecrã onde um erro custa dinheiro a alguém.
+     *
+     * `payroll.process` é a permissão que existia e que nenhuma destas rotas
+     * aplicava: ver a folha é ver o salário de toda a gente, e os PDF levam o
+     * recibo de cada um.
+     */
+    Route::middleware('permission:payroll.process')
+        ->get('/payroll', \App\Support\EcraReact::pagina('rh/folha', 'Folha de Pagamento'))
+        ->name('payroll');
+    Route::get('/payroll/payslip/{id}/pdf', [\App\Http\Controllers\HR\PayrollController::class, 'generatePayslipPDF'])
+        ->middleware('permission:payroll.process')->name('payroll.payslip.pdf');
+    Route::get('/payroll/{id}/payslips-pdf', [\App\Http\Controllers\HR\PayrollController::class, 'generateAllPayslipsPDF'])
+        ->middleware('permission:payroll.process')->name('payroll.payslips-all.pdf');
+    Route::get('/payroll/{id}/excel', [\App\Http\Controllers\HR\PayrollController::class, 'exportExcel'])
+        ->middleware('permission:payroll.process')->name('payroll.excel');
     /*
      * OS CATÁLOGOS DO RH, em React e COM GUARDA.
      *
@@ -1281,7 +1330,9 @@ Route::middleware(['auth', 'tenant.module:rh'])->prefix('hr')->name('hr.')->grou
     Route::middleware('permission:hr.positions.view')
         ->get('/positions', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Cargos', ['tipo' => 'cargos']))
         ->name('positions.index');
-    Route::get('/attendance', \App\Livewire\HR\AttendanceManagement::class)->name('attendance.index');
+    Route::middleware('permission:attendance.manage')
+        ->get('/attendance', \App\Support\EcraReact::pagina('rh/presencas', 'Presenças'))
+        ->name('attendance.index');
     /*
      * OS CINCO ECRÃS DE PEDIDOS, no ecrã genérico e COM GUARDA.
      *

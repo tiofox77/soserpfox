@@ -64,9 +64,31 @@ class PayrollExportTest extends TenantTestCase
             'status' => 'calculated',
         ]);
 
+        // O EXCEL DA FOLHA É O SALÁRIO DE TODA A GENTE numa folha de cálculo:
+        // pede a mesma permissão que processar a folha. Sem ela, a rota não
+        // abre — e era exactamente uma das que nada guardava.
         $this->comModulo('rh')
+            ->comPermissoes('payroll.process')
             ->get(route('hr.payroll.excel', $payroll->id))
             ->assertOk()
             ->assertDownload('folha_2026_09.xlsx');
+    }
+
+    /** E sem a permissão, ninguém descarrega a folha de salários de ninguém. */
+    public function test_sem_permissao_o_excel_da_folha_nao_abre(): void
+    {
+        $payroll = Payroll::create([
+            'tenant_id' => $this->tenant->id,
+            'payroll_number' => 'FP-GUARDA-' . uniqid(),
+            'year' => 2026,
+            'month' => 8,
+            'period_start' => '2026-08-01',
+            'period_end' => '2026-08-31',
+            'status' => 'draft',
+        ]);
+
+        $this->comModulo('rh')
+            ->get(route('hr.payroll.excel', $payroll->id))
+            ->assertForbidden();
     }
 }

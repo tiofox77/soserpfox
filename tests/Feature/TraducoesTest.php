@@ -300,7 +300,82 @@ class TraducoesTest extends TenantTestCase
             'o arranque tem de carregar o dicionário antes de montar os ecrãs');
     }
 
+    /**
+     * O QUE O `t()` DOS `.tsx` PEDE TEM DE ESTAR NO DICIONÁRIO.
+     *
+     * O teste acima só prova que o ecrã IMPORTA o tradutor. Isso não chega:
+     * um `t('Por marcar hoje')` sem entrada em `lang/en.json` devolve a chave
+     * — o português — e o ecrã fica meio traduzido sem ninguém dar por isso.
+     *
+     * Foi assim que 920 cadeias dos ecrãs em React chegaram ao fim da
+     * migração fora do dicionário: o detector do `ONDE` procura `__()` em
+     * PHP e em `.js`, e nunca olhou para os `.tsx`. Este é o guarda que
+     * faltava — e a partir daqui, um ecrã novo em português rebenta a suite.
+     */
+    public function test_as_cadeias_do_react_tem_traducao_em_en_e_fr(): void
+    {
+        $usadas = $this->cadeiasDoReact();
+
+        $this->assertGreaterThan(
+            500,
+            count($usadas),
+            'o varrimento dos .tsx tem de encontrar as cadeias do React — se caiu para quase nada, o padrão deixou de casar'
+        );
+
+        foreach (['en', 'fr'] as $lingua) {
+            $dicionario = json_decode(file_get_contents(base_path("lang/{$lingua}.json")), true);
+
+            $emFalta = array_diff($usadas, array_keys($dicionario));
+
+            $this->assertEmpty(
+                $emFalta,
+                "Cadeias do React sem tradução em {$lingua} (" . count($emFalta) . "):\n  "
+                . implode("\n  ", array_slice($emFalta, 0, 40))
+            );
+        }
+    }
+
     // ==================== o varrimento ====================
+
+    /**
+     * As cadeias dentro de `t('...')` em todo o `resources/js`.
+     *
+     * Só literais: um `t(variavel)` não se pode extrair, e é por isso que os
+     * rótulos que vêm do servidor são traduzidos do lado do servidor.
+     */
+    private function cadeiasDoReact(): array
+    {
+        $cadeias = [];
+
+        $ficheiros = array_filter(
+            iterator_to_array(new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator(resource_path('js'))
+            )),
+            fn ($f) => $f->isFile()
+                && preg_match('/\.tsx?$/', $f->getFilename())
+                && ! str_ends_with($f->getFilename(), '.test.tsx')
+        );
+
+        foreach ($ficheiros as $f) {
+            $conteudo = file_get_contents($f->getPathname());
+
+            // `t('...')` e `t("...")`. O `\b` antes do `t` evita apanhar o
+            // fecho de `useEffect(`, `parseInt(` e companhia.
+            if (preg_match_all('/\bt\(\s*\'((?:[^\'\\\\]|\\\\.)+)\'/', $conteudo, $m)) {
+                foreach ($m[1] as $cadeia) {
+                    $cadeias[self::interpretarEscapes($cadeia)] = true;
+                }
+            }
+
+            if (preg_match_all('/\bt\(\s*"((?:[^"\\\\]|\\\\.)+)"/', $conteudo, $m)) {
+                foreach ($m[1] as $cadeia) {
+                    $cadeias[self::interpretarEscapes($cadeia)] = true;
+                }
+            }
+        }
+
+        return array_keys($cadeias);
+    }
 
     /**
      * Todas as cadeias dentro de __(), __n() e trans_choice() nos sítios

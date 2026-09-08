@@ -179,6 +179,7 @@ class PrepararBancadaPwa extends Command
         }
 
         $mesas = $this->montarORestaurante($tenant, $armazem, $imposto);
+        $pessoas = $this->montarORh($tenant);
 
         $this->newLine();
         $this->info('Bancada do PWA montada.');
@@ -190,6 +191,7 @@ class PrepararBancadaPwa extends Command
             ['PIN',      self::PIN],
             ['Artigos',  $artigos],
             ['Mesas',    $mesas],
+            ['Funcionários', $pessoas],
             ['Cliente',  $cliente->name],
             ['Armazém',  $armazem->name],
         ]);
@@ -286,6 +288,112 @@ class PrepararBancadaPwa extends Command
         }
 
         return $mesas;
+    }
+
+    /**
+     * O RH da bancada: um departamento, um cargo, um turno e três pessoas.
+     *
+     * Sem gente, os ecrãs do RH abrem correctos e vazios — e um ensaio que
+     * corre numa empresa sem funcionários não distingue «funciona» de «não há
+     * nada para mostrar». O ponto e a folha precisam de alguém a quem marcar
+     * a entrada e a quem pagar.
+     *
+     * Os salários são redondos e diferentes de propósito: um abaixo do limite
+     * de isenção do IRT e dois acima, para que a folha da bancada tenha
+     * imposto a zero numa linha e escalões diferentes nas outras.
+     *
+     * @return int quantas pessoas ficaram na casa
+     */
+    private function montarORh(Tenant $tenant): int
+    {
+        $departamento = \App\Models\HR\Department::firstOrCreate(
+            ['tenant_id' => $tenant->id, 'code' => 'BANC-OPS'],
+            ['name' => 'Operações da Bancada', 'is_active' => true]
+        );
+
+        $cargo = \App\Models\HR\Position::firstOrCreate(
+            ['tenant_id' => $tenant->id, 'code' => 'BANC-OPER'],
+            [
+                'title' => 'Operador de Balcão',
+                'department_id' => $departamento->id,
+                'min_salary' => 100000,
+                'max_salary' => 500000,
+                'is_active' => true,
+            ]
+        );
+
+        $turno = \App\Models\HR\Shift::firstOrCreate(
+            ['tenant_id' => $tenant->id, 'code' => 'BANC-DIA'],
+            [
+                'name' => 'Turno da Manhã',
+                'start_time' => '08:00',
+                'end_time' => '17:00',
+                'hours_per_day' => 8,
+                // Segunda a sexta. É contra a hora de entrada deste turno que
+                // o ponto mede o atraso.
+                'work_days' => [1, 2, 3, 4, 5],
+                'is_night_shift' => false,
+                'is_active' => true,
+            ]
+        );
+
+        $pessoas = 0;
+
+        foreach ([
+            ['BANC-001', 'Ana', 'Kiala', 120000],
+            ['BANC-002', 'Bruno', 'Manuel', 260000],
+            ['BANC-003', 'Célia', 'Domingos', 450000],
+        ] as [$numero, $nome, $apelido, $salario]) {
+            \App\Models\HR\Employee::firstOrCreate(
+                ['tenant_id' => $tenant->id, 'employee_number' => $numero],
+                [
+                    'first_name' => $nome,
+                    'last_name' => $apelido,
+                    'full_name' => $nome . ' ' . $apelido,
+                    'department_id' => $departamento->id,
+                    'position_id' => $cargo->id,
+                    'shift_id' => $turno->id,
+                    'hire_date' => now()->subYears(2)->startOfYear(),
+                    'employment_type' => 'Contrato',
+                    'status' => 'active',
+                    'employment_status' => 'active',
+                    // As duas colunas irmãs, escritas juntas — que é a regra
+                    // que o `rh:alinhar-colunas-do-funcionario` veio impor.
+                    'salary' => $salario,
+                    'base_salary' => $salario,
+                ]
+            );
+
+            $pessoas++;
+        }
+
+        $this->folhaAprovadaDeEnsaio($tenant);
+
+        return $pessoas;
+    }
+
+    /**
+     * UMA FOLHA APROVADA E PARADA, de um mês antigo.
+     *
+     * O aviso do «marcar paga» — o passo que abate as prestações dos
+     * adiantamentos e não se desfaz — só aparece numa folha aprovada. E uma
+     * folha aprovada JÁ NÃO SE ELIMINA: um ensaio que a criasse e aprovasse
+     * deixava-a para trás e não conseguia correr uma segunda vez.
+     *
+     * Por isso ela é da bancada, não do ensaio: Fevereiro de 2019, aprovada,
+     * e nunca paga. O ensaio abre o aviso e cancela.
+     */
+    private function folhaAprovadaDeEnsaio(Tenant $tenant): void
+    {
+        $existente = \App\Models\HR\Payroll::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->where('year', 2019)->where('month', 2)
+            ->first();
+
+        $folha = $existente ?: app(\App\Services\HR\PayrollService::class)->createPayroll($tenant->id, 2019, 2);
+
+        // Volta sempre a APROVADA: uma corrida anterior pode tê-la pago.
+        $folha->forceFill(['status' => 'approved', 'approved_at' => now()])->save();
     }
 
     private function limpar(): int
