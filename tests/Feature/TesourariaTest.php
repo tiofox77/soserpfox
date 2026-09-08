@@ -68,12 +68,44 @@ class TesourariaTest extends TenantTestCase
             ->call('save')->assertHasNoErrors();
         $category = TransactionCategory::where('tenant_id', $this->tenant->id)->where('code', 'bank_loan')->firstOrFail();
 
-        $component = Livewire::actingAs($this->user)->test(Transactions::class)->call('create')
-            ->set('form.transaction_type_id', $type->id)
-            ->set('form.transaction_category_id', $category->id);
+        /*
+         * E O MOVIMENTO NASCE COM OS DOIS. A natureza vem do TIPO e o código
+         * textual acompanha o id da categoria — é por esse código que os
+         * filtros antigos, o POS e os relatórios procuram.
+         */
+        $this->comPermissoes('treasury.transactions.view', 'treasury.transactions.create');
 
-        $this->assertSame('income', $component->get('form.type'));
-        $this->assertSame('bank_loan', $component->get('form.category'));
+        $id = $this->postJson('/api/v1/invoicing/react/tesouraria/movimentos', [
+            'transaction_type_id' => $type->id,
+            'transaction_category_id' => $category->id,
+            'amount' => 1000,
+            'currency' => 'AOA',
+            'transaction_date' => now()->toDateString(),
+            'payment_method_id' => PaymentMethod::where('tenant_id', $this->tenant->id)->firstOrFail()->id,
+            'cash_register_id' => $this->caixaParaMovimentos()->id,
+            'description' => 'Financiamento recebido',
+            'status' => 'completed',
+        ])->assertCreated()->json('id');
+
+        $movimento = Transaction::findOrFail($id);
+
+        $this->assertSame('income', $movimento->type);
+        $this->assertSame('bank_loan', $movimento->category);
+    }
+
+    /** Um caixa para os movimentos caírem: o saldo tem de ter onde mexer. */
+    private function caixaParaMovimentos(): CashRegister
+    {
+        return CashRegister::create([
+            'tenant_id' => $this->tenant->id,
+            'user_id' => $this->user->id,
+            'name' => 'Caixa dos ensaios',
+            'code' => 'CXE-' . uniqid(),
+            'opening_balance' => 0,
+            'current_balance' => 0,
+            'status' => 'open',
+            'is_active' => true,
+        ]);
     }
 
     public function test_tipo_e_categoria_de_outra_empresa_nao_sao_aceites(): void
@@ -82,10 +114,18 @@ class TesourariaTest extends TenantTestCase
         TransactionCategory::seedDefaultsForTenant($outra->id);
         $foreignType = TransactionType::withoutGlobalScopes()->where('tenant_id', $outra->id)->firstOrFail();
 
-        Livewire::actingAs($this->user)->test(Transactions::class)->call('create')
-            ->set('form.transaction_type_id', $foreignType->id)
-            ->call('save')
-            ->assertHasErrors('form.transaction_type_id');
+        $this->comPermissoes('treasury.transactions.view', 'treasury.transactions.create');
+
+        $this->postJson('/api/v1/invoicing/react/tesouraria/movimentos', [
+            'transaction_type_id' => $foreignType->id,
+            'amount' => 100,
+            'currency' => 'AOA',
+            'transaction_date' => now()->toDateString(),
+            'payment_method_id' => PaymentMethod::where('tenant_id', $this->tenant->id)->firstOrFail()->id,
+            'cash_register_id' => $this->caixaParaMovimentos()->id,
+            'description' => 'Não pode passar',
+            'status' => 'completed',
+        ])->assertStatus(422)->assertJsonValidationErrors('transaction_type_id');
     }
 
     public function test_abrir_e_fechar_turno_abre_e_fecha_o_caixa_atribuido(): void
@@ -152,10 +192,19 @@ class TesourariaTest extends TenantTestCase
             'description' => 'Venda POS fiscal',
         ]);
 
-        Livewire::actingAs($this->user)
-            ->test(Transactions::class)
-            ->call('openCreditModal', $transaction->id)
-            ->assertRedirect(route('invoicing.pos.reports', [
+        /*
+         * O servidor RECUSA estornar aqui — e diz por onde se faz.
+         *
+         * Anular uma venda é emitir uma nota de crédito: linhas escolhidas,
+         * imposto recalculado, stock reposto, hash SAFT e comunicação à AGT.
+         * Um movimento de sinal contrário devolvia o dinheiro e deixava a
+         * factura de pé, sem nada disso.
+         */
+        $this->comPermissoes('treasury.transactions.view', 'treasury.transactions.create');
+
+        $this->postJson("/api/v1/invoicing/react/tesouraria/movimentos/{$transaction->id}/creditar")
+            ->assertStatus(409)
+            ->assertJsonPath('redireccionar', route('invoicing.pos.reports', [
                 'credit_transaction' => $transaction->id,
             ]));
     }
@@ -200,18 +249,33 @@ class TesourariaTest extends TenantTestCase
             'initial_balance' => 0, 'current_balance' => 0, 'is_active' => true,
         ]);
         $method = PaymentMethod::where('tenant_id', $this->tenant->id)->firstOrFail();
-        $component = Livewire::actingAs($this->user)->test(Transactions::class)->call('create')
-            ->set('form.type', 'income')->set('form.category', 'customer_payment')
-            ->set('form.amount', 1000)->set('form.payment_method_id', $method->id)
-            ->set('form.account_id', $account->id)->set('form.cash_register_id', '')
-            ->set('form.description', 'Entrada teste')->call('save')->assertHasNoErrors();
-        $transaction = Transaction::where('description', 'Entrada teste')->firstOrFail();
+
+        $this->comPermissoes('treasury.transactions.view', 'treasury.transactions.create',
+            'treasury.transactions.edit', 'treasury.transactions.delete');
+
+        TransactionCategory::seedDefaultsForTenant((int) $this->tenant->id);
+        $tipo = TransactionType::where('tenant_id', $this->tenant->id)->where('nature', 'income')->firstOrFail();
+
+        $corpo = [
+            'transaction_type_id' => $tipo->id,
+            'amount' => 1000,
+            'currency' => 'AOA',
+            'transaction_date' => now()->toDateString(),
+            'payment_method_id' => $method->id,
+            'account_id' => $account->id,
+            'description' => 'Entrada teste',
+            'status' => 'completed',
+        ];
+
+        $raiz = '/api/v1/invoicing/react/tesouraria/movimentos';
+
+        $id = $this->postJson($raiz, $corpo)->assertCreated()->json('id');
         $this->assertEquals(1000, (float) $account->fresh()->current_balance);
 
-        $component->call('edit', $transaction->id)->set('form.amount', 600)->call('save')->assertHasNoErrors();
+        $this->putJson("{$raiz}/{$id}", ['amount' => 600] + $corpo)->assertOk();
         $this->assertEquals(600, (float) $account->fresh()->current_balance);
 
-        $component->call('confirmDelete', $transaction->id)->call('deleteTransaction');
+        $this->deleteJson("{$raiz}/{$id}")->assertOk();
         $this->assertEquals(0, (float) $account->fresh()->current_balance);
     }
 
@@ -362,12 +426,14 @@ class TesourariaTest extends TenantTestCase
     {
         $this->transaccao(['category' => 'digital_payment']);
 
-        $categorias = Livewire::actingAs($this->user)
-            ->test(Transactions::class)
-            ->viewData('categoriasParaFiltrar');
+        $this->comPermissoes('treasury.transactions.view');
 
-        $this->assertArrayHasKey('digital_payment', $categorias);
-        $this->assertSame('Pagamento digital', $categorias['digital_payment']);
+        $categorias = collect(
+            $this->getJson('/api/v1/invoicing/react/tesouraria/movimentos/opcoes')
+                ->assertOk()->json('categorias_para_filtrar')
+        );
+
+        $this->assertSame('Pagamento digital', $categorias->firstWhere('valor', 'digital_payment')['rotulo'] ?? null);
     }
 
     public function test_uma_categoria_desconhecida_e_legivel_e_nao_fica_em_branco(): void
@@ -379,27 +445,25 @@ class TesourariaTest extends TenantTestCase
 
     public function test_filtra_por_data(): void
     {
+        $this->comPermissoes('treasury.transactions.view');
+
         $this->transaccao(['transaction_date' => now()->subMonths(2)]);
         $recente = $this->transaccao(['transaction_date' => now()]);
 
-        $c = Livewire::actingAs($this->user)
-            ->test(Transactions::class)
-            ->set('dataDe', now()->subDays(7)->toDateString());
+        $r = $this->getJson($this->morada(['de' => now()->subDays(7)->toDateString()]))->assertOk();
 
-        $this->assertSame(1, $c->viewData('transactions')->total());
-        $this->assertSame($recente->id, $c->viewData('transactions')->first()->id);
+        $this->assertSame(1, $r->json('meta.total'));
+        $this->assertSame($recente->id, $r->json('data.0.id'));
     }
 
     public function test_filtra_por_categoria(): void
     {
+        $this->comPermissoes('treasury.transactions.view');
+
         $this->transaccao(['category' => 'cash']);
         $this->transaccao(['category' => 'card']);
 
-        $c = Livewire::actingAs($this->user)
-            ->test(Transactions::class)
-            ->set('filterCategory', 'card');
-
-        $this->assertSame(1, $c->viewData('transactions')->total());
+        $this->assertSame(1, $this->getJson($this->morada(['categoria' => 'card']))->assertOk()->json('meta.total'));
     }
 
     /**
@@ -410,27 +474,35 @@ class TesourariaTest extends TenantTestCase
      */
     public function test_os_totais_respeitam_os_filtros(): void
     {
+        $this->comPermissoes('treasury.transactions.view');
+
         $this->transaccao(['amount' => 5000, 'transaction_date' => now()->subMonths(2)]);
         $this->transaccao(['amount' => 1000, 'transaction_date' => now()]);
 
-        $c = Livewire::actingAs($this->user)
-            ->test(Transactions::class)
-            ->set('dataDe', now()->subDays(7)->toDateString());
+        $r = $this->getJson($this->morada(['de' => now()->subDays(7)->toDateString()]))->assertOk();
 
-        $this->assertEquals(1000, (float) $c->viewData('totalIncome'));
+        $this->assertEquals(1000, (float) $r->json('resumo.entradas'));
     }
 
     public function test_limpar_filtros_devolve_tudo(): void
     {
+        $this->comPermissoes('treasury.transactions.view');
+
         $this->transaccao(['transaction_date' => now()->subMonths(2)]);
         $this->transaccao(['transaction_date' => now()]);
 
-        $c = Livewire::actingAs($this->user)
-            ->test(Transactions::class)
-            ->set('dataDe', now()->subDays(7)->toDateString())
-            ->call('limparFiltros');
+        // Limpar filtros é o ecrã voltar a pedir sem nenhum — e a lista
+        // inteira volta.
+        $this->assertSame(1, $this->getJson($this->morada(['de' => now()->subDays(7)->toDateString()]))->json('meta.total'));
+        $this->assertSame(2, $this->getJson($this->morada())->assertOk()->json('meta.total'));
+    }
 
-        $this->assertSame(2, $c->viewData('transactions')->total());
+    /** A morada da lista com os filtros que se quiser. */
+    private function morada(array $filtros = []): string
+    {
+        $raiz = '/api/v1/invoicing/react/tesouraria/movimentos';
+
+        return $filtros ? $raiz . '?' . http_build_query($filtros) : $raiz;
     }
 
     // ══════════════ 4. exportar relatórios ══════════════

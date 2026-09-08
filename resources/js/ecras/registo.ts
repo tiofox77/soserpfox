@@ -136,6 +136,11 @@ export const ecras: Record<string, Ecra> = {
         import('./facturacao/DefinirPin'),
     'facturacao/modelos-de-proposta': () =>
         import('./facturacao/ModelosDeProposta'),
+
+    // A TESOURARIA. Os catálogos (bancos, formas, caixas, tipos, categorias,
+    // contas) passam pelo ecrã genérico; os movimentos têm o seu.
+    'tesouraria/movimentos': () =>
+        import('./tesouraria/Movimentos'),
     'facturacao/editor-de-modelo': () =>
         import('./facturacao/EditorDeModelo'),
 };

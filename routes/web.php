@@ -634,6 +634,21 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::get('/pos/clientes', [\App\Http\Controllers\Api\Invoicing\PosApiController::class, 'clientes'])->name('pos.clientes');
         Route::post('/pos/vender', [\App\Http\Controllers\Api\Invoicing\PosApiController::class, 'vender'])->name('pos.vender');
         Route::get('/pos/relatorio', [\App\Http\Controllers\Api\Invoicing\PosApiController::class, 'relatorio'])->name('pos.relatorio');
+
+        /*
+         * A TESOURARIA. Os movimentos: lançar, editar, apagar e estornar.
+         *
+         * O dinheiro mexe-se pelo `TreasuryMovementService` e por mais lado
+         * nenhum. Cada verbo exige a sua `treasury.transactions.*` — as quatro
+         * permissões existiam e a morada de sempre não aplicava nenhuma.
+         */
+        Route::get('/tesouraria/movimentos/opcoes', [\App\Http\Controllers\Api\Treasury\MovimentosApiController::class, 'opcoes'])->name('tesouraria.movimentos.opcoes');
+        Route::get('/tesouraria/movimentos', [\App\Http\Controllers\Api\Treasury\MovimentosApiController::class, 'index'])->name('tesouraria.movimentos.index');
+        Route::post('/tesouraria/movimentos', [\App\Http\Controllers\Api\Treasury\MovimentosApiController::class, 'criar'])->name('tesouraria.movimentos.criar');
+        Route::get('/tesouraria/movimentos/{id}', [\App\Http\Controllers\Api\Treasury\MovimentosApiController::class, 'mostrar'])->whereNumber('id')->name('tesouraria.movimentos.mostrar');
+        Route::put('/tesouraria/movimentos/{id}', [\App\Http\Controllers\Api\Treasury\MovimentosApiController::class, 'actualizar'])->whereNumber('id')->name('tesouraria.movimentos.actualizar');
+        Route::delete('/tesouraria/movimentos/{id}', [\App\Http\Controllers\Api\Treasury\MovimentosApiController::class, 'eliminar'])->whereNumber('id')->name('tesouraria.movimentos.eliminar');
+        Route::post('/tesouraria/movimentos/{id}/creditar', [\App\Http\Controllers\Api\Treasury\MovimentosApiController::class, 'creditar'])->whereNumber('id')->name('tesouraria.movimentos.creditar');
         // O modo offline: recuperar uma cópia do PWA, e o PIN de turno.
         Route::post('/copia-offline/analisar', [\App\Http\Controllers\Api\Invoicing\OfflineApiController::class, 'analisar'])->name('copia-offline.analisar');
         Route::post('/copia-offline/importar', [\App\Http\Controllers\Api\Invoicing\OfflineApiController::class, 'importar'])->name('copia-offline.importar');
@@ -1047,7 +1062,16 @@ Route::middleware(['auth', 'tenant.module:treasury'])->prefix('treasury')->name(
     Route::middleware('permission:treasury.accounts.view')
         ->get('/accounts', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Contas Bancárias', ['tipo' => 'contas-bancarias']))
         ->name('accounts');
-    Route::get('/transactions', \App\Livewire\Treasury\Transactions::class)->name('transactions');
+    /*
+     * OS MOVIMENTOS, em React — e com guarda.
+     *
+     * A morada não exigia permissão nenhuma: bastava ter o módulo activo
+     * para lançar, editar e apagar dinheiro. Agora exige a de VER, e a API
+     * exige a de criar, editar, apagar ou estornar em cada acção.
+     */
+    Route::middleware('permission:treasury.transactions.view')
+        ->get('/transactions', \App\Support\EcraReact::pagina('tesouraria/movimentos', 'Transações'))
+        ->name('transactions');
     Route::get('/transfers', \App\Livewire\Treasury\TransfersManagement::class)->name('transfers');
 });
 

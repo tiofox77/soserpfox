@@ -82,6 +82,9 @@ export const CORES_DE_ECRA = {
     roxo: 'bg-gradient-to-r from-purple-600 to-pink-600',
     ciano: 'bg-gradient-to-r from-cyan-600 to-blue-600',
     rosa: 'bg-gradient-to-r from-pink-600 to-rose-600',
+    // A TESOURARIA. Era esta a faixa dos seus ecrãs em Blade — reconhece-se
+    // o módulo pela cor antes de se ler o título, e não se perde ao migrar.
+    teal: 'bg-gradient-to-r from-teal-600 to-cyan-600',
 } as const;
 
 export type CorDeEcra = keyof typeof CORES_DE_ECRA;

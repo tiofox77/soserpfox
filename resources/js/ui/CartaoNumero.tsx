@@ -27,6 +27,7 @@ const TONS = {
     cinza: 'from-slate-500 to-slate-600',
     roxo: 'from-purple-600 to-pink-600',
     laranja: 'from-orange-500 to-red-600',
+    teal: 'from-teal-500 to-cyan-600',
 } as const;
 
 export type TomDoCartao = keyof typeof TONS;
@@ -48,6 +49,7 @@ const TEXTOS = {
     cinza: 'text-slate-600',
     roxo: 'text-purple-600',
     laranja: 'text-orange-600',
+    teal: 'text-teal-600',
 } as const;
 
 /** O anel suave da variante clara — a mesma família da cor do ícone. */
@@ -60,6 +62,7 @@ const ANEIS = {
     cinza: 'border-slate-200',
     roxo: 'border-purple-100',
     laranja: 'border-orange-100',
+    teal: 'border-teal-100',
 } as const;
 
 export function CartaoNumero({

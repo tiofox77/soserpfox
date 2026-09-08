@@ -14,6 +14,15 @@ export class ErroDaApi extends Error {
         readonly estado: number,
         mensagem: string,
         readonly erros: Record<string, string[]> = {},
+        /**
+         * O CORPO INTEIRO da resposta de erro.
+         *
+         * Nem tudo o que o servidor recusa se explica com uma frase: um 409
+         * pode vir com a morada do sítio onde a operação SE FAZ (estornar uma
+         * venda é emitir uma nota de crédito, noutro ecrã). Sem isto, essa
+         * indicação chegava e era deitada fora.
+         */
+        readonly corpo: Record<string, unknown> = {},
     ) {
         super(mensagem);
         this.name = 'ErroDaApi';
@@ -77,16 +86,18 @@ async function pedir<T>(caminho: string, opcoes: RequestInit = {}, parametros?: 
         // «Unexpected token <».
         let mensagem = `O servidor respondeu ${resposta.status}.`;
         let erros: Record<string, string[]> = {};
+        let inteiro: Record<string, unknown> = {};
 
         try {
             const corpo = (await resposta.json()) as { message?: string; errors?: Record<string, string[]> };
             mensagem = corpo.message ?? mensagem;
             erros = corpo.errors ?? {};
+            inteiro = corpo as Record<string, unknown>;
         } catch {
             /* não era JSON; fica a mensagem genérica */
         }
 
-        throw new ErroDaApi(resposta.status, mensagem, erros);
+        throw new ErroDaApi(resposta.status, mensagem, erros, inteiro);
     }
 
     return (await resposta.json()) as T;
