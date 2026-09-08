@@ -77,6 +77,7 @@ final class Catalogos
              * cinco componentes com o mesmo desenho. As permissões são as do
              * módulo `treasury`, que existiam e nenhuma rota aplicava.
              */
+            'contas-bancarias' => self::contasBancarias(),
             'bancos' => self::bancos(),
             'formas-de-pagamento' => self::formasDePagamento(),
             'caixas' => self::caixas(),
@@ -533,6 +534,133 @@ final class Catalogos
     /* ─── Por dentro ──────────────────────────────────────────────────── */
 
     /* ─── Os catálogos da TESOURARIA ───────────────────────────────────── */
+
+    /**
+     * AS CONTAS BANCÁRIAS.
+     *
+     * Cabem no registo como os outros, com duas diferenças que valem a pena:
+     * o SALDO não se escreve — é o `initial_balance` que se põe e o
+     * `current_balance` que a tesouraria mantém —, e a conta que aparece nas
+     * facturas escolhe-se aqui (`show_on_invoice` e a ordem).
+     *
+     * O modelo tem `BelongsToTenant`, e esse trait põe escopo GLOBAL: o
+     * `findOrFail` do controlador genérico já só vê as contas desta empresa.
+     */
+    private static function contasBancarias(): array
+    {
+        $moedas = [
+            ['valor' => 'AOA', 'rotulo' => 'AOA — Kwanza'],
+            ['valor' => 'USD', 'rotulo' => 'USD — Dólar'],
+            ['valor' => 'EUR', 'rotulo' => 'EUR — Euro'],
+        ];
+        $tipos = [
+            ['valor' => 'corrente', 'rotulo' => 'Conta à ordem'],
+            ['valor' => 'poupanca', 'rotulo' => 'Poupança'],
+            ['valor' => 'prazo', 'rotulo' => 'A prazo'],
+            ['valor' => 'outra', 'rotulo' => 'Outra'],
+        ];
+
+        return [
+            'modelo' => \App\Models\Treasury\Account::class,
+            'titulo' => 'Contas Bancárias',
+            'singular' => 'Conta bancária',
+            'icone' => 'fa-piggy-bank',
+            'cor' => 'ciano',
+            'descricao' => 'Onde o dinheiro da empresa está',
+            'novo' => 'Nova Conta',
+            'rota' => '/treasury/accounts',
+            'permissoes' => self::porVerbo('treasury.accounts'),
+            'pesquisa' => ['account_name', 'account_number', 'iban'],
+            'pesquisa_ajuda' => 'Nome, número ou IBAN',
+            'ordem' => [['is_default', 'desc'], ['account_name', 'asc']],
+            'colunas' => [
+                ['chave' => 'account_name', 'rotulo' => 'Conta', 'formato' => 'texto'],
+                ['chave' => 'bank_id', 'rotulo' => 'Banco', 'formato' => 'referencia'],
+                ['chave' => 'account_number', 'rotulo' => 'Número', 'formato' => 'texto'],
+                ['chave' => 'currency', 'rotulo' => 'Moeda', 'formato' => 'escolha'],
+                ['chave' => 'current_balance', 'rotulo' => 'Saldo', 'formato' => 'dinheiro', 'alinhar' => 'direita'],
+                ['chave' => 'is_default', 'rotulo' => 'Padrão', 'formato' => 'padrao'],
+                ['chave' => 'is_active', 'rotulo' => 'Activa', 'formato' => 'booleano'],
+            ],
+            'filtros' => [
+                ['chave' => 'currency', 'rotulo' => 'Moeda', 'opcoes' => $moedas],
+            ],
+            'campos' => [
+                self::campo('account_name', 'Nome da conta', 'texto', obrigatorio: true),
+                self::campo('bank_id', 'Banco', 'referencia', obrigatorio: true, referencia: 'bancos'),
+                self::campo('account_number', 'Número da conta', 'texto', obrigatorio: true),
+                self::campo('iban', 'IBAN', 'texto'),
+                self::campo('currency', 'Moeda', 'escolha', obrigatorio: true, omissao: 'AOA', opcoes: $moedas),
+                self::campo('account_type', 'Tipo', 'escolha', omissao: 'corrente', opcoes: $tipos),
+                // O SALDO INICIAL escreve-se uma vez; o corrente é da tesouraria.
+                self::campo('initial_balance', 'Saldo inicial', 'numero', omissao: 0, passo: 0.01, ajuda: 'O saldo corrente é mantido pelos movimentos.'),
+                self::campo('manager_name', 'Gestor de conta', 'texto'),
+                self::campo('manager_phone', 'Telefone do gestor', 'texto'),
+                self::campo('manager_email', 'Email do gestor', 'email'),
+                self::campo('show_on_invoice', 'Mostrar nas facturas', 'booleano', omissao: false, ajuda: 'Aparece no rodapé, para o cliente pagar.'),
+                self::campo('invoice_display_order', 'Ordem nas facturas', 'numero', omissao: 0, min: 0),
+                self::campo('notes', 'Observações', 'textarea', largura: 'inteira'),
+                self::campo('is_default', 'Conta padrão', 'booleano', omissao: false),
+                self::campo('is_active', 'Activa', 'booleano', omissao: true),
+            ],
+            'regras' => [
+                'account_name' => 'required|max:150',
+                'bank_id' => 'required|integer',
+                'account_number' => 'required|max:50',
+                'iban' => 'nullable|max:50',
+                'currency' => 'required|in:AOA,USD,EUR',
+                'account_type' => 'nullable|max:30',
+                'initial_balance' => 'nullable|numeric',
+                'manager_name' => 'nullable|max:120',
+                'manager_phone' => 'nullable|max:40',
+                'manager_email' => 'nullable|email|max:150',
+                'show_on_invoice' => 'boolean',
+                'invoice_display_order' => 'nullable|integer|min:0',
+                'notes' => 'nullable|string',
+                'is_default' => 'boolean',
+                'is_active' => 'boolean',
+            ],
+            'referencias' => fn (int $t) => [
+                'bancos' => \App\Models\Treasury\Bank::where('is_active', true)
+                    ->orderBy('name')->get(['id', 'name'])
+                    ->map(fn ($x) => ['valor' => (string) $x->id, 'rotulo' => $x->name])->all(),
+            ],
+            /*
+             * O SALDO CORRENTE nasce do inicial quando a conta é nova. Depois
+             * disso é dos movimentos, e mexer-lhe aqui era reescrever a
+             * tesouraria por um formulário.
+             */
+            'preparar' => function (array $d, ?Model $m) {
+                if (! $m) {
+                    $d['current_balance'] = $d['initial_balance'] ?? 0;
+                }
+
+                return $d;
+            },
+            'depois' => function (Model $m) {
+                if ($m->is_default) {
+                    \App\Models\Treasury\Account::where('tenant_id', $m->tenant_id)
+                        ->where('id', '!=', $m->id)->update(['is_default' => false]);
+                }
+            },
+            'padrao' => function (Model $m) {
+                \App\Models\Treasury\Account::where('tenant_id', $m->tenant_id)
+                    ->where('id', '!=', $m->id)->update(['is_default' => false]);
+                $m->update(['is_default' => true]);
+            },
+            /*
+             * UMA CONTA COM MOVIMENTOS NÃO SE APAGA — nem uma com saldo.
+             *
+             * O ecrã de sempre apagava sem perguntar nada: `Account::
+             * findOrFail($id)->delete()`. Uma conta que desaparece leva
+             * consigo a explicação de para onde foi o dinheiro.
+             */
+            'pode_apagar' => fn (Model $m) => ! \App\Models\Treasury\Transaction::where('account_id', $m->id)->exists()
+                && abs((float) $m->current_balance) < 0.01,
+            'porque_nao_apaga' => 'A conta tem movimentos ou saldo.',
+            'accoes' => ['activar' => true, 'padrao' => true, 'logotipo' => false, 'apagar' => true],
+        ];
+    }
 
     /**
      * OS BANCOS — e são de toda a gente.

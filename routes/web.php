@@ -1044,7 +1044,9 @@ Route::middleware(['auth', 'tenant.module:treasury'])->prefix('treasury')->name(
     Route::middleware('permission:treasury.transactions.view')
         ->get('/transaction-categories', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Categorias de Movimento', ['tipo' => 'categorias-de-movimento']))
         ->name('transaction-categories');
-    Route::get('/accounts', \App\Livewire\Treasury\Accounts::class)->name('accounts');
+    Route::middleware('permission:treasury.accounts.view')
+        ->get('/accounts', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Contas Bancárias', ['tipo' => 'contas-bancarias']))
+        ->name('accounts');
     Route::get('/transactions', \App\Livewire\Treasury\Transactions::class)->name('transactions');
     Route::get('/transfers', \App\Livewire\Treasury\TransfersManagement::class)->name('transfers');
 });
