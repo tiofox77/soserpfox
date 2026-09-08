@@ -192,6 +192,10 @@ class PermissionsSeeder extends Seeder
         // Transferências
         $createPermission('treasury.transfers.view', 'Ver Transferências');
         $createPermission('treasury.transfers.create', 'Criar Transferências');
+        // Anular devolve dinheiro já movido — não é o mesmo poder que
+        // registar, e por isso tem nome próprio. Ver
+        // `permissions:sync-transferencias` para as empresas que já existem.
+        $createPermission('treasury.transfers.delete', 'Anular Transferências');
 
         // Relatórios
         $createPermission('treasury.reports.view', 'Ver Relatórios de Tesouraria');
@@ -289,7 +293,7 @@ class PermissionsSeeder extends Seeder
             'invoicing.pos.access', 'invoicing.pos.sell',
             'treasury.accounts.view',
             'treasury.transactions.view', 'treasury.transactions.create',
-            'treasury.transfers.view', 'treasury.transfers.create',
+            'treasury.transfers.view', 'treasury.transfers.create', 'treasury.transfers.delete',
         ]);
 
         // Contabilista

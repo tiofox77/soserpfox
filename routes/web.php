@@ -649,6 +649,13 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::put('/tesouraria/movimentos/{id}', [\App\Http\Controllers\Api\Treasury\MovimentosApiController::class, 'actualizar'])->whereNumber('id')->name('tesouraria.movimentos.actualizar');
         Route::delete('/tesouraria/movimentos/{id}', [\App\Http\Controllers\Api\Treasury\MovimentosApiController::class, 'eliminar'])->whereNumber('id')->name('tesouraria.movimentos.eliminar');
         Route::post('/tesouraria/movimentos/{id}/creditar', [\App\Http\Controllers\Api\Treasury\MovimentosApiController::class, 'creditar'])->whereNumber('id')->name('tesouraria.movimentos.creditar');
+
+        // As transferências entre contas e caixas. As três pernas — saída,
+        // entrada e taxa — passam pelo mesmo serviço dos movimentos.
+        Route::get('/tesouraria/transferencias/opcoes', [\App\Http\Controllers\Api\Treasury\TransferenciasApiController::class, 'opcoes'])->name('tesouraria.transferencias.opcoes');
+        Route::get('/tesouraria/transferencias', [\App\Http\Controllers\Api\Treasury\TransferenciasApiController::class, 'index'])->name('tesouraria.transferencias.index');
+        Route::post('/tesouraria/transferencias', [\App\Http\Controllers\Api\Treasury\TransferenciasApiController::class, 'criar'])->name('tesouraria.transferencias.criar');
+        Route::delete('/tesouraria/transferencias/{id}', [\App\Http\Controllers\Api\Treasury\TransferenciasApiController::class, 'anular'])->whereNumber('id')->name('tesouraria.transferencias.anular');
         // O modo offline: recuperar uma cópia do PWA, e o PIN de turno.
         Route::post('/copia-offline/analisar', [\App\Http\Controllers\Api\Invoicing\OfflineApiController::class, 'analisar'])->name('copia-offline.analisar');
         Route::post('/copia-offline/importar', [\App\Http\Controllers\Api\Invoicing\OfflineApiController::class, 'importar'])->name('copia-offline.importar');
@@ -1072,7 +1079,9 @@ Route::middleware(['auth', 'tenant.module:treasury'])->prefix('treasury')->name(
     Route::middleware('permission:treasury.transactions.view')
         ->get('/transactions', \App\Support\EcraReact::pagina('tesouraria/movimentos', 'Transações'))
         ->name('transactions');
-    Route::get('/transfers', \App\Livewire\Treasury\TransfersManagement::class)->name('transfers');
+    Route::middleware('permission:treasury.transfers.view')
+        ->get('/transfers', \App\Support\EcraReact::pagina('tesouraria/transferencias', 'Transferências'))
+        ->name('transfers');
 });
 
 // Events Module Routes

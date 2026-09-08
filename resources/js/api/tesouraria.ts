@@ -137,3 +137,69 @@ export const movimentos = {
     creditar: (id: number) =>
         api.criar<{ id: number; numero: string; message: string }>(`${RAIZ}/${id}/creditar`, {}),
 };
+
+/* ─── Transferências entre contas e caixas ────────────────────────────── */
+
+/** Uma origem ou destino possível: conta bancária ou caixa, com o saldo. */
+export type Bolso = { id: number; nome: string; saldo: number };
+
+export type Transferencia = {
+    id: number;
+    numero: string;
+    data: string | null;
+    de: string | null;
+    de_e_caixa: boolean;
+    para: string | null;
+    para_e_caixa: boolean;
+    valor: number;
+    taxa: number;
+    moeda: string;
+    descricao: string | null;
+    referencia: string | null;
+    autor: string | null;
+};
+
+export type OpcoesDasTransferencias = {
+    contas: Bolso[];
+    caixas: Bolso[];
+    moedas: string[];
+    permissoes: { pode_criar: boolean; pode_anular: boolean };
+};
+
+export type PaginaDeTransferencias = {
+    data: Transferencia[];
+    meta: { current_page: number; last_page: number; per_page: number; total: number };
+    resumo: { transferencias: number; movido: number; taxas: number };
+};
+
+/**
+ * O corpo do registo.
+ *
+ * `de` e `para` viajam como `"account:5"` / `"cash:3"` — uma escolha só para
+ * duas listas diferentes, que é como o ecrã de sempre o fazia. O servidor
+ * confirma que existem e que são desta empresa antes de mexer em dinheiro.
+ */
+export type FormularioDaTransferencia = {
+    de: string;
+    para: string;
+    amount: number | string;
+    fee: number | string;
+    currency: string;
+    transfer_date: string;
+    description: string;
+    reference: string;
+};
+
+const RAIZ_TRF = '/tesouraria/transferencias';
+
+export const transferencias = {
+    opcoes: () => api.ler<OpcoesDasTransferencias>(`${RAIZ_TRF}/opcoes`),
+
+    lista: (filtros: { procura?: string; por_pagina?: number; page?: number }) =>
+        api.ler<PaginaDeTransferencias>(RAIZ_TRF, filtros),
+
+    criar: (corpo: FormularioDaTransferencia) =>
+        api.criar<{ id: number; numero: string; message: string }>(RAIZ_TRF, corpo),
+
+    anular: (id: number) => api.apagar<{ message: string }>(`${RAIZ_TRF}/${id}`),
+};

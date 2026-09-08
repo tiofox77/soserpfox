@@ -141,6 +141,8 @@ export const ecras: Record<string, Ecra> = {
     // contas) passam pelo ecrã genérico; os movimentos têm o seu.
     'tesouraria/movimentos': () =>
         import('./tesouraria/Movimentos'),
+    'tesouraria/transferencias': () =>
+        import('./tesouraria/Transferencias'),
     'facturacao/editor-de-modelo': () =>
         import('./facturacao/EditorDeModelo'),
 };
