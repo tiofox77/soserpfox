@@ -48,9 +48,13 @@ class PainelDaFacturacao
      * ninguém, e sem certificação da AGT não é uma factura — é um documento
      * em curso. Contá-la como dívida do cliente inchava o painel com dinheiro
      * que ninguém deve, e punha este número a contradizer a lista de
-     * facturas, que já não a conta (ver `SomasDasFacturas`).
+     * facturas, que já não a conta.
+     *
+     * A LISTA VIVE NO `SomasDasFacturas` e é lida daqui. Estava escrita duas
+     * vezes, e uma lista de estados repetida é uma lista que um dia diverge:
+     * o painel diria uma dívida e a lista outra, sobre as mesmas facturas.
      */
-    private const SEM_NADA_A_COBRAR = ['draft', 'cancelled', 'paid', 'credited'];
+    private const SEM_NADA_A_COBRAR = SomasDasFacturas::SEM_NADA_A_RECEBER;
 
     /**
      * Os atalhos que o painel oferece — um subconjunto dos dos relatórios.

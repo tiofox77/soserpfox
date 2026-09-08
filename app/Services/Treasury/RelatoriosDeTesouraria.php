@@ -5,6 +5,7 @@ namespace App\Services\Treasury;
 use App\Models\Invoicing\PurchaseInvoice;
 use App\Models\Invoicing\SalesInvoice;
 use App\Models\Treasury\Transaction;
+use App\Services\Invoicing\SomasDasFacturas;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -143,15 +144,32 @@ class RelatoriosDeTesouraria
 
     // ── contas a receber e a pagar ───────────────────────────────────────────
 
+    /**
+     * O QUE ESTÁ POR RECEBER É O QUE TEM SALDO — e não o que tem um nome.
+     *
+     * Isto procurava `status IN ('pending', 'partially_paid')`. É a mesma
+     * armadilha que a lista de facturas e o painel já não têm: a coluna
+     * `status` muitas vezes NÃO diz `pending` numa factura por pagar — fica
+     * a `sent`, ou vazia — e o relatório saía com menos dívida do que a
+     * empresa tem, o que é o pior erro possível num mapa de cobranças.
+     *
+     * A regra é a de `SomasDasFacturas`, escrita uma vez: fora o que já está
+     * liquidado, anulado ou por acabar, e fica o que tem saldo por cobrar.
+     */
     public function contasAReceber(): array
     {
         $linhas = SalesInvoice::where('tenant_id', $this->tenantId)
             ->with('client')
-            ->whereIn('status', ['pending', 'partially_paid'])
+            ->whereNotIn('status', SomasDasFacturas::SEM_NADA_A_RECEBER)
+            // A FACTURA-RECIBO é paga no acto, ao balcão. Nunca esteve por
+            // receber, e enchia o mapa com linhas de saldo zero.
+            ->where(fn ($q) => $q->whereNull('invoice_type')->orWhere('invoice_type', '!=', 'FR'))
             ->whereBetween('invoice_date', [$this->de, $this->ate])
             ->orderBy('due_date')
             ->get()
-            ->map(fn ($f) => $this->linhaEmAberto($f, 'client'));
+            ->map(fn ($f) => $this->linhaEmAberto($f, 'client'))
+            ->filter(fn ($l) => $l['balance'] > 0)
+            ->values();
 
         return [
             'receivables'      => $linhas,
@@ -160,15 +178,18 @@ class RelatoriosDeTesouraria
         ];
     }
 
+    /** A mesma regra do lado de lá: o que se deve é o que tem saldo. */
     public function contasAPagar(): array
     {
         $linhas = PurchaseInvoice::where('tenant_id', $this->tenantId)
             ->with('supplier')
-            ->whereIn('status', ['pending', 'partially_paid'])
+            ->whereNotIn('status', SomasDasFacturas::SEM_NADA_A_RECEBER)
             ->whereBetween('invoice_date', [$this->de, $this->ate])
             ->orderBy('due_date')
             ->get()
-            ->map(fn ($f) => $this->linhaEmAberto($f, 'supplier'));
+            ->map(fn ($f) => $this->linhaEmAberto($f, 'supplier'))
+            ->filter(fn ($l) => $l['balance'] > 0)
+            ->values();
 
         return [
             'payables'      => $linhas,

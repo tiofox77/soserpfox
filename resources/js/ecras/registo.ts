@@ -143,6 +143,10 @@ export const ecras: Record<string, Ecra> = {
         import('./tesouraria/Movimentos'),
     'tesouraria/transferencias': () =>
         import('./tesouraria/Transferencias'),
+    'tesouraria/painel': () =>
+        import('./tesouraria/Painel'),
+    'tesouraria/relatorios': () =>
+        import('./tesouraria/Relatorios'),
     'facturacao/editor-de-modelo': () =>
         import('./facturacao/EditorDeModelo'),
 };

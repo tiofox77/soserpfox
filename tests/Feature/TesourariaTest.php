@@ -509,20 +509,24 @@ class TesourariaTest extends TenantTestCase
 
     public function test_o_ecra_de_relatorios_da_os_parametros_de_descarga(): void
     {
-        $c = Livewire::actingAs($this->user)
-            ->test(Reports::class)
-            ->set('reportType', 'dre');
+        $this->comPermissoes('treasury.reports.view');
 
-        $p = $c->instance()->parametrosDeExportacao;
+        // AS MORADAS VÊM MONTADAS DO SERVIDOR: o ecrã não compõe o URL de um
+        // relatório, e por isso não pode enganar-se no tipo nem nas datas.
+        $r = $this->getJson('/api/v1/invoicing/react/tesouraria/relatorios?tipo=dre')->assertOk();
 
-        $this->assertSame('dre', $p['tipo']);
-        $this->assertNotEmpty($p['de']);
-        $this->assertNotEmpty($p['ate']);
+        $this->assertStringContainsString('tipo=dre', $r->json('descargas.pdf'));
+        $this->assertStringContainsString('tipo=dre', $r->json('descargas.excel'));
+        $this->assertNotEmpty($r->json('de'));
+        $this->assertNotEmpty($r->json('ate'));
     }
 
     public function test_descarrega_o_pdf_de_cada_relatorio(): void
     {
         $this->comModulo('treasury');
+        // A DESCARGA PEDE A MESMA PERMISSÃO QUE O ECRÃ. Não pedia nenhuma:
+        // quem não podia abrir os relatórios descarregava-os na mesma.
+        $this->comPermissoes('treasury.reports.view');
         $this->transaccao();
         $this->actingAs($this->user);
 
@@ -537,6 +541,9 @@ class TesourariaTest extends TenantTestCase
     public function test_descarrega_o_excel_de_cada_relatorio(): void
     {
         $this->comModulo('treasury');
+        // A DESCARGA PEDE A MESMA PERMISSÃO QUE O ECRÃ. Não pedia nenhuma:
+        // quem não podia abrir os relatórios descarregava-os na mesma.
+        $this->comPermissoes('treasury.reports.view');
         $this->transaccao();
         $this->actingAs($this->user);
 
@@ -552,6 +559,7 @@ class TesourariaTest extends TenantTestCase
     public function test_um_relatorio_desconhecido_e_recusado(): void
     {
         $this->comModulo('treasury');
+        $this->comPermissoes('treasury.reports.view');
 
         $this->actingAs($this->user)
             ->get(route('treasury.reports.pdf', ['tipo' => 'inventado']))
@@ -561,6 +569,7 @@ class TesourariaTest extends TenantTestCase
     public function test_datas_trocadas_nao_dao_relatorio_vazio(): void
     {
         $this->comModulo('treasury');
+        $this->comPermissoes('treasury.reports.view');
         $this->transaccao(['transaction_date' => now()->subDays(3)]);
 
         $this->actingAs($this->user)
@@ -581,10 +590,10 @@ class TesourariaTest extends TenantTestCase
     {
         $this->transaccao(['amount' => 2500, 'type' => 'income']);
 
-        $doEcra = Livewire::actingAs($this->user)
-            ->test(Reports::class)
-            ->set('period', 'year')
-            ->viewData('totalIncome');
+        $this->comPermissoes('treasury.reports.view');
+
+        $doEcra = $this->getJson('/api/v1/invoicing/react/tesouraria/relatorios?tipo=cash_flow&periodo=year')
+            ->assertOk()->json('dados.totalIncome');
 
         $doServico = (new \App\Services\Treasury\RelatoriosDeTesouraria(
             $this->tenant->id,

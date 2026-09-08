@@ -60,8 +60,10 @@ class PaineisDosModulosTest extends TenantTestCase
         }
 
         // E NENHUM painel com gráficos volta ao DOMContentLoaded, que dispara
-        // uma só vez. São nove: os cinco perguntados mais a contabilidade, o
-        // CRM, o inventário e o restaurante, que tinham o mesmo defeito.
+        // uma só vez. Eram nove: os cinco perguntados mais a contabilidade, o
+        // CRM, o inventário e o restaurante, que tinham o mesmo defeito. São
+        // OITO desde que o da tesouraria passou a React — lá os gráficos são
+        // componentes, e não há canvas nenhum para o Livewire trocar.
         $comGraficos = array_filter(
             array_merge(
                 glob(resource_path('views/livewire/*/dashboard*.blade.php')),
@@ -70,7 +72,7 @@ class PaineisDosModulosTest extends TenantTestCase
             fn ($v) => str_contains(file_get_contents($v), 'partials.graficos')
         );
 
-        $this->assertGreaterThanOrEqual(9, count($comGraficos),
+        $this->assertGreaterThanOrEqual(8, count($comGraficos),
             'o varrimento tem de apanhar os painéis todos');
 
         foreach ($comGraficos as $vista) {
@@ -88,11 +90,15 @@ class PaineisDosModulosTest extends TenantTestCase
      * sem internet, e quando o CDN falha o painel fica com um quadrado branco
      * sem aviso nenhum.
      *
+     * A TESOURARIA SAIU DA LISTA por já não ter Blade nenhum: o painel é
+     * React e desenha os gráficos com componentes próprios, sem Chart.js e
+     * sem ir buscar nada a lado nenhum.
+     *
      * @test
      */
     public function nenhum_painel_vai_buscar_o_chart_js_a_um_cdn(): void
     {
-        foreach (['hr', 'hotel', 'salon', 'treasury'] as $painel) {
+        foreach (['hr', 'hotel', 'salon'] as $painel) {
             $this->assertStringNotContainsString(
                 'cdn.jsdelivr.net',
                 file_get_contents(resource_path("views/livewire/{$painel}/dashboard.blade.php")),
@@ -179,14 +185,44 @@ class PaineisDosModulosTest extends TenantTestCase
      */
     public function a_tesouraria_ignora_compras_em_rascunho(): void
     {
-        $fonte = file_get_contents(app_path('Livewire/Treasury/Dashboard.php'));
+        /*
+         * ISTO LIA O CÓDIGO-FONTE do componente Livewire à procura de uma
+         * linha. Com o painel em React o ficheiro deixou de existir — e um
+         * ensaio que procura texto num ficheiro morre com o ficheiro sem
+         * dizer nada sobre o que o utilizador vê. Agora pergunta-se ao
+         * painel, que é o que interessa.
+         */
+        $this->comModulo('treasury');
+        $this->comPermissoes('treasury.transactions.view');
 
-        $this->assertStringContainsString("whereNotIn('status', ['draft', 'cancelled'])", $fonte,
-            'um rascunho de compra não é dinheiro a pagar');
+        $fornecedor = \App\Models\Supplier::create([
+            'tenant_id' => $this->tenant->id, 'name' => 'Fornecedor dos ensaios',
+        ]);
 
-        // E a linha dos 7 dias deixa de ser 14 consultas dentro de um ciclo.
-        $this->assertStringContainsString('groupBy(\'dia\', \'type\')', $fonte,
-            'uma consulta agrupada, não duas por cada dia');
+        $compra = fn (string $estado, float $total) => \App\Models\Invoicing\PurchaseInvoice::create([
+            'tenant_id' => $this->tenant->id,
+            'supplier_id' => $fornecedor->id,
+            'invoice_number' => 'FC-' . strtoupper(substr(uniqid(), -8)),
+            'invoice_date' => now()->toDateString(),
+            'status' => $estado,
+            'subtotal' => $total, 'tax_amount' => 0, 'total' => $total, 'paid_amount' => 0,
+        ]);
+
+        $compra('pending', 8000);
+        $compra('draft', 5000);
+        $compra('cancelled', 3000);
+
+        $painel = $this->getJson('/api/v1/invoicing/react/tesouraria/painel?periodo=year')->assertOk();
+
+        $this->assertEqualsWithDelta(8000, $painel->json('facturacao.comprado'), 0.01,
+            'um rascunho de compra não é dinheiro comprado');
+        $this->assertEqualsWithDelta(8000, $painel->json('facturacao.a_pagar'), 0.01,
+            'nem dinheiro a pagar');
+
+        // E A LINHA DOS 7 DIAS é uma consulta agrupada, não catorze dentro de
+        // um ciclo: sete pontos, com os dias vazios a zero.
+        $this->assertCount(7, $painel->json('grafico.dias'));
+        $this->assertCount(7, $painel->json('grafico.entradas'));
     }
 
     /** O nome do dia da semana segue a língua de quem vê, não 'pt_BR'. @test */

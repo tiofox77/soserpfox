@@ -656,6 +656,11 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::get('/tesouraria/transferencias', [\App\Http\Controllers\Api\Treasury\TransferenciasApiController::class, 'index'])->name('tesouraria.transferencias.index');
         Route::post('/tesouraria/transferencias', [\App\Http\Controllers\Api\Treasury\TransferenciasApiController::class, 'criar'])->name('tesouraria.transferencias.criar');
         Route::delete('/tesouraria/transferencias/{id}', [\App\Http\Controllers\Api\Treasury\TransferenciasApiController::class, 'anular'])->whereNumber('id')->name('tesouraria.transferencias.anular');
+
+        // O painel e os relatórios: só lêem. As contas dos relatórios são as
+        // da `RelatoriosDeTesouraria` — as mesmas do PDF e do Excel.
+        Route::get('/tesouraria/painel', \App\Http\Controllers\Api\Treasury\PainelApiController::class)->name('tesouraria.painel');
+        Route::get('/tesouraria/relatorios', \App\Http\Controllers\Api\Treasury\RelatoriosApiController::class)->name('tesouraria.relatorios');
         // O modo offline: recuperar uma cópia do PWA, e o PIN de turno.
         Route::post('/copia-offline/analisar', [\App\Http\Controllers\Api\Invoicing\OfflineApiController::class, 'analisar'])->name('copia-offline.analisar');
         Route::post('/copia-offline/importar', [\App\Http\Controllers\Api\Invoicing\OfflineApiController::class, 'importar'])->name('copia-offline.importar');
@@ -1030,13 +1035,22 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
 
 // Treasury Module Routes
 Route::middleware(['auth', 'tenant.module:treasury'])->prefix('treasury')->name('treasury.')->group(function () {
-    Route::get('/dashboard', \App\Livewire\Treasury\Dashboard::class)->name('dashboard');
-    Route::get('/reports', \App\Livewire\Treasury\Reports::class)->name('reports');
+    Route::middleware('permission:treasury.transactions.view')
+        ->get('/dashboard', \App\Support\EcraReact::pagina('tesouraria/painel', 'Dashboard Tesouraria'))
+        ->name('dashboard');
+    Route::middleware('permission:treasury.reports.view')
+        ->get('/reports', \App\Support\EcraReact::pagina('tesouraria/relatorios', 'Relatórios Financeiros'))
+        ->name('reports');
     // Descarga dos relatórios financeiros. Só se via no ecrã, e um relatório
     // que não se pode levar ao banco nem ao contabilista serve para pouco.
-    Route::get('/reports/pdf', [\App\Http\Controllers\Treasury\ReportExportController::class, 'pdf'])
+    // E A DESCARGA PEDE A MESMA PERMISSÃO QUE O ECRÃ. Não pedia nenhuma:
+    // quem não podia abrir os relatórios descarregava-os na mesma, com a
+    // demonstração de resultados inteira lá dentro.
+    Route::middleware('permission:treasury.reports.view')
+        ->get('/reports/pdf', [\App\Http\Controllers\Treasury\ReportExportController::class, 'pdf'])
         ->name('reports.pdf');
-    Route::get('/reports/excel', [\App\Http\Controllers\Treasury\ReportExportController::class, 'excel'])
+    Route::middleware('permission:treasury.reports.view')
+        ->get('/reports/excel', [\App\Http\Controllers\Treasury\ReportExportController::class, 'excel'])
         ->name('reports.excel');
     /*
      * OS CATÁLOGOS DA TESOURARIA, no ecrã genérico.

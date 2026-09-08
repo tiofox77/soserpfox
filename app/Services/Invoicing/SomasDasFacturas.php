@@ -43,7 +43,7 @@ class SomasDasFacturas
      * acabar — e a API dos recibos recusa-o, por isso contá-lo como
      * receita a haver era prometer uma cobrança impossível.
      */
-    private const SEM_NADA_A_RECEBER = ['draft', 'paid', 'cancelled', 'credited'];
+    public const SEM_NADA_A_RECEBER = ['draft', 'paid', 'cancelled', 'credited'];
 
     /**
      * As somas de uma consulta de facturas de venda.

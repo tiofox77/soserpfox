@@ -203,3 +203,102 @@ export const transferencias = {
 
     anular: (id: number) => api.apagar<{ message: string }>(`${RAIZ_TRF}/${id}`),
 };
+
+/* ─── O painel ────────────────────────────────────────────────────────── */
+
+export type PeriodoDoPainel = 'today' | 'week' | 'month' | 'year';
+
+export type PainelDaTesouraria = {
+    periodo: PeriodoDoPainel;
+    de: string;
+    ate: string;
+    /** O dinheiro que existe AGORA. Não segue o período. */
+    saldos: { caixas: number; contas: number; total: number };
+    movimento: { entradas: number; saidas: number; saldo: number };
+    /** Facturar não é receber: a ponte entre os documentos e a conta. */
+    facturacao: {
+        facturado: number; cobrado: number; a_receber: number;
+        comprado: number; pago: number; a_pagar: number;
+    };
+    /** O que precisa de conserto — e o segundo número é a causa do primeiro. */
+    por_consertar: { movimentos_sem_destino: number; formas_sem_destino: number };
+    grafico: { dias: string[]; entradas: number[]; saidas: number[] };
+    categorias: {
+        entradas: Array<{ rotulo: string; valor: number }>;
+        saidas: Array<{ rotulo: string; valor: number }>;
+    };
+    recentes: Array<{
+        id: number; numero: string; data: string | null; descricao: string | null;
+        tipo: 'income' | 'expense' | 'transfer'; valor: number; moeda: string;
+        estado: 'pending' | 'completed' | 'cancelled';
+        forma_de_pagamento: string | null; destino: string | null;
+    }>;
+    caixas: Array<{ id: number; nome: string; estado: string; saldo: number }>;
+    contas: Array<{ id: number; nome: string; banco: string | null; numero: string | null; saldo: number }>;
+};
+
+export const painelDaTesouraria = {
+    ler: (periodo: PeriodoDoPainel) => api.ler<PainelDaTesouraria>('/tesouraria/painel', { periodo }),
+};
+
+/* ─── Os relatórios ───────────────────────────────────────────────────── */
+
+export type TipoDeRelatorio = 'cash_flow' | 'dre' | 'receivables' | 'payables';
+
+/** Uma linha por categoria, já com o nome legível em vez do código. */
+export type LinhaDeCategoria = { codigo: string | null; rotulo: string; valor: number };
+
+/** Uma factura por liquidar, de um lado ou do outro. */
+export type LinhaEmAberto = {
+    invoice_number: string;
+    client?: string;
+    supplier?: string;
+    invoice_date: string | null;
+    due_date: string | null;
+    total: number;
+    paid: number;
+    balance: number;
+    status: string;
+    overdue: boolean;
+};
+
+export type RelatorioDeTesouraria = {
+    tipo: TipoDeRelatorio;
+    titulo: string;
+    periodo: string;
+    de: string;
+    ate: string;
+    tipos: Array<{ valor: TipoDeRelatorio; rotulo: string }>;
+    /** As moradas do PDF e do Excel, montadas pelo servidor. */
+    descargas: { pdf: string; excel: string };
+    dados: Partial<{
+        /* Fluxo de caixa */
+        initialBalance: number;
+        incomeByCategory: LinhaDeCategoria[];
+        totalIncome: number;
+        expenseByCategory: LinhaDeCategoria[];
+        totalExpense: number;
+        finalBalance: number;
+        /* Demonstração de resultados */
+        grossRevenue: number;
+        deductions: number;
+        netRevenue: number;
+        operationalCosts: number;
+        grossProfit: number;
+        expensesByCategory: LinhaDeCategoria[];
+        totalExpenses: number;
+        operationalProfit: number;
+        netProfit: number;
+        /* Contas a receber e a pagar */
+        receivables: LinhaEmAberto[];
+        totalReceivables: number;
+        payables: LinhaEmAberto[];
+        totalPayables: number;
+        totalOverdue: number;
+    }>;
+};
+
+export const relatoriosDaTesouraria = {
+    ler: (f: { tipo: TipoDeRelatorio; periodo: string; de?: string; ate?: string }) =>
+        api.ler<RelatorioDeTesouraria>('/tesouraria/relatorios', f),
+};
