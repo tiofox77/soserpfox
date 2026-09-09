@@ -641,6 +641,47 @@ class PrepararBancadaPwa extends Command
             );
         }
 
+        /*
+         * AS TAREFAS DE LIMPEZA — uma por coluna do quadro, e a de hoje.
+         *
+         * Como na manutenção: um quadro com tudo na mesma coluna não distingue
+         * «funciona» de «não há nada». A de PROBLEMA é a que mais importa
+         * estar cá — era a coluna que o ecrã em Blade nunca conseguia encher.
+         *
+         * QUEM LIMPA É UM UTILIZADOR e não uma ficha de pessoal do hotel: é a
+         * chave estrangeira desta tabela, ao contrário da manutenção.
+         */
+        $quemLimpa = \App\Models\User::where('tenant_id', $tenant->id)->orderBy('id')->value('id');
+
+        foreach ([
+            ['102', 'checkout_clean', 'urgent', 'pending'],
+            ['103', 'stay_clean', 'normal', 'in_progress'],
+            ['201', 'turndown', 'low', 'completed'],
+            ['202', 'inspection', 'normal', 'verified'],
+            ['203', 'deep_clean', 'high', 'issue'],
+        ] as [$quarto, $tipo, $prioridade, $estado]) {
+            \App\Models\Hotel\HousekeepingTask::withoutGlobalScopes()->firstOrCreate(
+                [
+                    'tenant_id' => $tenant->id,
+                    'room_id' => $porQuarto[$quarto] ?? null,
+                    'scheduled_date' => today(),
+                ],
+                [
+                    'task_type' => $tipo,
+                    'priority' => $prioridade,
+                    'status' => $estado,
+                    'assigned_to' => $estado === 'pending' ? null : $quemLimpa,
+                    'estimated_duration' => 45,
+                    'started_at' => $estado === 'pending' ? null : now()->subHours(2),
+                    'completed_at' => in_array($estado, ['completed', 'verified'], true) ? now()->subHour() : null,
+                    'verified_at' => $estado === 'verified' ? now()->subMinutes(30) : null,
+                    'verified_by' => $estado === 'verified' ? $quemLimpa : null,
+                    'actual_duration' => in_array($estado, ['completed', 'verified'], true) ? 52 : null,
+                    'issues' => $estado === 'issue' ? 'Chuveiro partido — o quarto ficou fora de serviço.' : null,
+                ]
+            );
+        }
+
         return $quartos;
     }
 

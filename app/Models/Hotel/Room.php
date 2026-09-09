@@ -29,8 +29,8 @@ class Room extends Model
         'clean' => 'Limpo',
         'dirty' => 'Sujo',
         'in_progress' => 'Em Limpeza',
-        'inspecting' => 'Inspecao',
-        'out_of_order' => 'Fora de Servico',
+        'inspecting' => 'Inspeção',
+        'out_of_order' => 'Fora de Serviço',
     ];
 
     protected $casts = [

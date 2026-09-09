@@ -675,6 +675,25 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::post('/{id}/atribuir-me', [$c, 'atribuirMe'])->whereNumber('id')->name('atribuir-me');
         });
 
+        /*
+         * A LIMPEZA. Começar, acabar e verificar têm porta própria porque não
+         * são um `update` de uma coluna: cada uma delas mexe também no ESTADO
+         * DO QUARTO, e é o modelo que o faz.
+         */
+        Route::prefix('hotel/limpeza')->name('hotel.limpeza.')->group(function () {
+            $c = \App\Http\Controllers\Api\Hotel\LimpezaApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'store'])->name('store');
+            Route::post('/gerar', [$c, 'gerar'])->name('gerar');
+            Route::put('/{id}', [$c, 'update'])->whereNumber('id')->name('update');
+            Route::delete('/{id}', [$c, 'destroy'])->whereNumber('id')->name('destroy');
+            Route::post('/{id}/estado', [$c, 'estado'])->whereNumber('id')->name('estado');
+            Route::post('/{id}/ponto', [$c, 'ponto'])->whereNumber('id')->name('ponto');
+            Route::post('/{id}/atribuir', [$c, 'atribuir'])->whereNumber('id')->name('atribuir');
+        });
+
         Route::prefix('oficina/ordens')->name('oficina.ordens.')->group(function () {
             $c = \App\Http\Controllers\Api\Workshop\OrdensApiController::class;
 
@@ -1770,7 +1789,7 @@ Route::middleware(['auth', 'tenant.module:hotel'])->prefix('hotel')->name('hotel
     Route::middleware('permission:hotel.reservations.view')
         ->get('/calendar', \App\Livewire\Hotel\CalendarReservation::class)->name('calendar');
     Route::middleware('permission:hotel.housekeeping.view')
-        ->get('/housekeeping', \App\Livewire\Hotel\HousekeepingDashboard::class)->name('housekeeping');
+        ->get('/housekeeping', \App\Support\EcraReact::pagina('hotel/limpeza', 'Housekeeping'))->name('housekeeping');
     Route::middleware('permission:hotel.maintenance.view')
         ->get('/maintenance', \App\Support\EcraReact::pagina('hotel/manutencao', 'Manutenção'))->name('maintenance');
     Route::middleware('permission:hotel.staff.view')
