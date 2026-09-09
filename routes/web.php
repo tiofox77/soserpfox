@@ -635,6 +635,30 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         });
 
         /*
+         * AS ORDENS DE SERVIÇO. A mudança de estado tem porta própria porque
+         * não é um `update` de uma coluna: passar a «Concluída» desconta as
+         * peças do stock e anular devolve-as.
+         */
+        Route::prefix('oficina/ordens')->name('oficina.ordens.')->group(function () {
+            $c = \App\Http\Controllers\Api\Workshop\OrdensApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/artigos', [$c, 'artigos'])->name('artigos');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'store'])->name('store');
+            Route::get('/{id}', [$c, 'ficha'])->whereNumber('id')->name('ficha');
+            Route::put('/{id}', [$c, 'update'])->whereNumber('id')->name('update');
+            Route::delete('/{id}', [$c, 'destroy'])->whereNumber('id')->name('destroy');
+            Route::post('/{id}/estado', [$c, 'estado'])->whereNumber('id')->name('estado');
+            Route::post('/{id}/linhas', [$c, 'juntarLinha'])->whereNumber('id')->name('linhas.juntar');
+            Route::delete('/{id}/linhas/{linha}', [$c, 'tirarLinha'])->whereNumber('id')->whereNumber('linha')->name('linhas.tirar');
+            Route::put('/{id}/desconto', [$c, 'desconto'])->whereNumber('id')->name('desconto');
+            Route::post('/{id}/facturar', [$c, 'facturar'])->whereNumber('id')->name('facturar');
+            Route::post('/{id}/anexos', [$c, 'anexar'])->whereNumber('id')->name('anexos.juntar');
+            Route::delete('/{id}/anexos/{anexo}', [$c, 'apagarAnexo'])->whereNumber('id')->whereNumber('anexo')->name('anexos.apagar');
+        });
+
+        /*
          * OS MAPAS: cinco relatórios e o mapa de IRT. Nenhum recalcula nada —
          * lêem o que ficou gravado no processamento da folha.
          */
@@ -1596,7 +1620,7 @@ Route::middleware(['auth', 'tenant.module:oficina'])->prefix('workshop')->name('
             'subtitulo' => 'O catálogo de artigos da casa, aberto nas peças',
         ]))->name('parts');
     Route::middleware('permission:workshop.work-orders.view')
-        ->get('/work-orders', \App\Livewire\Workshop\WorkOrderManagement::class)->name('work-orders');
+        ->get('/work-orders', \App\Support\EcraReact::pagina('oficina/ordens', 'Ordens de Serviço'))->name('work-orders');
     // A ordem em papel leva a viatura, o dono e o preço: a mesma permissão do
     // ecrã de onde se abre.
     Route::get('/work-orders/{id}/print', [\App\Http\Controllers\Workshop\WorkOrderController::class, 'printPreview'])

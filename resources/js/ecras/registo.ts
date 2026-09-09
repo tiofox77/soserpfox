@@ -191,4 +191,6 @@ export const ecras: Record<string, Ecra> = {
         import('./oficina/Painel'),
     'oficina/relatorios': () =>
         import('./oficina/Relatorios'),
+    'oficina/ordens': () =>
+        import('./oficina/OrdensDeServico'),
 };

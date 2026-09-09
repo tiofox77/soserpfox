@@ -29,28 +29,35 @@ class WorkOrderObserver
      */
     public function updated(WorkOrder $workOrder): void
     {
-        // Rastrear mudanças de status
+        /*
+         * A MUDANÇA DE ESTADO, escrita venha ela de onde vier.
+         *
+         * OS RÓTULOS VÊM DE `OrdensDeServico::ESTADOS`, que é a lista única do
+         * módulo. A que aqui estava era uma segunda cópia: dizia «Em Andamento»
+         * (o resto do produto diz «Em curso»), não estava traduzida, e não
+         * conhecia o estado `scheduled` — uma ordem que passasse a Agendada
+         * ficava com «Status alterado de 'Pendente' para 'scheduled'» escrito
+         * no histórico.
+         */
         if ($workOrder->isDirty('status')) {
-            $oldStatus = $workOrder->getOriginal('status');
-            $newStatus = $workOrder->status;
-            
-            $statusLabels = [
-                'pending' => 'Pendente',
-                'in_progress' => 'Em Andamento',
-                'waiting_parts' => 'Aguardando Peças',
-                'completed' => 'Concluída',
-                'delivered' => 'Entregue',
-                'cancelled' => 'Cancelada',
-            ];
-            
+            $antigo = $workOrder->getOriginal('status');
+            $novo = $workOrder->status;
+
+            $rotulo = fn (?string $e) => $e === null
+                ? '—'
+                : __(\App\Services\Workshop\OrdensDeServico::ESTADOS[$e] ?? $e);
+
             WorkOrderHistory::create([
                 'work_order_id' => $workOrder->id,
                 'user_id' => auth()->id(),
                 'action' => WorkOrderHistory::ACTION_STATUS_CHANGED,
                 'field_name' => 'status',
-                'old_value' => $oldStatus,
-                'new_value' => $newStatus,
-                'description' => "Status alterado de '" . ($statusLabels[$oldStatus] ?? $oldStatus) . "' para '" . ($statusLabels[$newStatus] ?? $newStatus) . "'",
+                'old_value' => $antigo,
+                'new_value' => $novo,
+                'description' => __('Estado: :antes → :depois', [
+                    'antes' => $rotulo($antigo),
+                    'depois' => $rotulo($novo),
+                ]),
             ]);
         }
         

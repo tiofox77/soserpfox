@@ -92,3 +92,239 @@ export const mapasDaOficina = {
     opcoes: () => api.ler<OpcoesDosMapasDaOficina>('/oficina/relatorios/opcoes'),
     mostrar: (filtros: FiltrosDoMapa) => api.ler<MapaDaOficina>('/oficina/relatorios', filtros),
 };
+
+/* ─── As ordens de serviço ──────────────────────────────────────────── */
+
+export type ViaturaParaEscolher = Escolha & { dono: string | null; km: number };
+export type ServicoParaEscolher = Escolha & {
+    codigo: string | null;
+    descricao: string | null;
+    preco: number;
+    horas: number;
+};
+export type ArtigoParaEscolher = Escolha & {
+    codigo: string | null;
+    descricao: string | null;
+    preco: number;
+    unidade: string | null;
+    /** A existência no armazém DE ONDE A PEÇA VAI SAIR, e não a soma de todos. */
+    stock: number;
+};
+
+export type OpcoesDasOrdens = {
+    estados: Escolha[];
+    prioridades: Escolha[];
+    categorias_de_anexo: Escolha[];
+    viaturas: ViaturaParaEscolher[];
+    mecanicos: Escolha[];
+    servicos: ServicoParaEscolher[];
+    permissoes: {
+        pode_criar: boolean;
+        pode_editar: boolean;
+        pode_apagar: boolean;
+        /** Facturar é emitir um documento fiscal: é a permissão da facturação. */
+        pode_facturar: boolean;
+    };
+};
+
+export type Ordem = {
+    id: number;
+    numero: string;
+    matricula: string | null;
+    viatura: string | null;
+    dono: string | null;
+    mecanico: string | null;
+    mechanic_id: number | null;
+    vehicle_id: number | null;
+    entrada: string | null;
+    estado: string;
+    estado_rotulo: string;
+    prioridade: string;
+    prioridade_rotulo: string;
+    km: number;
+    mao_de_obra: number;
+    pecas: number;
+    desconto: number;
+    imposto: number;
+    total: number;
+    pago: number;
+    saldo: number;
+    estado_pagamento: string | null;
+    facturada: boolean;
+    /** Agendada para uma data já passada, e ainda por fechar. */
+    atrasada: boolean;
+    dias_na_oficina: number;
+};
+
+export type LinhaDaOrdem = {
+    id: number;
+    tipo: 'service' | 'part';
+    codigo: string | null;
+    nome: string;
+    descricao: string | null;
+    quantidade: number;
+    preco: number;
+    desconto: number;
+    subtotal: number;
+    horas: number;
+    mecanico: string | null;
+    referencia: string | null;
+    marca: string | null;
+    original: boolean;
+};
+
+export type EventoDaOrdem = {
+    id: number;
+    accao: string;
+    descricao: string | null;
+    quem: string | null;
+    quando: string | null;
+};
+
+export type AnexoDaOrdem = {
+    id: number;
+    nome: string;
+    url: string;
+    categoria: string;
+    categoria_rotulo: string;
+    tamanho: string;
+    imagem: boolean;
+    descricao: string | null;
+    quem: string | null;
+    quando: string | null;
+};
+
+/** A ficha traz a viatura por extenso, para o separador de informação. */
+export type ViaturaDaFicha = {
+    id: number;
+    matricula: string;
+    marca: string | null;
+    modelo: string | null;
+    ano: number | null;
+    cor: string | null;
+    combustivel: string | null;
+    dono: string | null;
+    telefone: string | null;
+};
+
+export type FichaDaOrdem = Ordem & {
+    /** A viatura por extenso — chave própria, para não tapar a da lista. */
+    viatura_ficha: ViaturaDaFicha | null;
+    agendada_para: string | null;
+    iniciada_em: string | null;
+    concluida_em: string | null;
+    entregue_em: string | null;
+    garantia_ate: string | null;
+    garantia_dias: number;
+    problema: string | null;
+    diagnostico: string | null;
+    trabalho: string | null;
+    recomendacoes: string | null;
+    notas: string | null;
+    linhas: LinhaDaOrdem[];
+    historico: EventoDaOrdem[];
+    anexos: AnexoDaOrdem[];
+    factura: { id: number; numero: string; cliente: string | null; quando: string | null; morada: string } | null;
+};
+
+export type FiltrosDasOrdens = {
+    procura?: string;
+    estado?: string;
+    prioridade?: string;
+    page?: number;
+    por_pagina?: number;
+};
+
+export type ListaDeOrdens = {
+    data: Ordem[];
+    meta: { total: number; current_page: number; last_page: number; per_page: number };
+    resumo: { total: number; em_aberto: number; em_curso: number; concluidas: number };
+};
+
+/** O que o formulário da ordem grava. */
+export type OrdemParaGravar = {
+    vehicle_id: string;
+    mechanic_id: string;
+    received_at: string;
+    scheduled_for: string;
+    mileage_in: string;
+    problem_description: string;
+    diagnosis: string;
+    work_performed: string;
+    recommendations: string;
+    status: string;
+    priority: string;
+    warranty_days: string;
+    notes: string;
+};
+
+export type LinhaParaGravar = {
+    type: 'service' | 'part';
+    service_id: string;
+    product_id: string;
+    code: string;
+    name: string;
+    description: string;
+    quantity: string;
+    unit_price: string;
+    discount_percent: string;
+    hours: string;
+    mechanic_id: string;
+    part_number: string;
+    brand: string;
+    is_original: boolean;
+};
+
+export const ordens = {
+    opcoes: () => api.ler<OpcoesDasOrdens>('/oficina/ordens/opcoes'),
+
+    /** As peças procuram-se: o catálogo desta casa tem doze mil artigos. */
+    artigos: (procura: string) =>
+        api.ler<{ armazem: string | null; data: ArtigoParaEscolher[] }>('/oficina/ordens/artigos', { procura }),
+
+    lista: (filtros: FiltrosDasOrdens) => api.ler<ListaDeOrdens>('/oficina/ordens', filtros),
+
+    ficha: (id: number) => api.ler<{ data: FichaDaOrdem }>(`/oficina/ordens/${id}`),
+
+    criar: (dados: OrdemParaGravar) =>
+        api.criar<{ data: Ordem; message: string }>('/oficina/ordens', dados),
+
+    guardar: (id: number, dados: OrdemParaGravar) =>
+        api.guardar<{ data: Ordem; message: string }>(`/oficina/ordens/${id}`, dados),
+
+    apagar: (id: number) => api.apagar<{ message: string }>(`/oficina/ordens/${id}`),
+
+    /**
+     * MUDAR O ESTADO — a porta única.
+     *
+     * Não é um `update` de uma coluna: passar a «Concluída» desconta as peças
+     * do stock e anular devolve-as. As que não conseguiram sair vêm em
+     * `falhas`, para o ecrã as poder mostrar como aviso.
+     */
+    estado: (id: number, estado: string) =>
+        api.criar<{ data: Ordem; message: string; falhas: string[] }>(`/oficina/ordens/${id}/estado`, { estado }),
+
+    juntarLinha: (id: number, dados: LinhaParaGravar) =>
+        api.criar<{ message: string }>(`/oficina/ordens/${id}/linhas`, dados),
+
+    tirarLinha: (id: number, linha: number) =>
+        api.apagar<{ message: string }>(`/oficina/ordens/${id}/linhas/${linha}`),
+
+    desconto: (id: number, desconto: number) =>
+        api.guardar<{ message: string }>(`/oficina/ordens/${id}/desconto`, { desconto }),
+
+    facturar: (id: number) =>
+        api.criar<{ message: string; morada: string }>(`/oficina/ordens/${id}/facturar`, {}),
+
+    anexar: (id: number, ficheiros: File[], categoria: string, descricao: string) => {
+        const corpo = new FormData();
+        ficheiros.forEach((f) => corpo.append('ficheiros[]', f));
+        corpo.append('categoria', categoria);
+        corpo.append('descricao', descricao);
+
+        return api.enviar<{ message: string }>(`/oficina/ordens/${id}/anexos`, corpo);
+    },
+
+    apagarAnexo: (id: number, anexo: number) =>
+        api.apagar<{ message: string }>(`/oficina/ordens/${id}/anexos/${anexo}`),
+};
