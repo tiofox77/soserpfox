@@ -2,6 +2,7 @@
 
 namespace App\Models\Hotel;
 
+use App\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Models\Tenant;
@@ -9,6 +10,8 @@ use Carbon\Carbon;
 
 class RateSeason extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'hotel_rate_seasons';
 
     protected $fillable = [

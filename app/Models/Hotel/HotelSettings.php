@@ -103,11 +103,21 @@ class HotelSettings extends Model
         'notify_post_stay' => 'boolean',
     ];
 
+    /**
+     * As definições de UMA empresa — a activa, ou outra dita por quem chama.
+     *
+     * SEM O ESCOPO, e é preciso: com o escopo a filtrar pela empresa ACTIVA,
+     * um `getForTenant($outra)` não encontrava a linha que existe e o
+     * `firstOrCreate` criava uma SEGUNDA para essa empresa. É o que acontecia
+     * na página pública de check-in, que resolve o hotel pela reserva.
+     *
+     * Quem passa um id aqui já decidiu de que empresa fala.
+     */
     public static function getForTenant($tenantId = null)
     {
         $tenantId = $tenantId ?? activeTenantId();
-        
-        $settings = static::firstOrCreate(
+
+        $settings = static::withoutGlobalScopes()->firstOrCreate(
             ['tenant_id' => $tenantId],
             [
                 'hotel_name' => 'Meu Hotel',
@@ -153,20 +163,33 @@ class HotelSettings extends Model
     }
     
     /**
-     * Obter settings pelo slug de booking
+     * O HOTEL PELA SUA MORADA PÚBLICA.
+     *
+     * SEM O ESCOPO DE EMPRESA, e de propósito: numa página pública o SLUG é
+     * que escolhe a empresa. Quem abre `/hotel/booking/miramar` pode não ter
+     * sessão nenhuma — e se tiver, pode estar com outra empresa activa. Com o
+     * escopo a filtrar, a página do hotel do lado dava 404 a quem tinha a sua
+     * própria empresa aberta noutro separador.
      */
     public static function findBySlug(string $slug): ?self
     {
-        return static::where('booking_slug', $slug)->first();
+        return static::withoutGlobalScopes()->where('booking_slug', $slug)->first();
     }
 
+    /**
+     * Um slug que ainda ninguém usa — E NÃO SÓ NESTA EMPRESA.
+     *
+     * O slug é a morada pública e tem de ser único no mundo, não por empresa:
+     * com o escopo a filtrar, dois hotéis chegavam ao mesmo «miramar» e o
+     * segundo roubava as reservas do primeiro.
+     */
     public static function generateUniqueSlug($name)
     {
         $baseSlug = Str::slug($name);
         $slug = $baseSlug;
         $counter = 1;
 
-        while (static::where('booking_slug', $slug)->exists()) {
+        while (static::withoutGlobalScopes()->where('booking_slug', $slug)->exists()) {
             $slug = $baseSlug . '-' . $counter++;
         }
 

@@ -18,9 +18,20 @@ class ReservationController extends Controller
      * Express check-in via QR code URL.
      * GET /hotel/reservations/{id}/checkin/{code}
      */
+    /**
+     * O CHECK-IN PELO QR — uma página PÚBLICA.
+     *
+     * Quem autoriza aqui é o `confirmation_code` do URL, e não a sessão: o
+     * hóspede lê o código do email no telemóvel e não tem conta nenhuma. Por
+     * isso a reserva procura-se SEM o escopo de empresa — se o deixássemos
+     * entrar, um recepcionista com a sua própria empresa aberta noutro
+     * separador abria o link do hóspede e via um 404.
+     */
     public function expressCheckIn($id, string $code)
     {
-        $reservation = Reservation::with(['guest', 'room', 'roomType'])->findOrFail($id);
+        $reservation = Reservation::withoutGlobalScopes()
+            ->with(['guest', 'room', 'roomType'])
+            ->findOrFail($id);
 
         if (!hash_equals((string) $reservation->confirmation_code, $code)) {
             abort(403, 'Código de confirmação inválido.');
@@ -33,9 +44,10 @@ class ReservationController extends Controller
         ]);
     }
 
+    /** A confirmação do mesmo check-in público — e pela mesma razão, sem escopo. */
     public function confirmExpressCheckIn($id, string $code, Request $request)
     {
-        $reservation = Reservation::findOrFail($id);
+        $reservation = Reservation::withoutGlobalScopes()->findOrFail($id);
 
         if (!hash_equals((string) $reservation->confirmation_code, $code)) {
             abort(403, 'Código inválido.');

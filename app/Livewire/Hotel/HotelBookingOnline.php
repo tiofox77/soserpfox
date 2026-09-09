@@ -126,7 +126,14 @@ class HotelBookingOnline extends Component
     public function viewRoomGallery($roomId)
     {
         $this->viewingRoomId = $roomId;
-        $this->viewingRoom = RoomType::find($roomId);
+
+        // PELO HOTEL DESTA MORADA, e não por id solto. Numa página pública o
+        // escopo de empresa não se aplica (não há sessão), e se houver pode
+        // ser de outra empresa — nos dois casos, quem manda é o slug. É o
+        // mesmo filtro que o resto desta página já usa.
+        $this->viewingRoom = RoomType::withoutGlobalScopes()
+            ->where('tenant_id', $this->tenantId)
+            ->find($roomId);
     }
 
     public function closeGallery()

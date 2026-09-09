@@ -2,12 +2,15 @@
 
 namespace App\Models\Hotel;
 
+use App\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Models\Tenant;
 
 class MaintenanceOrder extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'hotel_maintenance_orders';
 
     protected $fillable = [

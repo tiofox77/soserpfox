@@ -2,6 +2,7 @@
 
 namespace App\Models\Hotel;
 
+use App\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -9,7 +10,7 @@ use Illuminate\Notifications\Notifiable;
 
 class Guest extends Model
 {
-    use HasFactory, SoftDeletes, Notifiable;
+    use HasFactory, SoftDeletes, Notifiable, BelongsToTenant;
 
     /** Guest uses its own email field for mail notifications */
     public function routeNotificationForMail($notification = null)

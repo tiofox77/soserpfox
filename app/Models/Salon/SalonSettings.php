@@ -141,11 +141,18 @@ class SalonSettings extends Model
     /**
      * Obter ou criar settings para um tenant
      */
+    /**
+     * As definições de UMA empresa — a activa, ou outra dita por quem chama.
+     *
+     * SEM O ESCOPO, e é preciso: com ele a filtrar pela empresa ACTIVA, um
+     * `getForTenant($outra)` não encontrava a linha que existe e o
+     * `firstOrCreate` criava uma SEGUNDA para essa empresa.
+     */
     public static function getForTenant(?int $tenantId = null): self
     {
         $tenantId = $tenantId ?? activeTenantId();
-        
-        return static::firstOrCreate(
+
+        return static::withoutGlobalScopes()->firstOrCreate(
             ['tenant_id' => $tenantId],
             [
                 'salon_name' => 'Meu Salão',

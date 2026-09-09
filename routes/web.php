@@ -1576,39 +1576,69 @@ Route::middleware(['auth', 'tenant.module:projetos'])->prefix('projetos')->name(
         ->get('/timesheet', \App\Livewire\Projetos\Timesheet::class)->name('timesheet');
 });
 
-// Hotel Module Routes
+/*
+ * O HOTEL — trinta e cinco permissões declaradas e nenhuma rota a exigi-las.
+ *
+ * Era o maior dos cinco módulos sem guarda: qualquer utilizador com o módulo
+ * activo abria a lista de hóspedes (nome, documento, morada), as reservas, o
+ * folio com os consumos e o mapa do SEF.
+ *
+ * OS DOCUMENTOS DA RESERVA — voucher, folio, SEF, QR — pedem a permissão de
+ * VER RESERVAS, que é o ecrã de onde se abrem. E o KiandaStay pede a de
+ * definições: é lá que se liga a casa a um site de reservas.
+ */
 Route::middleware(['auth', 'tenant.module:hotel'])->prefix('hotel')->name('hotel.')->group(function () {
-    Route::get('/dashboard', \App\Livewire\Hotel\Dashboard::class)->name('dashboard');
-    Route::get('/room-types', \App\Livewire\Hotel\RoomTypeManagement::class)->name('room-types');
-    Route::get('/rooms', \App\Livewire\Hotel\RoomManagement::class)->name('rooms');
-    Route::get('/guests', \App\Livewire\Hotel\GuestManagement::class)->name('guests');
-    Route::get('/reservations', \App\Livewire\Hotel\ReservationManagement::class)->name('reservations');
-    Route::get('/walk-in', \App\Livewire\Hotel\WalkIn::class)->name('walk-in');
+    Route::middleware('permission:hotel.dashboard.view')
+        ->get('/dashboard', \App\Livewire\Hotel\Dashboard::class)->name('dashboard');
+    Route::middleware('permission:hotel.room-types.view')
+        ->get('/room-types', \App\Livewire\Hotel\RoomTypeManagement::class)->name('room-types');
+    Route::middleware('permission:hotel.rooms.view')
+        ->get('/rooms', \App\Livewire\Hotel\RoomManagement::class)->name('rooms');
+    Route::middleware('permission:hotel.guests.view')
+        ->get('/guests', \App\Livewire\Hotel\GuestManagement::class)->name('guests');
+    Route::middleware('permission:hotel.reservations.view')
+        ->get('/reservations', \App\Livewire\Hotel\ReservationManagement::class)->name('reservations');
+    Route::middleware('permission:hotel.walk-in.create')
+        ->get('/walk-in', \App\Livewire\Hotel\WalkIn::class)->name('walk-in');
     // Parâmetro opcional: permite abrir o check-out já numa reserva concreta
     // (é o que o botão da lista de reservas faz). Sem parâmetro continua a
     // abrir o ecrã de pesquisa, como o menu lateral espera.
-    Route::get('/checkout/{reservationId?}', \App\Livewire\Hotel\Checkout::class)->name('checkout');
-    Route::get('/calendar', \App\Livewire\Hotel\CalendarReservation::class)->name('calendar');
-    Route::get('/housekeeping', \App\Livewire\Hotel\HousekeepingDashboard::class)->name('housekeeping');
-    Route::get('/maintenance', \App\Livewire\Hotel\MaintenanceManagement::class)->name('maintenance');
-    Route::get('/staff', \App\Livewire\Hotel\StaffManagement::class)->name('staff');
-    Route::get('/reports', \App\Livewire\Hotel\Reports::class)->name('reports');
-    Route::get('/rates', \App\Livewire\Hotel\RateManagement::class)->name('rates');
-    Route::get('/packages', \App\Livewire\Hotel\PackageManagement::class)->name('packages');
-    Route::get('/settings', \App\Livewire\Hotel\HotelSettingsManagement::class)->name('settings');
+    Route::middleware('permission:hotel.reservations.edit')
+        ->get('/checkout/{reservationId?}', \App\Livewire\Hotel\Checkout::class)->name('checkout');
+    Route::middleware('permission:hotel.reservations.view')
+        ->get('/calendar', \App\Livewire\Hotel\CalendarReservation::class)->name('calendar');
+    Route::middleware('permission:hotel.housekeeping.view')
+        ->get('/housekeeping', \App\Livewire\Hotel\HousekeepingDashboard::class)->name('housekeeping');
+    Route::middleware('permission:hotel.maintenance.view')
+        ->get('/maintenance', \App\Livewire\Hotel\MaintenanceManagement::class)->name('maintenance');
+    Route::middleware('permission:hotel.staff.view')
+        ->get('/staff', \App\Livewire\Hotel\StaffManagement::class)->name('staff');
+    Route::middleware('permission:hotel.reports.view')
+        ->get('/reports', \App\Livewire\Hotel\Reports::class)->name('reports');
+    Route::middleware('permission:hotel.rates.view')
+        ->get('/rates', \App\Livewire\Hotel\RateManagement::class)->name('rates');
+    Route::middleware('permission:hotel.packages.view')
+        ->get('/packages', \App\Livewire\Hotel\PackageManagement::class)->name('packages');
+    Route::middleware('permission:hotel.settings.view')
+        ->get('/settings', \App\Livewire\Hotel\HotelSettingsManagement::class)->name('settings');
     // A ligacao ao KiandaStay: as reservas do site entram sozinhas na recepcao.
-    Route::get('/kiandastay', \App\Livewire\Hotel\LigacaoKiandaStayScreen::class)->name('kiandastay');
+    Route::middleware('permission:hotel.settings.view')
+        ->get('/kiandastay', \App\Livewire\Hotel\LigacaoKiandaStayScreen::class)->name('kiandastay');
     // A volta do «Entrar com o KiandaStay»: troca o bilhete pelo token.
-    Route::get('/kiandastay/retorno', [\App\Http\Controllers\Hotel\LigacaoKiandaStayController::class, 'retorno'])->name('kiandastay.retorno');
+    Route::get('/kiandastay/retorno', [\App\Http\Controllers\Hotel\LigacaoKiandaStayController::class, 'retorno'])
+        ->middleware('permission:hotel.settings.edit')->name('kiandastay.retorno');
 
     // Folio (consumos por reserva)
-    Route::get('/reservations/{id}/folio', \App\Livewire\Hotel\ReservationFolio::class)->name('reservations.folio');
+    Route::middleware('permission:hotel.reservations.view')
+        ->get('/reservations/{id}/folio', \App\Livewire\Hotel\ReservationFolio::class)->name('reservations.folio');
 
     // Documents (PDF/HTML print-friendly)
-    Route::get('/reservations/{id}/voucher', [\App\Http\Controllers\Hotel\ReservationController::class, 'voucher'])->name('reservations.voucher');
-    Route::get('/reservations/{id}/folio-pdf', [\App\Http\Controllers\Hotel\ReservationController::class, 'folio'])->name('reservations.folio.pdf');
-    Route::get('/reservations/{id}/sef', [\App\Http\Controllers\Hotel\ReservationController::class, 'sef'])->name('reservations.sef');
-    Route::get('/reservations/{id}/qr', [\App\Http\Controllers\Hotel\ReservationController::class, 'qr'])->name('reservations.qr');
+    Route::middleware('permission:hotel.reservations.view')->group(function () {
+        Route::get('/reservations/{id}/voucher', [\App\Http\Controllers\Hotel\ReservationController::class, 'voucher'])->name('reservations.voucher');
+        Route::get('/reservations/{id}/folio-pdf', [\App\Http\Controllers\Hotel\ReservationController::class, 'folio'])->name('reservations.folio.pdf');
+        Route::get('/reservations/{id}/sef', [\App\Http\Controllers\Hotel\ReservationController::class, 'sef'])->name('reservations.sef');
+        Route::get('/reservations/{id}/qr', [\App\Http\Controllers\Hotel\ReservationController::class, 'qr'])->name('reservations.qr');
+    });
 });
 
 // Hotel Express Check-in (Public via QR Code - no auth required)

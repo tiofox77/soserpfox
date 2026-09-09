@@ -24,7 +24,10 @@ class EntrarComKiandaStayTest extends TenantTestCase
     {
         parent::setUp();
 
-        $this->comModulo('hotel');
+        // LIGAR A CASA A UM SITE DE RESERVAS é decisão de quem gere o hotel: a
+        // volta do «Entrar com o KiandaStay» passou a pedir a permissão de
+        // alterar as definições, como o ecrã de onde se parte.
+        $this->comModulo('hotel')->comPermissoes('hotel.settings.edit');
     }
 
     private function ligacao(): LigacaoKiandaStay
