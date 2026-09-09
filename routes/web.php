@@ -518,6 +518,14 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::post('/catalogos/{tipo}/{id}/logotipo', [\App\Http\Controllers\Api\Invoicing\CatalogoApiController::class, 'logotipo'])
             ->where('tipo', '[a-z-]+')->whereNumber('id')->name('catalogos.logotipo');
         /*
+         * A GALERIA — várias imagens numa coluna JSON. É ela que o site de
+         * reservas mostra num tipo de quarto.
+         */
+        Route::post('/catalogos/{tipo}/{id}/galeria', [\App\Http\Controllers\Api\Invoicing\CatalogoApiController::class, 'juntarAGaleria'])
+            ->where('tipo', '[a-z-]+')->whereNumber('id')->name('catalogos.galeria.juntar');
+        Route::delete('/catalogos/{tipo}/{id}/galeria', [\App\Http\Controllers\Api\Invoicing\CatalogoApiController::class, 'tirarDaGaleria'])
+            ->where('tipo', '[a-z-]+')->whereNumber('id')->name('catalogos.galeria.tirar');
+        /*
          * ATRIBUIR EM LOTE — quem se pode atribuir, e atribuir.
          *
          * Antes do `{accao}` genérico de propósito: `atribuir` é POST com
@@ -1717,11 +1725,11 @@ Route::middleware(['auth', 'tenant.module:hotel'])->prefix('hotel')->name('hotel
     Route::middleware('permission:hotel.dashboard.view')
         ->get('/dashboard', \App\Livewire\Hotel\Dashboard::class)->name('dashboard');
     Route::middleware('permission:hotel.room-types.view')
-        ->get('/room-types', \App\Livewire\Hotel\RoomTypeManagement::class)->name('room-types');
+        ->get('/room-types', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Tipos de Quarto', ['tipo' => 'tipos-de-quarto']))->name('room-types');
     Route::middleware('permission:hotel.rooms.view')
-        ->get('/rooms', \App\Livewire\Hotel\RoomManagement::class)->name('rooms');
+        ->get('/rooms', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Quartos', ['tipo' => 'quartos']))->name('rooms');
     Route::middleware('permission:hotel.guests.view')
-        ->get('/guests', \App\Livewire\Hotel\GuestManagement::class)->name('guests');
+        ->get('/guests', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Hóspedes', ['tipo' => 'hospedes']))->name('guests');
     Route::middleware('permission:hotel.reservations.view')
         ->get('/reservations', \App\Livewire\Hotel\ReservationManagement::class)->name('reservations');
     Route::middleware('permission:hotel.walk-in.create')
@@ -1738,7 +1746,7 @@ Route::middleware(['auth', 'tenant.module:hotel'])->prefix('hotel')->name('hotel
     Route::middleware('permission:hotel.maintenance.view')
         ->get('/maintenance', \App\Livewire\Hotel\MaintenanceManagement::class)->name('maintenance');
     Route::middleware('permission:hotel.staff.view')
-        ->get('/staff', \App\Livewire\Hotel\StaffManagement::class)->name('staff');
+        ->get('/staff', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Pessoal do Hotel', ['tipo' => 'pessoal-do-hotel']))->name('staff');
     Route::middleware('permission:hotel.reports.view')
         ->get('/reports', \App\Livewire\Hotel\Reports::class)->name('reports');
     Route::middleware('permission:hotel.rates.view')

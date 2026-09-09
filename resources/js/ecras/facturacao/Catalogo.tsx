@@ -71,6 +71,8 @@ export default function Catalogo({ tipo }: { tipo: string }) {
     const [aAtribuir, porAAtribuir] = useState<Linha | null>(null);
     /** Se o modal de IMPORTAR está aberto — não pende de linha nenhuma. */
     const [aImportar, porAImportar] = useState(false);
+    /** A linha cuja GALERIA está aberta — só nos catálogos que a têm. */
+    const [aGaleria, porAGaleria] = useState<Linha | null>(null);
 
     const opcoes = useQuery({ queryKey: ['catalogo', tipo, 'opcoes'], queryFn: () => catalogos.opcoes(tipo), staleTime: 5 * 60_000 });
     const lista = useQuery({ queryKey: ['catalogo', tipo, filtros], queryFn: () => catalogos.lista(tipo, filtros), placeholderData: keepPreviousData });
@@ -412,11 +414,31 @@ export default function Catalogo({ tipo }: { tipo: string }) {
                                                     </button>
                                                 )}
                                                 {o.accoes.logotipo && (
-                                                    <label title={t('Logótipo')} className={cls('cursor-pointer p-2 text-slate-400 transition-all duration-200 hover:scale-110 active:scale-100 hover:text-indigo-600', RAIO)}>
+                                                    <label title={o.imagem?.rotulo ?? t('Logótipo')} className={cls('cursor-pointer p-2 text-slate-400 transition-all duration-200 hover:scale-110 active:scale-100 hover:text-indigo-600', RAIO)}>
                                                         <i className="fas fa-image" aria-hidden="true" />
-                                                        <span className="sr-only">{t('Logótipo de :nome', { nome: nomeDe(l) })}</span>
+                                                        {/* O RÓTULO É DO CATÁLOGO: «Logótipo» num fornecedor,
+                                                            «Imagem de destaque» num tipo de quarto. Dizia
+                                                            sempre «Logótipo», que numa lista de quartos não
+                                                            quer dizer nada. */}
+                                                        <span className="sr-only">{t(':que de :nome', { que: o.imagem?.rotulo ?? t('Logótipo'), nome: nomeDe(l) })}</span>
                                                         <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) logotipo.mutate({ l, ficheiro: f }); e.target.value = ''; }} />
                                                     </label>
+                                                )}
+                                                {o.galeria && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => porAGaleria(l)}
+                                                        title={o.galeria.rotulo}
+                                                        aria-label={t(':que de :nome', { que: o.galeria.rotulo, nome: nomeDe(l) })}
+                                                        className={cls('relative p-2 text-slate-400 transition-all duration-200 hover:scale-110 active:scale-100 hover:text-purple-600', RAIO, FOCO)}
+                                                    >
+                                                        <i className="fas fa-images" aria-hidden="true" />
+                                                        {Array.isArray(l.galeria) && l.galeria.length > 0 && (
+                                                            <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-purple-600 px-1 text-[9px] font-bold text-white">
+                                                                {l.galeria.length}
+                                                            </span>
+                                                        )}
+                                                    </button>
                                                 )}
                                                 <button type="button" onClick={() => abrirEdicao(l)} aria-label={t('Editar: :nome', { nome: nomeDe(l) })} className={cls('p-2 text-slate-400 transition-all duration-200 hover:scale-110 active:scale-100 hover:text-indigo-600', RAIO, FOCO)}><i className="fas fa-pen" aria-hidden="true" /></button>
                                                 {o.accoes.apagar && (
@@ -479,6 +501,18 @@ export default function Catalogo({ tipo }: { tipo: string }) {
                 />
             )}
 
+            {/* A GALERIA — várias imagens, só onde o esquema as tem. */}
+            {o.galeria && aGaleria && (
+                <Galeria
+                    tipo={tipo}
+                    linha={linhas.find((l) => l.id === aGaleria.id) ?? aGaleria}
+                    nome={nomeDe(aGaleria)}
+                    rotulo={o.galeria.rotulo}
+                    aoFechar={() => porAGaleria(null)}
+                    aoMudar={(m) => { porRecado(m); invalidar(); }}
+                />
+            )}
+
             {/* IMPORTAR EM LOTE — o mesmo modal, outro verbo. */}
             {o.importar && aImportar && (
                 <Atribuicao
@@ -494,6 +528,103 @@ export default function Catalogo({ tipo }: { tipo: string }) {
 }
 
 /* ─── Atribuir em lote ──────────────────────────────────────────────── */
+
+/* ─── A galeria ─────────────────────────────────────────────────────── */
+
+/**
+ * AS IMAGENS DE UM REGISTO — as que o site de reservas mostra.
+ *
+ * Um tipo de quarto tem uma imagem de destaque (o botão da lista) e uma
+ * GALERIA: é ela que faz alguém escolher um quarto em vez de outro, e o ecrã
+ * em Blade tinha-a.
+ *
+ * APAGA-SE PELO CAMINHO DO FICHEIRO e não pela posição: pela posição, apagar a
+ * segunda e depois a terceira apagava a quarta, porque os índices mudam assim
+ * que a lista encolhe.
+ */
+function Galeria({ tipo, linha, nome, rotulo, aoFechar, aoMudar }: {
+    tipo: string;
+    linha: Linha;
+    nome: string;
+    rotulo: string;
+    aoFechar: () => void;
+    aoMudar: (mensagem: string) => void;
+}) {
+    const imagens = Array.isArray(linha.galeria) ? linha.galeria : [];
+
+    const juntar = useMutation({
+        mutationFn: (ficheiros: File[]) => catalogos.juntarAGaleria(tipo, linha.id, ficheiros),
+        onSuccess: (r) => aoMudar(r.message),
+    });
+
+    const tirar = useMutation({
+        mutationFn: (caminho: string) => catalogos.tirarDaGaleria(tipo, linha.id, caminho),
+        onSuccess: (r) => aoMudar(r.message),
+    });
+
+    return (
+        <Modal
+            aberto
+            aoFechar={aoFechar}
+            titulo={rotulo}
+            subtitulo={nome}
+            icone="fa-images"
+            cor="roxo"
+            largura="lg"
+            rodape={<Botao onClick={aoFechar}>{t('Fechar')}</Botao>}
+        >
+            <AvisoDeErro erro={juntar.error ?? tirar.error} />
+
+            <div className="space-y-4">
+                <label className={cls(
+                    'flex cursor-pointer flex-col items-center gap-2 border-2 border-dashed border-slate-300 px-4 py-8 text-center transition-colors hover:border-indigo-400 hover:bg-indigo-50/50',
+                    RAIO,
+                )}>
+                    <i className="fas fa-cloud-arrow-up text-2xl text-slate-400" aria-hidden="true" />
+                    <span className="text-sm font-semibold text-slate-700">{t('Escolher imagens')}</span>
+                    <span className="text-xs text-slate-400">{t('Até 10 de cada vez, 2 MB cada.')}</span>
+                    <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                            const ficheiros = Array.from(e.target.files ?? []);
+                            if (ficheiros.length > 0) juntar.mutate(ficheiros);
+                            e.target.value = '';
+                        }}
+                    />
+                </label>
+
+                {juntar.isPending && <p className="text-center text-sm text-slate-500">{t('A enviar…')}</p>}
+
+                {imagens.length === 0 ? (
+                    <p className="py-6 text-center text-sm text-slate-400">{t('Ainda não há imagens.')}</p>
+                ) : (
+                    <ul className="grid gap-3 sm:grid-cols-3">
+                        {imagens.map((img, i) => (
+                            <li key={img.caminho} className={cls('entra group relative overflow-hidden border border-slate-200', RAIO)}
+                                style={{ '--i': Math.min(i, 12) } as React.CSSProperties}>
+                                <img src={img.url} alt="" className="h-28 w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                                <button
+                                    type="button"
+                                    onClick={() => tirar.mutate(img.caminho)}
+                                    aria-label={t('Remover imagem :n', { n: i + 1 })}
+                                    className={cls(
+                                        'absolute right-1.5 top-1.5 grid h-7 w-7 place-items-center bg-white/90 text-slate-500 shadow-sm transition-all hover:scale-110 hover:text-red-600',
+                                        RAIO, FOCO,
+                                    )}
+                                >
+                                    <i className="fas fa-trash text-xs" aria-hidden="true" />
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </div>
+        </Modal>
+    );
+}
 
 /**
  * ESCOLHER MUITOS DE UMA VEZ — e fazer-lhes a mesma coisa.
@@ -769,7 +900,10 @@ function Celula({ c, l }: { c: Coluna; l: Linha }) {
                 <span className="inline-flex flex-wrap gap-1">
                     {(v as unknown[]).map((x) => (
                         <span key={String(x)} className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-                            {String(x)}
+                            {/* O QUE ESTÁ GRAVADO PODE SER UMA CHAVE (`sea_view`):
+                                o rótulo vem das opções da coluna. Sem isso, a
+                                lista de quartos dizia «balcony sea_view». */}
+                            {c.opcoes?.find((op) => op.valor === String(x))?.rotulo ?? String(x)}
                         </span>
                     ))}
                 </span>

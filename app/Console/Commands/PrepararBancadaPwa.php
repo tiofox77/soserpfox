@@ -181,6 +181,7 @@ class PrepararBancadaPwa extends Command
         $mesas = $this->montarORestaurante($tenant, $armazem, $imposto);
         $pessoas = $this->montarORh($tenant);
         $ordens = $this->montarAOficina($tenant);
+        $quartos = $this->montarOHotel($tenant);
 
         $this->newLine();
         $this->info('Bancada do PWA montada.');
@@ -194,6 +195,7 @@ class PrepararBancadaPwa extends Command
             ['Mesas',    $mesas],
             ['Funcionários', $pessoas],
             ['Ordens da oficina', $ordens],
+            ['Quartos do hotel', $quartos],
             ['Cliente',  $cliente->name],
             ['Armazém',  $armazem->name],
         ]);
@@ -517,6 +519,90 @@ class PrepararBancadaPwa extends Command
         }
 
         return $quantas;
+    }
+
+    /**
+     * O HOTEL DA BANCADA: tipos de quarto, quartos e pessoal.
+     *
+     * Um mapa de ocupação sem quartos não distingue «funciona» de «não há
+     * nada»; e uma lista de quartos com todos no mesmo estado não mostra o que
+     * as cores do ecrã existem para mostrar. Por isso os seis quartos ficam em
+     * estados diferentes, e um deles SUJO — que é o caso que separa «pode
+     * entrar alguém» de «pode vender-se».
+     *
+     * @return int quantos quartos ficaram montados
+     */
+    private function montarOHotel(Tenant $tenant): int
+    {
+        $tipos = [];
+
+        foreach ([
+            ['SGL', 'Individual', 18000, 22000, 1],
+            ['DBL', 'Duplo', 28000, 34000, 2],
+            ['STE', 'Suite', 55000, 68000, 4],
+        ] as [$codigo, $nome, $preco, $fimDeSemana, $pessoas]) {
+            $tipos[$codigo] = \App\Models\Hotel\RoomType::withoutGlobalScopes()->firstOrCreate(
+                ['tenant_id' => $tenant->id, 'code' => $codigo],
+                [
+                    'name' => $nome,
+                    'description' => 'Quarto ' . mb_strtolower($nome) . ' da bancada de ensaio.',
+                    'base_price' => $preco,
+                    'weekend_price' => $fimDeSemana,
+                    'capacity' => $pessoas,
+                    'extra_bed_capacity' => $pessoas > 1 ? 1 : 0,
+                    'extra_bed_price' => 8000,
+                    'amenities' => ['wifi', 'ac', 'tv', 'safe'],
+                    'is_active' => true,
+                ]
+            );
+        }
+
+        $quartos = 0;
+
+        foreach ([
+            ['101', '1', 'SGL', 'available', 'clean'],
+            ['102', '1', 'SGL', 'occupied', 'dirty'],
+            ['103', '1', 'DBL', 'available', 'dirty'],
+            ['201', '2', 'DBL', 'reserved', 'clean'],
+            ['202', '2', 'STE', 'available', 'clean'],
+            ['203', '2', 'STE', 'maintenance', 'out_of_order'],
+        ] as [$numero, $piso, $tipo, $estado, $limpeza]) {
+            \App\Models\Hotel\Room::withoutGlobalScopes()->firstOrCreate(
+                ['tenant_id' => $tenant->id, 'number' => $numero],
+                [
+                    'room_type_id' => $tipos[$tipo]->id,
+                    'floor' => $piso,
+                    'status' => $estado,
+                    'housekeeping_status' => $limpeza,
+                    'features' => $tipo === 'STE' ? ['balcony', 'sea_view', 'bathtub'] : [],
+                    'is_active' => true,
+                ]
+            );
+
+            $quartos++;
+        }
+
+        foreach ([
+            ['Marta Sebastião', 'receptionist', 'front_desk', '923400001'],
+            ['Joana Kituxi', 'housekeeper', 'housekeeping', '923400002'],
+            ['Paulo Neto', 'maintenance', 'maintenance', '923400003'],
+        ] as [$nome, $funcao, $area, $telefone]) {
+            \App\Models\Hotel\Staff::withoutGlobalScopes()->firstOrCreate(
+                ['tenant_id' => $tenant->id, 'phone' => $telefone],
+                [
+                    'name' => $nome,
+                    'position' => $funcao,
+                    'department' => $area,
+                    'working_days' => [1, 2, 3, 4, 5, 6],
+                    'work_start' => '08:00',
+                    'work_end' => '17:00',
+                    'monthly_salary' => 180000,
+                    'is_active' => true,
+                ]
+            );
+        }
+
+        return $quartos;
     }
 
     /**

@@ -49,27 +49,33 @@ class Staff extends Model
         'hire_date' => 'date',
     ];
 
+    /*
+     * AS FUNÇÕES E OS DEPARTAMENTOS — as CHAVES são as da base e não se
+     * tocam; os RÓTULOS estavam sem acentos («Manutencao», «Seguranca»,
+     * «Garcom», «Recepcao», «Administracao») e são o que aparece no ecrã.
+     * Além disso, «Garçom» é brasileiro: em Angola diz-se «Empregado de mesa».
+     */
     const POSITIONS = [
         'manager' => 'Gerente',
         'receptionist' => 'Recepcionista',
         'housekeeper' => 'Governanta',
         'cleaner' => 'Camareira',
-        'maintenance' => 'Manutencao',
+        'maintenance' => 'Manutenção',
         'bellboy' => 'Mensageiro',
         'concierge' => 'Concierge',
-        'security' => 'Seguranca',
-        'chef' => 'Chef',
-        'waiter' => 'Garcom',
+        'security' => 'Segurança',
+        'chef' => 'Chefe de cozinha',
+        'waiter' => 'Empregado de mesa',
         'other' => 'Outro',
     ];
 
     const DEPARTMENTS = [
-        'front_desk' => 'Recepcao',
-        'housekeeping' => 'Housekeeping',
-        'maintenance' => 'Manutencao',
+        'front_desk' => 'Recepção',
+        'housekeeping' => 'Limpeza',
+        'maintenance' => 'Manutenção',
         'food_service' => 'Restaurante/Bar',
-        'security' => 'Seguranca',
-        'management' => 'Administracao',
+        'security' => 'Segurança',
+        'management' => 'Administração',
     ];
 
     protected static function boot()

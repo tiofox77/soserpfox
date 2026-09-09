@@ -57,6 +57,8 @@ export type Coluna = {
     formato: 'texto' | 'escolha' | 'booleano' | 'numero' | 'percentagem' | 'cor' | 'icone' | 'padrao' | 'dinheiro'
         | 'hora' | 'dias' | 'data' | 'validade' | 'multi';
     alinhar?: 'direita';
+    /** Só nas colunas `multi`: os rótulos das chaves gravadas. */
+    opcoes?: Escolha[];
 };
 
 export type Filtro = {
@@ -95,7 +97,11 @@ export type OpcoesDoCatalogo = {
     datas: boolean;
     /** Se tem ficha de VER com extrato — hoje, só os fornecedores. */
     extrato: boolean;
-    accoes: { activar: boolean; padrao: boolean; logotipo: boolean; apagar: boolean; atribuir?: boolean; importar?: boolean };
+    accoes: { activar: boolean; padrao: boolean; logotipo: boolean; apagar: boolean; atribuir?: boolean; importar?: boolean; galeria?: boolean };
+    /** Como se chama a imagem deste catálogo — «Logótipo», «Imagem de destaque». */
+    imagem: { rotulo: string } | null;
+    /** A galeria de imagens, onde a há — é ela que o site de reservas mostra. */
+    galeria: { rotulo: string } | null;
     /** Como se chama a atribuição em lote neste catálogo — nulo onde não há. */
     atribuir: { titulo: string; nada: string; pesquisa_ajuda: string } | null;
     /** Como se chama a importação em lote — «Importar de RH», nos mecânicos. */
@@ -120,6 +126,8 @@ export type Linha = {
     is_active?: boolean;
     is_default?: boolean;
     logo?: string | null;
+    /** As imagens da galeria: o URL para se ver, o caminho para se apagar. */
+    galeria?: Array<{ caminho: string; url: string }>;
     /** Os rótulos das escolhas e referências, prontos a mostrar. */
     rotulos: Record<string, string>;
 } & Record<string, unknown>;
@@ -188,4 +196,16 @@ export const catalogos = {
 
         return api.enviar<{ data: Linha; message: string }>(`/catalogos/${tipo}/${id}/logotipo`, corpo);
     },
+
+    /** Juntar imagens à galeria de um registo. */
+    juntarAGaleria: (tipo: string, id: number, ficheiros: File[]) => {
+        const corpo = new FormData();
+        ficheiros.forEach((f) => corpo.append('imagens[]', f));
+
+        return api.enviar<{ data: Linha; message: string }>(`/catalogos/${tipo}/${id}/galeria`, corpo);
+    },
+
+    /** Tirar uma pelo CAMINHO: pela posição, apagar duas seguidas apagava a errada. */
+    tirarDaGaleria: (tipo: string, id: number, caminho: string) =>
+        api.apagar<{ data: Linha; message: string }>(`/catalogos/${tipo}/${id}/galeria`, { caminho }),
 };

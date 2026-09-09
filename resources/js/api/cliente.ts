@@ -112,7 +112,17 @@ export const api = {
     guardar: <T>(caminho: string, corpo: unknown) =>
         pedir<T>(caminho, { method: 'PUT', body: JSON.stringify(corpo) }),
 
-    apagar: <T>(caminho: string) => pedir<T>(caminho, { method: 'DELETE' }),
+    /**
+     * APAGAR — com corpo, quando o que se apaga não cabe no URL.
+     *
+     * Quase sempre o id basta. A excepção é a galeria de imagens, onde se
+     * apaga PELO CAMINHO do ficheiro: pela posição, apagar duas seguidas
+     * apagava a errada, porque os índices mudam assim que a lista encolhe.
+     */
+    apagar: <T>(caminho: string, corpo?: unknown) =>
+        pedir<T>(caminho, corpo === undefined
+            ? { method: 'DELETE' }
+            : { method: 'DELETE', body: JSON.stringify(corpo) }),
 
     /** Um ficheiro: vai em multipart, e o browser é que põe o Content-Type. */
     enviar: <T>(caminho: string, corpo: FormData) =>

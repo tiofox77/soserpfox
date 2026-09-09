@@ -59,7 +59,28 @@ class CatalogoApiController extends Controller
              */
             'nome' => $def['nome'] ?? 'name',
             'pesquisa' => __($def['pesquisa_ajuda']),
-            'colunas' => array_map(fn ($c) => array_merge($c, ['rotulo' => __($c['rotulo'])]), $def['colunas']),
+            /*
+             * UMA COLUNA `multi` LEVA AS OPÇÕES DO CAMPO CORRESPONDENTE.
+             *
+             * A célula mostra crachás, e o que está gravado é a CHAVE
+             * (`sea_view`) e não o rótulo. Sem a lista, a lista de quartos
+             * dizia «balcony sea_view bathtub» — que é o nome da coluna na
+             * base, não uma resposta a ninguém. Nas especialidades do mecânico
+             * não se notava porque lá o valor gravado já é o rótulo.
+             */
+            'colunas' => array_map(function ($c) use ($def) {
+                $c['rotulo'] = __($c['rotulo']);
+
+                if (($c['formato'] ?? '') === 'multi' && ! isset($c['opcoes'])) {
+                    $campo = collect($def['campos'])->firstWhere('chave', $c['chave']);
+
+                    if (isset($campo['opcoes'])) {
+                        $c['opcoes'] = self::traduzidas($campo['opcoes']);
+                    }
+                }
+
+                return $c;
+            }, $def['colunas']),
             /*
              * OS RÓTULOS DAS ESCOLHAS TAMBÉM SE TRADUZEM.
              *
@@ -68,17 +89,41 @@ class CatalogoApiController extends Controller
              * meia tradução, que é pior do que nenhuma — parece avaria.
              */
             'campos' => array_map(fn ($c) => isset($c['opcoes']) ? array_merge($c, ['opcoes' => self::traduzidas($c['opcoes'])]) : $c, $def['campos']),
+            /*
+             * UM FILTRO PODE PEDIR AS OPÇÕES A UMA REFERÊNCIA.
+             *
+             * «Filtrar por tipo de quarto» é uma lista que muda com os dados,
+             * e não uma escrita no esquema: declara `referencia` e as opções
+             * vêm das mesmas que o formulário usa. Sem isto, um filtro assim
+             * chegava ao ecrã com uma lista vazia.
+             */
             'filtros' => array_map(fn ($f) => array_merge($f, [
                 'rotulo' => __($f['rotulo']),
                 'tipo' => $f['tipo'] ?? 'escolha',
                 'ajuda' => isset($f['ajuda']) ? __($f['ajuda']) : null,
-            ], isset($f['opcoes']) ? ['opcoes' => self::traduzidas($f['opcoes'])] : []), $def['filtros']),
+            ],
+                isset($f['opcoes']) ? ['opcoes' => self::traduzidas($f['opcoes'])] : [],
+                isset($f['referencia']) ? ['opcoes' => $this->referencias($def, $tenantId)[$f['referencia']] ?? []] : [],
+            ), $def['filtros']),
             // Se este catálogo aceita o intervalo de datas de criação: é o
             // ecrã que desenha os dois campos, e só onde eles servem.
             'datas' => ! empty($def['datas']),
             // Se este catálogo tem extrato — a janela de VER com as contas.
             'extrato' => ! empty($def['extrato']),
             'accoes' => $def['accoes'],
+            /*
+             * COMO SE CHAMA A IMAGEM DESTE CATÁLOGO.
+             *
+             * «Logótipo» num fornecedor, «Imagem de destaque» num tipo de
+             * quarto, «Fotografia» numa pessoa. O botão dizia sempre
+             * «Logótipo», que numa lista de quartos não quer dizer nada.
+             */
+            'imagem' => ! empty($def['accoes']['logotipo'])
+                ? ['rotulo' => __($def['imagem']['rotulo'] ?? 'Logótipo')]
+                : null,
+            'galeria' => ! empty($def['accoes']['galeria'])
+                ? ['rotulo' => __($def['galeria']['rotulo'] ?? 'Galeria')]
+                : null,
             /*
              * A ATRIBUIÇÃO EM LOTE, e como se chama neste catálogo.
              *
@@ -509,6 +554,15 @@ class CatalogoApiController extends Controller
     }
 
     /** O logótipo do fornecedor: um ficheiro na pasta dele, como sempre. */
+    /**
+     * A IMAGEM DE UM REGISTO — o logótipo do fornecedor, a foto do quarto.
+     *
+     * Era só o logótipo, com a coluna (`logo`) e a pasta (`suppliers/`)
+     * escritas aqui dentro. O esquema passa a poder dizer onde a imagem vive,
+     * porque um tipo de quarto guarda a sua em `featured_image` e um pacote em
+     * `image` — e três acções iguais com nomes diferentes eram três sítios
+     * para o mesmo defeito.
+     */
     public function logotipo(Request $request, string $tipo, int $id): JsonResponse
     {
         $def = $this->definicao($tipo);
@@ -520,19 +574,98 @@ class CatalogoApiController extends Controller
         $tenantId = activeTenantId();
         $m = $this->encontrar($def, $tenantId, $id);
 
-        $pasta = 'suppliers/' . $m->id;
-        $nome = 'logo_' . Str::slug($m->name) . '.' . $request->file('logotipo')->getClientOriginalExtension();
+        $coluna = $def['imagem']['coluna'] ?? 'logo';
+        $raiz = $def['imagem']['pasta'] ?? 'suppliers';
+        $prefixo = $def['imagem']['prefixo'] ?? 'logo';
 
-        if ($m->logo && Storage::disk('public')->exists($m->logo)) {
-            Storage::disk('public')->delete($m->logo);
+        $pasta = $raiz . '/' . $m->id;
+        $nome = $prefixo . '_' . Str::slug((string) $m->{$def['nome'] ?? 'name'}) . '.'
+            . $request->file('logotipo')->getClientOriginalExtension();
+
+        if ($m->{$coluna} && Storage::disk('public')->exists($m->{$coluna})) {
+            Storage::disk('public')->delete($m->{$coluna});
         }
 
-        $m->update(['logo' => $request->file('logotipo')->storeAs($pasta, $nome, 'public')]);
+        $m->update([$coluna => $request->file('logotipo')->storeAs($pasta, $nome, 'public')]);
 
         return response()->json([
             'data' => Catalogos::linha($def, $m->fresh(), $this->referencias($def, $tenantId)),
-            'message' => __('Logótipo guardado.'),
+            'message' => __('Imagem guardada.'),
         ]);
+    }
+
+    /**
+     * A GALERIA — juntar imagens à lista de um registo.
+     *
+     * O tipo de quarto tem uma imagem de destaque (a acção de cima) e uma
+     * GALERIA: é ela que o site de reservas mostra, e é o que faz alguém
+     * escolher um quarto em vez de outro.
+     */
+    public function juntarAGaleria(Request $request, string $tipo, int $id): JsonResponse
+    {
+        [$def, $m, $galeria, $tenantId] = $this->paraAGaleria($request, $tipo, $id);
+
+        $request->validate([
+            'imagens' => ['required', 'array', 'max:10'],
+            'imagens.*' => ['image', 'max:2048'],
+        ]);
+
+        $caminhos = collect($m->{$galeria['coluna']} ?? [])->filter()->values()->all();
+
+        foreach ($request->file('imagens') as $ficheiro) {
+            $caminhos[] = $ficheiro->storeAs(
+                $galeria['pasta'] . '/' . $m->id,
+                uniqid('img_') . '.' . $ficheiro->getClientOriginalExtension(),
+                'public'
+            );
+        }
+
+        $m->update([$galeria['coluna'] => $caminhos]);
+
+        return response()->json([
+            'data' => Catalogos::linha($def, $m->fresh(), $this->referencias($def, $tenantId)),
+            'message' => __(':quantas imagem(ns) juntada(s).', ['quantas' => count($request->file('imagens'))]),
+        ], 201);
+    }
+
+    /**
+     * TIRAR UMA IMAGEM DA GALERIA — pelo CAMINHO e não pela posição.
+     *
+     * Pela posição, apagar a segunda e depois a terceira apagava a quarta: os
+     * índices mudam assim que a lista encolhe.
+     */
+    public function tirarDaGaleria(Request $request, string $tipo, int $id): JsonResponse
+    {
+        [$def, $m, $galeria, $tenantId] = $this->paraAGaleria($request, $tipo, $id);
+
+        $dados = $request->validate(['caminho' => ['required', 'string', 'max:500']]);
+
+        $caminhos = collect($m->{$galeria['coluna']} ?? [])->filter()->values();
+
+        abort_unless($caminhos->contains($dados['caminho']), 404, __('Essa imagem não é deste registo.'));
+
+        if (Storage::disk('public')->exists($dados['caminho'])) {
+            Storage::disk('public')->delete($dados['caminho']);
+        }
+
+        $m->update([$galeria['coluna'] => $caminhos->reject(fn ($c) => $c === $dados['caminho'])->values()->all()]);
+
+        return response()->json([
+            'data' => Catalogos::linha($def, $m->fresh(), $this->referencias($def, $tenantId)),
+            'message' => __('Imagem removida.'),
+        ]);
+    }
+
+    /** @return array{0: array, 1: Model, 2: array, 3: int} */
+    private function paraAGaleria(Request $request, string $tipo, int $id): array
+    {
+        $def = $this->definicao($tipo);
+        $this->exigir($request, $def['permissoes']['editar']);
+        abort_unless(! empty($def['accoes']['galeria']), 404, __('Aqui não há galeria.'));
+
+        $tenantId = activeTenantId();
+
+        return [$def, $this->encontrar($def, $tenantId, $id), $def['galeria'], $tenantId];
     }
 
     /* ─── Por dentro ──────────────────────────────────────────────────── */

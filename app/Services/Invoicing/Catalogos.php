@@ -101,6 +101,17 @@ final class Catalogos
             'mecanicos' => self::mecanicos(),
             'viaturas' => self::viaturas(),
             'servicos' => self::servicos(),
+
+            /*
+             * OS DO HOTEL. Os tipos de quarto, os quartos, os hóspedes e o
+             * pessoal — quatro listas com a forma de sempre. Os hóspedes são
+             * CLIENTES DA FACTURAÇÃO com duas bandeiras próprias: é a tabela
+             * que as reservas usam, e é a que a factura precisa.
+             */
+            'tipos-de-quarto' => self::tiposDeQuarto(),
+            'quartos' => self::quartos(),
+            'hospedes' => self::hospedes(),
+            'pessoal-do-hotel' => self::pessoalDoHotel(),
         ];
     }
 
@@ -1851,6 +1862,482 @@ final class Catalogos
         ['valor' => 'Outro', 'rotulo' => 'Outro'],
     ];
 
+    /* ─── O hotel ──────────────────────────────────────────────────────── */
+
+    /** O que um quarto pode ter — a lista do ecrã de sempre. */
+    public const COMODIDADES = [
+        'wifi' => 'WiFi gratuito', 'ac' => 'Ar condicionado', 'tv' => 'TV por cabo',
+        'minibar' => 'Minibar', 'safe' => 'Cofre', 'balcony' => 'Varanda',
+        'sea_view' => 'Vista para o mar', 'bathtub' => 'Banheira', 'shower' => 'Chuveiro',
+        'hairdryer' => 'Secador', 'iron' => 'Ferro de engomar', 'desk' => 'Secretária',
+        'phone' => 'Telefone', 'room_service' => 'Serviço de quarto',
+        'breakfast' => 'Pequeno-almoço incluído',
+    ];
+
+    /** @return list<array{valor: string, rotulo: string}> */
+    private static function escolhasDe(array $mapa): array
+    {
+        return collect($mapa)->map(fn ($rotulo, $valor) => ['valor' => (string) $valor, 'rotulo' => $rotulo])->values()->all();
+    }
+
+    private static function tiposDeQuarto(): array
+    {
+        return [
+            'modelo' => \App\Models\Hotel\RoomType::class,
+            'titulo' => 'Tipos de Quarto',
+            'singular' => 'Tipo de Quarto',
+            'icone' => 'fa-bed',
+            'cor' => 'roxo',
+            'descricao' => 'O que a casa oferece, quanto custa a noite e o que o quarto tem',
+            'novo' => 'Novo Tipo de Quarto',
+            'rota' => '/hotel/room-types',
+            'permissoes' => self::porVerbo('hotel.room-types'),
+            'pesquisa' => ['name', 'code', 'description'],
+            'pesquisa_ajuda' => 'Nome, código ou descrição',
+            'ordem' => [['name', 'asc']],
+            'colunas' => [
+                ['chave' => 'name', 'rotulo' => 'Tipo', 'formato' => 'texto'],
+                ['chave' => 'code', 'rotulo' => 'Código', 'formato' => 'texto'],
+                ['chave' => 'capacity', 'rotulo' => 'Pessoas', 'formato' => 'numero', 'alinhar' => 'direita'],
+                ['chave' => 'base_price', 'rotulo' => 'Preço/noite', 'formato' => 'dinheiro', 'alinhar' => 'direita'],
+                ['chave' => 'weekend_price', 'rotulo' => 'Fim-de-semana', 'formato' => 'dinheiro', 'alinhar' => 'direita'],
+                ['chave' => 'amenities', 'rotulo' => 'Comodidades', 'formato' => 'multi'],
+            ],
+            'filtros' => [],
+            'campos' => [
+                self::campo('name', 'Nome', 'texto', obrigatorio: true),
+                self::campo('code', 'Código', 'texto', ajuda: 'Curto e único nesta casa — SGL, DBL, STE.'),
+                self::campo('base_price', 'Preço por noite (Kz)', 'numero', obrigatorio: true, omissao: 0, passo: 0.01, min: 0),
+                /*
+                 * O PREÇO DE FIM-DE-SEMANA fica em branco quando não há: um
+                 * zero seria um quarto de graça ao sábado, e é assim que a
+                 * tarifa o lê.
+                 */
+                self::campo('weekend_price', 'Preço ao fim-de-semana (Kz)', 'numero', passo: 0.01, min: 0,
+                    ajuda: 'Em branco usa o preço normal.'),
+                self::campo('capacity', 'Pessoas', 'numero', obrigatorio: true, omissao: 2, passo: 1, min: 1, max: 20),
+                self::campo('extra_bed_capacity', 'Camas extra', 'numero', obrigatorio: true, omissao: 0, passo: 1, min: 0, max: 5),
+                self::campo('extra_bed_price', 'Preço da cama extra (Kz)', 'numero', obrigatorio: true, omissao: 0, passo: 0.01, min: 0),
+                self::campo('amenities', 'Comodidades', 'multi', omissao: [],
+                    opcoes: self::escolhasDe(self::COMODIDADES), largura: 'inteira'),
+                self::campo('is_active', 'Activo', 'booleano', omissao: true),
+                self::campo('description', 'Descrição', 'textarea', largura: 'inteira',
+                    ajuda: 'É esta que o site de reservas mostra.'),
+            ],
+            'regras' => [
+                'name' => 'required|string|min:2|max:255',
+                'code' => 'nullable|string|max:20',
+                'description' => 'nullable|string|max:5000',
+                'base_price' => 'required|numeric|min:0',
+                'weekend_price' => 'nullable|numeric|min:0',
+                'capacity' => 'required|integer|min:1|max:20',
+                'extra_bed_capacity' => 'required|integer|min:0|max:5',
+                'extra_bed_price' => 'required|numeric|min:0',
+                'amenities' => 'array',
+                'amenities.*' => 'string|max:50',
+                'is_active' => 'boolean',
+            ],
+            'validar' => self::codigoUnico(\App\Models\Hotel\RoomType::class, 'Já existe um tipo de quarto com esse código.'),
+            'preparar' => fn (array $d) => array_merge($d, [
+                'code' => ($d['code'] ?? '') === '' ? null : mb_strtoupper(trim((string) $d['code'])),
+                'weekend_price' => ($d['weekend_price'] ?? '') === '' ? null : (float) $d['weekend_price'],
+                // Só as comodidades que a casa reconhece: uma inventada no
+                // pedido entrava na lista e ficava lá para sempre.
+                'amenities' => array_values(array_intersect(
+                    array_map('strval', $d['amenities'] ?? []), array_keys(self::COMODIDADES),
+                )),
+            ]),
+            /*
+             * UM TIPO COM QUARTOS NÃO SE APAGA — a guarda do ecrã de sempre.
+             * Sem ele, os quartos ficavam a apontar para um tipo que já não
+             * existe, e sem tipo não há preço da noite.
+             */
+            'pode_apagar' => fn (Model $m) => ! \App\Models\Hotel\Room::where('room_type_id', $m->id)->exists(),
+            'porque_nao_apaga' => 'Há quartos deste tipo.',
+            'accoes' => ['activar' => true, 'padrao' => false, 'logotipo' => true, 'apagar' => true, 'galeria' => true],
+            'imagem' => ['coluna' => 'featured_image', 'pasta' => 'hotel/room-types', 'prefixo' => 'destaque', 'rotulo' => 'Imagem de destaque'],
+            'galeria' => ['coluna' => 'gallery', 'pasta' => 'hotel/room-types', 'rotulo' => 'Galeria do quarto'],
+        ];
+    }
+
+    private const ESTADOS_DO_QUARTO = [
+        'available' => 'Livre',
+        'occupied' => 'Ocupado',
+        'reserved' => 'Reservado',
+        'cleaning' => 'Em limpeza',
+        'maintenance' => 'Em manutenção',
+    ];
+
+    private const LIMPEZA_DO_QUARTO = [
+        'clean' => 'Limpo',
+        'dirty' => 'Sujo',
+        'in_progress' => 'Em limpeza',
+        'inspecting' => 'Em inspecção',
+        'out_of_order' => 'Fora de serviço',
+    ];
+
+    private static function quartos(): array
+    {
+        return [
+            'modelo' => \App\Models\Hotel\Room::class,
+            'titulo' => 'Quartos',
+            'singular' => 'Quarto',
+            'icone' => 'fa-door-open',
+            'cor' => 'ciano',
+            'descricao' => 'Os quartos da casa, o piso e como estão agora',
+            'novo' => 'Novo Quarto',
+            'rota' => '/hotel/rooms',
+            'permissoes' => self::porVerbo('hotel.rooms'),
+            /* Um quarto chama-se pelo NÚMERO, e não tem `name`. */
+            'nome' => 'number',
+            'pesquisa' => ['number', 'floor', 'notes'],
+            'pesquisa_ajuda' => 'Número, piso ou notas',
+            'ordem' => [['floor', 'asc'], ['number', 'asc']],
+            'colunas' => [
+                ['chave' => 'number', 'rotulo' => 'Quarto', 'formato' => 'texto'],
+                ['chave' => 'floor', 'rotulo' => 'Piso', 'formato' => 'texto'],
+                ['chave' => 'room_type_id', 'rotulo' => 'Tipo', 'formato' => 'escolha'],
+                ['chave' => 'status', 'rotulo' => 'Estado', 'formato' => 'escolha'],
+                ['chave' => 'housekeeping_status', 'rotulo' => 'Limpeza', 'formato' => 'escolha'],
+                ['chave' => 'features', 'rotulo' => 'Extras', 'formato' => 'multi'],
+            ],
+            'filtros' => [
+                ['chave' => 'status', 'rotulo' => 'Estado', 'opcoes' => self::escolhasDe(self::ESTADOS_DO_QUARTO)],
+                ['chave' => 'housekeeping_status', 'rotulo' => 'Limpeza', 'opcoes' => self::escolhasDe(self::LIMPEZA_DO_QUARTO)],
+                ['chave' => 'room_type_id', 'rotulo' => 'Tipo', 'referencia' => 'tipos'],
+                ['chave' => 'floor', 'rotulo' => 'Piso', 'tipo' => 'texto', 'ajuda' => 'Escreva o piso.'],
+            ],
+            'campos' => [
+                self::campo('number', 'Número', 'texto', obrigatorio: true),
+                self::campo('room_type_id', 'Tipo de quarto', 'referencia', obrigatorio: true, referencia: 'tipos'),
+                self::campo('floor', 'Piso', 'texto'),
+                self::campo('status', 'Estado', 'escolha', obrigatorio: true, omissao: 'available',
+                    opcoes: self::escolhasDe(self::ESTADOS_DO_QUARTO)),
+                /*
+                 * O ESTADO DE LIMPEZA É OUTRA COISA que o estado do quarto: um
+                 * quarto pode estar livre e sujo, e é essa a diferença entre
+                 * «pode entrar alguém» e «pode vender-se». O ecrã em Blade
+                 * tinha a coluna e não a deixava mudar.
+                 */
+                self::campo('housekeeping_status', 'Limpeza', 'escolha', obrigatorio: true, omissao: 'clean',
+                    opcoes: self::escolhasDe(self::LIMPEZA_DO_QUARTO)),
+                /*
+                 * OS EXTRAS DO QUARTO — o que ELE tem além do que o tipo dá.
+                 * A coluna existia e nunca teve controlo nenhum no formulário:
+                 * guardava-se sempre a lista vazia.
+                 */
+                self::campo('features', 'Extras deste quarto', 'multi', omissao: [],
+                    opcoes: self::escolhasDe(self::COMODIDADES), largura: 'inteira',
+                    ajuda: 'Além do que o tipo de quarto já dá.'),
+                self::campo('is_active', 'Activo', 'booleano', omissao: true),
+                self::campo('notes', 'Notas', 'textarea', largura: 'inteira'),
+            ],
+            'regras' => [
+                'number' => 'required|string|max:20',
+                'room_type_id' => 'required|integer',
+                'floor' => 'nullable|string|max:10',
+                'status' => 'required|in:available,occupied,maintenance,cleaning,reserved',
+                'housekeeping_status' => 'required|in:clean,dirty,in_progress,inspecting,out_of_order',
+                'features' => 'array',
+                'features.*' => 'string|max:50',
+                'notes' => 'nullable|string|max:2000',
+                'is_active' => 'boolean',
+            ],
+            'validar' => self::tudoIsto([
+                // O NÚMERO DO QUARTO É ÚNICO NA CASA. Dois «101» é o começo de
+                // uma reserva no quarto errado.
+                self::codigoUnico(\App\Models\Hotel\Room::class, 'Já existe um quarto com esse número.', 'number'),
+                self::daCasa('room_type_id', \App\Models\Hotel\RoomType::class, 'Esse tipo de quarto não é desta casa.'),
+            ]),
+            'preparar' => fn (array $d) => array_merge($d, [
+                'number' => trim((string) ($d['number'] ?? '')),
+                'floor' => ($d['floor'] ?? '') === '' ? null : trim((string) $d['floor']),
+                'features' => array_values(array_intersect(
+                    array_map('strval', $d['features'] ?? []), array_keys(self::COMODIDADES),
+                )),
+            ]),
+            'referencias' => fn (int $t) => [
+                'tipos' => \App\Models\Hotel\RoomType::withoutGlobalScopes()
+                    ->where('tenant_id', $t)->orderBy('name')
+                    ->get(['id', 'name'])->map(fn ($r) => ['valor' => (string) $r->id, 'rotulo' => $r->name])->all(),
+            ],
+            /*
+             * UM QUARTO COM RESERVA VIVA NÃO SE APAGA — a guarda do ecrã de
+             * sempre. Apagá-lo deixava alguém com reserva e sem quarto.
+             */
+            'pode_apagar' => fn (Model $m) => ! \App\Models\Hotel\Reservation::where('room_id', $m->id)
+                ->whereIn('status', ['pending', 'confirmed', 'checked_in'])->exists(),
+            'porque_nao_apaga' => 'Há reservas activas neste quarto.',
+            'accoes' => ['activar' => true, 'padrao' => false, 'logotipo' => false, 'apagar' => true],
+        ];
+    }
+
+    private const DOCUMENTOS_DO_HOSPEDE = [
+        'bi' => 'Bilhete de Identidade',
+        'passaporte' => 'Passaporte',
+        'cartao_residente' => 'Cartão de Residente',
+        'carta_conducao' => 'Carta de Condução',
+        'outro' => 'Outro',
+    ];
+
+    private static function hospedes(): array
+    {
+        return [
+            /*
+             * O HÓSPEDE É UM CLIENTE DA FACTURAÇÃO — não uma segunda ficha.
+             *
+             * É a tabela que as reservas usam (`hotel_reservations.client_id`)
+             * e a que a factura precisa. As duas bandeiras do hotel (VIP e
+             * lista negra) são colunas próprias em `invoicing_clients`.
+             */
+            'modelo' => \App\Models\Client::class,
+            'titulo' => 'Hóspedes',
+            'singular' => 'Hóspede',
+            'icone' => 'fa-user-tie',
+            'cor' => 'primaria',
+            'descricao' => 'Quem já cá ficou — e quem se recebe de braços abertos',
+            'novo' => 'Novo Hóspede',
+            'rota' => '/hotel/guests',
+            'permissoes' => self::porVerbo('hotel.guests'),
+            'pesquisa' => ['name', 'email', 'phone', 'document_number', 'nif'],
+            'pesquisa_ajuda' => 'Nome, email, telefone, documento ou NIF',
+            'ordem' => [['name', 'asc']],
+            'colunas' => [
+                ['chave' => 'name', 'rotulo' => 'Nome', 'formato' => 'texto'],
+                ['chave' => 'phone', 'rotulo' => 'Telefone', 'formato' => 'texto'],
+                ['chave' => 'email', 'rotulo' => 'Email', 'formato' => 'texto'],
+                ['chave' => 'document_number', 'rotulo' => 'Documento', 'formato' => 'texto'],
+                ['chave' => 'nationality', 'rotulo' => 'Nacionalidade', 'formato' => 'texto'],
+                ['chave' => 'hotel_vip', 'rotulo' => 'VIP', 'formato' => 'booleano'],
+                ['chave' => 'hotel_blacklisted', 'rotulo' => 'Lista negra', 'formato' => 'booleano'],
+            ],
+            'filtros' => [
+                ['chave' => 'hotel_vip', 'rotulo' => 'VIP', 'opcoes' => [
+                    ['valor' => '1', 'rotulo' => 'Só VIP'],
+                    ['valor' => '0', 'rotulo' => 'Sem VIP'],
+                ]],
+                ['chave' => 'hotel_blacklisted', 'rotulo' => 'Lista negra', 'opcoes' => [
+                    ['valor' => '1', 'rotulo' => 'Só a lista negra'],
+                    ['valor' => '0', 'rotulo' => 'Fora da lista negra'],
+                ]],
+            ],
+            'campos' => [
+                self::campo('name', 'Nome', 'texto', obrigatorio: true),
+                self::campo('phone', 'Telefone', 'texto'),
+                self::campo('email', 'Email', 'email'),
+                self::campo('document_type', 'Tipo de documento', 'escolha', omissao: 'bi',
+                    opcoes: self::escolhasDe(self::DOCUMENTOS_DO_HOSPEDE)),
+                self::campo('document_number', 'Nº do documento', 'texto'),
+                self::campo('nif', 'NIF', 'texto', ajuda: 'Único nesta empresa — é a identidade fiscal.'),
+                self::campo('nationality', 'Nacionalidade', 'texto', omissao: 'Angola'),
+                self::campo('birth_date', 'Data de nascimento', 'data'),
+                self::campo('gender', 'Sexo', 'escolha', opcoes: [
+                    ['valor' => 'male', 'rotulo' => 'Masculino'],
+                    ['valor' => 'female', 'rotulo' => 'Feminino'],
+                    ['valor' => 'other', 'rotulo' => 'Outro'],
+                ]),
+                /*
+                 * A LISTA NEGRA É UMA DECISÃO, não uma etiqueta: quem lá está
+                 * não volta a ficar hospedado. Fica junto do VIP porque são as
+                 * duas metades da mesma pergunta.
+                 */
+                self::campo('hotel_vip', 'Hóspede VIP', 'booleano', omissao: false),
+                self::campo('hotel_blacklisted', 'Na lista negra', 'booleano', omissao: false),
+                self::campo('city', 'Cidade', 'texto'),
+                self::campo('country', 'País', 'texto', omissao: 'Angola'),
+                self::campo('address', 'Morada', 'textarea', largura: 'inteira'),
+                self::campo('notes', 'Notas', 'textarea', largura: 'inteira'),
+            ],
+            'regras' => [
+                'name' => 'required|string|min:2|max:255',
+                'email' => 'nullable|email|max:255',
+                'phone' => 'nullable|string|max:50',
+                'document_type' => 'nullable|string|max:50',
+                'document_number' => 'nullable|string|max:50',
+                'nationality' => 'nullable|string|max:100',
+                'birth_date' => 'nullable|date',
+                'gender' => 'nullable|in:male,female,other',
+                'address' => 'nullable|string|max:2000',
+                'city' => 'nullable|string|max:100',
+                'country' => 'nullable|string|max:100',
+                'nif' => 'nullable|string|max:50',
+                'notes' => 'nullable|string|max:2000',
+                'hotel_vip' => 'boolean',
+                'hotel_blacklisted' => 'boolean',
+            ],
+            /*
+             * O NIF É ÚNICO POR EMPRESA — há índice na base e o ecrã de sempre
+             * não o dizia: repetir um NIF dava um 1062 cru na cara de quem
+             * estava a escrever a ficha do hóspede.
+             */
+            'validar' => self::codigoUnico(\App\Models\Client::class, 'Já existe um cliente com esse NIF.', 'nif'),
+            'preparar' => fn (array $d) => array_merge($d, [
+                'nif' => ($d['nif'] ?? '') === '' ? null : trim((string) $d['nif']),
+                'birth_date' => ($d['birth_date'] ?? '') ?: null,
+                'gender' => ($d['gender'] ?? '') ?: null,
+                // Um hóspede é uma PESSOA: o tipo decide se há retenção de IRT
+                // na factura, e sem ele a coluna ficava a nulo.
+                'type' => 'pessoa_fisica',
+                'is_active' => true,
+            ]),
+            /*
+             * UM HÓSPEDE COM RESERVAS OU COM FACTURAS NÃO SE APAGA — guarda
+             * nova. O ecrã de sempre apagava e deixava a reserva sem ninguém.
+             */
+            'pode_apagar' => fn (Model $m) => ! \App\Models\Hotel\Reservation::where('client_id', $m->id)->exists()
+                && ! \App\Models\Invoicing\SalesInvoice::where('client_id', $m->id)->exists(),
+            'porque_nao_apaga' => 'Este hóspede tem reservas ou facturas.',
+            'accoes' => ['activar' => false, 'padrao' => false, 'logotipo' => false, 'apagar' => true],
+            'datas' => true,
+        ];
+    }
+
+    private static function pessoalDoHotel(): array
+    {
+        return [
+            'modelo' => \App\Models\Hotel\Staff::class,
+            'titulo' => 'Pessoal do Hotel',
+            'singular' => 'Colaborador',
+            'icone' => 'fa-users-gear',
+            'cor' => 'laranja',
+            'descricao' => 'Quem trabalha na casa, em que departamento e a que horas',
+            'novo' => 'Novo Colaborador',
+            'rota' => '/hotel/staff',
+            'permissoes' => self::porVerbo('hotel.staff'),
+            'pesquisa' => ['name', 'email', 'phone', 'document'],
+            'pesquisa_ajuda' => 'Nome, email, telefone ou documento',
+            'ordem' => [['name', 'asc']],
+            'colunas' => [
+                ['chave' => 'name', 'rotulo' => 'Nome', 'formato' => 'texto'],
+                ['chave' => 'position', 'rotulo' => 'Função', 'formato' => 'escolha'],
+                ['chave' => 'department', 'rotulo' => 'Departamento', 'formato' => 'escolha'],
+                ['chave' => 'phone', 'rotulo' => 'Telefone', 'formato' => 'texto'],
+                ['chave' => 'work_start', 'rotulo' => 'Entrada', 'formato' => 'hora'],
+                ['chave' => 'work_end', 'rotulo' => 'Saída', 'formato' => 'hora'],
+                ['chave' => 'working_days', 'rotulo' => 'Dias', 'formato' => 'dias'],
+            ],
+            'filtros' => [
+                ['chave' => 'department', 'rotulo' => 'Departamento', 'opcoes' => self::escolhasDe(\App\Models\Hotel\Staff::DEPARTMENTS)],
+                ['chave' => 'position', 'rotulo' => 'Função', 'opcoes' => self::escolhasDe(\App\Models\Hotel\Staff::POSITIONS)],
+            ],
+            'campos' => [
+                self::campo('name', 'Nome', 'texto', obrigatorio: true),
+                self::campo('position', 'Função', 'escolha', obrigatorio: true, omissao: 'receptionist',
+                    opcoes: self::escolhasDe(\App\Models\Hotel\Staff::POSITIONS)),
+                self::campo('department', 'Departamento', 'escolha', obrigatorio: true, omissao: 'front_desk',
+                    opcoes: self::escolhasDe(\App\Models\Hotel\Staff::DEPARTMENTS)),
+                self::campo('email', 'Email', 'email'),
+                self::campo('phone', 'Telefone', 'texto'),
+                self::campo('document', 'Documento (BI/NIF)', 'texto'),
+                self::campo('work_start', 'Entrada', 'hora', omissao: '08:00'),
+                self::campo('work_end', 'Saída', 'hora', omissao: '17:00'),
+                self::campo('working_days', 'Dias de trabalho', 'dias', omissao: [1, 2, 3, 4, 5, 6], largura: 'inteira'),
+                self::campo('birth_date', 'Data de nascimento', 'data'),
+                self::campo('hire_date', 'Data de admissão', 'data'),
+                self::campo('hourly_rate', 'Preço por hora (Kz)', 'numero', omissao: 0, passo: 0.01, min: 0),
+                self::campo('monthly_salary', 'Salário mensal (Kz)', 'numero', omissao: 0, passo: 0.01, min: 0),
+                self::campo('is_active', 'Activo', 'booleano', omissao: true),
+                self::campo('skills', 'Competências', 'texto', largura: 'inteira'),
+                self::campo('address', 'Morada', 'textarea', largura: 'inteira'),
+                self::campo('notes', 'Notas', 'textarea', largura: 'inteira'),
+            ],
+            'regras' => [
+                'name' => 'required|string|min:2|max:255',
+                'position' => 'required|string|max:50',
+                'department' => 'required|string|max:50',
+                'email' => 'nullable|email|max:255',
+                'phone' => 'nullable|string|max:50',
+                'document' => 'nullable|string|max:50',
+                'work_start' => 'nullable|date_format:H:i',
+                'work_end' => 'nullable|date_format:H:i',
+                'working_days' => 'nullable|array',
+                'working_days.*' => 'integer|min:1|max:7',
+                'birth_date' => 'nullable|date',
+                'hire_date' => 'nullable|date',
+                'hourly_rate' => 'nullable|numeric|min:0',
+                'monthly_salary' => 'nullable|numeric|min:0',
+                'skills' => 'nullable|string|max:500',
+                'address' => 'nullable|string|max:2000',
+                'notes' => 'nullable|string|max:2000',
+                'is_active' => 'boolean',
+            ],
+            'validar' => function (array $d): array {
+                $funcoes = array_keys(\App\Models\Hotel\Staff::POSITIONS);
+                $areas = array_keys(\App\Models\Hotel\Staff::DEPARTMENTS);
+
+                if (! in_array($d['position'] ?? '', $funcoes, true)) {
+                    return ['position' => __('Essa função não existe.')];
+                }
+
+                return in_array($d['department'] ?? '', $areas, true)
+                    ? []
+                    : ['department' => __('Esse departamento não existe.')];
+            },
+            'preparar' => fn (array $d) => array_merge($d, [
+                'working_days' => array_values(array_unique(array_map('intval', $d['working_days'] ?? []))) ?: [1, 2, 3, 4, 5, 6],
+                'birth_date' => ($d['birth_date'] ?? '') ?: null,
+                'hire_date' => ($d['hire_date'] ?? '') ?: null,
+                'hourly_rate' => ($d['hourly_rate'] ?? '') === '' ? 0 : (float) $d['hourly_rate'],
+                'monthly_salary' => ($d['monthly_salary'] ?? '') === '' ? 0 : (float) $d['monthly_salary'],
+            ]),
+            /*
+             * QUEM TEM ORDENS DE MANUTENÇÃO ATRIBUÍDAS NÃO SE APAGA — guarda
+             * nova. Apagá-lo deixava a ordem sem responsável.
+             */
+            'pode_apagar' => fn (Model $m) => ! \App\Models\Hotel\MaintenanceOrder::where('assigned_to', $m->id)->exists(),
+            'porque_nao_apaga' => 'Há ordens de manutenção atribuídas a esta pessoa.',
+            'accoes' => ['activar' => true, 'padrao' => false, 'logotipo' => true, 'apagar' => true, 'importar' => true],
+            'imagem' => ['coluna' => 'photo', 'pasta' => 'hotel/staff', 'prefixo' => 'foto', 'rotulo' => 'Fotografia'],
+            /*
+             * IMPORTAR DE RH — o botão que o ecrã de sempre tinha. O hotel não
+             * contrata duas vezes a mesma pessoa: ela já está na ficha de
+             * pessoal do RH.
+             */
+            'importar' => [
+                'modelo' => \App\Models\HR\Employee::class,
+                'botao' => 'Importar de RH',
+                'titulo' => 'Importar pessoal do RH',
+                'nada' => 'Não há funcionários ao serviço nesta empresa.',
+                'pesquisa' => ['first_name', 'last_name', 'employee_number'],
+                'pesquisa_ajuda' => 'Nome ou número',
+                'onde' => fn ($q) => $q->where('status', 'active'),
+                'nome' => fn (Model $e) => trim(($e->first_name ?? '') . ' ' . ($e->last_name ?? '')) ?: ($e->full_name ?? '—'),
+                'nota' => fn (Model $e) => $e->employee_number,
+                /*
+                 * JÁ CÁ ESTÁ quem foi importado antes — e a ligação é o
+                 * `hr_employee_id`, que a coluna tem e o ecrã de sempre nunca
+                 * preenchia: importar duas vezes criava duas fichas da mesma
+                 * pessoa, sem maneira de as juntar.
+                 */
+                'ja_ca' => function ($candidatos, int $tenantId): array {
+                    return \App\Models\Hotel\Staff::withoutGlobalScopes()
+                        ->where('tenant_id', $tenantId)
+                        ->whereIn('hr_employee_id', $candidatos->pluck('id'))
+                        ->pluck('hr_employee_id')->all();
+                },
+                'mapear' => fn (Model $e) => [
+                    'hr_employee_id' => $e->id,
+                    'user_id' => $e->user_id,
+                    'name' => $e->full_name ?: trim(($e->first_name ?? '') . ' ' . ($e->last_name ?? '')),
+                    'email' => $e->email,
+                    'phone' => $e->phone,
+                    'document' => $e->bi_number ?? $e->nif,
+                    'address' => $e->address,
+                    'birth_date' => $e->birth_date,
+                    'hire_date' => $e->hire_date,
+                    'monthly_salary' => $e->salary ?? 0,
+                    // A função e o departamento do hotel não são os do RH:
+                    // entram na omissão e corrigem-se na ficha. Era o que o
+                    // ecrã de sempre fazia, e dizia-o num comentário.
+                    'position' => 'other',
+                    'department' => 'front_desk',
+                    'working_days' => [1, 2, 3, 4, 5, 6],
+                    'is_active' => true,
+                ],
+            ],
+        ];
+    }
+
     private static function porVerbo(string $prefixo): array
     {
         return ['ver' => "$prefixo.view", 'criar' => "$prefixo.create", 'editar' => "$prefixo.edit", 'apagar' => "$prefixo.delete"];
@@ -2094,14 +2581,43 @@ final class Catalogos
             }
         }
 
-        foreach (['is_active', 'is_default', 'logo'] as $extra) {
+        foreach (['is_active', 'is_default'] as $extra) {
             if (array_key_exists($extra, $m->getAttributes())) {
                 $linha[$extra] = $m->{$extra};
             }
         }
 
-        if (isset($linha['logo']) && $linha['logo']) {
-            $linha['logo'] = Storage::disk('public')->url($linha['logo']);
+        /*
+         * A IMAGEM SAI SEMPRE COMO `logo`, seja qual for a coluna.
+         *
+         * O ecrã desenha uma miniatura e um botão de trocar; a coluna é do
+         * esquema — `logo` no fornecedor, `featured_image` no tipo de quarto,
+         * `image` no pacote. Deixar o nome da coluna chegar ao browser obrigava
+         * o ecrã a saber de que catálogo se trata, que é o contrário do que ele
+         * é.
+         */
+        $coluna = $def['imagem']['coluna'] ?? 'logo';
+
+        if (array_key_exists($coluna, $m->getAttributes())) {
+            $linha['logo'] = $m->{$coluna}
+                ? Storage::disk('public')->url($m->{$coluna})
+                : null;
+        }
+
+        /*
+         * A GALERIA — várias imagens numa coluna JSON.
+         *
+         * Cada uma vai com o CAMINHO e o URL: o URL para se ver, o caminho
+         * para se poder apagar aquela e não «a terceira», que muda de sítio
+         * assim que se apaga outra.
+         */
+        if (! empty($def['galeria'])) {
+            $linha['galeria'] = collect($m->{$def['galeria']['coluna']} ?? [])
+                ->filter()
+                ->map(fn ($caminho) => [
+                    'caminho' => $caminho,
+                    'url' => Storage::disk('public')->url($caminho),
+                ])->values()->all();
         }
 
         $linha['pode_apagar'] = $def['accoes']['apagar'] && ($def['pode_apagar'])($m);
