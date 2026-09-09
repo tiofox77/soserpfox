@@ -200,6 +200,13 @@ export const ecras: Record<string, Ecra> = {
         import('./hotel/Balcao'),
     'hotel/calendario': () =>
         import('./hotel/Calendario'),
+    'hotel/definicoes': () =>
+        import('./hotel/Definicoes'),
+    'hotel/kiandastay': () =>
+        import('./hotel/KiandaStay'),
+    /* A PÁGINA PÚBLICA: sem menu, sem sessão, e com as cores da casa. */
+    'hotel/reservar': () =>
+        import('./hotel/Reservar'),
     'hotel/check-out': () =>
         import('./hotel/CheckOut'),
     'hotel/folio': () =>
@@ -212,6 +219,8 @@ export const ecras: Record<string, Ecra> = {
         import('./hotel/Painel'),
     'hotel/relatorios': () =>
         import('./hotel/Relatorios'),
+    'hotel/tarifas': () =>
+        import('./hotel/Tarifas'),
     'hotel/reservas': () =>
         import('./hotel/Reservas'),
 };

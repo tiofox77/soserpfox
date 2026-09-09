@@ -3,6 +3,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 
 import {
     reservas,
+    tarifas,
     type FiltrosDasReservas,
     type HospedeDaProcura,
     type OpcoesDasReservas,
@@ -639,6 +640,24 @@ function FormularioDaReserva({ o, valores, erros, hospede, titulo, subtitulo, aG
     const taxa = Number(valores.room_rate) || 0;
     const desconto = Number(valores.discount) || 0;
 
+    /*
+     * O PREÇO QUE AS TARIFAS DIZEM — época, dia da semana e dias especiais.
+     *
+     * A conta existia e não era aplicada a lado nenhum: o formulário propunha
+     * o `base_price` do tipo, e definir uma época alta não mudava uma reserva.
+     * Aqui ela é uma PROPOSTA — quem está ao balcão vê-a e pode mudá-la, que é
+     * como funciona um hotel.
+     */
+    const sugerido = useQuery({
+        queryKey: ['hotel', 'tarifas', 'preco', valores.room_type_id, valores.check_in_date, valores.check_out_date],
+        queryFn: () => tarifas.preco(valores.room_type_id, valores.check_in_date, valores.check_out_date),
+        enabled: Boolean(valores.room_type_id) && noites > 0,
+        staleTime: 60_000,
+    });
+
+    const proposta = sugerido.data;
+    const difereDaTarifa = Boolean(proposta && Math.abs(proposta.media - taxa) > 0.5);
+
     /* Os quartos do tipo escolhido — o resto não interessa a esta reserva. */
     const quartos = useMemo(
         () => (valores.room_type_id ? o.quartos.filter((q) => q.tipo === valores.room_type_id) : o.quartos),
@@ -774,6 +793,23 @@ function FormularioDaReserva({ o, valores, erros, hospede, titulo, subtitulo, aG
                             {' = '}
                             <strong className="text-lg tabular-nums">{kz(noites * taxa - desconto)} Kz</strong>
                             <span className="ml-2 text-xs text-amber-700">{t('(o imposto entra ao gravar)')}</span>
+                        </p>
+                    )}
+
+                    {/* A TARIFA DA CASA, quando difere do que está escrito. */}
+                    {difereDaTarifa && proposta && (
+                        <p className={cls('mt-3 flex flex-wrap items-center justify-between gap-2 border border-purple-200 bg-purple-50 p-3 text-sm text-purple-900', RAIO)}>
+                            <span>
+                                <i className="fas fa-tags mr-2" aria-hidden="true" />
+                                {t('As tarifas da casa dão :media Kz/noite para estas datas (:total Kz no total).', {
+                                    media: kz(proposta.media), total: kz(proposta.total),
+                                })}
+                            </span>
+                            <button type="button" onClick={() => mudar('room_rate', String(proposta.media))}
+                                className={cls('inline-flex items-center gap-1.5 border border-purple-300 bg-white px-3 py-1.5 text-xs font-semibold text-purple-700 transition-all hover:-translate-y-0.5', RAIO, FOCO)}>
+                                <i className="fas fa-wand-magic-sparkles" aria-hidden="true" />
+                                {t('Aplicar')}
+                            </button>
                         </p>
                     )}
                 </section>

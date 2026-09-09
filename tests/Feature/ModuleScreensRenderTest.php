@@ -62,10 +62,19 @@ class ModuleScreensRenderTest extends TenantTestCase
         $this->assertNotEmpty($html);
     }
 
+    /**
+     * OS ECRÃS COM PARÂMETRO DE ROTA — o folio e a página pública.
+     *
+     * Eram Livewire e passaram a React. O teste de fumo é o mesmo em espírito:
+     * a morada abre. O que ele apanha não mudou — o erro 500 ao abrir a página
+     * — só mudou de camada: agora é a rota que tem de responder, e não o
+     * componente que tem de montar.
+     */
     public function test_ecras_com_parametro_renderizam(): void
     {
-        // Estes exigem parâmetro de rota; sem ele o teste de fumo genérico
-        // dava-os como partidos e escondia defeitos reais atrás desse ruído.
+        $this->comModulo('hotel');
+        $this->comPermissoes('hotel.reservations.view');
+
         $tipo = \App\Models\Hotel\RoomType::create([
             'tenant_id' => $this->tenant->id, 'name' => 'Duplo', 'code' => 'DUP',
             'base_price' => 30000, 'capacity' => 2, 'is_active' => true,
@@ -80,9 +89,7 @@ class ModuleScreensRenderTest extends TenantTestCase
             'status' => 'checked_in', 'payment_status' => 'pending',
         ]);
 
-        $this->assertNotEmpty(
-            Livewire::test(\App\Livewire\Hotel\ReservationFolio::class, ['id' => $reserva->id])->html()
-        );
+        $this->get(route('hotel.reservations.folio', ['id' => $reserva->id]))->assertOk();
 
         $definicoes = \App\Models\Hotel\HotelSettings::create([
             'tenant_id'              => $this->tenant->id,
@@ -91,9 +98,13 @@ class ModuleScreensRenderTest extends TenantTestCase
             'online_booking_enabled' => true,
         ]);
 
-        $this->assertNotEmpty(
-            Livewire::test(\App\Livewire\Hotel\HotelBookingOnline::class, ['slug' => $definicoes->booking_slug])->html()
-        );
+        // A PÁGINA PÚBLICA abre sem sessão nenhuma — é o que ela é.
+        $this->get(route('hotel.booking.online', ['slug' => $definicoes->booking_slug]))
+            ->assertOk()
+            // O cabeçalho é do servidor de propósito: o que o WhatsApp mostra
+            // tem de estar no HTML antes de o JavaScript correr.
+            ->assertSee('og:title', false)
+            ->assertSee('Hotel de Teste', false);
     }
 
     public function test_pagina_publica_de_reservas_recusa_hotel_desconhecido(): void

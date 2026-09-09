@@ -642,6 +642,37 @@ class PrepararBancadaPwa extends Command
         }
 
         /*
+         * A CASA COMO ELA SE APRESENTA — e a página pública.
+         *
+         * Sem definições não há endereço de reservas, e a página que um
+         * hóspede abriria do cartaz responde 404: a bancada não conseguia
+         * ensaiar o caminho por onde entram as reservas de fora.
+         */
+        \App\Models\Hotel\HotelSettings::withoutGlobalScopes()->firstOrCreate(
+            ["tenant_id" => $tenant->id],
+            [
+                "hotel_name" => "Hotel da Bancada",
+                "hotel_description" => "A casa de ensaio, à beira da baía.",
+                "hotel_city" => "Luanda",
+                "hotel_country" => "Angola",
+                "hotel_phone" => "923400000",
+                "hotel_whatsapp" => "923400000",
+                "hotel_email" => "reservas@bancada.local",
+                "star_rating" => 4,
+                "primary_color" => "#0f766e",
+                "secondary_color" => "#0891b2",
+                "booking_slug" => "hotel-da-bancada",
+                "online_booking_enabled" => true,
+                "welcome_message" => "Bem-vindo à casa de ensaio.",
+                "amenities_list" => ["wifi", "parking", "pool", "restaurant", "ac", "breakfast"],
+                "min_advance_booking_hours" => 0,
+                "max_advance_booking_days" => 365,
+                "require_deposit" => true,
+                "deposit_percent" => 30,
+            ]
+        );
+
+        /*
          * AS RESERVAS — uma por estado, e uma a atravessar o mês.
          *
          * Sem elas o calendário, a lista, o painel, os mapas e o check-out

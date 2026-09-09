@@ -46,9 +46,9 @@ const RAIZ = '/api/v1/invoicing/react';
 
 type Parametros = Record<string, string | number | boolean | null | undefined>;
 
-function comParametros(caminho: string, parametros?: Parametros): string {
+function comParametros(raiz: string, caminho: string, parametros?: Parametros): string {
     if (!parametros) {
-        return RAIZ + caminho;
+        return raiz + caminho;
     }
 
     const q = new URLSearchParams();
@@ -63,11 +63,11 @@ function comParametros(caminho: string, parametros?: Parametros): string {
 
     const cauda = q.toString();
 
-    return RAIZ + caminho + (cauda ? `?${cauda}` : '');
+    return raiz + caminho + (cauda ? `?${cauda}` : '');
 }
 
-async function pedir<T>(caminho: string, opcoes: RequestInit = {}, parametros?: Parametros): Promise<T> {
-    const resposta = await fetch(comParametros(caminho, parametros), {
+async function pedir<T>(raiz: string, caminho: string, opcoes: RequestInit = {}, parametros?: Parametros): Promise<T> {
+    const resposta = await fetch(comParametros(raiz, caminho, parametros), {
         ...opcoes,
         credentials: 'same-origin',
         headers: {
@@ -103,31 +103,45 @@ async function pedir<T>(caminho: string, opcoes: RequestInit = {}, parametros?: 
     return (await resposta.json()) as T;
 }
 
-export const api = {
-    ler: <T>(caminho: string, parametros?: Parametros) => pedir<T>(caminho, { method: 'GET' }, parametros),
+/**
+ * A MESMA PONTE, NOUTRA MORADA.
+ *
+ * Quase tudo fala com `/api/v1/invoicing/react` — os ecrãs de dentro, com
+ * sessão. A PÁGINA PÚBLICA DE RESERVAS não: é um estranho a falar com a casa,
+ * e a porta é outra. O que não muda é o resto — o CSRF, o erro que os ecrãs
+ * sabem apanhar, a leitura de um 500 que veio em HTML — e é por isso que a
+ * raiz é um parâmetro em vez de haver um segundo cliente escrito à parte.
+ */
+export function criarApi(raiz: string) {
+    return {
+        ler: <T>(caminho: string, parametros?: Parametros) =>
+            pedir<T>(raiz, caminho, { method: 'GET' }, parametros),
 
-    criar: <T>(caminho: string, corpo: unknown) =>
-        pedir<T>(caminho, { method: 'POST', body: JSON.stringify(corpo) }),
+        criar: <T>(caminho: string, corpo: unknown) =>
+            pedir<T>(raiz, caminho, { method: 'POST', body: JSON.stringify(corpo) }),
 
-    guardar: <T>(caminho: string, corpo: unknown) =>
-        pedir<T>(caminho, { method: 'PUT', body: JSON.stringify(corpo) }),
+        guardar: <T>(caminho: string, corpo: unknown) =>
+            pedir<T>(raiz, caminho, { method: 'PUT', body: JSON.stringify(corpo) }),
 
-    /**
-     * APAGAR — com corpo, quando o que se apaga não cabe no URL.
-     *
-     * Quase sempre o id basta. A excepção é a galeria de imagens, onde se
-     * apaga PELO CAMINHO do ficheiro: pela posição, apagar duas seguidas
-     * apagava a errada, porque os índices mudam assim que a lista encolhe.
-     */
-    apagar: <T>(caminho: string, corpo?: unknown) =>
-        pedir<T>(caminho, corpo === undefined
-            ? { method: 'DELETE' }
-            : { method: 'DELETE', body: JSON.stringify(corpo) }),
+        /**
+         * APAGAR — com corpo, quando o que se apaga não cabe no URL.
+         *
+         * Quase sempre o id basta. A excepção é a galeria de imagens, onde se
+         * apaga PELO CAMINHO do ficheiro: pela posição, apagar duas seguidas
+         * apagava a errada, porque os índices mudam assim que a lista encolhe.
+         */
+        apagar: <T>(caminho: string, corpo?: unknown) =>
+            pedir<T>(raiz, caminho, corpo === undefined
+                ? { method: 'DELETE' }
+                : { method: 'DELETE', body: JSON.stringify(corpo) }),
 
-    /** Um ficheiro: vai em multipart, e o browser é que põe o Content-Type. */
-    enviar: <T>(caminho: string, corpo: FormData) =>
-        pedir<T>(caminho, { method: 'POST', body: corpo }),
-};
+        /** Um ficheiro: vai em multipart, e o browser é que põe o Content-Type. */
+        enviar: <T>(caminho: string, corpo: FormData) =>
+            pedir<T>(raiz, caminho, { method: 'POST', body: corpo }),
+    };
+}
+
+export const api = criarApi(RAIZ);
 
 /** A forma de uma lista paginada, tal como o Laravel a devolve. */
 export type Pagina<T> = {

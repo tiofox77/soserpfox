@@ -2,10 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Hotel\LigacaoKiandaStayScreen;
 use App\Models\Hotel\LigacaoKiandaStay;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -38,11 +36,9 @@ class EntrarComKiandaStayTest extends TenantTestCase
     /** @test */
     public function o_botao_manda_autorizar_no_site_com_um_state_proprio(): void
     {
-        $ecra = Livewire::test(LigacaoKiandaStayScreen::class)
-            ->set('base_url', 'https://kiandastay.exemplo')
-            ->call('entrarComKiandaStay');
-
-        $destino = $ecra->effects['redirect'] ?? '';
+        $destino = $this->postJson('/api/v1/invoicing/react/hotel/kiandastay/autorizar', [
+            'base_url' => 'https://kiandastay.exemplo',
+        ])->assertOk()->json('url');
 
         $this->assertStringContainsString('/ligar/soserp', $destino);
         $this->assertStringContainsString(urlencode(route('hotel.kiandastay.retorno')), $destino);
@@ -134,11 +130,13 @@ class EntrarComKiandaStayTest extends TenantTestCase
      */
     public function os_campos_estao_fora_do_alcance_da_autofill(): void
     {
-        $html = Livewire::test(LigacaoKiandaStayScreen::class)->html();
+        $ecra = file_get_contents(resource_path('js/ecras/hotel/KiandaStay.tsx'));
 
-        $this->assertStringContainsString('autocomplete="off"', $html);
-        $this->assertStringContainsString('autocomplete="new-password"', $html);
-        $this->assertStringNotContainsString('name="base_url"', $html,
+        $this->assertStringContainsString('autoComplete="off"', $ecra,
+            'o endereço do site não se preenche sozinho');
+        $this->assertStringContainsString('autoComplete="new-password"', $ecra,
+            'e a chave da API muito menos');
+        $this->assertStringNotContainsString('name="base_url"', $ecra,
             'um campo com o nome óbvio é o que a autofill procura');
     }
 }

@@ -207,6 +207,32 @@ class Client extends Authenticatable
         return $this;
     }
 
+    /**
+     * A SENHA COM QUE O HÓSPEDE ENTRA NA PÁGINA PÚBLICA DE RESERVAS.
+     *
+     * Vive na mesma caixa JSON da fidelidade, que é onde o hotel já guarda o
+     * que não tem coluna própria.
+     *
+     * ISTO NÃO GUARDAVA NADA. A página pública lia e escrevia
+     * `$cliente->hotel_data` — que não é coluna, nem acessor, nem está no
+     * `fillable`: o Eloquent descartava a escrita em silêncio e a leitura dava
+     * sempre nulo. Resultado: quem «criava conta com senha» ficava sem senha
+     * nenhuma, e a entrada só pedia o TELEFONE — qualquer pessoa que soubesse
+     * o número entrava na ficha do hóspede.
+     */
+    public function getSenhaDeReservasAttribute(): ?string
+    {
+        return $this->loyalty_data['senha_de_reservas'] ?? null;
+    }
+
+    public function definirSenhaDeReservas(string $senha): self
+    {
+        return $this->updateLoyaltyData([
+            'senha_de_reservas' => \Illuminate\Support\Facades\Hash::make($senha),
+            'registado_em' => now()->toISOString(),
+        ]);
+    }
+
     public function addLoyaltyPoints($points)
     {
         $data = $this->loyalty_data;

@@ -815,3 +815,271 @@ export const fecho = {
         message: string;
     }>(`/hotel/fecho/${id}/fechar`, dados),
 };
+
+/* ─── As tarifas ────────────────────────────────────────────────────── */
+
+export type OpcoesDasTarifas = {
+    tipos_de_quarto: Array<Escolha & { preco: number }>;
+    dias: Escolha[];
+    permissoes: { pode_criar: boolean; pode_editar: boolean; pode_apagar: boolean };
+};
+
+/** O que custa cada noite de uma estada, e a média que vai para a reserva. */
+export type PrecoDaEstada = {
+    noites: number;
+    total: number;
+    media: number;
+    dias: Array<{ dia: string; preco: number }>;
+};
+
+export type DiaDoCalendarioDePrecos = {
+    dia: string;
+    numero: number;
+    nome: string;
+    hoje: boolean;
+    fim_de_semana: boolean;
+};
+
+export type TipoNoCalendarioDePrecos = {
+    id: number;
+    nome: string;
+    base: number;
+    /** dia (Y-m-d) → preço daquela noite, com as três camadas aplicadas. */
+    dias: Record<string, number>;
+};
+
+export type CalendarioDePrecos = {
+    mes: string;
+    dias: DiaDoCalendarioDePrecos[];
+    tipos: TipoNoCalendarioDePrecos[];
+};
+
+export type EpocaDoHotel = {
+    id: number;
+    nome: string;
+    cor: string;
+    de: string | null;
+    ate: string | null;
+    modificador: number;
+    tipo: string;
+    tipo_rotulo: string;
+    efeito: string;
+    prioridade: number;
+    activa: boolean;
+    /** A que está a valer hoje — é a que explica o preço de agora. */
+    a_correr: boolean;
+};
+
+export type TarifaPorDia = {
+    id: number;
+    nome: string;
+    base: number;
+    dias: Array<{ dia: number; rotulo: string; modificador: number }>;
+};
+
+export type TarifaEspecial = {
+    id: number;
+    dia: string;
+    room_type_id: number | null;
+    /** Sem tipo, vale para a casa toda. */
+    tipo: string | null;
+    preco: number | null;
+    modificador: number | null;
+    motivo: string | null;
+    activa: boolean;
+    passada: boolean;
+};
+
+export const tarifas = {
+    opcoes: () => api.ler<OpcoesDasTarifas>('/hotel/tarifas/opcoes'),
+
+    /** Quanto custa esta estada — é isto que o formulário da reserva propõe. */
+    preco: (tipo: string, de: string, ate: string) =>
+        api.ler<PrecoDaEstada>('/hotel/tarifas/preco', { tipo, de, ate }),
+
+    calendario: (mes: string, tipo?: string) =>
+        api.ler<CalendarioDePrecos>('/hotel/tarifas/calendario', { mes, tipo }),
+
+    epocas: () => api.ler<{ data: EpocaDoHotel[] }>('/hotel/tarifas/epocas'),
+
+    porDia: () => api.ler<{ data: TarifaPorDia[] }>('/hotel/tarifas/por-dia'),
+    guardarPorDia: (tipo: string, dias: Record<number, string>) =>
+        api.guardar<{ message: string }>('/hotel/tarifas/por-dia', { tipo, dias }),
+
+    especiais: () => api.ler<{ data: TarifaEspecial[] }>('/hotel/tarifas/especiais'),
+    guardarEspecial: (dados: { dia: string; tipo: string; preco: string; motivo: string }) =>
+        api.criar<{ message: string }>('/hotel/tarifas/especiais', dados),
+    apagarEspecial: (id: number) => api.apagar<{ message: string }>(`/hotel/tarifas/especiais/${id}`),
+};
+
+/* ─── As definições do hotel ────────────────────────────────────────── */
+
+export type DefinicoesDoHotel = {
+    hotel_name: string;
+    hotel_description: string;
+    hotel_address: string;
+    hotel_city: string;
+    hotel_country: string;
+    hotel_phone: string;
+    hotel_whatsapp: string;
+    hotel_email: string;
+    hotel_website: string;
+    star_rating: number;
+
+    instagram: string;
+    facebook: string;
+    google_maps_url: string;
+    tripadvisor_url: string;
+    booking_com_url: string;
+
+    primary_color: string;
+    secondary_color: string;
+    /** Já prontos a mostrar; o ficheiro sobe por multipart. */
+    logo: string | null;
+    capa: string | null;
+
+    default_check_in_time: string;
+    default_check_out_time: string;
+    early_check_in_available: boolean;
+    late_check_out_available: boolean;
+    early_check_in_fee: number;
+    late_check_out_fee: number;
+
+    min_advance_booking_hours: number;
+    min_advance_booking_days: number;
+    max_advance_booking_days: number;
+    cancellation_hours: number;
+    online_booking_enabled: boolean;
+    require_deposit: boolean;
+    deposit_percent: number;
+
+    booking_policies: string;
+    cancellation_policies: string;
+    house_rules: string;
+
+    booking_slug: string;
+    booking_url: string;
+    meta_title: string;
+    meta_description: string;
+    welcome_message: string;
+
+    amenities_list: string[];
+    featured_rooms: number[];
+
+    overbooking_enabled: boolean;
+    overbooking_percent: number;
+
+    loyalty_enabled: boolean;
+    loyalty_points_per_kz: number;
+    loyalty_tier_silver: number;
+    loyalty_tier_gold: number;
+    loyalty_tier_platinum: number;
+
+    notify_reservation_confirmed: boolean;
+    notify_pre_arrival: boolean;
+    notify_post_stay: boolean;
+};
+
+export type ComodidadeDoHotel = Escolha & { icone: string };
+
+export type TipoNasDefinicoes = { id: number; nome: string; preco: number; quartos: number };
+
+export type PaginaDasDefinicoes = {
+    definicoes: DefinicoesDoHotel;
+    comodidades: ComodidadeDoHotel[];
+    tipos_de_quarto: TipoNasDefinicoes[];
+    permissoes: { pode_editar: boolean };
+};
+
+export const definicoesDoHotel = {
+    mostrar: () => api.ler<PaginaDasDefinicoes>('/hotel/definicoes'),
+
+    guardar: (dados: DefinicoesDoHotel) =>
+        api.guardar<{ definicoes: DefinicoesDoHotel; message: string }>('/hotel/definicoes', dados),
+
+    /** O ficheiro vai em multipart — não cabe em JSON. */
+    imagem: (qual: 'logo' | 'capa', ficheiro: File) => {
+        const corpo = new FormData();
+
+        corpo.append('qual', qual);
+        corpo.append('ficheiro', ficheiro);
+
+        return api.enviar<{ definicoes: DefinicoesDoHotel; message: string }>('/hotel/definicoes/imagem', corpo);
+    },
+
+    apagarImagem: (qual: 'logo' | 'capa') =>
+        api.apagar<{ definicoes: DefinicoesDoHotel; message: string }>('/hotel/definicoes/imagem', { qual }),
+
+    /** Parte as ligações já partilhadas: o ecrã pergunta antes. */
+    novoEndereco: () =>
+        api.criar<{ definicoes: DefinicoesDoHotel; message: string }>('/hotel/definicoes/novo-endereco', {}),
+};
+
+/* ─── A ligação ao KiandaStay ───────────────────────────────────────── */
+
+export type LigacaoKiandaStay = {
+    base_url: string;
+    /** O FACTO, nunca a chave: ela não volta ao browser. */
+    tem_chave: boolean;
+    activa: boolean;
+    configurada: boolean;
+    criar_hospede: boolean;
+    estado_inicial: 'pending' | 'confirmed';
+    property_id: number | null;
+    property_name: string | null;
+    /** id do tipo NO SITE → id do tipo NESTA casa. */
+    mapa_tipos: Record<string, number | string>;
+    webhook_url: string | null;
+};
+
+export type HotelDoSite = { id: number; name: string };
+export type TipoDoSite = { id: number; name: string };
+
+export type ReservaDoSite = {
+    id: number;
+    numero: string;
+    externa: string | null;
+    hospede: string;
+    tipo_de_quarto: string | null;
+    entrada: string | null;
+    saida: string | null;
+    estado: string;
+    estado_rotulo: string;
+    total: number;
+    quando: string | null;
+};
+
+export type PaginaDoKiandaStay = {
+    ligacao: LigacaoKiandaStay;
+    do_site: { hoteis: HotelDoSite[]; tipos: TipoDoSite[] };
+    tipos_locais: Escolha[];
+    /** É isto que responde a «a ligação está mesmo a funcionar?». */
+    ultimas: ReservaDoSite[];
+    permissoes: { pode_editar: boolean };
+};
+
+export type DiagnosticoDoSite = { ok: boolean; erro?: string; [k: string]: unknown };
+
+export const kiandastay = {
+    mostrar: () => api.ler<PaginaDoKiandaStay>('/hotel/kiandastay'),
+
+    credenciais: (base_url: string, api_key: string) =>
+        api.guardar<{ ligacao: LigacaoKiandaStay; message: string }>('/hotel/kiandastay/credenciais', { base_url, api_key }),
+
+    /** Devolve o endereço para onde o browser deve ir autorizar. */
+    autorizar: (base_url: string) => api.criar<{ url: string }>('/hotel/kiandastay/autorizar', { base_url }),
+
+    testar: () => api.criar<{ diagnostico: DiagnosticoDoSite; message: string }>('/hotel/kiandastay/testar', {}),
+
+    escolherHotel: (property_id: string) =>
+        api.guardar<{ ligacao: LigacaoKiandaStay; tipos: TipoDoSite[] }>('/hotel/kiandastay/hotel', { property_id }),
+
+    ligar: () => api.criar<{ ligacao: LigacaoKiandaStay; message: string }>('/hotel/kiandastay/ligar', {}),
+
+    opcoes: (dados: {
+        activa: boolean;
+        criar_hospede: boolean;
+        estado_inicial: string;
+        mapa_tipos: Record<string, number | string>;
+    }) => api.guardar<{ ligacao: LigacaoKiandaStay; message: string }>('/hotel/kiandastay/opcoes', dados),
+};

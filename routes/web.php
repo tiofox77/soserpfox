@@ -755,6 +755,59 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::post('/{id}/fechar', [$c, 'fechar'])->whereNumber('id')->name('fechar');
         });
 
+        /*
+         * AS TARIFAS. As épocas são uma lista e vivem no catálogo genérico
+         * (`epocas-do-hotel`); aqui fica o que não é lista — o dia da semana,
+         * o dia concreto, e o calendário que mostra as três camadas juntas.
+         *
+         * `preco` é a porta que põe a conta a servir para alguma coisa: o
+         * formulário da reserva propõe a taxa por noite que sai daqui.
+         */
+        Route::prefix('hotel/tarifas')->name('hotel.tarifas.')->group(function () {
+            $c = \App\Http\Controllers\Api\Hotel\TarifasApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/preco', [$c, 'preco'])->name('preco');
+            Route::get('/calendario', [$c, 'calendario'])->name('calendario');
+            Route::get('/epocas', [$c, 'epocas'])->name('epocas');
+            Route::get('/por-dia', [$c, 'porDia'])->name('por-dia');
+            Route::put('/por-dia', [$c, 'guardarPorDia'])->name('por-dia.guardar');
+            Route::get('/especiais', [$c, 'especiais'])->name('especiais');
+            Route::post('/especiais', [$c, 'guardarEspecial'])->name('especiais.guardar');
+            Route::delete('/especiais/{id}', [$c, 'apagarEspecial'])->whereNumber('id')->name('especiais.apagar');
+        });
+
+        /*
+         * AS DEFINIÇÕES DO HOTEL. Ver e alterar são duas permissões, e passam
+         * a valer as duas: o ecrã de sempre deixava alterar a quem só podia
+         * ver.
+         */
+        Route::prefix('hotel/definicoes')->name('hotel.definicoes.')->group(function () {
+            $c = \App\Http\Controllers\Api\Hotel\DefinicoesApiController::class;
+
+            Route::get('/', [$c, 'mostrar'])->name('mostrar');
+            Route::put('/', [$c, 'guardar'])->name('guardar');
+            Route::post('/imagem', [$c, 'imagem'])->name('imagem');
+            Route::delete('/imagem', [$c, 'apagarImagem'])->name('imagem.apagar');
+            Route::post('/novo-endereco', [$c, 'novoEndereco'])->name('novo-endereco');
+        });
+
+        /*
+         * A LIGAÇÃO AO KIANDASTAY. Três passos por esta ordem: as credenciais,
+         * o hotel do site, e ligar. A chave da API nunca volta ao browser.
+         */
+        Route::prefix('hotel/kiandastay')->name('hotel.kiandastay.api.')->group(function () {
+            $c = \App\Http\Controllers\Api\Hotel\KiandaStayApiController::class;
+
+            Route::get('/', [$c, 'mostrar'])->name('mostrar');
+            Route::put('/credenciais', [$c, 'credenciais'])->name('credenciais');
+            Route::post('/autorizar', [$c, 'autorizar'])->name('autorizar');
+            Route::post('/testar', [$c, 'testar'])->name('testar');
+            Route::put('/hotel', [$c, 'escolherHotel'])->name('hotel');
+            Route::post('/ligar', [$c, 'ligar'])->name('ligar');
+            Route::put('/opcoes', [$c, 'opcoes'])->name('opcoes');
+        });
+
         Route::prefix('oficina/ordens')->name('oficina.ordens.')->group(function () {
             $c = \App\Http\Controllers\Api\Workshop\OrdensApiController::class;
 
@@ -1868,7 +1921,14 @@ Route::middleware(['auth', 'tenant.module:hotel'])->prefix('hotel')->name('hotel
         Route::get('/reports/excel', [$c, 'excel'])->name('reports.excel');
     });
     Route::middleware('permission:hotel.rates.view')
-        ->get('/rates', \App\Livewire\Hotel\RateManagement::class)->name('rates');
+        ->get('/rates', \App\Support\EcraReact::pagina('hotel/tarifas', 'Tarifas'))->name('rates');
+    /*
+     * AS ÉPOCAS são uma lista com a forma de sempre, e vivem no ecrã
+     * genérico dos catálogos. O ecrã das tarifas liga para aqui: são a
+     * primeira das três camadas do preço.
+     */
+    Route::middleware('permission:hotel.rates.view')
+        ->get('/seasons', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Épocas', ['tipo' => 'epocas-do-hotel']))->name('seasons');
     /*
      * OS PACOTES E OS CÓDIGOS PROMOCIONAIS — duas listas na mesma morada.
      *
@@ -1884,10 +1944,10 @@ Route::middleware(['auth', 'tenant.module:hotel'])->prefix('hotel')->name('hotel
             ],
         ]))->name('packages');
     Route::middleware('permission:hotel.settings.view')
-        ->get('/settings', \App\Livewire\Hotel\HotelSettingsManagement::class)->name('settings');
+        ->get('/settings', \App\Support\EcraReact::pagina('hotel/definicoes', 'Definições do Hotel'))->name('settings');
     // A ligacao ao KiandaStay: as reservas do site entram sozinhas na recepcao.
     Route::middleware('permission:hotel.settings.view')
-        ->get('/kiandastay', \App\Livewire\Hotel\LigacaoKiandaStayScreen::class)->name('kiandastay');
+        ->get('/kiandastay', \App\Support\EcraReact::pagina('hotel/kiandastay', 'KiandaStay'))->name('kiandastay');
     // A volta do «Entrar com o KiandaStay»: troca o bilhete pelo token.
     Route::get('/kiandastay/retorno', [\App\Http\Controllers\Hotel\LigacaoKiandaStayController::class, 'retorno'])
         ->middleware('permission:hotel.settings.edit')->name('kiandastay.retorno');
@@ -1933,7 +1993,46 @@ Route::get('/booking/{tenant?}', function ($tenant = null) {
     return redirect()->route('hotel.booking.online', ['slug' => $definicoes->booking_slug]);
 })->name('booking.online');
 
-Route::get('/hotel/booking/{slug}', \App\Livewire\Hotel\HotelBookingOnline::class)->name('hotel.booking.online');
+/*
+ * A PÁGINA PÚBLICA DE RESERVAS.
+ *
+ * Sem sessão e sem empresa activa: quem manda é o SLUG. O cabeçalho (título,
+ * descrição, imagem) é desenhado pelo servidor de propósito — o que o WhatsApp
+ * e o Facebook mostram tem de estar no HTML antes de o JavaScript correr.
+ */
+Route::get('/hotel/booking/{slug}', function (string $slug) {
+    $d = \App\Models\Hotel\HotelSettings::findBySlug($slug);
+
+    abort_unless($d, 404, __('Hotel não encontrado.'));
+    abort_unless($d->online_booking_enabled, 403, __('Esta casa não aceita reservas por aqui.'));
+
+    return view('react.publico', [
+        'ecra' => 'hotel/reservar',
+        'props' => ['slug' => $slug],
+        'titulo' => $d->meta_title ?: ($d->hotel_name ?: __('Reservas')),
+        'descricao' => $d->meta_description ?: ($d->hotel_description ?: ''),
+        'imagem' => $d->cover_url ?: $d->logo_url,
+    ]);
+})->name('hotel.booking.online');
+
+/*
+ * A PORTA DA PÁGINA PÚBLICA.
+ *
+ * Fora de qualquer autenticação — é um estranho a falar com a casa — e por
+ * isso com travão de tráfego: reservar é escrever na base, e uma página aberta
+ * ao mundo sem limite é um convite.
+ */
+Route::prefix('api/publico/hotel/{slug}')->name('hotel.publico.')
+    ->middleware('throttle:60,1')
+    ->group(function () {
+        $c = \App\Http\Controllers\Api\Hotel\ReservaOnlineApiController::class;
+
+        Route::get('/', [$c, 'casa'])->name('casa');
+        Route::get('/disponibilidade', [$c, 'disponibilidade'])->name('disponibilidade');
+        Route::post('/entrar', [$c, 'entrar'])->name('entrar');
+        Route::post('/registar', [$c, 'registar'])->name('registar');
+        Route::post('/reservar', [$c, 'reservar'])->name('reservar');
+    });
 
 /*
  * O SALÃO — vinte e nove permissões declaradas e nenhuma rota a exigi-las.
