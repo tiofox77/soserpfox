@@ -2602,7 +2602,7 @@ final class Catalogos
             'cor' => 'teal',
             'descricao' => 'Época alta, época baixa — o que muda o preço da noite',
             'novo' => 'Nova Época',
-            'rota' => '/hotel/rates',
+            'rota' => '/hotel/seasons',
             'permissoes' => self::porVerbo('hotel.rates'),
             'pesquisa' => ['name', 'description'],
             'pesquisa_ajuda' => 'Nome ou descrição',
