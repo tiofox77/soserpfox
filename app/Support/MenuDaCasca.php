@@ -108,8 +108,8 @@ final class MenuDaCasca
                     // Fica logo a seguir ao POS Offline: quem precisa disto vem
                     // de lá, com um aparelho que não sincronizou nas mãos.
                     ['rota' => 'invoicing.importar-copia-offline', 'rotulo' => 'Importar Cópia Offline', 'icone' => 'fa-file-import', 'cor' => 'emerald-400', 'activo' => 'invoicing.importar-copia-offline', 'permissao' => 'invoicing.pos.sell', 'hover' => 'bg-blue-800'],
-                    ['rota' => 'invoicing.pos.shifts', 'rotulo' => 'Turnos de Caixa', 'prefixo' => '⏰', 'icone' => 'fa-user-clock', 'cor' => 'yellow-400', 'activo' => 'invoicing.pos.shifts'],
-                    ['rota' => 'invoicing.pos.shift-history', 'rotulo' => 'Histórico de Turnos', 'prefixo' => '📋', 'icone' => 'fa-history', 'cor' => 'purple-400', 'activo' => 'invoicing.pos.shift-history'],
+                    ['rota' => 'invoicing.pos.shifts', 'rotulo' => 'Turnos de Caixa', 'prefixo' => '⏰', 'icone' => 'fa-user-clock', 'cor' => 'yellow-400', 'activo' => 'invoicing.pos.shifts', 'permissao' => 'invoicing.pos.access'],
+                    ['rota' => 'invoicing.pos.shift-history', 'rotulo' => 'Histórico de Turnos', 'prefixo' => '📋', 'icone' => 'fa-history', 'cor' => 'purple-400', 'activo' => 'invoicing.pos.shift-history', 'permissao' => 'invoicing.pos.access'],
                     ['rota' => 'invoicing.pos.reports', 'rotulo' => 'Relatórios POS', 'prefixo' => '📊', 'icone' => 'fa-chart-line', 'cor' => 'cyan-400', 'activo' => 'invoicing.pos.reports', 'permissao' => 'invoicing.pos.reports'],
                     ['separador' => true],
                     ['rota' => 'invoicing.clients', 'rotulo' => 'Clientes', 'icone' => 'fa-users', 'cor' => 'green-400', 'activo' => 'invoicing.clients*', 'permissao' => 'invoicing.clients.view'],
@@ -146,8 +146,8 @@ final class MenuDaCasca
                     ['rota' => 'invoicing.warehouses', 'rotulo' => 'Armazéns', 'icone' => 'fa-warehouse', 'cor' => 'indigo-400', 'activo' => 'invoicing.warehouses*', 'permissao' => 'invoicing.warehouses.view'],
                     ['rota' => 'invoicing.stock', 'rotulo' => 'Gestão Stock', 'icone' => 'fa-boxes', 'cor' => 'yellow-400', 'activo' => 'invoicing.stock', 'permissao' => 'invoicing.stock.view'],
                     ['rota' => 'invoicing.quebras', 'rotulo' => 'Quebras e Desperdício', 'icone' => 'fa-dumpster-fire', 'cor' => 'rose-400', 'activo' => 'invoicing.quebras', 'permissao' => 'invoicing.stock.view'],
-                    ['rota' => 'invoicing.product-batches', 'rotulo' => 'Lotes e Validades', 'icone' => 'fa-calendar-check', 'cor' => 'orange-400', 'activo' => 'invoicing.product-batches'],
-                    ['rota' => 'invoicing.expiry-report', 'rotulo' => 'Relatório Validade', 'prefixo' => '📊', 'icone' => 'fa-chart-line', 'cor' => 'red-400', 'activo' => 'invoicing.expiry-report'],
+                    ['rota' => 'invoicing.product-batches', 'rotulo' => 'Lotes e Validades', 'icone' => 'fa-calendar-check', 'cor' => 'orange-400', 'activo' => 'invoicing.product-batches', 'permissao' => 'invoicing.product-batches.view'],
+                    ['rota' => 'invoicing.expiry-report', 'rotulo' => 'Relatório Validade', 'prefixo' => '📊', 'icone' => 'fa-chart-line', 'cor' => 'red-400', 'activo' => 'invoicing.expiry-report', 'permissao' => 'invoicing.reports.view'],
                     ['rota' => 'invoicing.warehouse-transfer', 'rotulo' => 'Transfer. Armazéns', 'icone' => 'fa-exchange-alt', 'cor' => 'blue-400', 'activo' => 'invoicing.warehouse-transfer', 'permissao' => 'invoicing.warehouse-transfer.view'],
                     ['rota' => 'invoicing.inter-company-transfer', 'rotulo' => 'Transfer. Inter-Empresa', 'icone' => 'fa-building-circle-arrow-right', 'cor' => 'teal-400', 'activo' => 'invoicing.inter-company-transfer', 'permissao' => 'invoicing.inter-company-transfer.view'],
                     ['separador' => true],
@@ -373,7 +373,7 @@ final class MenuDaCasca
                 'rota' => 'notifications.settings', 'activo' => 'notifications.settings',
                 'entradas' => [
                     // O ecrã de modelos existe e não estava em lado nenhum do menu.
-                    ['rota' => 'notifications.templates', 'rotulo' => 'Modelos', 'icone' => 'fa-file-lines', 'cor' => 'slate-300', 'activo' => 'notifications.templates'],
+                    ['rota' => 'notifications.templates', 'rotulo' => 'Modelos', 'icone' => 'fa-file-lines', 'cor' => 'slate-300', 'activo' => 'notifications.templates', 'permissao' => 'notifications.view'],
                 ],
             ],
 
@@ -381,10 +381,10 @@ final class MenuDaCasca
                 'chave' => 'crm', 'rotulo' => 'CRM', 'icone' => 'fa-user-check', 'cor' => 'teal-400',
                 'modulo' => 'crm', 'aberto' => 'crm.*', 'barra' => 'teal-400',
                 'entradas' => [
-                    ['rota' => 'crm.dashboard', 'rotulo' => 'Dashboard', 'icone' => 'fa-chart-line', 'cor' => 'blue-400', 'activo' => 'crm.dashboard'],
-                    ['rota' => 'crm.leads', 'rotulo' => 'Leads', 'icone' => 'fa-user-plus', 'cor' => 'green-400', 'activo' => 'crm.leads*'],
-                    ['rota' => 'crm.oportunidades', 'rotulo' => 'Oportunidades', 'icone' => 'fa-bullseye', 'cor' => 'yellow-400', 'activo' => 'crm.oportunidades*'],
-                    ['rota' => 'crm.funil-vendas', 'rotulo' => 'Funil de Vendas', 'icone' => 'fa-filter', 'cor' => 'purple-400', 'activo' => 'crm.funil-vendas*'],
+                    ['rota' => 'crm.dashboard', 'rotulo' => 'Dashboard', 'icone' => 'fa-chart-line', 'cor' => 'blue-400', 'activo' => 'crm.dashboard', 'permissao' => 'crm.view'],
+                    ['rota' => 'crm.leads', 'rotulo' => 'Leads', 'icone' => 'fa-user-plus', 'cor' => 'green-400', 'activo' => 'crm.leads*', 'permissao' => 'crm.leads.view'],
+                    ['rota' => 'crm.oportunidades', 'rotulo' => 'Oportunidades', 'icone' => 'fa-bullseye', 'cor' => 'yellow-400', 'activo' => 'crm.oportunidades*', 'permissao' => 'crm.opportunities.view'],
+                    ['rota' => 'crm.funil-vendas', 'rotulo' => 'Funil de Vendas', 'icone' => 'fa-filter', 'cor' => 'purple-400', 'activo' => 'crm.funil-vendas*', 'permissao' => 'crm.opportunities.view'],
                     ['rota' => 'crm.integracoes', 'rotulo' => 'Integração Meta', 'icone' => 'fa-facebook-messenger', 'marca' => true, 'cor' => 'sky-400', 'activo' => 'crm.integracoes*', 'permissao' => 'crm.integrations.manage'],
                 ],
             ],
@@ -393,10 +393,10 @@ final class MenuDaCasca
                 'chave' => 'inventario', 'rotulo' => 'Inventário', 'icone' => 'fa-boxes', 'cor' => 'amber-400',
                 'modulo' => 'inventario', 'aberto' => 'inventario.*', 'barra' => 'amber-400',
                 'entradas' => [
-                    ['rota' => 'inventario.dashboard', 'rotulo' => 'Dashboard', 'icone' => 'fa-chart-line', 'cor' => 'blue-400', 'activo' => 'inventario.dashboard'],
-                    ['rota' => 'inventario.armazens', 'rotulo' => 'Armazéns', 'icone' => 'fa-warehouse', 'cor' => 'indigo-400', 'activo' => 'inventario.armazens*'],
-                    ['rota' => 'inventario.movimentos', 'rotulo' => 'Movimentos', 'icone' => 'fa-exchange-alt', 'cor' => 'green-400', 'activo' => 'inventario.movimentos*'],
-                    ['rota' => 'inventario.contagem', 'rotulo' => 'Contagem de Stock', 'icone' => 'fa-clipboard-check', 'cor' => 'purple-400', 'activo' => 'inventario.contagem*'],
+                    ['rota' => 'inventario.dashboard', 'rotulo' => 'Dashboard', 'icone' => 'fa-chart-line', 'cor' => 'blue-400', 'activo' => 'inventario.dashboard', 'permissao' => 'inventario.view'],
+                    ['rota' => 'inventario.armazens', 'rotulo' => 'Armazéns', 'icone' => 'fa-warehouse', 'cor' => 'indigo-400', 'activo' => 'inventario.armazens*', 'permissao' => 'inventario.view'],
+                    ['rota' => 'inventario.movimentos', 'rotulo' => 'Movimentos', 'icone' => 'fa-exchange-alt', 'cor' => 'green-400', 'activo' => 'inventario.movimentos*', 'permissao' => 'inventario.view'],
+                    ['rota' => 'inventario.contagem', 'rotulo' => 'Contagem de Stock', 'icone' => 'fa-clipboard-check', 'cor' => 'purple-400', 'activo' => 'inventario.contagem*', 'permissao' => 'inventario.contagem.manage'],
                 ],
             ],
 
@@ -404,8 +404,8 @@ final class MenuDaCasca
                 'chave' => 'compras', 'rotulo' => 'Compras', 'icone' => 'fa-shopping-cart', 'cor' => 'lime-400',
                 'modulo' => 'compras', 'aberto' => 'compras.*', 'barra' => 'lime-400',
                 'entradas' => [
-                    ['rota' => 'compras.dashboard', 'rotulo' => 'Dashboard', 'icone' => 'fa-chart-line', 'cor' => 'blue-400', 'activo' => 'compras.dashboard'],
-                    ['rota' => 'compras.fornecedores', 'rotulo' => 'Fornecedores', 'icone' => 'fa-truck', 'cor' => 'orange-400', 'activo' => 'compras.fornecedores*'],
+                    ['rota' => 'compras.dashboard', 'rotulo' => 'Dashboard', 'icone' => 'fa-chart-line', 'cor' => 'blue-400', 'activo' => 'compras.dashboard', 'permissao' => 'compras.view'],
+                    ['rota' => 'compras.fornecedores', 'rotulo' => 'Fornecedores', 'icone' => 'fa-truck', 'cor' => 'orange-400', 'activo' => 'compras.fornecedores*', 'permissao' => 'compras.view'],
                     ['rota' => 'compras.requisicoes', 'rotulo' => 'Requisições', 'icone' => 'fa-file-alt', 'cor' => 'yellow-400', 'activo' => 'compras.requisicoes*', 'permissao' => 'compras.requisicoes.view'],
                     ['rota' => 'compras.encomendas', 'rotulo' => 'Encomendas', 'icone' => 'fa-clipboard-list', 'cor' => 'green-400', 'activo' => 'compras.encomendas*', 'permissao' => 'compras.encomendas.view'],
                 ],
@@ -415,8 +415,8 @@ final class MenuDaCasca
                 'chave' => 'projetos', 'rotulo' => 'Projetos', 'icone' => 'fa-project-diagram', 'cor' => 'violet-400',
                 'modulo' => 'projetos', 'aberto' => 'projetos.*', 'barra' => 'violet-400',
                 'entradas' => [
-                    ['rota' => 'projetos.dashboard', 'rotulo' => 'Dashboard', 'icone' => 'fa-chart-line', 'cor' => 'blue-400', 'activo' => 'projetos.dashboard'],
-                    ['rota' => 'projetos.lista', 'rotulo' => 'Projetos', 'icone' => 'fa-briefcase', 'cor' => 'indigo-400', 'activo' => 'projetos.lista*'],
+                    ['rota' => 'projetos.dashboard', 'rotulo' => 'Dashboard', 'icone' => 'fa-chart-line', 'cor' => 'blue-400', 'activo' => 'projetos.dashboard', 'permissao' => 'projetos.view'],
+                    ['rota' => 'projetos.lista', 'rotulo' => 'Projetos', 'icone' => 'fa-briefcase', 'cor' => 'indigo-400', 'activo' => 'projetos.lista*', 'permissao' => 'projetos.view'],
                     ['rota' => 'projetos.tarefas', 'rotulo' => 'Tarefas', 'icone' => 'fa-tasks', 'cor' => 'green-400', 'activo' => 'projetos.tarefas*', 'permissao' => 'projetos.tarefas.view'],
                     ['rota' => 'projetos.timesheet', 'rotulo' => 'Folha de Horas', 'icone' => 'fa-clock', 'cor' => 'yellow-400', 'activo' => 'projetos.timesheet*', 'permissao' => 'projetos.horas.registar'],
                 ],

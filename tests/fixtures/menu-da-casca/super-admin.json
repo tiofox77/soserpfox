@@ -28,28 +28,8 @@
             "texto": "Facturação"
         },
         {
-            "tag": "a",
-            "href": "/invoicing/pos/shifts",
-            "texto": "⏰ Turnos de Caixa"
-        },
-        {
-            "tag": "a",
-            "href": "/invoicing/pos/shift-history",
-            "texto": "📋 Histórico de Turnos"
-        },
-        {
             "tag": "button",
             "texto": "Documentos"
-        },
-        {
-            "tag": "a",
-            "href": "/invoicing/product-batches",
-            "texto": "Lotes e Validades"
-        },
-        {
-            "tag": "a",
-            "href": "/invoicing/expiry-report",
-            "texto": "📊 Relatório Validade"
         },
         {
             "tag": "button",
@@ -89,84 +69,19 @@
             "texto": "Notificações"
         },
         {
-            "tag": "a",
-            "href": "/notifications/templates",
-            "texto": "Modelos"
-        },
-        {
             "tag": "button",
             "texto": "CRM"
-        },
-        {
-            "tag": "a",
-            "href": "/crm/dashboard",
-            "texto": "Dashboard"
-        },
-        {
-            "tag": "a",
-            "href": "/crm/leads",
-            "texto": "Leads"
-        },
-        {
-            "tag": "a",
-            "href": "/crm/oportunidades",
-            "texto": "Oportunidades"
-        },
-        {
-            "tag": "a",
-            "href": "/crm/funil-vendas",
-            "texto": "Funil de Vendas"
         },
         {
             "tag": "button",
             "texto": "Inventário"
         },
         {
-            "tag": "a",
-            "href": "/inventario/dashboard",
-            "texto": "Dashboard"
-        },
-        {
-            "tag": "a",
-            "href": "/inventario/armazens",
-            "texto": "Armazéns"
-        },
-        {
-            "tag": "a",
-            "href": "/inventario/movimentos",
-            "texto": "Movimentos"
-        },
-        {
-            "tag": "a",
-            "href": "/inventario/contagem",
-            "texto": "Contagem de Stock"
-        },
-        {
             "tag": "button",
             "texto": "Compras"
         },
         {
-            "tag": "a",
-            "href": "/compras/dashboard",
-            "texto": "Dashboard"
-        },
-        {
-            "tag": "a",
-            "href": "/compras/fornecedores",
-            "texto": "Fornecedores"
-        },
-        {
             "tag": "button",
-            "texto": "Projetos"
-        },
-        {
-            "tag": "a",
-            "href": "/projetos/dashboard",
-            "texto": "Dashboard"
-        },
-        {
-            "tag": "a",
-            "href": "/projetos/lista",
             "texto": "Projetos"
         },
         {

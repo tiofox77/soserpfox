@@ -35,12 +35,22 @@ class LoteMenuLinguaTest extends TenantTestCase
         // todos estes testes davam 403 — e um 403 não tem menu nenhum, portanto
         // o assertDontSee('Fornecedores') passava por a página estar vazia, e
         // não por estar traduzida.
-        $permissao = \Spatie\Permission\Models\Permission::firstOrCreate([
-            'name' => 'invoicing.dashboard.view',
-            'guard_name' => 'web',
-        ]);
+        // E AS ENTRADAS QUE ESTE ENSAIO LÊ ganharam a sua guarda quando as
+        // rotas da facturação deixaram de correr só com `auth`: sem elas, o
+        // menu vem sem «Turnos de Caixa» e o ensaio media a permissão em vez
+        // da língua.
+        foreach ([
+            'invoicing.dashboard.view',
+            'invoicing.pos.access',
+            'treasury.reports.view',
+        ] as $nome) {
+            $this->user->givePermissionTo(
+                \Spatie\Permission\Models\Permission::firstOrCreate(['name' => $nome, 'guard_name' => 'web'])
+            );
+        }
 
-        $this->user->givePermissionTo($permissao);
+        $this->user->forgetCachedPermissions();
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
     }
 
     private function painel(): \Illuminate\Testing\TestResponse

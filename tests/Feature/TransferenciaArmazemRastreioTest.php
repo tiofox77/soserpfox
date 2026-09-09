@@ -58,7 +58,9 @@ class TransferenciaArmazemRastreioTest extends TenantTestCase
             'stock_quantity' => 0,
         ]);
 
-        $this->comPermissoes('invoicing.warehouse-transfer.create', 'invoicing.stock.edit')
+        // O documento do lote e o do ajuste passaram a pedir `stock.view`: são
+        // páginas com o id no URL, e antes abriam só com `auth`.
+        $this->comPermissoes('invoicing.warehouse-transfer.create', 'invoicing.stock.edit', 'invoicing.stock.view')
              ->comModulo('invoicing');
     }
 

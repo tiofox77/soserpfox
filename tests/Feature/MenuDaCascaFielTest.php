@@ -71,6 +71,11 @@ class MenuDaCascaFielTest extends TenantTestCase
         'accounting.settings.view',
         'events.calendar.view', 'events.reports.view', 'events.equipment.view',
         'events.venues.view', 'events.types.view', 'events.technicians.view',
+        // E as entradas que ficaram atrás da permissão quando a facturação
+        // deixou de ter rotas a correr só com `auth`.
+        'invoicing.product-batches.view', 'invoicing.reports.view', 'notifications.view',
+        'users.manage', 'crm.view', 'crm.leads.view', 'crm.opportunities.view',
+        'inventario.view', 'inventario.contagem.manage', 'compras.view', 'projetos.view',
         'crm.dashboard.view', 'crm.integrations.manage', 'compras.dashboard.view', 'compras.requisicoes.view',
         'compras.encomendas.view', 'projetos.dashboard.view', 'projetos.tarefas.view', 'projetos.horas.registar',
         'settings.view',

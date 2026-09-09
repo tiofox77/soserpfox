@@ -43,6 +43,10 @@ class TraducoesTest extends TenantTestCase
         $this->tenant->modules()->syncWithoutDetaching([
             $modulo->id => ['is_active' => true, 'activated_at' => now()],
         ]);
+
+        // E ATRÁS DA SUA PERMISSÃO, desde que as rotas da facturação deixaram
+        // de correr só com `auth` — o piloto é a transferência entre armazéns.
+        $this->comPermissoes('invoicing.warehouse-transfer.view');
     }
 
     /**

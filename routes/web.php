@@ -307,7 +307,7 @@ Route::middleware(['auth'])->prefix('invoicing/offline')->name('invoicing.offlin
         Route::get('/drafts', fn() => view('invoicing.offline.drafts'))->name('drafts');
         Route::get('/drafts/new', fn() => view('invoicing.offline.draft-form'))->name('draft-new');
     });
-    Route::middleware('pwa:pos')->get('/pos', fn() => view('invoicing.offline.pos'))->name('pos');
+    Route::middleware('pwa:pos')->get('/pos', fn() => view('invoicing.offline.pos'))->middleware('permission:invoicing.pos.access')->name('pos');
     Route::middleware('pwa:restaurante')->get('/restaurant', fn() => view('invoicing.offline.restaurant'))->name('restaurant');
     // Saída do PWA → redireciona para a 1ª área a que o utilizador tem permissão
     Route::get('/exit', \App\Http\Controllers\Invoicing\PwaExitController::class)->name('exit');
@@ -919,17 +919,17 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
     Route::prefix('sales')->name('sales.')->group(function () {
         Route::middleware('permission:invoicing.sales.proformas.view')->get('/proformas', \App\Support\EcraReact::pagina('facturacao/documentos', 'Proformas de Venda', ['tipo' => 'proformas-venda',]))->name('proformas');
         // `?duplicar=123` traz o conteúdo de outra proforma — ver DuplicarNaMorada.
-        Route::get('/proformas/create', \App\Support\EcraReact::pagina('facturacao/emitir-proposta', 'Emitir · Proformas de Venda', ['tipo' => 'proformas-venda',], fn () => \App\Support\DuplicarNaMorada::props()))->name('proformas.create');
-        Route::get('/proformas/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-proposta', 'Emitir · Proformas de Venda', ['tipo' => 'proformas-venda',]))->name('proformas.edit');
-        Route::get('/proformas/{id}/pdf', [\App\Http\Controllers\Invoicing\ProformaController::class, 'generatePdf'])->name('proformas.pdf');
-        Route::get('/proformas/{id}/preview', [\App\Http\Controllers\Invoicing\ProformaController::class, 'previewHtml'])->name('proformas.preview');
+        Route::get('/proformas/create', \App\Support\EcraReact::pagina('facturacao/emitir-proposta', 'Emitir · Proformas de Venda', ['tipo' => 'proformas-venda',], fn () => \App\Support\DuplicarNaMorada::props()))->middleware('permission:invoicing.sales.proformas.create')->name('proformas.create');
+        Route::get('/proformas/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-proposta', 'Emitir · Proformas de Venda', ['tipo' => 'proformas-venda',]))->middleware('permission:invoicing.sales.proformas.edit')->name('proformas.edit');
+        Route::get('/proformas/{id}/pdf', [\App\Http\Controllers\Invoicing\ProformaController::class, 'generatePdf'])->middleware('permission:invoicing.sales.proformas.view')->name('proformas.pdf');
+        Route::get('/proformas/{id}/preview', [\App\Http\Controllers\Invoicing\ProformaController::class, 'previewHtml'])->middleware('permission:invoicing.sales.proformas.view')->name('proformas.preview');
 
         // Orçamentos (documento comercial, não fiscal)
         Route::middleware('permission:invoicing.sales.quotes.view')->get('/quotes', \App\Support\EcraReact::pagina('facturacao/documentos', 'Orçamentos', ['tipo' => 'orcamentos',]))->name('quotes');
-        Route::get('/quotes/create', \App\Support\EcraReact::pagina('facturacao/emitir-proposta', 'Emitir · Orçamentos', ['tipo' => 'orcamentos',]))->name('quotes.create');
-        Route::get('/quotes/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-proposta', 'Emitir · Orçamentos', ['tipo' => 'orcamentos',]))->name('quotes.edit');
-        Route::get('/quotes/{id}/pdf', [\App\Http\Controllers\Invoicing\QuoteController::class, 'generatePdf'])->name('quotes.pdf');
-        Route::get('/quotes/{id}/preview', [\App\Http\Controllers\Invoicing\QuoteController::class, 'previewHtml'])->name('quotes.preview');
+        Route::get('/quotes/create', \App\Support\EcraReact::pagina('facturacao/emitir-proposta', 'Emitir · Orçamentos', ['tipo' => 'orcamentos',]))->middleware('permission:invoicing.sales.quotes.create')->name('quotes.create');
+        Route::get('/quotes/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-proposta', 'Emitir · Orçamentos', ['tipo' => 'orcamentos',]))->middleware('permission:invoicing.sales.quotes.edit')->name('quotes.edit');
+        Route::get('/quotes/{id}/pdf', [\App\Http\Controllers\Invoicing\QuoteController::class, 'generatePdf'])->middleware('permission:invoicing.sales.quotes.view')->name('quotes.pdf');
+        Route::get('/quotes/{id}/preview', [\App\Http\Controllers\Invoicing\QuoteController::class, 'previewHtml'])->middleware('permission:invoicing.sales.quotes.view')->name('quotes.preview');
 
         // Modelos de proposta: o desenho do orçamento, separado dos números.
         // Vive sob as permissões de orçamento — quem faz orçamentos é quem
@@ -958,10 +958,10 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
          *
          * Mesma permissão. Um ecrã novo não é uma porta nova.
          */
-        Route::get('/invoices/create', \App\Support\EcraReact::pagina('facturacao/emitir-factura', 'Fatura de Venda', [], fn () => \App\Support\DuplicarNaMorada::props()))->name('invoices.create');
-        Route::get('/invoices/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-factura', 'Fatura de Venda'))->name('invoices.edit');
-        Route::get('/invoices/{id}/pdf', [\App\Http\Controllers\Invoicing\SalesInvoiceController::class, 'generatePdf'])->name('invoices.pdf');
-        Route::get('/invoices/{id}/preview', [\App\Http\Controllers\Invoicing\SalesInvoiceController::class, 'previewHtml'])->name('invoices.preview');
+        Route::get('/invoices/create', \App\Support\EcraReact::pagina('facturacao/emitir-factura', 'Fatura de Venda', [], fn () => \App\Support\DuplicarNaMorada::props()))->middleware('permission:invoicing.sales.invoices.create')->name('invoices.create');
+        Route::get('/invoices/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-factura', 'Fatura de Venda'))->middleware('permission:invoicing.sales.invoices.edit')->name('invoices.edit');
+        Route::get('/invoices/{id}/pdf', [\App\Http\Controllers\Invoicing\SalesInvoiceController::class, 'generatePdf'])->middleware('permission:invoicing.sales.invoices.view')->name('invoices.pdf');
+        Route::get('/invoices/{id}/preview', [\App\Http\Controllers\Invoicing\SalesInvoiceController::class, 'previewHtml'])->middleware('permission:invoicing.sales.invoices.view')->name('invoices.preview');
         /*
          * O TALÃO DE 80 mm COMO PÁGINA.
          *
@@ -971,8 +971,8 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
          */
         Route::get('/invoices/{id}/talao', [\App\Http\Controllers\Invoicing\SalesInvoiceController::class, 'talao'])
             ->whereNumber('id')
-            ->name('invoices.talao');
-        Route::get('/invoices/{id}/download', [\App\Http\Controllers\Invoicing\InvoiceController::class, 'downloadPdf'])->name('invoices.download');
+            ->middleware('permission:invoicing.sales.invoices.view')->name('invoices.talao');
+        Route::get('/invoices/{id}/download', [\App\Http\Controllers\Invoicing\InvoiceController::class, 'downloadPdf'])->middleware('permission:invoicing.sales.invoices.view')->name('invoices.download');
         
         // TESTE - Template simplificado
         Route::get('/proformas/{id}/pdf-test', function($id) {
@@ -990,50 +990,58 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
             $pdf->setPaper('A4', 'portrait');
             
             return $pdf->stream('proforma_test.pdf');
-        })->name('proformas.pdf-test');
+        })->middleware('permission:invoicing.sales.proformas.view')->name('proformas.pdf-test');
     });
     
     // Proformas e Faturas de Compra
     Route::prefix('purchases')->name('purchases.')->group(function () {
         Route::middleware('permission:invoicing.purchases.proformas.view')->get('/proformas', \App\Support\EcraReact::pagina('facturacao/documentos', 'Proformas de Compra', ['tipo' => 'proformas-compra',]))->name('proformas');
-        Route::get('/proformas/create', \App\Support\EcraReact::pagina('facturacao/emitir-proposta', 'Emitir · Proformas de Compra', ['tipo' => 'proformas-compra',], fn () => \App\Support\DuplicarNaMorada::props()))->name('proformas.create');
-        Route::get('/proformas/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-proposta', 'Emitir · Proformas de Compra', ['tipo' => 'proformas-compra',]))->name('proformas.edit');
-        Route::get('/proformas/{id}/pdf', [\App\Http\Controllers\Invoicing\PurchaseProformaController::class, 'generatePdf'])->name('proformas.pdf');
-        Route::get('/proformas/{id}/preview', [\App\Http\Controllers\Invoicing\PurchaseProformaController::class, 'previewHtml'])->name('proformas.preview');
+        Route::get('/proformas/create', \App\Support\EcraReact::pagina('facturacao/emitir-proposta', 'Emitir · Proformas de Compra', ['tipo' => 'proformas-compra',], fn () => \App\Support\DuplicarNaMorada::props()))->middleware('permission:invoicing.purchases.proformas.create')->name('proformas.create');
+        Route::get('/proformas/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-proposta', 'Emitir · Proformas de Compra', ['tipo' => 'proformas-compra',]))->middleware('permission:invoicing.purchases.proformas.edit')->name('proformas.edit');
+        Route::get('/proformas/{id}/pdf', [\App\Http\Controllers\Invoicing\PurchaseProformaController::class, 'generatePdf'])->middleware('permission:invoicing.purchases.proformas.view')->name('proformas.pdf');
+        Route::get('/proformas/{id}/preview', [\App\Http\Controllers\Invoicing\PurchaseProformaController::class, 'previewHtml'])->middleware('permission:invoicing.purchases.proformas.view')->name('proformas.preview');
         
         // Faturas de Compra
         Route::middleware('permission:invoicing.purchases.invoices.view')->get('/invoices', \App\Support\EcraReact::pagina('facturacao/documentos', 'Faturas de Compra', ['tipo' => 'facturas-compra',]))->name('invoices');
-        Route::get('/invoices/create', \App\Support\EcraReact::pagina('facturacao/emitir-factura-de-compra', 'Fatura de Compra', [], fn () => \App\Support\DuplicarNaMorada::props()))->name('invoices.create');
-        Route::get('/invoices/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-factura-de-compra', 'Fatura de Compra'))->name('invoices.edit');
-        Route::get('/invoices/{id}/pdf', [\App\Http\Controllers\Invoicing\PurchaseInvoiceController::class, 'generatePdf'])->name('invoices.pdf');
-        Route::get('/invoices/{id}/preview', [\App\Http\Controllers\Invoicing\PurchaseInvoiceController::class, 'previewHtml'])->name('invoices.preview');
+        Route::get('/invoices/create', \App\Support\EcraReact::pagina('facturacao/emitir-factura-de-compra', 'Fatura de Compra', [], fn () => \App\Support\DuplicarNaMorada::props()))->middleware('permission:invoicing.purchases.invoices.create')->name('invoices.create');
+        Route::get('/invoices/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-factura-de-compra', 'Fatura de Compra'))->middleware('permission:invoicing.purchases.invoices.edit')->name('invoices.edit');
+        Route::get('/invoices/{id}/pdf', [\App\Http\Controllers\Invoicing\PurchaseInvoiceController::class, 'generatePdf'])->middleware('permission:invoicing.purchases.invoices.view')->name('invoices.pdf');
+        Route::get('/invoices/{id}/preview', [\App\Http\Controllers\Invoicing\PurchaseInvoiceController::class, 'previewHtml'])->middleware('permission:invoicing.purchases.invoices.view')->name('invoices.preview');
     });
     
     // Recibos
+    /*
+     * A LISTA EXIGIA A PERMISSÃO E OS IRMÃOS NÃO.
+     *
+     * O editor, o PDF e a pré-visualização abrem-se A PARTIR da lista e ficaram
+     * sem guarda nenhuma: um `/{id}/pdf` entregava o documento a quem o
+     * pedisse. Cada um passa a pedir o verbo que lhe corresponde — ver para
+     * abrir e imprimir, criar para criar, editar para editar.
+     */
     Route::prefix('receipts')->name('receipts.')->group(function () {
         Route::middleware('permission:invoicing.receipts.view')->get('/', \App\Support\EcraReact::pagina('facturacao/documentos', 'Recibos', ['tipo' => 'recibos',]))->name('index');
-        Route::get('/create', \App\Support\EcraReact::pagina('facturacao/registar-recibo', 'Recibo', [], fn () => \App\Support\FacturaNaMorada::props()))->name('create');
-        Route::get('/{id}/edit', \App\Support\EcraReact::pagina('facturacao/registar-recibo', 'Recibo'))->name('edit');
-        Route::get('/{id}/pdf', [\App\Http\Controllers\Invoicing\ReceiptController::class, 'generatePdf'])->name('pdf');
-        Route::get('/{id}/preview', [\App\Http\Controllers\Invoicing\ReceiptController::class, 'previewHtml'])->name('preview');
+        Route::middleware('permission:invoicing.receipts.create')->get('/create', \App\Support\EcraReact::pagina('facturacao/registar-recibo', 'Recibo', [], fn () => \App\Support\FacturaNaMorada::props()))->name('create');
+        Route::middleware('permission:invoicing.receipts.edit')->get('/{id}/edit', \App\Support\EcraReact::pagina('facturacao/registar-recibo', 'Recibo'))->name('edit');
+        Route::middleware('permission:invoicing.receipts.view')->get('/{id}/pdf', [\App\Http\Controllers\Invoicing\ReceiptController::class, 'generatePdf'])->name('pdf');
+        Route::middleware('permission:invoicing.receipts.view')->get('/{id}/preview', [\App\Http\Controllers\Invoicing\ReceiptController::class, 'previewHtml'])->name('preview');
     });
     
     // Notas de Crédito
     Route::prefix('credit-notes')->name('credit-notes.')->group(function () {
         Route::middleware('permission:invoicing.credit-notes.view')->get('/', \App\Support\EcraReact::pagina('facturacao/documentos', 'Notas de Crédito', ['tipo' => 'notas-credito',]))->name('index');
-        Route::get('/create', \App\Support\EcraReact::pagina('facturacao/emitir-nota', 'Nota de Crédito', ['tipo' => 'credito',], fn () => \App\Support\FacturaNaMorada::props()))->name('create');
-        Route::get('/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-nota', 'Nota de Crédito', ['tipo' => 'credito',]))->name('edit');
-        Route::get('/{id}/pdf', [\App\Http\Controllers\Invoicing\CreditNoteController::class, 'generatePdf'])->name('pdf');
-        Route::get('/{id}/preview', [\App\Http\Controllers\Invoicing\CreditNoteController::class, 'previewHtml'])->name('preview');
+        Route::middleware('permission:invoicing.credit-notes.create')->get('/create', \App\Support\EcraReact::pagina('facturacao/emitir-nota', 'Nota de Crédito', ['tipo' => 'credito',], fn () => \App\Support\FacturaNaMorada::props()))->name('create');
+        Route::middleware('permission:invoicing.credit-notes.edit')->get('/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-nota', 'Nota de Crédito', ['tipo' => 'credito',]))->name('edit');
+        Route::middleware('permission:invoicing.credit-notes.view')->get('/{id}/pdf', [\App\Http\Controllers\Invoicing\CreditNoteController::class, 'generatePdf'])->name('pdf');
+        Route::middleware('permission:invoicing.credit-notes.view')->get('/{id}/preview', [\App\Http\Controllers\Invoicing\CreditNoteController::class, 'previewHtml'])->name('preview');
     });
     
     // Notas de Débito
     Route::prefix('debit-notes')->name('debit-notes.')->group(function () {
         Route::middleware('permission:invoicing.debit-notes.view')->get('/', \App\Support\EcraReact::pagina('facturacao/documentos', 'Notas de Débito', ['tipo' => 'notas-debito',]))->name('index');
-        Route::get('/create', \App\Support\EcraReact::pagina('facturacao/emitir-nota', 'Nota de Débito', ['tipo' => 'debito',], fn () => \App\Support\FacturaNaMorada::props()))->name('create');
-        Route::get('/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-nota', 'Nota de Débito', ['tipo' => 'debito',]))->name('edit');
-        Route::get('/{id}/pdf', [\App\Http\Controllers\Invoicing\DebitNoteController::class, 'generatePdf'])->name('pdf');
-        Route::get('/{id}/preview', [\App\Http\Controllers\Invoicing\DebitNoteController::class, 'previewHtml'])->name('preview');
+        Route::middleware('permission:invoicing.debit-notes.create')->get('/create', \App\Support\EcraReact::pagina('facturacao/emitir-nota', 'Nota de Débito', ['tipo' => 'debito',], fn () => \App\Support\FacturaNaMorada::props()))->name('create');
+        Route::middleware('permission:invoicing.debit-notes.edit')->get('/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-nota', 'Nota de Débito', ['tipo' => 'debito',]))->name('edit');
+        Route::middleware('permission:invoicing.debit-notes.view')->get('/{id}/pdf', [\App\Http\Controllers\Invoicing\DebitNoteController::class, 'generatePdf'])->name('pdf');
+        Route::middleware('permission:invoicing.debit-notes.view')->get('/{id}/preview', [\App\Http\Controllers\Invoicing\DebitNoteController::class, 'previewHtml'])->name('preview');
     });
     
     // Importações
@@ -1051,10 +1059,10 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
     // Adiantamentos
     Route::prefix('advances')->name('advances.')->group(function () {
         Route::middleware('permission:invoicing.advances.view')->get('/', \App\Support\EcraReact::pagina('facturacao/documentos', 'Adiantamentos', ['tipo' => 'adiantamentos',]))->name('index');
-        Route::get('/create', \App\Support\EcraReact::pagina('facturacao/emitir-adiantamento', 'Adiantamento'))->name('create');
-        Route::get('/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-adiantamento', 'Adiantamento'))->name('edit');
-        Route::get('/{id}/pdf', [\App\Http\Controllers\Invoicing\AdvanceController::class, 'generatePdf'])->name('pdf');
-        Route::get('/{id}/preview', [\App\Http\Controllers\Invoicing\AdvanceController::class, 'previewHtml'])->name('preview');
+        Route::middleware('permission:invoicing.advances.create')->get('/create', \App\Support\EcraReact::pagina('facturacao/emitir-adiantamento', 'Adiantamento'))->name('create');
+        Route::middleware('permission:invoicing.advances.edit')->get('/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-adiantamento', 'Adiantamento'))->name('edit');
+        Route::middleware('permission:invoicing.advances.view')->get('/{id}/pdf', [\App\Http\Controllers\Invoicing\AdvanceController::class, 'generatePdf'])->name('pdf');
+        Route::middleware('permission:invoicing.advances.view')->get('/{id}/preview', [\App\Http\Controllers\Invoicing\AdvanceController::class, 'previewHtml'])->name('preview');
     });
     
     // Configurações
@@ -1074,7 +1082,7 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
     Route::middleware('permission:invoicing.agt.view')->get('/agt-credentials', \App\Support\EcraReact::pagina('facturacao/credenciais-agt', 'Configuração AGT — Contribuinte'))->name('agt-credentials');
     
     // Armazéns e Stock
-    Route::get('/warehouses', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Armazéns', ['tipo' => 'armazens',]))->name('warehouses');
+    Route::get('/warehouses', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Armazéns', ['tipo' => 'armazens',]))->middleware('permission:invoicing.warehouses.view')->name('warehouses');
     // Com permissão, como todas as irmãs do módulo. Sem ela, qualquer papel com
     // acesso à faturação via o inventário e a valorização inteiros — as acções
     // já estavam travadas dentro do componente, mas a leitura não. Os papéis que
@@ -1094,13 +1102,13 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
     // parâmetro no primeiro '/' e a rota nunca corresponde.
     Route::get('/stock/movimentacao/{reference}/pdf', [\App\Http\Controllers\Invoicing\StockMovementController::class, 'batchPdf'])
         ->where('reference', '[A-Za-z0-9/_-]+')
-        ->name('stock.batch-pdf');
+        ->middleware('permission:invoicing.stock.view')->name('stock.batch-pdf');
     Route::get('/stock/movimentacao/{reference}/preview', [\App\Http\Controllers\Invoicing\StockMovementController::class, 'batchPreview'])
         ->where('reference', '[A-Za-z0-9/_-]+')
-        ->name('stock.batch-preview');
-    Route::get('/product-batches', \App\Support\EcraReact::pagina('facturacao/lotes', 'Lotes e Validades'))->name('product-batches');
-    Route::get('/warehouse-transfer', \App\Support\EcraReact::pagina('facturacao/transferencias-entre-armazens', 'Transferências e Ajustes de Stock'))->name('warehouse-transfer');
-    Route::get('/inter-company-transfer', \App\Support\EcraReact::pagina('facturacao/transferencias-entre-empresas', 'Transferências Inter-Empresas'))->name('inter-company-transfer');
+        ->middleware('permission:invoicing.stock.view')->name('stock.batch-preview');
+    Route::get('/product-batches', \App\Support\EcraReact::pagina('facturacao/lotes', 'Lotes e Validades'))->middleware('permission:invoicing.product-batches.view')->name('product-batches');
+    Route::get('/warehouse-transfer', \App\Support\EcraReact::pagina('facturacao/transferencias-entre-armazens', 'Transferências e Ajustes de Stock'))->middleware('permission:invoicing.warehouse-transfer.view')->name('warehouse-transfer');
+    Route::get('/inter-company-transfer', \App\Support\EcraReact::pagina('facturacao/transferencias-entre-empresas', 'Transferências Inter-Empresas'))->middleware('permission:invoicing.inter-company-transfer.view')->name('inter-company-transfer');
     
     // Relatórios
     /*
@@ -1115,7 +1123,7 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
         return array_key_exists($pedido, \App\Services\Invoicing\Relatorios\Validades::TIPOS)
             ? ['filtrosIniciais' => ['reportType' => $pedido]]
             : [];
-    }))->name('expiry-report');
+    }))->middleware('permission:invoicing.reports.view|invoicing.stock.view')->name('expiry-report');
     
     Route::prefix('reports')->name('reports.')->middleware('permission:invoicing.reports.view')->group(function () {
         Route::get('/', \App\Support\EcraReact::pagina('facturacao/relatorios-hub', 'Relatórios - Faturação'))->name('hub');
@@ -1152,11 +1160,11 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
     });
     
     // Guias de Transporte / Remessa (GT / GR)
-    Route::get('/transport-guides', \App\Support\EcraReact::pagina('facturacao/guias-de-transporte', 'Guias de Transporte'))->name('transport-guides');
-    Route::get('/transport-guides/{id}/pdf', [\App\Http\Controllers\Invoicing\TransportGuideController::class, 'pdf'])->name('transport-guides.pdf');
+    Route::get('/transport-guides', \App\Support\EcraReact::pagina('facturacao/guias-de-transporte', 'Guias de Transporte'))->middleware('permission:invoicing.transport-guides.view')->name('transport-guides');
+    Route::get('/transport-guides/{id}/pdf', [\App\Http\Controllers\Invoicing\TransportGuideController::class, 'pdf'])->middleware('permission:invoicing.transport-guides.view')->name('transport-guides.pdf');
 
     // SAFT
-    Route::get('/saft-generator', \App\Support\EcraReact::pagina('facturacao/saft', 'Gerador SAFT-AO'))->name('saft-generator');
+    Route::get('/saft-generator', \App\Support\EcraReact::pagina('facturacao/saft', 'Gerador SAFT-AO'))->middleware('permission:invoicing.saft.view')->name('saft-generator');
 
     // Adquirente AGT (DS.120 §§4.3, 4.4, 4.7)
     Route::middleware('permission:invoicing.agt.view')
@@ -1164,16 +1172,16 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
         ->name('agt-adquirente');
     
     // POS
-    Route::get('/pos', \App\Support\EcraReact::pagina('facturacao/pos', 'POS — Ponto de Venda'))->name('pos');
-    Route::get('/pos/shifts', \App\Support\EcraReact::pagina('facturacao/turnos', 'POS - Ponto de Venda'))->name('pos.shifts');
-    Route::get('/pos/shift-history', \App\Support\EcraReact::pagina('facturacao/historico-de-turnos', 'Histórico de Turnos'))->name('pos.shift-history');
-    Route::get('/pos/reports', \App\Support\EcraReact::pagina('facturacao/pos-relatorio', 'Relatórios do POS'))->name('pos.reports');
+    Route::get('/pos', \App\Support\EcraReact::pagina('facturacao/pos', 'POS — Ponto de Venda'))->middleware('permission:invoicing.pos.access')->name('pos');
+    Route::get('/pos/shifts', \App\Support\EcraReact::pagina('facturacao/turnos', 'POS - Ponto de Venda'))->middleware('permission:invoicing.pos.access')->name('pos.shifts');
+    Route::get('/pos/shift-history', \App\Support\EcraReact::pagina('facturacao/historico-de-turnos', 'Histórico de Turnos'))->middleware('permission:invoicing.pos.access')->name('pos.shift-history');
+    Route::get('/pos/reports', \App\Support\EcraReact::pagina('facturacao/pos-relatorio', 'Relatórios do POS'))->middleware('permission:invoicing.pos.reports')->name('pos.reports');
 
     // POS Exports (PDF / Excel)
-    Route::get('/pos/export/shift/{shift}/pdf', [\App\Http\Controllers\Pos\PosExportController::class, 'shiftPdf'])->name('pos.export.shift-pdf');
-    Route::get('/pos/export/shift/{shift}/ticket', [\App\Http\Controllers\Pos\PosExportController::class, 'shiftTicket'])->name('pos.export.shift-ticket');
-    Route::get('/pos/export/sales-report/pdf', [\App\Http\Controllers\Pos\PosExportController::class, 'salesReportPdf'])->name('pos.export.sales-pdf');
-    Route::get('/pos/export/sales-report/excel', [\App\Http\Controllers\Pos\PosExportController::class, 'salesReportExcel'])->name('pos.export.sales-excel');
+    Route::get('/pos/export/shift/{shift}/pdf', [\App\Http\Controllers\Pos\PosExportController::class, 'shiftPdf'])->middleware('permission:invoicing.pos.access')->name('pos.export.shift-pdf');
+    Route::get('/pos/export/shift/{shift}/ticket', [\App\Http\Controllers\Pos\PosExportController::class, 'shiftTicket'])->middleware('permission:invoicing.pos.access')->name('pos.export.shift-ticket');
+    Route::get('/pos/export/sales-report/pdf', [\App\Http\Controllers\Pos\PosExportController::class, 'salesReportPdf'])->middleware('permission:invoicing.pos.reports')->name('pos.export.sales-pdf');
+    Route::get('/pos/export/sales-report/excel', [\App\Http\Controllers\Pos\PosExportController::class, 'salesReportExcel'])->middleware('permission:invoicing.pos.reports')->name('pos.export.sales-excel');
 });
 
 // Treasury Module Routes
@@ -1502,8 +1510,8 @@ Route::middleware(['auth', 'tenant.module:contabilidade'])->prefix('accounting')
 
 // Notifications Module Routes
 Route::middleware(['auth', 'tenant.module:notifications'])->prefix('notifications')->name('notifications.')->group(function () {
-    Route::get('/settings', \App\Livewire\Settings\NotificationSettings::class)->name('settings');
-    Route::get('/templates', \App\Livewire\Settings\ManageNotificationTemplates::class)->name('templates');
+    Route::get('/settings', \App\Livewire\Settings\NotificationSettings::class)->middleware('permission:notifications.view')->name('settings');
+    Route::get('/templates', \App\Livewire\Settings\ManageNotificationTemplates::class)->middleware('permission:notifications.view')->name('templates');
 });
 
 /*
