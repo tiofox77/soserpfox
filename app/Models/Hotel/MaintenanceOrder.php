@@ -13,6 +13,20 @@ class MaintenanceOrder extends Model
 
     protected $table = 'hotel_maintenance_orders';
 
+    /*
+     * AS COLUNAS SÃO AS DA TABELA.
+     *
+     * Esta lista declarava nomes que a tabela NÃO TEM — `actual_cost`,
+     * `actual_time`, `resolution_notes`, `images` — mais o `type`, o
+     * `estimated_cost` e o `estimated_time`, que não existiam em lado nenhum.
+     * O formulário mandava-os todos e o insert respondia «Unknown column
+     * 'type'»: o ecrã de manutenção NUNCA conseguiu gravar uma ordem.
+     *
+     * Os três que faziam falta a sério ganharam coluna (ver a migração de
+     * 2026-09-09); os outros passam a chamar-se como a tabela sempre lhes
+     * chamou — `resolution` e `cost`. Colunas gémeas eram ficar com duas
+     * verdades sobre quanto custou o arranjo.
+     */
     protected $fillable = [
         'tenant_id',
         'order_number',
@@ -27,27 +41,28 @@ class MaintenanceOrder extends Model
         'location',
         'status',
         'estimated_cost',
-        'actual_cost',
         'estimated_time',
-        'actual_time',
+        'cost',
         'scheduled_date',
         'started_at',
         'completed_at',
-        'resolution_notes',
-        'images',
+        'resolution',
         'parts_used',
+        'photos_before',
+        'photos_after',
     ];
 
     protected $casts = [
         'estimated_cost' => 'decimal:2',
-        'actual_cost' => 'decimal:2',
+        'cost' => 'decimal:2',
         'estimated_time' => 'integer',
-        'actual_time' => 'integer',
-        'scheduled_date' => 'datetime',
+        // A coluna é DATE e não datetime: o agendamento é ao dia.
+        'scheduled_date' => 'date',
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
-        'images' => 'array',
         'parts_used' => 'array',
+        'photos_before' => 'array',
+        'photos_after' => 'array',
     ];
 
     protected static function boot()

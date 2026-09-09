@@ -169,9 +169,41 @@ class Reservation extends Model
     }
 
     // Relationships
+
+    /**
+     * A FICHA ANTIGA DE HÓSPEDE — `hotel_guests`.
+     *
+     * Está aqui pelos registos antigos. O ecrã de reservas, o de hóspedes e a
+     * factura usam todos `client_id`: `guest_id` fica a NULO em tudo o que se
+     * cria hoje, e por isso `->guest` devolvia nada — era assim que o painel
+     * mostrava as chegadas do dia sem o nome de ninguém.
+     *
+     * Para saber quem fica hospedado, use `->hospede`.
+     */
     public function guest()
     {
         return $this->belongsTo(Guest::class, 'guest_id');
+    }
+
+    /**
+     * QUEM FICA HOSPEDADO — o cliente da facturação, ou a ficha antiga.
+     *
+     * Um hóspede É um cliente: é a ficha que a reserva liga (`client_id`), a
+     * que o ecrã de hóspedes gere e a que a factura precisa. A ficha antiga
+     * (`hotel_guests`) só responde por reservas anteriores a esta mudança.
+     *
+     * Devolve um MODELO (Client ou Guest) — os dois têm `name`, `email` e
+     * `phone`, que é tudo o que os ecrãs lhe pedem.
+     */
+    public function getHospedeAttribute()
+    {
+        return $this->client ?: $this->guest;
+    }
+
+    /** O nome de quem fica, ou um traço — nunca uma linha em branco. */
+    public function getNomeDoHospedeAttribute(): string
+    {
+        return $this->hospede?->name ?: '—';
     }
 
     public function client()

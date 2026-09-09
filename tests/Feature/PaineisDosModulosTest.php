@@ -64,7 +64,7 @@ class PaineisDosModulosTest extends TenantTestCase
         // CRM, o inventário e o restaurante, que tinham o mesmo defeito. Vão
         // baixando à medida que os módulos passam para React — lá os gráficos
         // são componentes e não há canvas nenhum para o Livewire trocar: a
-        // tesouraria, o RH e a oficina já saíram desta conta.
+        // tesouraria, o RH, a oficina e o hotel já saíram desta conta.
         $comGraficos = array_filter(
             array_merge(
                 glob(resource_path('views/livewire/*/dashboard*.blade.php')),
@@ -77,7 +77,7 @@ class PaineisDosModulosTest extends TenantTestCase
         // ele guarda é que o varrimento continua a encontrar painéis. A zero,
         // este ensaio passava por vazio e deixava de dizer o que quer que
         // fosse.
-        $this->assertGreaterThanOrEqual(6, count($comGraficos),
+        $this->assertGreaterThanOrEqual(5, count($comGraficos),
             'o varrimento tem de apanhar os painéis todos');
 
         foreach ($comGraficos as $vista) {
@@ -95,15 +95,15 @@ class PaineisDosModulosTest extends TenantTestCase
      * sem internet, e quando o CDN falha o painel fica com um quadrado branco
      * sem aviso nenhum.
      *
-     * A TESOURARIA E O RH SAÍRAM DA LISTA por já não terem Blade nenhum: os
-     * painéis são React e desenham os gráficos com componentes próprios, sem
-     * Chart.js e sem ir buscar nada a lado nenhum.
+     * A TESOURARIA, O RH, A OFICINA E O HOTEL SAÍRAM DA LISTA por já não
+     * terem Blade nenhum: os painéis são React e desenham os gráficos com
+     * componentes próprios, sem Chart.js e sem ir buscar nada a lado nenhum.
      *
      * @test
      */
     public function nenhum_painel_vai_buscar_o_chart_js_a_um_cdn(): void
     {
-        foreach (['hotel', 'salon'] as $painel) {
+        foreach (['salon'] as $painel) {
             $this->assertStringNotContainsString(
                 'cdn.jsdelivr.net',
                 file_get_contents(resource_path("views/livewire/{$painel}/dashboard.blade.php")),

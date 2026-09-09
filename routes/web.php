@@ -647,6 +647,34 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
          * não é um `update` de uma coluna: passar a «Concluída» desconta as
          * peças do stock e anular devolve-as.
          */
+        /*
+         * ─── HOTEL ─────────────────────────────────────────────────────
+         *
+         * A manutenção. Os catálogos (tipos de quarto, quartos, hóspedes,
+         * pessoal, pacotes, códigos) vivem nas rotas genéricas acima.
+         */
+        Route::get('/hotel/painel', [\App\Http\Controllers\Api\Hotel\PainelApiController::class, 'index'])->name('hotel.painel');
+
+        Route::prefix('hotel/relatorios')->name('hotel.relatorios.')->group(function () {
+            $c = \App\Http\Controllers\Api\Hotel\RelatoriosApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/', [$c, 'mostrar'])->name('mostrar');
+        });
+
+        Route::prefix('hotel/manutencao')->name('hotel.manutencao.')->group(function () {
+            $c = \App\Http\Controllers\Api\Hotel\ManutencaoApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/quadro', [$c, 'quadro'])->name('quadro');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'store'])->name('store');
+            Route::put('/{id}', [$c, 'update'])->whereNumber('id')->name('update');
+            Route::delete('/{id}', [$c, 'destroy'])->whereNumber('id')->name('destroy');
+            Route::post('/{id}/estado', [$c, 'estado'])->whereNumber('id')->name('estado');
+            Route::post('/{id}/atribuir-me', [$c, 'atribuirMe'])->whereNumber('id')->name('atribuir-me');
+        });
+
         Route::prefix('oficina/ordens')->name('oficina.ordens.')->group(function () {
             $c = \App\Http\Controllers\Api\Workshop\OrdensApiController::class;
 
@@ -1723,7 +1751,7 @@ Route::middleware(['auth', 'tenant.module:projetos'])->prefix('projetos')->name(
  */
 Route::middleware(['auth', 'tenant.module:hotel'])->prefix('hotel')->name('hotel.')->group(function () {
     Route::middleware('permission:hotel.dashboard.view')
-        ->get('/dashboard', \App\Livewire\Hotel\Dashboard::class)->name('dashboard');
+        ->get('/dashboard', \App\Support\EcraReact::pagina('hotel/painel', 'Painel do Hotel'))->name('dashboard');
     Route::middleware('permission:hotel.room-types.view')
         ->get('/room-types', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Tipos de Quarto', ['tipo' => 'tipos-de-quarto']))->name('room-types');
     Route::middleware('permission:hotel.rooms.view')
@@ -1744,11 +1772,21 @@ Route::middleware(['auth', 'tenant.module:hotel'])->prefix('hotel')->name('hotel
     Route::middleware('permission:hotel.housekeeping.view')
         ->get('/housekeeping', \App\Livewire\Hotel\HousekeepingDashboard::class)->name('housekeeping');
     Route::middleware('permission:hotel.maintenance.view')
-        ->get('/maintenance', \App\Livewire\Hotel\MaintenanceManagement::class)->name('maintenance');
+        ->get('/maintenance', \App\Support\EcraReact::pagina('hotel/manutencao', 'Manutenção'))->name('maintenance');
     Route::middleware('permission:hotel.staff.view')
         ->get('/staff', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Pessoal do Hotel', ['tipo' => 'pessoal-do-hotel']))->name('staff');
     Route::middleware('permission:hotel.reports.view')
-        ->get('/reports', \App\Livewire\Hotel\Reports::class)->name('reports');
+        ->get('/reports', \App\Support\EcraReact::pagina('hotel/relatorios', 'Relatórios do Hotel'))->name('reports');
+    /*
+     * O PAPEL E O EXCEL DOS MAPAS. Os dois botões existiam e respondiam
+     * «Exportação em desenvolvimento».
+     */
+    Route::middleware('permission:hotel.reports.view')->group(function () {
+        $c = \App\Http\Controllers\Hotel\MapaExportController::class;
+
+        Route::get('/reports/imprimir', [$c, 'imprimir'])->name('reports.imprimir');
+        Route::get('/reports/excel', [$c, 'excel'])->name('reports.excel');
+    });
     Route::middleware('permission:hotel.rates.view')
         ->get('/rates', \App\Livewire\Hotel\RateManagement::class)->name('rates');
     /*

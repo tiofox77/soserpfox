@@ -193,4 +193,13 @@ export const ecras: Record<string, Ecra> = {
         import('./oficina/Relatorios'),
     'oficina/ordens': () =>
         import('./oficina/OrdensDeServico'),
+
+    // O HOTEL. Os catálogos (tipos de quarto, quartos, hóspedes, pessoal,
+    // pacotes, códigos) passam pelo ecrã genérico; estes são só dele.
+    'hotel/manutencao': () =>
+        import('./hotel/Manutencao'),
+    'hotel/painel': () =>
+        import('./hotel/Painel'),
+    'hotel/relatorios': () =>
+        import('./hotel/Relatorios'),
 };

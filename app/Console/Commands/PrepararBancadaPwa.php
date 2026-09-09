@@ -582,12 +582,14 @@ class PrepararBancadaPwa extends Command
             $quartos++;
         }
 
+        $pessoal = [];
+
         foreach ([
             ['Marta Sebastião', 'receptionist', 'front_desk', '923400001'],
             ['Joana Kituxi', 'housekeeper', 'housekeeping', '923400002'],
             ['Paulo Neto', 'maintenance', 'maintenance', '923400003'],
         ] as [$nome, $funcao, $area, $telefone]) {
-            \App\Models\Hotel\Staff::withoutGlobalScopes()->firstOrCreate(
+            $pessoal[$funcao] = \App\Models\Hotel\Staff::withoutGlobalScopes()->firstOrCreate(
                 ['tenant_id' => $tenant->id, 'phone' => $telefone],
                 [
                     'name' => $nome,
@@ -598,6 +600,43 @@ class PrepararBancadaPwa extends Command
                     'work_end' => '17:00',
                     'monthly_salary' => 180000,
                     'is_active' => true,
+                ]
+            );
+        }
+
+        /*
+         * AS ORDENS DE MANUTENÇÃO — uma por coluna do quadro.
+         *
+         * Um quadro com tudo na mesma coluna não distingue «funciona» de «não
+         * há nada»; e sem uma urgente não se vê o que a cor existe para
+         * mostrar.
+         */
+        $porQuarto = \App\Models\Hotel\Room::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)->pluck('id', 'number');
+
+        foreach ([
+            ['Torneira do 103 a pingar', 'plumbing', 'urgent', 'pending', '103'],
+            ['Ar condicionado do 201 não arrefece', 'hvac', 'high', 'in_progress', '201'],
+            ['Fechadura do 203 emperrada', 'other', 'normal', 'waiting_parts', '203'],
+            ['Lâmpada do corredor do piso 1', 'electrical', 'low', 'completed', null],
+        ] as [$titulo, $categoria, $prioridade, $estado, $quarto]) {
+            \App\Models\Hotel\MaintenanceOrder::withoutGlobalScopes()->firstOrCreate(
+                ['tenant_id' => $tenant->id, 'title' => $titulo],
+                [
+                    'room_id' => $quarto ? ($porQuarto[$quarto] ?? null) : null,
+                    'reported_by' => $pessoal['receptionist']->id ?? null,
+                    'assigned_to' => $estado === 'pending' ? null : ($pessoal['maintenance']->id ?? null),
+                    'type' => 'corrective',
+                    'priority' => $prioridade,
+                    'category' => $categoria,
+                    'status' => $estado,
+                    'location' => $quarto ? __('Quarto :n', ['n' => $quarto]) : 'Corredor',
+                    'estimated_cost' => 15000,
+                    'estimated_time' => 60,
+                    'started_at' => in_array($estado, ['in_progress', 'completed'], true) ? now()->subHours(3) : null,
+                    'completed_at' => $estado === 'completed' ? now()->subHours(2) : null,
+                    'resolution' => $estado === 'completed' ? 'Lâmpada substituída.' : null,
+                    'cost' => $estado === 'completed' ? 3500 : null,
                 ]
             );
         }
