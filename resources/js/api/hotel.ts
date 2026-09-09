@@ -510,3 +510,157 @@ export const reservas = {
     receber: (id: number, valor: string, meio: string, facturar: boolean) =>
         api.criar<RespostaDaReserva>(`/hotel/reservas/${id}/receber`, { valor, meio, facturar }),
 };
+
+/* ─── O calendário ──────────────────────────────────────────────────── */
+
+export type OpcoesDoCalendario = {
+    estados: Escolha[];
+    tipos_de_quarto: Escolha[];
+    permissoes: { pode_criar: boolean; pode_editar: boolean };
+};
+
+export type DiaDoCalendario = {
+    dia: string;
+    numero: number;
+    nome: string;
+    hoje: boolean;
+    fim_de_semana: boolean;
+    passado: boolean;
+};
+
+/** Uma estada desenhada como barra: onde começa e quantos dias ocupa. */
+export type BarraDoCalendario = {
+    id: number;
+    numero: string;
+    hospede: string;
+    entrada: string;
+    saida: string;
+    noites: number;
+    adultos: number;
+    criancas: number;
+    estado: string;
+    estado_rotulo: string;
+    estado_de_pagamento: string;
+    fonte: string;
+    total: number;
+    inicio: number;
+    largura: number;
+    vem_de_tras: boolean;
+    segue_para_a_frente: boolean;
+    /** Só na faixa das que ainda não têm quarto. */
+    tipo_de_quarto?: string | null;
+};
+
+export type LinhaDoCalendario = {
+    id: number;
+    numero: string;
+    piso: string | null;
+    tipo: string;
+    cor: string;
+    estado: string;
+    barras: BarraDoCalendario[];
+};
+
+export type FiltrosDoCalendario = {
+    dia?: string;
+    vista?: 'semana' | 'mes';
+    tipo_de_quarto?: string;
+    estado?: string;
+};
+
+export type GrelhaDoCalendario = {
+    periodo: { de: string; ate: string; vista: 'semana' | 'mes' };
+    dias: DiaDoCalendario[];
+    quartos: LinhaDoCalendario[];
+    /** As estadas sem quarto — numa faixa à parte, e não repetidas por tipo. */
+    por_atribuir: BarraDoCalendario[];
+    resumo: {
+        quartos: number;
+        reservas: number;
+        receita: number;
+        entram_hoje: number;
+        saem_hoje: number;
+        ocupados: number;
+        ocupacao: number;
+    };
+};
+
+export const calendario = {
+    opcoes: () => api.ler<OpcoesDoCalendario>('/hotel/calendario/opcoes'),
+    grelha: (filtros: FiltrosDoCalendario) => api.ler<GrelhaDoCalendario>('/hotel/calendario', filtros),
+    /** Arrastar uma barra — o servidor recusa se o destino não estiver livre. */
+    mover: (id: number, quarto: number, dia: string) =>
+        api.criar<{ message: string }>(`/hotel/calendario/${id}/mover`, { quarto, dia }),
+};
+
+/* ─── O balcão (walk-in) ────────────────────────────────────────────── */
+
+export type TipoNoBalcao = {
+    id: number;
+    nome: string;
+    descricao: string | null;
+    preco: number;
+    capacidade: number;
+};
+
+export type OpcoesDoBalcao = {
+    tipos_de_quarto: TipoNoBalcao[];
+    permissoes: { pode_criar_hospede: boolean };
+};
+
+export type QuartoNoBalcao = {
+    id: number;
+    numero: string;
+    piso: string | null;
+    estado: string;
+    estado_rotulo: string;
+    limpeza: string | null;
+    limpeza_rotulo: string;
+    /** Livre mas por limpar: dar essa chave é o pior primeiro minuto. */
+    precisa_de_limpeza: boolean;
+};
+
+export type HospedeDoBalcao = HospedeDaProcura & {
+    documento: string | null;
+    nacionalidade: string | null;
+};
+
+export type EntradaParaRegistar = {
+    client_id: string;
+    room_type_id: string;
+    room_id: string;
+    check_in_date: string;
+    check_out_date: string;
+    adults: string;
+    children: string;
+    room_rate: string;
+    discount: string;
+    paid_amount: string;
+    special_requests: string;
+};
+
+export type EntradaRegistada = {
+    id: number;
+    numero: string;
+    codigo: string | null;
+    hospede: string;
+    quarto: string;
+    tipo_de_quarto: string | null;
+    entrada: string | null;
+    saida: string | null;
+    noites: number;
+    total: number;
+    pago: number;
+    por_receber: number;
+    estado_de_pagamento: string;
+};
+
+export const balcao = {
+    opcoes: () => api.ler<OpcoesDoBalcao>('/hotel/balcao/opcoes'),
+    /** Os que estão MESMO livres para estas datas — não só os «disponíveis». */
+    quartos: (tipo: string, de: string, ate: string) =>
+        api.ler<{ data: QuartoNoBalcao[] }>('/hotel/balcao/quartos', { tipo, de, ate }),
+    hospedes: (procura: string) => api.ler<{ data: HospedeDoBalcao[] }>('/hotel/balcao/hospedes', { procura }),
+    registar: (dados: EntradaParaRegistar) =>
+        api.criar<{ data: EntradaRegistada; message: string }>('/hotel/balcao', dados),
+};

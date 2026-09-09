@@ -99,6 +99,47 @@ class ReservasDoHotelTest extends TenantTestCase
         $this->assertSame('confirmed', $reserva->fresh()->status);
     }
 
+    /**
+     * DUAS RESERVAS ENCOSTADAS CABEM NO MESMO QUARTO.
+     *
+     * O que se vende são as NOITES: uma estada de 3 a 5 ocupa as noites de 3 e
+     * de 4, e a de 5 é de quem vier a seguir. A conta de disponibilidade usava
+     * `whereBetween` nos dois extremos — inclusiva — e recusava justamente o
+     * caso que um hotel quer: quem sai de manhã e quem entra à tarde, com o
+     * quarto vendido todas as noites. O ecrã dizia «já está reservado nestas
+     * datas» sobre um quarto que ficava vazio.
+     */
+    public function test_quem_entra_no_dia_da_saida_do_outro_e_aceite(): void
+    {
+        $this->comPermissoes('hotel.reservations.view', 'hotel.reservations.create');
+
+        $quarto = $this->quarto();
+
+        $this->reserva([
+            'room_id' => $quarto->id,
+            'room_type_id' => $quarto->room_type_id,
+            'check_in_date' => today()->addDays(3),
+            'check_out_date' => today()->addDays(5),
+            'status' => 'confirmed',
+        ]);
+
+        // Entra no dia 5, que é o dia em que o outro sai.
+        $this->postJson(self::API, $this->corpo([
+            'room_type_id' => $quarto->room_type_id,
+            'room_id' => $quarto->id,
+            'check_in_date' => today()->addDays(5)->toDateString(),
+            'check_out_date' => today()->addDays(7)->toDateString(),
+        ]))->assertCreated();
+
+        // Mas uma noite a meio continua a ser recusada.
+        $this->postJson(self::API, $this->corpo([
+            'room_type_id' => $quarto->room_type_id,
+            'room_id' => $quarto->id,
+            'check_in_date' => today()->addDays(4)->toDateString(),
+            'check_out_date' => today()->addDays(6)->toDateString(),
+        ]))->assertStatus(422)->assertJsonValidationErrors('room_id');
+    }
+
     /* ─── Os botões vêm da tabela de transições ───────────────────────── */
 
     /**

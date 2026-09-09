@@ -129,16 +129,26 @@ class Room extends Model
     // Methods
     public function isAvailableForDates($checkIn, $checkOut, $excludeReservationId = null)
     {
+        /*
+         * O QUE SE VENDE SÃO AS NOITES, e não os dias.
+         *
+         * Uma estada de dia 3 a dia 5 ocupa as noites de 3 e de 4 — a de 5 já
+         * é de quem vier a seguir. O intervalo é FECHADO à esquerda e ABERTO à
+         * direita, e a sobreposição é `entra antes de o outro sair` E `sai
+         * depois de o outro entrar`.
+         *
+         * A conta que aqui estava usava `whereBetween` nos dois extremos, que
+         * é inclusiva: uma reserva a começar no dia da saída de outra contava
+         * como sobreposta. Resultado — DUAS RESERVAS ENCOSTADAS ERAM
+         * RECUSADAS, e é justamente o caso que um hotel quer: quem sai de
+         * manhã e quem entra à tarde, com o quarto vendido todas as noites.
+         * O ecrã dizia «já está reservado nestas datas» sobre um quarto que
+         * ficava vazio.
+         */
         $query = $this->reservations()
             ->whereNotIn('status', ['cancelled', 'no_show'])
-            ->where(function ($q) use ($checkIn, $checkOut) {
-                $q->whereBetween('check_in_date', [$checkIn, $checkOut])
-                    ->orWhereBetween('check_out_date', [$checkIn, $checkOut])
-                    ->orWhere(function ($q2) use ($checkIn, $checkOut) {
-                        $q2->where('check_in_date', '<=', $checkIn)
-                            ->where('check_out_date', '>=', $checkOut);
-                    });
-            });
+            ->where('check_in_date', '<', $checkOut)
+            ->where('check_out_date', '>', $checkIn);
 
         if ($excludeReservationId) {
             $query->where('id', '!=', $excludeReservationId);

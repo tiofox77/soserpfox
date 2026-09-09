@@ -714,6 +714,29 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::post('/{id}/receber', [$c, 'receber'])->whereNumber('id')->name('receber');
         });
 
+        /* O CALENDÁRIO: a mesma reserva vista ao longo do tempo. */
+        Route::prefix('hotel/calendario')->name('hotel.calendario.')->group(function () {
+            $c = \App\Http\Controllers\Api\Hotel\CalendarioApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/', [$c, 'grelha'])->name('grelha');
+            Route::post('/{id}/mover', [$c, 'mover'])->whereNumber('id')->name('mover');
+        });
+
+        /*
+         * O BALCÃO — quem chega sem reserva. É uma porta à parte das reservas
+         * porque tem a sua própria permissão (`hotel.walk-in.create`): dar
+         * entrada a quem chega não é o mesmo que gerir a agenda da casa.
+         */
+        Route::prefix('hotel/balcao')->name('hotel.balcao.')->group(function () {
+            $c = \App\Http\Controllers\Api\Hotel\BalcaoApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/quartos', [$c, 'quartos'])->name('quartos');
+            Route::get('/hospedes', [$c, 'hospedes'])->name('hospedes');
+            Route::post('/', [$c, 'registar'])->name('registar');
+        });
+
         Route::prefix('oficina/ordens')->name('oficina.ordens.')->group(function () {
             $c = \App\Http\Controllers\Api\Workshop\OrdensApiController::class;
 
@@ -1800,14 +1823,14 @@ Route::middleware(['auth', 'tenant.module:hotel'])->prefix('hotel')->name('hotel
     Route::middleware('permission:hotel.reservations.view')
         ->get('/reservations', \App\Support\EcraReact::pagina('hotel/reservas', 'Reservas'))->name('reservations');
     Route::middleware('permission:hotel.walk-in.create')
-        ->get('/walk-in', \App\Livewire\Hotel\WalkIn::class)->name('walk-in');
+        ->get('/walk-in', \App\Support\EcraReact::pagina('hotel/balcao', 'Balcão'))->name('walk-in');
     // Parâmetro opcional: permite abrir o check-out já numa reserva concreta
     // (é o que o botão da lista de reservas faz). Sem parâmetro continua a
     // abrir o ecrã de pesquisa, como o menu lateral espera.
     Route::middleware('permission:hotel.reservations.edit')
         ->get('/checkout/{reservationId?}', \App\Livewire\Hotel\Checkout::class)->name('checkout');
     Route::middleware('permission:hotel.reservations.view')
-        ->get('/calendar', \App\Livewire\Hotel\CalendarReservation::class)->name('calendar');
+        ->get('/calendar', \App\Support\EcraReact::pagina('hotel/calendario', 'Calendário'))->name('calendar');
     Route::middleware('permission:hotel.housekeeping.view')
         ->get('/housekeeping', \App\Support\EcraReact::pagina('hotel/limpeza', 'Housekeeping'))->name('housekeeping');
     Route::middleware('permission:hotel.maintenance.view')

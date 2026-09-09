@@ -642,6 +642,65 @@ class PrepararBancadaPwa extends Command
         }
 
         /*
+         * AS RESERVAS — uma por estado, e uma a atravessar o mês.
+         *
+         * Sem elas o calendário, a lista, o painel, os mapas e o check-out
+         * abrem todos vazios, e um ensaio que corre num hotel sem hóspedes
+         * não distingue «funciona» de «não há nada».
+         *
+         * O HÓSPEDE É UM CLIENTE e não a ficha antiga: é o adquirente da
+         * factura do check-out, e era isso que faltava às reservas que o
+         * balcão e o calendário criavam.
+         */
+        $hospedes = [];
+
+        foreach ([
+            ['Aurora Kiala', '923500001', 'aurora.kiala@exemplo.ao'],
+            ['Bento Mavungo', '923500002', 'bento.mavungo@exemplo.ao'],
+            ['Carla Dias', '923500003', 'carla.dias@exemplo.ao'],
+        ] as $i => [$nome, $telefone, $email]) {
+            $hospedes[$i] = \App\Models\Client::withoutGlobalScopes()->firstOrCreate(
+                ['tenant_id' => $tenant->id, 'phone' => $telefone],
+                [
+                    'name' => $nome,
+                    'email' => $email,
+                    'type' => 'pessoa_fisica',
+                    'nationality' => 'Angola',
+                    'country' => \App\Support\Geografia::PAIS_PADRAO,
+                    'is_active' => true,
+                ]
+            );
+        }
+
+        $tipoPorQuarto = \App\Models\Hotel\Room::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)->pluck('room_type_id', 'number');
+
+        foreach ([
+            ['102', 0, 'checked_in', today()->subDay(), today()->addDays(2), 22000],
+            ['201', 1, 'confirmed', today()->addDays(2), today()->addDays(5), 28000],
+            ['202', 2, 'pending', today()->addDays(6), today()->addDays(9), 55000],
+        ] as [$quarto, $quem, $estado, $entrada, $saida, $taxa]) {
+            \App\Models\Hotel\Reservation::withoutGlobalScopes()->firstOrCreate(
+                ['tenant_id' => $tenant->id, 'reservation_number' => 'BANC-' . $quarto],
+                [
+                    'client_id' => $hospedes[$quem]->id,
+                    'room_id' => $porQuarto[$quarto] ?? null,
+                    'room_type_id' => $tipoPorQuarto[$quarto] ?? null,
+                    'check_in_date' => $entrada,
+                    'check_out_date' => $saida,
+                    'adults' => 2,
+                    'children' => 0,
+                    'extra_beds' => 0,
+                    'room_rate' => $taxa,
+                    'status' => $estado,
+                    'source' => 'direct',
+                    'paid_amount' => $estado === 'checked_in' ? $taxa : 0,
+                    'created_by' => \App\Models\User::where('tenant_id', $tenant->id)->value('id'),
+                ]
+            );
+        }
+
+        /*
          * AS TAREFAS DE LIMPEZA — uma por coluna do quadro, e a de hoje.
          *
          * Como na manutenção: um quadro com tudo na mesma coluna não distingue
