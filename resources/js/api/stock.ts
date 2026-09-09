@@ -1,7 +1,8 @@
 import { api } from './cliente';
 
 export type LinhaDeStock = {
-    id: number;
+    /** Nulo no artigo SEM linha de stock — não há o que ajustar nem transferir. */
+    id: number | null;
     product_id: number;
     artigo: string | null;
     codigo: string | null;
@@ -9,7 +10,7 @@ export type LinhaDeStock = {
     conteudo: string | null;
     conservacao: string | null;
     conservacao_rotulo: string | null;
-    warehouse_id: number;
+    warehouse_id: number | null;
     armazem: string | null;
     quantidade: number;
     disponivel: number;
@@ -40,7 +41,15 @@ export type Movimento = {
     armazem: string | null; lote: string | null; notas: string | null; quem: string | null;
 };
 
-export type FiltrosDeStock = { procura?: string; armazem?: string; baixo?: boolean; conservacao?: string; page?: number };
+export type FiltrosDeStock = {
+    procura?: string;
+    armazem?: string;
+    baixo?: boolean;
+    conservacao?: string;
+    /** '' = com e sem · 'com' = o que está na prateleira · 'sem' = o que falta. */
+    existencia?: string;
+    page?: number;
+};
 
 type Pagina = { data: LinhaDeStock[]; meta: { current_page: number; last_page: number; per_page: number; total: number }; resumo: Resumo };
 

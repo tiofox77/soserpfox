@@ -55,13 +55,20 @@ class StockApiController extends Controller
     {
         $this->exigir($request, 'invoicing.stock.view');
 
-        $filtros = $request->validate([
-            'procura' => ['nullable', 'string', 'max:100'],
-            'armazem' => ['nullable', 'integer'],
-            'baixo' => ['nullable', 'boolean'],
-            'conservacao' => ['nullable', 'string', 'max:20'],
-            'page' => ['nullable', 'integer', 'min:1'],
-        ]);
+        $filtros = $this->filtros($request);
+
+        /*
+         * «O QUE NÃO HÁ» NÃO SE PERGUNTA À MESMA TABELA.
+         *
+         * A lista de sempre corre sobre `invoicing_stocks` — as linhas que
+         * EXISTEM. Só que um artigo que nunca entrou num armazém não tem linha
+         * nenhuma: é o mais em falta de todos, e era o único que não aparecia.
+         * Por isso «sem existência» é uma pergunta ao CATÁLOGO, com o stock à
+         * esquerda, e não à prateleira.
+         */
+        if (($filtros['existencia'] ?? '') === 'sem') {
+            return response()->json($this->semExistencia($filtros));
+        }
 
         $base = $this->consulta($filtros);
 
@@ -79,6 +86,54 @@ class StockApiController extends Controller
                 'valor' => round((float) ($agg->valor ?? 0), 2),
                 'baixo' => (int) $baixo,
             ],
+        ]);
+    }
+
+    /**
+     * A MESMA LISTA, INTEIRA, para o papel e para o Excel.
+     *
+     * Sem paginação e sem permissão a verificar aqui — quem chama é o
+     * `StockExportController`, e é lá que a guarda está. O que interessa é que
+     * a consulta seja ESTA e não outra: um mapa que mostrasse coisa diferente
+     * do ecrã é pior do que não haver mapa.
+     *
+     * @return array{0: array<int, array<string, mixed>>, 1: array<string, mixed>}
+     */
+    public function paraExportar(array $filtros): array
+    {
+        if (($filtros['existencia'] ?? '') === 'sem') {
+            $tudo = $this->semExistencia($filtros + ['por_pagina' => 5000]);
+
+            return [$tudo['data']->all(), $tudo['resumo']];
+        }
+
+        $base = $this->consulta($filtros);
+
+        $linhas = (clone $base)->with(['warehouse:id,name', 'product'])
+            ->orderBy('id')->get()
+            ->map(fn (Stock $s) => $this->linha($s))->all();
+
+        $agg = (clone $base)->selectRaw('COUNT(DISTINCT product_id) AS artigos, COALESCE(SUM(quantity), 0) AS quantidade, COALESCE(SUM(quantity * unit_cost), 0) AS valor')->first();
+
+        return [$linhas, [
+            'artigos' => (int) ($agg->artigos ?? 0),
+            'quantidade' => round((float) ($agg->quantidade ?? 0), 3),
+            'valor' => round((float) ($agg->valor ?? 0), 2),
+            'baixo' => (int) (clone $base)->whereHas('product', $this->stockBaixo())->count(),
+        ]];
+    }
+
+    /** Os filtros da lista, do papel e do Excel — os três lêem o mesmo. */
+    private function filtros(Request $request): array
+    {
+        return $request->validate([
+            'procura' => ['nullable', 'string', 'max:100'],
+            'armazem' => ['nullable', 'integer'],
+            'baixo' => ['nullable', 'boolean'],
+            'conservacao' => ['nullable', 'string', 'max:20'],
+            // '' = tudo · 'com' = o que está na prateleira · 'sem' = o que falta
+            'existencia' => ['nullable', Rule::in(['', 'com', 'sem'])],
+            'page' => ['nullable', 'integer', 'min:1'],
         ]);
     }
 
@@ -242,7 +297,103 @@ class StockApiController extends Controller
             $q->whereHas('product', fn ($p) => $p->where('invoicing_products.tenant_id', $tenantId)->porConservacao($f['conservacao']));
         }
 
+        // «Com existência» é a prateleira a sério: o que está a zero não conta.
+        if (($f['existencia'] ?? '') === 'com') {
+            $q->where('quantity', '>', 0);
+        }
+
         return $q;
+    }
+
+    /**
+     * O QUE FALTA — pelo catálogo, e não pela prateleira.
+     *
+     * Um artigo que gere stock e não tenha existência: ou tem linha a zero (ou
+     * negativa), ou não tem linha nenhuma. Os dois casos contam, e o segundo é
+     * o que a lista de sempre nunca mostrou.
+     *
+     * COM ARMAZÉM ESCOLHIDO a pergunta é «falta NAQUELE armazém»; sem armazém,
+     * é «falta na casa toda» — e aí soma-se o que está em todos.
+     *
+     * @return array<string, mixed>
+     */
+    private function semExistencia(array $f): array
+    {
+        $tenantId = activeTenantId();
+        $armazem = $f['armazem'] ?? null;
+
+        $existencia = $armazem
+            ? "(SELECT COALESCE(SUM(s.quantity), 0) FROM invoicing_stocks s WHERE s.product_id = invoicing_products.id AND s.tenant_id = {$tenantId} AND s.warehouse_id = " . (int) $armazem . ')'
+            : "(SELECT COALESCE(SUM(s.quantity), 0) FROM invoicing_stocks s WHERE s.product_id = invoicing_products.id AND s.tenant_id = {$tenantId})";
+
+        $q = Product::where('tenant_id', $tenantId)
+            ->where('is_active', true)
+            // Só o que GERE stock: um serviço não «falta» em armazém nenhum.
+            ->where('manage_stock', true)
+            ->whereRaw("{$existencia} <= 0");
+
+        if (! empty($f['procura'])) {
+            $t = '%' . $f['procura'] . '%';
+            $q->where(fn ($p) => $p->where('name', 'like', $t)->orWhere('code', 'like', $t));
+        }
+
+        if (! empty($f['conservacao'])) {
+            $q->porConservacao($f['conservacao']);
+        }
+
+        $pagina = (clone $q)->orderBy('name')->paginate($f['por_pagina'] ?? 15)->withQueryString();
+        $quantos = (int) $pagina->total();
+
+        $nomeDoArmazem = $armazem
+            ? Warehouse::where('tenant_id', $tenantId)->where('id', $armazem)->value('name')
+            : null;
+
+        return [
+            'data' => collect($pagina->items())->map(fn (Product $p) => $this->linhaSemExistencia($p, $armazem, $nomeDoArmazem))->values(),
+            'meta' => ['current_page' => $pagina->currentPage(), 'last_page' => $pagina->lastPage(), 'per_page' => $pagina->perPage(), 'total' => $pagina->total()],
+            'resumo' => [
+                'artigos' => $quantos,
+                'quantidade' => 0.0,
+                'valor' => 0.0,
+                /*
+                 * «BAIXO» É A MESMA REGRA DE SEMPRE — `quantidade <= mínimo` —
+                 * e a zero ela é sempre verdadeira. Contar aqui só os que têm
+                 * mínimo declarado dava um cartão a dizer «0 abaixo do mínimo»
+                 * por cima de sessenta linhas marcadas a vermelho.
+                 */
+                'baixo' => $quantos,
+            ],
+        ];
+    }
+
+    /**
+     * A linha de um artigo em falta, na mesma forma que a da prateleira.
+     *
+     * O ecrã desenha uma tabela só; se a forma mudasse, mudava-lhe o desenho a
+     * meio da lista. O `id` vai nulo de propósito — não há linha de stock para
+     * ajustar, e é isso que o botão de ajustar precisa de saber.
+     */
+    private function linhaSemExistencia(Product $p, ?int $armazem, ?string $nomeDoArmazem): array
+    {
+        return [
+            'id' => null,
+            'product_id' => $p->id,
+            'artigo' => $p->name,
+            'codigo' => $p->code,
+            'unidade' => $p->unit,
+            'conteudo' => $p->net_content,
+            'conservacao' => $p->storage_conditions,
+            'conservacao_rotulo' => $p->storage_conditions ? __(self::CONSERVACAO[$p->storage_conditions] ?? $p->storage_conditions) : null,
+            'warehouse_id' => $armazem,
+            'armazem' => $nomeDoArmazem,
+            'quantidade' => 0.0,
+            'disponivel' => 0.0,
+            'reservado' => 0.0,
+            'minimo' => round((float) ($p->stock_min ?? 0), 3),
+            'baixo' => true,
+            'custo' => round((float) ($p->cost ?? 0), 2),
+            'valor' => 0.0,
+        ];
     }
 
     private function stockBaixo(): \Closure

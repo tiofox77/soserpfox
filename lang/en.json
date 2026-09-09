@@ -4853,5 +4853,18 @@
     "renovar ou deixar caducar": "renew or let lapse",
     "sem termo": "open-ended",
     "É este que a folha usa — vem antes do salário da ficha do funcionário.": "This is the one the payroll uses — it comes before the salary on the employee record.",
-    "Últimas admissões": "Latest hires"
+    "Últimas admissões": "Latest hires",
+    "Com e sem": "With and without",
+    "Existência": "Stock on hand",
+    "Só com stock": "Only with stock",
+    "Só sem stock": "Only without stock",
+    "Com e sem existência": "With and without stock on hand",
+    "Só com existência": "Only with stock on hand",
+    "Só sem existência": "Only without stock on hand",
+    "Todos os armazéns": "All warehouses",
+    "Conferido por": "Checked by",
+    "Responsável de armazém": "Warehouse manager",
+    "Conservação: :modo": "Storage: :modo",
+    "Procura: «:termo»": "Search: “:termo”",
+    "Sem permissão para esta operação.": "You do not have permission for this operation."
 }

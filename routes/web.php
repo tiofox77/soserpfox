@@ -1091,6 +1091,18 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
     Route::middleware('permission:invoicing.stock.view')
         ->get('/stock', \App\Support\EcraReact::pagina('facturacao/stock', 'Gestão de Stock'))->name('stock');
 
+    /*
+     * O MAPA DE STOCK EM PAPEL E EM EXCEL.
+     *
+     * Os filtros do ecrã viajam no URL e a consulta é a MESMA da lista: quem
+     * imprime está a conferir a prateleira contra aquilo que estava a ver, e um
+     * mapa que mostrasse outra coisa seria pior do que não haver mapa.
+     */
+    Route::middleware('permission:invoicing.stock.view')->group(function () {
+        Route::get('/stock/imprimir', [\App\Http\Controllers\Invoicing\StockExportController::class, 'imprimir'])->name('stock.imprimir');
+        Route::get('/stock/excel', [\App\Http\Controllers\Invoicing\StockExportController::class, 'excel'])->name('stock.excel');
+    });
+
     // As quebras: expirado/estragado/partido/perdido, com relatório próprio.
     // Genérico de propósito — salão, oficina e restaurante usam os mesmos
     // artigos, e a perda regista-se num sítio só.

@@ -4853,5 +4853,18 @@
     "renovar ou deixar caducar": "renouveler ou laisser expirer",
     "sem termo": "sans terme",
     "É este que a folha usa — vem antes do salário da ficha do funcionário.": "C'est celui qu'utilise la paie — il prime sur le salaire de la fiche du salarié.",
-    "Últimas admissões": "Dernières embauches"
+    "Últimas admissões": "Dernières embauches",
+    "Com e sem": "Avec et sans",
+    "Existência": "Stock disponible",
+    "Só com stock": "Uniquement avec stock",
+    "Só sem stock": "Uniquement sans stock",
+    "Com e sem existência": "Avec et sans stock disponible",
+    "Só com existência": "Uniquement avec stock disponible",
+    "Só sem existência": "Uniquement sans stock disponible",
+    "Todos os armazéns": "Tous les entrepôts",
+    "Conferido por": "Vérifié par",
+    "Responsável de armazém": "Responsable d'entrepôt",
+    "Conservação: :modo": "Conservation : :modo",
+    "Procura: «:termo»": "Recherche : « :termo »",
+    "Sem permissão para esta operação.": "Vous n'avez pas la permission pour cette opération."
 }

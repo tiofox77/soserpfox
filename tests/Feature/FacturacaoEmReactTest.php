@@ -30,7 +30,7 @@ use Tests\TenantTestCase;
 class FacturacaoEmReactTest extends TenantTestCase
 {
     /** Moradas que são descarga ou papel, não ecrã: saem do varrimento. */
-    private const NAO_SAO_ECRA = '#(pdf|preview|talao|csv|descarregar|download|imprimir|export)#';
+    private const NAO_SAO_ECRA = '#(pdf|preview|talao|csv|excel|descarregar|download|imprimir|export)#';
 
     /**
      * O QUE MORA EM `/invoicing/` E NÃO É DESTA MIGRAÇÃO.

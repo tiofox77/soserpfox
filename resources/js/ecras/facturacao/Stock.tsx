@@ -34,15 +34,41 @@ import { t, tPartes } from '@/i18n';
 /** O atraso da linha `i` na entrada em cascata (ver `.entra` no layout). */
 const cascata = (i: number) => ({ '--i': i }) as CSSProperties;
 
+/**
+ * A linha que EXISTE em `invoicing_stocks`.
+ *
+ * O filtro «só sem stock» devolve artigos que nunca entraram em armazém
+ * nenhum: vêm com `id` nulo, e não há neles o que ajustar nem o que
+ * transferir. O tipo diz isso, para o compilador não deixar passar.
+ */
+type LinhaComStock = LinhaDeStock & { id: number };
+
 /** O quadrado de uma acção de linha: fundo suave da cor do que ela faz. */
 const accao = (cor: Cor) =>
     cls('grid h-9 w-9 place-items-center rounded-lg transition-all duration-200 hover:scale-110', CORES[cor].suave, FOCO);
 
+/**
+ * Os filtros do ecrã, na forma que o papel e o Excel lêem.
+ *
+ * Sem a página: um mapa é o inventário inteiro, e não a folha em que se está.
+ */
+function paraOMapa(f: { procura: string; armazem: string; baixo: boolean; conservacao: string; existencia: string }): string {
+    const p = new URLSearchParams();
+
+    if (f.procura) p.set('procura', f.procura);
+    if (f.armazem) p.set('armazem', f.armazem);
+    if (f.conservacao) p.set('conservacao', f.conservacao);
+    if (f.existencia) p.set('existencia', f.existencia);
+    if (f.baixo) p.set('baixo', '1');
+
+    return p.toString();
+}
+
 export default function Stock() {
     const cache = useQueryClient();
-    const [filtros, porFiltros] = useState<{ procura: string; armazem: string; baixo: boolean; conservacao: string; page: number }>({ procura: '', armazem: '', baixo: false, conservacao: '', page: 1 });
-    const [aAjustar, porAAjustar] = useState<LinhaDeStock | null>(null);
-    const [aTransferir, porATransferir] = useState<LinhaDeStock | null>(null);
+    const [filtros, porFiltros] = useState<{ procura: string; armazem: string; baixo: boolean; conservacao: string; existencia: string; page: number }>({ procura: '', armazem: '', baixo: false, conservacao: '', existencia: '', page: 1 });
+    const [aAjustar, porAAjustar] = useState<LinhaComStock | null>(null);
+    const [aTransferir, porATransferir] = useState<LinhaComStock | null>(null);
     const [movimentosDe, porMovimentosDe] = useState<LinhaDeStock | null>(null);
     const [lote, porLote] = useState(false);
     const [recado, porRecado] = useState('');
@@ -69,7 +95,7 @@ export default function Stock() {
     const resumo = lista.data?.resumo;
     /* Uma lista vazia por causa de um filtro não é a mesma coisa que um
        armazém vazio, e a frase do estado vazio muda com isso. */
-    const filtrado = filtros.procura !== '' || filtros.armazem !== '' || filtros.baixo || filtros.conservacao !== '';
+    const filtrado = filtros.procura !== '' || filtros.armazem !== '' || filtros.baixo || filtros.conservacao !== '' || filtros.existencia !== '';
 
     return (
         <div className="space-y-4">
@@ -102,7 +128,25 @@ export default function Stock() {
             <Cartao
                 titulo={t('Gestão de Stock')}
                 icone="fa-boxes"
-                accoes={o.permissoes.pode_editar && <Botao cor="primaria" tom="solida" icone="fa-truck-ramp-box" onClick={() => porLote(true)}>{t('Movimentação em lote')}</Botao>}
+                accoes={
+                    <div className="flex flex-wrap items-center gap-2">
+                        {/* O PAPEL E A FOLHA LEVAM OS FILTROS DO ECRÃ. Quem
+                            imprime está a conferir a prateleira contra o que
+                            estava a ver — um mapa com outra coisa era pior do
+                            que não haver mapa. */}
+                        <a href={`/invoicing/stock/imprimir?${paraOMapa(filtros)}`} target="_blank" rel="noreferrer"
+                            className={cls('inline-flex items-center gap-1.5 border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition-all hover:-translate-y-0.5 hover:text-red-600', RAIO, FOCO)}>
+                            <i className="fas fa-print" aria-hidden="true" />
+                            {t('Imprimir')}
+                        </a>
+                        <a href={`/invoicing/stock/excel?${paraOMapa(filtros)}`}
+                            className={cls('inline-flex items-center gap-1.5 border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition-all hover:-translate-y-0.5 hover:text-emerald-700', RAIO, FOCO)}>
+                            <i className="fas fa-file-excel" aria-hidden="true" />
+                            {t('Excel')}
+                        </a>
+                        {o.permissoes.pode_editar && <Botao cor="primaria" tom="solida" icone="fa-truck-ramp-box" onClick={() => porLote(true)}>{t('Movimentação em lote')}</Botao>}
+                    </div>
+                }
             >
                 <div className="flex flex-wrap items-end gap-3">
                     <label className="min-w-[16rem] flex-1 text-sm">
@@ -114,6 +158,17 @@ export default function Stock() {
                         <select value={filtros.armazem} onChange={(e) => porFiltros((f) => ({ ...f, armazem: e.target.value, page: 1 }))} className={entrada}>
                             <option value="">{t('Todos')}</option>
                             {o.armazens.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                        </select>
+                    </label>
+                    {/* O QUE HÁ E O QUE FALTA — e «o que falta» inclui o artigo
+                        que nunca entrou em armazém nenhum, que é o mais em
+                        falta de todos e o único que a lista nunca mostrou. */}
+                    <label className="text-sm">
+                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">{t('Existência')}</span>
+                        <select value={filtros.existencia} onChange={(e) => porFiltros((f) => ({ ...f, existencia: e.target.value, page: 1 }))} className={entrada}>
+                            <option value="">{t('Com e sem')}</option>
+                            <option value="com">{t('Só com stock')}</option>
+                            <option value="sem">{t('Só sem stock')}</option>
                         </select>
                     </label>
                     {o.mostra_conservacao && (
@@ -221,8 +276,8 @@ export default function Stock() {
                                     <td className="px-4 py-2 text-right">
                                         <span className="flex justify-end gap-1.5">
                                             <button type="button" onClick={() => porMovimentosDe(l)} title={t('Movimentos')} aria-label={t('Movimentos de :artigo', { artigo: l.artigo ?? '' })} className={accao('neutra')}><i className="fas fa-clock-rotate-left" aria-hidden="true" /></button>
-                                            {o.permissoes.pode_editar && <button type="button" onClick={() => porAAjustar(l)} title={t('Ajustar')} aria-label={t('Ajustar :artigo', { artigo: l.artigo ?? '' })} className={accao('aviso')}><i className="fas fa-sliders" aria-hidden="true" /></button>}
-                                            {o.permissoes.pode_transferir && o.armazens.length > 1 && <button type="button" onClick={() => porATransferir(l)} title={t('Transferir')} aria-label={t('Transferir :artigo', { artigo: l.artigo ?? '' })} className={accao('bom')}><i className="fas fa-right-left" aria-hidden="true" /></button>}
+                                            {o.permissoes.pode_editar && l.id !== null && <button type="button" onClick={() => porAAjustar(l as LinhaComStock)} title={t('Ajustar')} aria-label={t('Ajustar :artigo', { artigo: l.artigo ?? '' })} className={accao('aviso')}><i className="fas fa-sliders" aria-hidden="true" /></button>}
+                                            {o.permissoes.pode_transferir && o.armazens.length > 1 && l.id !== null && <button type="button" onClick={() => porATransferir(l as LinhaComStock)} title={t('Transferir')} aria-label={t('Transferir :artigo', { artigo: l.artigo ?? '' })} className={accao('bom')}><i className="fas fa-right-left" aria-hidden="true" /></button>}
                                         </span>
                                     </td>
                                 </tr>
@@ -251,7 +306,7 @@ export default function Stock() {
 
 /* ─── Ajustar uma linha ─────────────────────────────────────────────── */
 
-function Ajustar({ l, aoFechar, aoFeito }: { l: LinhaDeStock; aoFechar: () => void; aoFeito: (m: string) => void }) {
+function Ajustar({ l, aoFechar, aoFeito }: { l: LinhaComStock; aoFechar: () => void; aoFeito: (m: string) => void }) {
     const [nova, porNova] = useState(String(l.quantidade));
     const [notas, porNotas] = useState('');
     const [erros, porErros] = useState<Record<string, string[]>>({});
@@ -280,7 +335,7 @@ function Ajustar({ l, aoFechar, aoFeito }: { l: LinhaDeStock; aoFechar: () => vo
 
 /* ─── Transferir entre armazéns ─────────────────────────────────────── */
 
-function Transferir({ l, o, aoFechar, aoFeito }: { l: LinhaDeStock; o: OpcoesDoStock; aoFechar: () => void; aoFeito: (m: string) => void }) {
+function Transferir({ l, o, aoFechar, aoFeito }: { l: LinhaComStock; o: OpcoesDoStock; aoFechar: () => void; aoFeito: (m: string) => void }) {
     const [para, porPara] = useState('');
     const [qtd, porQtd] = useState('');
     const [notas, porNotas] = useState('');
