@@ -604,6 +604,52 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::put('/{id}/linhas/{linha}', [$c, 'acertarLinha'])->whereNumber('id')->whereNumber('linha')->name('linha');
         });
 
+        /*
+         * O PAINEL DO RH: os avisos primeiro, e cada um com a morada do ecrã
+         * onde se resolve — filtrados pela permissão de quem vê.
+         */
+        Route::get('/rh/painel', [\App\Http\Controllers\Api\Hr\PainelApiController::class, 'index'])->name('rh.painel');
+
+        /*
+         * OS MAPAS: cinco relatórios e o mapa de IRT. Nenhum recalcula nada —
+         * lêem o que ficou gravado no processamento da folha.
+         */
+        Route::prefix('rh/relatorios')->name('rh.relatorios.')->group(function () {
+            $c = \App\Http\Controllers\Api\Hr\RelatoriosApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/irt', [$c, 'irt'])->name('irt');
+            Route::get('/', [$c, 'mostrar'])->name('mostrar');
+        });
+
+        /*
+         * AS DEFINIÇÕES DE RH. Ver é uma permissão, alterar é outra: são
+         * estes números que decidem quanto cada pessoa recebe.
+         */
+        Route::prefix('rh/definicoes')->name('rh.definicoes.')->group(function () {
+            $c = \App\Http\Controllers\Api\Hr\DefinicoesApiController::class;
+
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::put('/', [$c, 'guardar'])->name('guardar');
+            Route::post('/repor', [$c, 'repor'])->name('repor');
+        });
+
+        /*
+         * OS CONTRATOS. A tabela já decidia o salário pago e não tinha ecrã
+         * nenhum — ver `ContratosApiController`.
+         */
+        Route::prefix('rh/contratos')->name('rh.contratos.')->group(function () {
+            $c = \App\Http\Controllers\Api\Hr\ContratosApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'guardar'])->name('guardar');
+            Route::get('/{id}', [$c, 'ficha'])->whereNumber('id')->name('ficha');
+            Route::put('/{id}', [$c, 'actualizar'])->whereNumber('id')->name('actualizar');
+            Route::post('/{id}/cessar', [$c, 'cessar'])->whereNumber('id')->name('cessar');
+            Route::delete('/{id}', [$c, 'eliminar'])->whereNumber('id')->name('eliminar');
+        });
+
         // Adiantamentos: as regras no EmissorDeAdiantamentos, o mesmo do Livewire.
         Route::get('/adiantamentos/opcoes', [\App\Http\Controllers\Api\Invoicing\AdiantamentoApiController::class, 'opcoes'])->name('adiantamentos.opcoes');
         Route::get('/adiantamentos/{id}', [\App\Http\Controllers\Api\Invoicing\AdiantamentoApiController::class, 'mostrar'])->whereNumber('id')->name('adiantamentos.mostrar');
@@ -1285,7 +1331,13 @@ Route::middleware(['auth:client'])->prefix('client')->name('client.')->group(fun
 
 // HR Module Routes
 Route::middleware(['auth', 'tenant.module:rh'])->prefix('hr')->name('hr.')->group(function () {
-    Route::get('/dashboard', \App\Livewire\HR\HRDashboard::class)->name('dashboard');
+    /*
+     * O PAINEL — a primeira coisa que se vê no módulo, e a permissão
+     * `hr.dashboard.view` existia desde sempre sem ninguém a aplicar.
+     */
+    Route::middleware('permission:hr.dashboard.view')
+        ->get('/dashboard', \App\Support\EcraReact::pagina('rh/painel', 'Painel de RH'))
+        ->name('dashboard');
     Route::middleware('permission:employees.view')
         ->get('/employees', \App\Support\EcraReact::pagina('rh/funcionarios', 'Funcionários'))
         ->name('employees.index');
@@ -1370,15 +1422,40 @@ Route::middleware(['auth', 'tenant.module:rh'])->prefix('hr')->name('hr.')->grou
     Route::middleware('permission:hr.shifts.view')
         ->get('/shifts', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Turnos', ['tipo' => 'turnos']))
         ->name('shifts.index');
-    Route::get('/reports', \App\Livewire\HR\HRReports::class)->name('reports');
+    /*
+     * OS CONTRATOS — o ecrã que nunca existiu, sobre uma tabela que já
+     * decidia o salário pago. Ver `ContratosApiController`.
+     */
+    Route::middleware('permission:hr.contracts.view')
+        ->get('/contracts', \App\Support\EcraReact::pagina('rh/contratos', 'Contratos'))
+        ->name('contracts.index');
+
+    /*
+     * OS MAPAS. Um mapa de salários é o salário de toda a gente numa página
+     * só — e não tinha guarda nenhuma.
+     */
+    Route::middleware('permission:hr.reports.view')
+        ->get('/reports', \App\Support\EcraReact::pagina('rh/relatorios', 'Relatórios de RH'))
+        ->name('reports');
 
     // Mapa de IRT: o imposto retido aos trabalhadores no mês, para declarar
     // e pagar à AGT. O ecrã confere; o papel e o CSV entregam.
-    Route::get('/irt-map', \App\Livewire\HR\MapaDeIRT::class)->name('irt-map');
-    Route::get('/irt-map/print', [\App\Http\Controllers\HR\MapaDeIRTController::class, 'imprimir'])->name('irt-map.pdf');
-    Route::get('/irt-map/csv', [\App\Http\Controllers\HR\MapaDeIRTController::class, 'csv'])->name('irt-map.csv');
+    Route::middleware('permission:hr.irt.view')
+        ->get('/irt-map', \App\Support\EcraReact::pagina('rh/mapa-de-irt', 'Mapa de IRT'))
+        ->name('irt-map');
+    Route::get('/irt-map/print', [\App\Http\Controllers\HR\MapaDeIRTController::class, 'imprimir'])
+        ->middleware('permission:hr.irt.view')->name('irt-map.pdf');
+    Route::get('/irt-map/csv', [\App\Http\Controllers\HR\MapaDeIRTController::class, 'csv'])
+        ->middleware('permission:hr.irt.view')->name('irt-map.csv');
 
-    Route::get('/settings', \App\Livewire\HR\SettingsManagement::class)->name('settings');
+    /*
+     * AS DEFINIÇÕES. O componente que aqui estava tinha uma nota a explicar
+     * que não verificava permissão nenhuma porque nenhuma existia; existem
+     * agora, e são duas: ver as regras da casa não é poder mudá-las.
+     */
+    Route::middleware('permission:hr.settings.view')
+        ->get('/settings', \App\Support\EcraReact::pagina('rh/definicoes', 'Definições de RH'))
+        ->name('settings');
 });
 
 // Accounting Module Routes

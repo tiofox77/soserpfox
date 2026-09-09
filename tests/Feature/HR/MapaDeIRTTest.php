@@ -2,12 +2,10 @@
 
 namespace Tests\Feature\HR;
 
-use App\Livewire\HR\MapaDeIRT as EcraMapaDeIRT;
 use App\Models\HR\Employee;
 use App\Models\HR\Payroll;
 use App\Models\HR\PayrollItem;
 use App\Services\HR\MapaDeIRT;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -235,31 +233,24 @@ class MapaDeIRTTest extends TenantTestCase
         $this->assertStringContainsString('05/2026', $csv);
     }
 
-    // ── Ecrã ─────────────────────────────────────────────────────────────
+    // ── Ecrã, papel e ficheiro ───────────────────────────────────────────
 
-    /** Abre no mês passado: é esse o que se está a preparar para entregar. */
-    public function test_ecra_abre_no_mes_anterior(): void
-    {
-        $anterior = now()->subMonthNoOverflow();
-
-        Livewire::test(EcraMapaDeIRT::class)
-            ->assertSet('ano', (int) $anterior->year)
-            ->assertSet('mes', (int) $anterior->month);
-    }
-
-    public function test_navegar_entre_meses_atravessa_o_ano(): void
-    {
-        Livewire::test(EcraMapaDeIRT::class)
-            ->set('ano', 2026)->set('mes', 1)
-            ->call('mesAnterior')
-            ->assertSet('ano', 2025)->assertSet('mes', 12)
-            ->call('mesSeguinte')
-            ->assertSet('ano', 2026)->assertSet('mes', 1);
-    }
-
-    public function test_o_ecra_abre_por_http(): void
+    /**
+     * O ECRÃ É REACT E TEM GUARDA.
+     *
+     * Era uma das seis rotas do RH que nada protegia: o mapa de IRT é o que
+     * se entrega à AGT, e agora pede `hr.irt.view` — no ecrã, no papel e no
+     * ficheiro, porque os três mostram os mesmos salários.
+     */
+    public function test_o_ecra_o_papel_e_o_csv_pedem_a_permissao(): void
     {
         $this->ligarModuloRh();
+
+        $this->get(route('hr.irt-map'))->assertForbidden();
+        $this->get(route('hr.irt-map.pdf', ['ano' => 2026, 'mes' => 5]))->assertForbidden();
+        $this->get(route('hr.irt-map.csv', ['ano' => 2026, 'mes' => 5]))->assertForbidden();
+
+        $this->comPermissoes('hr.irt.view');
 
         $this->get(route('hr.irt-map'))->assertOk();
     }
@@ -267,6 +258,8 @@ class MapaDeIRTTest extends TenantTestCase
     public function test_a_impressao_abre_por_http(): void
     {
         $this->ligarModuloRh();
+        $this->comPermissoes('hr.irt.view');
+
         $folha = $this->folha(2026, 5);
         $this->linha($folha, $this->trabalhador('Ana Silva'), 300000, 9000, 291000, 25000);
 
@@ -279,6 +272,8 @@ class MapaDeIRTTest extends TenantTestCase
     public function test_o_csv_descarrega(): void
     {
         $this->ligarModuloRh();
+        $this->comPermissoes('hr.irt.view');
+
         $folha = $this->folha(2026, 5);
         $this->linha($folha, $this->trabalhador('Ana Silva'), 300000, 9000, 291000, 25000);
 
@@ -291,6 +286,7 @@ class MapaDeIRTTest extends TenantTestCase
     public function test_periodo_invalido_e_recusado(): void
     {
         $this->ligarModuloRh();
+        $this->comPermissoes('hr.irt.view');
 
         $this->get(route('hr.irt-map.csv', ['ano' => 2026, 'mes' => 13]))
             ->assertSessionHasErrors('mes');

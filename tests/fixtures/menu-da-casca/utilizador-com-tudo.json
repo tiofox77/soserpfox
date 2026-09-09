@@ -451,6 +451,11 @@
         },
         {
             "tag": "a",
+            "href": "/hr/contracts",
+            "texto": "Contratos"
+        },
+        {
+            "tag": "a",
             "href": "/hr/attendance",
             "texto": "Presenças"
         },

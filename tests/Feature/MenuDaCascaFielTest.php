@@ -40,7 +40,13 @@ class MenuDaCascaFielTest extends TenantTestCase
         'invoicing.taxes.view', 'invoicing.series.view', 'invoicing.settings.view', 'invoicing.saft.view', 'invoicing.agt.view',
         'treasury.reports.view', 'treasury.accounts.view', 'treasury.transactions.view', 'treasury.transfers.view',
         'treasury.payment-methods.view', 'treasury.banks.view', 'treasury.cash-registers.view',
-        'events.dashboard.view', 'hr.dashboard.view', 'accounting.dashboard.view', 'workshop.dashboard.view',
+        'events.dashboard.view', 'accounting.dashboard.view', 'workshop.dashboard.view',
+        // O RH: cada entrada do menu passou a estar atrás da permissão que a
+        // rota exige, para o menu não oferecer o que a guarda recusa.
+        'hr.dashboard.view', 'employees.view', 'hr.departments.view', 'hr.positions.view',
+        'hr.contracts.view', 'attendance.manage', 'hr.vacations.view', 'hr.leaves.view',
+        'hr.overtime.view', 'hr.discounts.view', 'hr.shifts.view', 'payroll.process',
+        'hr.advances.view', 'hr.irt.view', 'hr.reports.view', 'hr.settings.view',
         'hotel.dashboard.view', 'salon.dashboard.view', 'notifications.view', 'inventario.dashboard.view',
         'restaurant.dashboard.view', 'restaurant.floor.view', 'restaurant.orders.view', 'restaurant.settings.view',
         'restaurant.kitchen.view', 'restaurant.reservations.view', 'restaurant.recipes.view', 'restaurant.stock.view',

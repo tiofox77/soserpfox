@@ -8,8 +8,8 @@ use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
 /**
- * Cria as permissões do RH — os três catálogos e os cinco pedidos — e
- * reparte-as pelos papéis de TODAS as empresas.
+ * Cria as permissões do RH — catálogos, pedidos, contratos, relatórios, mapa
+ * de IRT e definições — e reparte-as pelos papéis de TODAS as empresas.
  *
  * PORQUE É QUE ESTAS NASCEM AGORA. O módulo de RH tinha 26 rotas guardadas
  * apenas por `auth` e `tenant.module:rh` — nem uma permissão aplicada, nem nas
@@ -74,6 +74,33 @@ class SyncHrCatalogPermissions extends Command
         'hr.discounts.create' => 'Registar Descontos Salariais',
         'hr.discounts.approve' => 'Aprovar Descontos Salariais',
         'hr.discounts.delete' => 'Eliminar Descontos Salariais',
+
+        /*
+         * OS CONTRATOS — o ecrã que nunca existiu.
+         *
+         * A tabela `hr_contracts` estava lá desde o princípio, e o
+         * `PayrollService` lê o salário do contrato activo antes do salário da
+         * ficha. Sem ecrã, ninguém a preenchia: o contrato decidia o
+         * pagamento e não havia por onde o ver.
+         */
+        'hr.contracts.view' => 'Ver Contratos',
+        'hr.contracts.create' => 'Criar Contratos',
+        'hr.contracts.edit' => 'Editar Contratos',
+        'hr.contracts.delete' => 'Eliminar Contratos',
+
+        /*
+         * OS RELATÓRIOS, O MAPA DE IRT E AS DEFINIÇÕES.
+         *
+         * Um mapa de salários é o salário de toda a gente numa página; o mapa
+         * de IRT é o que se entrega à AGT. E as DEFINIÇÕES decidem o INSS, os
+         * limites de isenção e o multiplicador da hora extra — quem lhes toca
+         * muda quanto cada pessoa recebe. Por isso EDITAR é um verbo à parte:
+         * ver as regras não é poder mudá-las.
+         */
+        'hr.reports.view' => 'Ver Relatórios de RH',
+        'hr.irt.view' => 'Ver o Mapa de IRT',
+        'hr.settings.view' => 'Ver Definições de RH',
+        'hr.settings.edit' => 'Alterar Definições de RH',
     ];
 
     /** Estes gerem: ficam com todas. */

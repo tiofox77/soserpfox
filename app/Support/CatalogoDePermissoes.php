@@ -74,6 +74,9 @@ final class CatalogoDePermissoes
         'employees' => 'Funcionários', 'payroll' => 'Salários', 'attendance' => 'Assiduidade', 'payments' => 'Pagamentos',
         // RH: os catálogos que passaram para o ecrã genérico e ganharam guarda.
         'departments' => 'Departamentos', 'positions' => 'Cargos', 'shifts' => 'Turnos',
+        'contracts' => 'Contratos', 'irt' => 'Mapa de IRT', 'vacations' => 'Férias',
+        'leaves' => 'Licenças e Faltas', 'overtime' => 'Horas Extras',
+        'advances' => 'Adiantamentos', 'discounts' => 'Descontos Salariais',
         // Nomes de duas partes: o primeiro segmento é a própria entidade.
         'users' => 'Utilizadores', 'billing' => 'Pacote e Faturação da Empresa', 'notifications' => 'Notificações',
         'compras' => 'Compras', 'projetos' => 'Projetos', 'inventario' => 'Inventário', 'crm' => 'CRM',
@@ -90,6 +93,9 @@ final class CatalogoDePermissoes
         'invite' => 'Convidar', 'permissions' => 'Gerir Permissões', 'access' => 'Aceder', 'sell' => 'Vender', 'refund' => 'Devolver',
         'all' => 'Ver de Todos', 'reports' => 'Ver Relatórios', 'dashboard' => 'Ver Painel', 'settings' => 'Configurar', 'chart' => 'Ver Gráficos',
         'decidir' => 'Aprovar ou Rejeitar', 'receber' => 'Dar Entrada', 'registar' => 'Registar', 'gerir' => 'Gerir', 'facturar' => 'Faturar',
+        // APROVAR é o verbo que separa quem pede de quem autoriza. Faltava, e
+        // as trinta permissões de RH que o usam liam-se «Approve Férias».
+        'approve' => 'Aprovar',
     ];
 
     /** Ordem em que as acções aparecem dentro de uma entidade. */

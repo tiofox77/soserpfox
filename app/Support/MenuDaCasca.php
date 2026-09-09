@@ -219,31 +219,43 @@ final class MenuDaCasca
             [
                 'chave' => 'hr', 'rotulo' => 'Recursos Humanos', 'icone' => 'fa-user-tie', 'cor' => 'cyan-400',
                 'modulo' => 'rh', 'aberto' => 'hr.*', 'barra' => 'cyan-400',
+                /*
+                 * CADA ENTRADA ATRÁS DA SUA PERMISSÃO.
+                 *
+                 * Com a migração para React, as vinte e seis rotas do RH
+                 * ganharam guarda — e um menu que continua a oferecer o que a
+                 * rota recusa manda o utilizador para um 403, que se lê como
+                 * avaria do sistema quando é a guarda a funcionar.
+                 */
                 'entradas' => [
-                    ['rota' => 'hr.dashboard', 'rotulo' => 'Dashboard', 'icone' => 'fa-chart-line', 'cor' => 'cyan-400', 'activo' => 'hr.dashboard'],
+                    ['rota' => 'hr.dashboard', 'rotulo' => 'Dashboard', 'icone' => 'fa-chart-line', 'cor' => 'cyan-400', 'activo' => 'hr.dashboard', 'permissao' => 'hr.dashboard.view'],
                     ['separador' => true],
-                    ['rota' => 'hr.employees.index', 'rotulo' => 'Funcionários', 'icone' => 'fa-users', 'cor' => 'blue-400', 'activo' => 'hr.employees*'],
-                    ['rota' => 'hr.departments.index', 'rotulo' => 'Departamentos', 'icone' => 'fa-building', 'cor' => 'purple-400', 'activo' => 'hr.departments*'],
+                    ['rota' => 'hr.employees.index', 'rotulo' => 'Funcionários', 'icone' => 'fa-users', 'cor' => 'blue-400', 'activo' => 'hr.employees*', 'permissao' => 'employees.view'],
+                    ['rota' => 'hr.departments.index', 'rotulo' => 'Departamentos', 'icone' => 'fa-building', 'cor' => 'purple-400', 'activo' => 'hr.departments*', 'permissao' => 'hr.departments.view'],
                     // OS CARGOS ganham entrada própria: em Livewire estavam
                     // escondidos dentro do ecrã dos departamentos e ninguém
                     // que não soubesse lá chegava.
-                    ['rota' => 'hr.positions.index', 'rotulo' => 'Cargos', 'icone' => 'fa-user-tie', 'cor' => 'cyan-400', 'activo' => 'hr.positions*'],
+                    ['rota' => 'hr.positions.index', 'rotulo' => 'Cargos', 'icone' => 'fa-user-tie', 'cor' => 'cyan-400', 'activo' => 'hr.positions*', 'permissao' => 'hr.positions.view'],
+                    // OS CONTRATOS: a tabela existia desde o princípio e o
+                    // `PayrollService` lia dela o salário pago — sem ecrã
+                    // nenhum por onde a ver.
+                    ['rota' => 'hr.contracts.index', 'rotulo' => 'Contratos', 'icone' => 'fa-file-signature', 'cor' => 'teal-400', 'activo' => 'hr.contracts*', 'permissao' => 'hr.contracts.view'],
                     ['separador' => true],
-                    ['rota' => 'hr.attendance.index', 'rotulo' => 'Presenças', 'icone' => 'fa-clock', 'cor' => 'green-400', 'activo' => 'hr.attendance*'],
-                    ['rota' => 'hr.vacations.index', 'rotulo' => 'Férias', 'icone' => 'fa-umbrella-beach', 'cor' => 'yellow-400', 'activo' => 'hr.vacations*'],
-                    ['rota' => 'hr.leaves', 'rotulo' => 'Licenças e Faltas', 'icone' => 'fa-calendar-times', 'cor' => 'orange-400', 'activo' => 'hr.leaves*'],
-                    ['rota' => 'hr.overtime', 'rotulo' => 'Horas Extras', 'icone' => 'fa-business-time', 'cor' => 'pink-400', 'activo' => 'hr.overtime'],
-                    ['rota' => 'hr.overtime-night-shift', 'rotulo' => 'Turno Noturno', 'icone' => 'fa-moon', 'cor' => 'indigo-300', 'activo' => 'hr.overtime-night-shift'],
-                    ['rota' => 'hr.salary-discounts', 'rotulo' => 'Descontos Salariais', 'icone' => 'fa-percentage', 'cor' => 'red-400', 'activo' => 'hr.salary-discounts'],
+                    ['rota' => 'hr.attendance.index', 'rotulo' => 'Presenças', 'icone' => 'fa-clock', 'cor' => 'green-400', 'activo' => 'hr.attendance*', 'permissao' => 'attendance.manage'],
+                    ['rota' => 'hr.vacations.index', 'rotulo' => 'Férias', 'icone' => 'fa-umbrella-beach', 'cor' => 'yellow-400', 'activo' => 'hr.vacations*', 'permissao' => 'hr.vacations.view'],
+                    ['rota' => 'hr.leaves', 'rotulo' => 'Licenças e Faltas', 'icone' => 'fa-calendar-times', 'cor' => 'orange-400', 'activo' => 'hr.leaves*', 'permissao' => 'hr.leaves.view'],
+                    ['rota' => 'hr.overtime', 'rotulo' => 'Horas Extras', 'icone' => 'fa-business-time', 'cor' => 'pink-400', 'activo' => 'hr.overtime', 'permissao' => 'hr.overtime.view'],
+                    ['rota' => 'hr.overtime-night-shift', 'rotulo' => 'Turno Noturno', 'icone' => 'fa-moon', 'cor' => 'indigo-300', 'activo' => 'hr.overtime-night-shift', 'permissao' => 'hr.overtime.view'],
+                    ['rota' => 'hr.salary-discounts', 'rotulo' => 'Descontos Salariais', 'icone' => 'fa-percentage', 'cor' => 'red-400', 'activo' => 'hr.salary-discounts', 'permissao' => 'hr.discounts.view'],
                     // Só quando a empresa trabalha por turnos.
-                    ['rota' => 'hr.shifts.index', 'rotulo' => 'Turnos', 'icone' => 'fa-clock', 'cor' => 'purple-400', 'activo' => 'hr.shifts*', 'quando' => fn () => self::usaTurnos()],
+                    ['rota' => 'hr.shifts.index', 'rotulo' => 'Turnos', 'icone' => 'fa-clock', 'cor' => 'purple-400', 'activo' => 'hr.shifts*', 'permissao' => 'hr.shifts.view', 'quando' => fn () => self::usaTurnos()],
                     ['separador' => true],
-                    ['rota' => 'hr.payroll', 'rotulo' => 'Folha de Pagamento', 'icone' => 'fa-money-check-alt', 'cor' => 'emerald-400', 'activo' => 'hr.payroll*'],
-                    ['rota' => 'hr.advances', 'rotulo' => 'Adiantamentos', 'icone' => 'fa-hand-holding-usd', 'cor' => 'teal-400', 'activo' => 'hr.advances*'],
+                    ['rota' => 'hr.payroll', 'rotulo' => 'Folha de Pagamento', 'icone' => 'fa-money-check-alt', 'cor' => 'emerald-400', 'activo' => 'hr.payroll*', 'permissao' => 'payroll.process'],
+                    ['rota' => 'hr.advances', 'rotulo' => 'Adiantamentos', 'icone' => 'fa-hand-holding-usd', 'cor' => 'teal-400', 'activo' => 'hr.advances*', 'permissao' => 'hr.advances.view'],
                     ['separador' => true],
-                    ['rota' => 'hr.irt-map', 'rotulo' => 'Mapa de IRT', 'icone' => 'fa-landmark', 'cor' => 'rose-400', 'activo' => 'hr.irt-map*'],
-                    ['rota' => 'hr.reports', 'rotulo' => 'Relatórios', 'icone' => 'fa-chart-pie', 'cor' => 'violet-400', 'activo' => 'hr.reports*'],
-                    ['rota' => 'hr.settings', 'rotulo' => 'Configurações RH', 'icone' => 'fa-cogs', 'cor' => 'purple-400', 'activo' => 'hr.settings*'],
+                    ['rota' => 'hr.irt-map', 'rotulo' => 'Mapa de IRT', 'icone' => 'fa-landmark', 'cor' => 'rose-400', 'activo' => 'hr.irt-map*', 'permissao' => 'hr.irt.view'],
+                    ['rota' => 'hr.reports', 'rotulo' => 'Relatórios', 'icone' => 'fa-chart-pie', 'cor' => 'violet-400', 'activo' => 'hr.reports*', 'permissao' => 'hr.reports.view'],
+                    ['rota' => 'hr.settings', 'rotulo' => 'Configurações RH', 'icone' => 'fa-cogs', 'cor' => 'purple-400', 'activo' => 'hr.settings*', 'permissao' => 'hr.settings.view'],
                 ],
             ],
 

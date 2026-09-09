@@ -368,8 +368,48 @@ class PrepararBancadaPwa extends Command
         }
 
         $this->folhaAprovadaDeEnsaio($tenant);
+        $this->pedidoPendenteDeEnsaio($tenant);
 
         return $pessoas;
+    }
+
+    /**
+     * UM PEDIDO À ESPERA DE DECISÃO, para o painel ter um aviso.
+     *
+     * Os avisos do painel são o que faz alguém abri-lo, e cada um leva ao
+     * ecrã onde se resolve. Um painel de bancada sem nada pendente não
+     * distingue «os avisos funcionam» de «não há nada para avisar».
+     *
+     * Fica PENDENTE de propósito, e num ano de referência antigo para não se
+     * confundir com o direito a férias deste ano.
+     */
+    private function pedidoPendenteDeEnsaio(Tenant $tenant): void
+    {
+        $pessoa = \App\Models\HR\Employee::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->where('employee_number', 'BANC-003')
+            ->first();
+
+        if (! $pessoa) {
+            return;
+        }
+
+        \App\Models\HR\Vacation::withoutGlobalScopes()->firstOrCreate(
+            ['tenant_id' => $tenant->id, 'vacation_number' => 'FE-BANCADA-01'],
+            [
+                'employee_id' => $pessoa->id,
+                'reference_year' => 2019,
+                'period_start' => '2019-01-01',
+                'period_end' => '2019-12-31',
+                'calculated_days' => 22,
+                'entitled_days' => 22,
+                'start_date' => '2019-08-01',
+                'end_date' => '2019-08-15',
+                'requested_days' => 15,
+                'working_days' => 11,
+                'status' => 'pending',
+            ]
+        );
     }
 
     /**

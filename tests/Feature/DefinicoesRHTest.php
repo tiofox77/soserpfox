@@ -2,11 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\HR\SettingsManagement;
 use App\Models\HR\HRSetting;
 use App\Services\HR\DefinicoesRH;
 use App\Services\HR\HRSettingsService;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -23,6 +21,18 @@ use Tests\TenantTestCase;
  */
 class DefinicoesRHTest extends TenantTestCase
 {
+    /**
+     * A porta do ecrã em React. O componente Livewire deixou de existir, e com
+     * ele a nota que dizia que este ecrã não verificava permissão nenhuma —
+     * porque nenhuma existia. Existem agora, e são duas.
+     */
+    private const RAIZ = '/api/v1/invoicing/react/rh/definicoes';
+
+    private function valorDe(string $chave): ?string
+    {
+        return HRSetting::where('tenant_id', $this->tenant->id)->where('key', $chave)->value('value');
+    }
+
     public function test_uma_empresa_sem_definicoes_recebe_as_do_catalogo(): void
     {
         $this->assertSame(0, HRSetting::where('tenant_id', $this->tenant->id)->count());
@@ -105,96 +115,137 @@ class DefinicoesRHTest extends TenantTestCase
     {
         // É isto que faz o ecrã deixar de estar vazio, e sem ninguém ter de
         // correr nada na consola.
-        $this->comModulo('rh');
+        $this->comModulo('rh')->comPermissoes('hr.settings.view');
 
-        $componente = Livewire::test(SettingsManagement::class);
+        $r = $this->getJson(self::RAIZ)->assertOk();
 
-        $this->assertGreaterThan(0, $componente->get('criadasAgora'));
+        $this->assertGreaterThan(0, $r->json('criadas_agora'));
         $this->assertSame(
             count(DefinicoesRH::catalogo()),
             HRSetting::where('tenant_id', $this->tenant->id)->count()
         );
 
-        $componente->assertSee('Horário de Trabalho');
+        // E vêm agrupadas pelas secções por que se lêem.
+        $this->assertContains('Horário de Trabalho', collect($r->json('seccoes'))->pluck('rotulo')->all());
     }
 
     public function test_a_segunda_visita_nao_anuncia_nada(): void
     {
-        $this->comModulo('rh');
+        $this->comModulo('rh')->comPermissoes('hr.settings.view');
 
-        Livewire::test(SettingsManagement::class);
+        $this->getJson(self::RAIZ)->assertOk();
 
-        Livewire::test(SettingsManagement::class)
-            ->assertSet('criadasAgora', 0);
+        $this->getJson(self::RAIZ)->assertOk()->assertJsonPath('criadas_agora', 0);
     }
 
-    public function test_gravar_tudo_nao_esvazia_o_formulario(): void
+    public function test_gravar_um_lote_devolve_os_valores_gravados(): void
     {
-        // O `editingSettings = []` que estava no fim do save() limpava o
-        // formulário: gravava-se tudo e os cinquenta e nove campos ficavam em
-        // branco no ecrã, o que se lê como "apagou as minhas configurações".
-        $this->comModulo('rh');
+        // O ecrã antigo esvaziava o formulário ao gravar tudo, o que se lia
+        // como «apagou as minhas configurações». Aqui a porta devolve o que
+        // ficou gravado, e o ecrã escreve-o de volta no campo.
+        $this->comModulo('rh')->comPermissoes('hr.settings.view', 'hr.settings.edit');
 
-        $componente = Livewire::test(SettingsManagement::class)
-            ->set('editingSettings.working_hours_per_day', '9')
-            ->call('save');
+        $this->getJson(self::RAIZ)->assertOk();
 
-        $this->assertNotEmpty($componente->get('editingSettings'), 'os campos têm de continuar preenchidos');
-        $this->assertSame('9', $componente->get('editingSettings')['working_hours_per_day']);
+        $this->putJson(self::RAIZ, ['valores' => ['working_hours_per_day' => '9', 'working_days_per_month' => '24']])
+            ->assertOk()
+            ->assertJsonPath('valores.working_hours_per_day', 9)
+            ->assertJsonPath('valores.working_days_per_month', 24);
 
-        $this->assertSame(
-            '9',
-            HRSetting::where('tenant_id', $this->tenant->id)->where('key', 'working_hours_per_day')->value('value'),
-            'e o valor tem de estar mesmo gravado'
-        );
+        $this->assertSame('9', $this->valorDe('working_hours_per_day'));
+        $this->assertSame('24', $this->valorDe('working_days_per_month'));
     }
 
     public function test_gravar_uma_definicao_sozinha(): void
     {
-        $this->comModulo('rh');
+        $this->comModulo('rh')->comPermissoes('hr.settings.view', 'hr.settings.edit');
 
-        Livewire::test(SettingsManagement::class)
-            ->set('editingSettings.working_days_per_month', '24')
-            ->call('saveSetting', 'working_days_per_month');
+        $this->getJson(self::RAIZ)->assertOk();
 
-        $this->assertSame(
-            '24',
-            HRSetting::where('tenant_id', $this->tenant->id)->where('key', 'working_days_per_month')->value('value')
-        );
+        $this->putJson(self::RAIZ, ['valores' => ['working_days_per_month' => '24']])->assertOk();
+
+        $this->assertSame('24', $this->valorDe('working_days_per_month'));
     }
 
     public function test_um_valor_fora_das_regras_e_recusado(): void
     {
         // `working_days_per_month` aceita 20 a 26. Um mês de 99 dias úteis
         // passaria direito para o cálculo dos salários.
-        $this->comModulo('rh');
+        $this->comModulo('rh')->comPermissoes('hr.settings.view', 'hr.settings.edit');
 
-        Livewire::test(SettingsManagement::class)
-            ->set('editingSettings.working_days_per_month', '99')
-            ->call('saveSetting', 'working_days_per_month');
+        $this->getJson(self::RAIZ)->assertOk();
 
-        $this->assertSame(
-            '22',
-            HRSetting::where('tenant_id', $this->tenant->id)->where('key', 'working_days_per_month')->value('value'),
-            'o valor do catálogo mantém-se'
-        );
+        $this->putJson(self::RAIZ, ['valores' => ['working_days_per_month' => '99']])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('valores.working_days_per_month');
+
+        $this->assertSame('22', $this->valorDe('working_days_per_month'), 'o valor do catálogo mantém-se');
     }
 
-    public function test_restaurar_padroes_repoe_e_mantem_o_formulario_cheio(): void
+    /**
+     * UM LOTE É TUDO OU NADA.
+     *
+     * Metade das definições gravadas e a outra metade não deixava a folha a
+     * ser calculada com uma mistura de dois estados.
+     */
+    public function test_um_lote_com_um_valor_mau_nao_grava_os_bons(): void
+    {
+        $this->comModulo('rh')->comPermissoes('hr.settings.view', 'hr.settings.edit');
+
+        $this->getJson(self::RAIZ)->assertOk();
+
+        $this->putJson(self::RAIZ, ['valores' => [
+            'working_hours_per_day' => '9',
+            'working_days_per_month' => '99',
+        ]])->assertStatus(422);
+
+        $this->assertSame('8', $this->valorDe('working_hours_per_day'), 'o bom também não passa');
+        $this->assertSame('22', $this->valorDe('working_days_per_month'));
+    }
+
+    public function test_restaurar_padroes_repoe_a_seccao_escolhida(): void
+    {
+        $this->comModulo('rh')->comPermissoes('hr.settings.view', 'hr.settings.edit');
+
+        $this->getJson(self::RAIZ)->assertOk();
+        $this->putJson(self::RAIZ, ['valores' => ['working_days_per_month' => '25']])->assertOk();
+
+        $this->postJson(self::RAIZ . '/repor', ['seccao' => 'worktime'])->assertOk();
+
+        $this->assertSame('22', $this->valorDe('working_days_per_month'));
+    }
+
+    /** VER AS REGRAS DA CASA NÃO É PODER MUDÁ-LAS. */
+    public function test_quem_so_ve_nao_grava(): void
+    {
+        $this->comModulo('rh')->comPermissoes('hr.settings.view');
+
+        $this->getJson(self::RAIZ)->assertOk()->assertJsonPath('permissoes.pode_editar', false);
+
+        $this->putJson(self::RAIZ, ['valores' => ['working_days_per_month' => '24']])->assertForbidden();
+        $this->postJson(self::RAIZ . '/repor', ['seccao' => 'tudo'])->assertForbidden();
+
+        $this->assertSame('22', $this->valorDe('working_days_per_month'));
+    }
+
+    /** E sem permissão nenhuma, o ecrã nem abre. */
+    public function test_sem_permissao_o_ecra_nao_abre(): void
     {
         $this->comModulo('rh');
 
-        $componente = Livewire::test(SettingsManagement::class)
-            ->set('editingSettings.working_days_per_month', '25')
-            ->call('saveSetting', 'working_days_per_month')
-            ->call('resetToDefaults');
+        $this->getJson(self::RAIZ)->assertForbidden();
+    }
 
-        $this->assertSame(
-            '22',
-            HRSetting::where('tenant_id', $this->tenant->id)->where('key', 'working_days_per_month')->value('value')
-        );
+    /** Uma chave que não existe nesta empresa não se cria pela porta de gravar. */
+    public function test_uma_chave_desconhecida_e_recusada(): void
+    {
+        $this->comModulo('rh')->comPermissoes('hr.settings.view', 'hr.settings.edit');
 
-        $this->assertNotEmpty($componente->get('editingSettings'));
+        $this->getJson(self::RAIZ)->assertOk();
+
+        $this->putJson(self::RAIZ, ['valores' => ['inventada_agora' => '1']])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('valores.inventada_agora');
     }
 
     public function test_o_nome_da_categoria_cobre_o_catalogo_todo(): void
@@ -263,11 +314,10 @@ class DefinicoesRHTest extends TenantTestCase
     {
         // O caso concreto: mudava-se o percentual nas configurações e o ecrã de
         // adiantamentos continuava nos 50% escritos no PHP.
-        $this->comModulo('rh');
+        $this->comModulo('rh')->comPermissoes('hr.settings.view', 'hr.settings.edit');
 
-        Livewire::test(SettingsManagement::class)
-            ->set('editingSettings.max_salary_advance_percentage', '70')
-            ->call('saveSetting', 'max_salary_advance_percentage');
+        $this->getJson(self::RAIZ)->assertOk();
+        $this->putJson(self::RAIZ, ['valores' => ['max_salary_advance_percentage' => '70']])->assertOk();
 
         HRSetting::clearCache();
 

@@ -81,6 +81,20 @@ export const ecras: Record<string, Ecra> = {
     'rh/folha': () =>
         import('./rh/Folha'),
 
+    // O painel (avisos primeiro), os cinco mapas, o mapa de IRT que se
+    // entrega à AGT, as definições que decidem os salários, e os contratos —
+    // o ecrã que nunca existiu sobre uma tabela que já decidia o pagamento.
+    'rh/painel': () =>
+        import('./rh/Painel'),
+    'rh/relatorios': () =>
+        import('./rh/Relatorios'),
+    'rh/mapa-de-irt': () =>
+        import('./rh/MapaDeIrt'),
+    'rh/definicoes': () =>
+        import('./rh/Definicoes'),
+    'rh/contratos': () =>
+        import('./rh/Contratos'),
+
     // A casca: a barra lateral com o menu, o suporte e o utilizador.
     'casca': () =>
         import('./casca/Casca'),

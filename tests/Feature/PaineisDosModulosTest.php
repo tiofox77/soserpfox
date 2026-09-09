@@ -62,8 +62,9 @@ class PaineisDosModulosTest extends TenantTestCase
         // E NENHUM painel com gráficos volta ao DOMContentLoaded, que dispara
         // uma só vez. Eram nove: os cinco perguntados mais a contabilidade, o
         // CRM, o inventário e o restaurante, que tinham o mesmo defeito. São
-        // OITO desde que o da tesouraria passou a React — lá os gráficos são
-        // componentes, e não há canvas nenhum para o Livewire trocar.
+        // SETE desde que a tesouraria e o RH passaram a React — lá os
+        // gráficos são componentes, e não há canvas nenhum para o Livewire
+        // trocar.
         $comGraficos = array_filter(
             array_merge(
                 glob(resource_path('views/livewire/*/dashboard*.blade.php')),
@@ -72,7 +73,7 @@ class PaineisDosModulosTest extends TenantTestCase
             fn ($v) => str_contains(file_get_contents($v), 'partials.graficos')
         );
 
-        $this->assertGreaterThanOrEqual(8, count($comGraficos),
+        $this->assertGreaterThanOrEqual(7, count($comGraficos),
             'o varrimento tem de apanhar os painéis todos');
 
         foreach ($comGraficos as $vista) {
@@ -90,15 +91,15 @@ class PaineisDosModulosTest extends TenantTestCase
      * sem internet, e quando o CDN falha o painel fica com um quadrado branco
      * sem aviso nenhum.
      *
-     * A TESOURARIA SAIU DA LISTA por já não ter Blade nenhum: o painel é
-     * React e desenha os gráficos com componentes próprios, sem Chart.js e
-     * sem ir buscar nada a lado nenhum.
+     * A TESOURARIA E O RH SAÍRAM DA LISTA por já não terem Blade nenhum: os
+     * painéis são React e desenham os gráficos com componentes próprios, sem
+     * Chart.js e sem ir buscar nada a lado nenhum.
      *
      * @test
      */
     public function nenhum_painel_vai_buscar_o_chart_js_a_um_cdn(): void
     {
-        foreach (['hr', 'hotel', 'salon'] as $painel) {
+        foreach (['hotel', 'salon'] as $painel) {
             $this->assertStringNotContainsString(
                 'cdn.jsdelivr.net',
                 file_get_contents(resource_path("views/livewire/{$painel}/dashboard.blade.php")),
@@ -225,12 +226,28 @@ class PaineisDosModulosTest extends TenantTestCase
         $this->assertCount(7, $painel->json('grafico.entradas'));
     }
 
-    /** O nome do dia da semana segue a língua de quem vê, não 'pt_BR'. @test */
+    /**
+     * O NOME DO MÊS SEGUE A LÍNGUA DE QUEM VÊ, e não um 'pt_BR' escrito à mão.
+     *
+     * O painel do RH era Livewire e passou para React; a regra mudou de
+     * ficheiro mas não de valor — hoje mede-se nas portas que devolvem nomes
+     * de meses e de dias ao ecrã.
+     *
+     * @test
+     */
     public function o_rh_nao_fala_brasileiro(): void
     {
-        $fonte = file_get_contents(app_path('Livewire/HR/HRDashboard.php'));
+        $portas = [
+            'Http/Controllers/Api/Hr/PainelApiController.php',
+            'Http/Controllers/Api/Hr/RelatoriosApiController.php',
+            'Http/Controllers/Api/Hr/FolhaApiController.php',
+        ];
 
-        $this->assertStringNotContainsString("locale('pt_BR')", $fonte);
-        $this->assertStringContainsString("locale(app()->getLocale())", $fonte);
+        foreach ($portas as $porta) {
+            $fonte = file_get_contents(app_path($porta));
+
+            $this->assertStringNotContainsString("locale('pt_BR')", $fonte, $porta);
+            $this->assertStringContainsString("locale(app()->getLocale())", $fonte, $porta);
+        }
     }
 }
