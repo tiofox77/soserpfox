@@ -128,7 +128,9 @@ test('vender um artigo fecha a venda e mostra o talão', async ({ page }) => {
 test('os relatórios do POS abrem com os cartões e a tabela', async ({ page }) => {
     await page.goto('/invoicing/pos/reports');
 
-    await expect(page.getByRole('heading', { name: /Relatórios do POS/ })).toBeVisible({ timeout: 20_000 });
+    // `.first()`: o titulo aparece duas vezes — o do layout, na barra do
+    // topo, e o da faixa do ecra. Sem isto e uma violacao de modo estrito.
+    await expect(page.getByRole('heading', { name: /Relatórios do POS/ }).first()).toBeVisible({ timeout: 20_000 });
 
     // Os quatro cartões contam o período, não a página.
     for (const cartao of ['Facturado', 'Devolvido', 'Anulado', 'Líquido']) {
