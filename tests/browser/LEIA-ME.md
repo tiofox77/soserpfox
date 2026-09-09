@@ -53,6 +53,22 @@ npm run pwa:relatorio    # abre o relatório da última corrida
 npm run pwa:limpar       # apaga a empresa de ensaio
 ```
 
+### Os ecrãs em React
+
+Os `react.*.spec.js` são outro projecto (`secretaria`), num monitor de 1440 e
+sem service worker nenhum:
+
+```bash
+npm run react:test:browser
+```
+
+**Aceitam HTTP.** Não têm service worker, e por isso não precisam de contexto
+seguro — o script tenta HTTPS primeiro, que é o que a casa usa, e cai para
+`http://soserp.test` quando o SSL do Laragon está em baixo. Sem isso, um vhost
+de SSL parado dava `ERR_CONNECTION_REFUSED` em todos os ensaios e o Playwright
+saía com «86 did not run» — uma mensagem que parece um problema do produto e é
+um problema do servidor.
+
 ### Porque HTTPS, e porque Apache
 
 **Um service worker só arranca em contexto seguro**: HTTPS, ou

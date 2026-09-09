@@ -14,7 +14,8 @@
         "react:build": "vite build --config vite.react.config.js",
         "react:dev": "vite build --config vite.react.config.js --watch",
         "react:tipos": "tsc --noEmit",
-        "react:test": "vitest run"
+        "react:test": "vitest run",
+        "react:test:browser": "node scripts/react-test-browser.mjs"
     },
     "devDependencies": {
         "@playwright/test": "^1.62.1",
