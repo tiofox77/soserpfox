@@ -68,7 +68,7 @@ class CatalogoApiController extends Controller
              * base, não uma resposta a ninguém. Nas especialidades do mecânico
              * não se notava porque lá o valor gravado já é o rótulo.
              */
-            'colunas' => array_map(function ($c) use ($def) {
+            'colunas' => array_map(function ($c) use ($def, $tenantId) {
                 $c['rotulo'] = __($c['rotulo']);
 
                 if (($c['formato'] ?? '') === 'multi' && ! isset($c['opcoes'])) {
@@ -76,6 +76,8 @@ class CatalogoApiController extends Controller
 
                     if (isset($campo['opcoes'])) {
                         $c['opcoes'] = self::traduzidas($campo['opcoes']);
+                    } elseif (isset($campo['referencia'])) {
+                        $c['opcoes'] = $this->referencias($def, $tenantId)[$campo['referencia']] ?? [];
                     }
                 }
 
@@ -88,7 +90,21 @@ class CatalogoApiController extends Controller
              * português: um formulário em inglês com «Nível: Júnior/Pleno» é
              * meia tradução, que é pior do que nenhuma — parece avaria.
              */
-            'campos' => array_map(fn ($c) => isset($c['opcoes']) ? array_merge($c, ['opcoes' => self::traduzidas($c['opcoes'])]) : $c, $def['campos']),
+            'campos' => array_map(function ($c) use ($def, $tenantId) {
+                /*
+                 * UM `multi` PODE PEDIR AS OPÇÕES A UMA REFERÊNCIA.
+                 *
+                 * «A que tipos de quarto se aplica este pacote» é uma lista
+                 * que muda com os dados, e não uma escrita no esquema. Com as
+                 * opções resolvidas aqui, o ecrã e a coluna da tabela tratam-na
+                 * como qualquer outra lista fechada.
+                 */
+                if (($c['tipo'] ?? '') === 'multi' && isset($c['referencia']) && ! isset($c['opcoes'])) {
+                    $c['opcoes'] = $this->referencias($def, $tenantId)[$c['referencia']] ?? [];
+                }
+
+                return isset($c['opcoes']) ? array_merge($c, ['opcoes' => self::traduzidas($c['opcoes'])]) : $c;
+            }, $def['campos']),
             /*
              * UM FILTRO PODE PEDIR AS OPÇÕES A UMA REFERÊNCIA.
              *

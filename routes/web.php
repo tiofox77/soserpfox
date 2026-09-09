@@ -1751,8 +1751,20 @@ Route::middleware(['auth', 'tenant.module:hotel'])->prefix('hotel')->name('hotel
         ->get('/reports', \App\Livewire\Hotel\Reports::class)->name('reports');
     Route::middleware('permission:hotel.rates.view')
         ->get('/rates', \App\Livewire\Hotel\RateManagement::class)->name('rates');
+    /*
+     * OS PACOTES E OS CÓDIGOS PROMOCIONAIS — duas listas na mesma morada.
+     *
+     * Eram duas abas dentro do mesmo componente Livewire, e são duas listas
+     * com a forma de sempre: o ecrã genérico desenha-as com os separadores por
+     * cima.
+     */
     Route::middleware('permission:hotel.packages.view')
-        ->get('/packages', \App\Livewire\Hotel\PackageManagement::class)->name('packages');
+        ->get('/packages', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Pacotes', [
+            'tipos' => [
+                ['tipo' => 'pacotes', 'rotulo' => 'Pacotes', 'icone' => 'fa-gift'],
+                ['tipo' => 'codigos-promocionais', 'rotulo' => 'Códigos Promocionais', 'icone' => 'fa-ticket'],
+            ],
+        ]))->name('packages');
     Route::middleware('permission:hotel.settings.view')
         ->get('/settings', \App\Livewire\Hotel\HotelSettingsManagement::class)->name('settings');
     // A ligacao ao KiandaStay: as reservas do site entram sozinhas na recepcao.

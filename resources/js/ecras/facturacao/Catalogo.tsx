@@ -56,7 +56,61 @@ const TOM_DO_CARTAO: Record<string, TomDoCartao> = {
     rosa: 'roxo',
 };
 
-export default function Catalogo({ tipo }: { tipo: string }) {
+/**
+ * A PORTA DO ECRÃ — um catálogo, ou vários com separadores.
+ *
+ * A maioria das moradas serve UM catálogo. Duas não: as tarifas do hotel são
+ * as épocas mais os preços por tipo de quarto, e os pacotes são os pacotes
+ * mais os códigos promocionais. São listas com a mesma forma que vivem na
+ * mesma entrada do menu — e o ecrã em Blade separava-as por abas.
+ *
+ * Cada separador é um catálogo INTEIRO e independente: filtros, formulário,
+ * permissões. A `key` faz com que trocar de aba comece do princípio em vez de
+ * herdar a procura do anterior.
+ */
+export default function Catalogo({ tipo, tipos }: { tipo?: string; tipos?: Array<{ tipo: string; rotulo: string; icone?: string }> }) {
+    const lista = tipos ?? (tipo ? [{ tipo, rotulo: '' }] : []);
+    const [aberto, porAberto] = useState(lista[0]?.tipo ?? '');
+
+    if (lista.length === 0) return null;
+
+    if (lista.length === 1) return <UmCatalogo tipo={lista[0]!.tipo} />;
+
+    return (
+        <div className="space-y-4">
+            <div role="tablist" aria-label={t('Listas')} className="flex flex-wrap gap-2">
+                {lista.map((x) => {
+                    const activo = x.tipo === aberto;
+
+                    return (
+                        <button
+                            key={x.tipo}
+                            type="button"
+                            role="tab"
+                            aria-selected={activo}
+                            onClick={() => porAberto(x.tipo)}
+                            className={cls(
+                                'inline-flex items-center gap-2 border px-3.5 py-2 text-sm font-semibold transition-all duration-200',
+                                'hover:-translate-y-0.5 active:translate-y-0',
+                                RAIO, FOCO,
+                                activo
+                                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700 shadow-sm'
+                                    : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700',
+                            )}
+                        >
+                            {x.icone && <i className={cls('fas', x.icone)} aria-hidden="true" />}
+                            {t(x.rotulo)}
+                        </button>
+                    );
+                })}
+            </div>
+
+            <UmCatalogo key={aberto} tipo={aberto} />
+        </div>
+    );
+}
+
+function UmCatalogo({ tipo }: { tipo: string }) {
     const cache = useQueryClient();
 
     const [filtros, porFiltros] = useState<FiltrosDoCatalogo>({ procura: '', page: 1 });
@@ -117,7 +171,7 @@ export default function Catalogo({ tipo }: { tipo: string }) {
         l ? String(l[o.nome] ?? l.name ?? l.id) : '';
 
     const vazio = (): Valores => Object.fromEntries(o.campos.map((c) => {
-        if (c.tipo === 'dias' || c.tipo === 'multi') return [c.chave, Array.isArray(c.omissao) ? c.omissao : []];
+        if (c.tipo === 'dias' || c.tipo === 'multi' || c.tipo === 'etiquetas') return [c.chave, Array.isArray(c.omissao) ? c.omissao : []];
 
         return [c.chave, c.omissao ?? (c.tipo === 'booleano' ? false : '')];
     }));
@@ -131,7 +185,7 @@ export default function Catalogo({ tipo }: { tipo: string }) {
             // Uma LISTA fica lista: passá-la por `String()` dava «1,2,3» na
             // caixa e um erro de validação ao gravar.
             if (c.tipo === 'dias') return [c.chave, Array.isArray(v) ? v.map(Number) : []];
-            if (c.tipo === 'multi') return [c.chave, Array.isArray(v) ? v.map(String) : []];
+            if (c.tipo === 'multi' || c.tipo === 'etiquetas') return [c.chave, Array.isArray(v) ? v.map(String) : []];
             return [c.chave, v === null || v === undefined ? '' : String(v)];
         })));
     };
@@ -876,8 +930,12 @@ function Celula({ c, l }: { c: Coluna; l: Linha }) {
             return <span className="tabular-nums">{v === null || v === undefined ? '' : String(v)}</span>;
         case 'percentagem':
             return <span className="tabular-nums">{Number(v ?? 0).toLocaleString('pt-PT', { maximumFractionDigits: 2 })}%</span>;
+        /* UM VALOR POR PREENCHER NÃO É ZERO. «0,00» num preço opcional lê-se
+           como «de graça»; o traço diz «não está definido». */
         case 'dinheiro':
-            return <span className="tabular-nums">{kz(Number(v ?? 0))}</span>;
+            return v === null || v === undefined
+                ? <span className="text-slate-300">—</span>
+                : <span className="tabular-nums">{kz(Number(v))}</span>;
         case 'cor':
             return v ? <span className="inline-flex items-center gap-2"><span className="inline-block h-4 w-4 rounded border border-slate-200" style={{ background: String(v) }} aria-hidden="true" /><span className="font-mono text-xs">{String(v)}</span></span> : null;
         case 'icone':
@@ -895,6 +953,8 @@ function Celula({ c, l }: { c: Coluna; l: Linha }) {
         /* AS ESCOLHAS MÚLTIPLAS EM CRACHÁS — «Motor», «Chapa». A lista de
            mecânicos serve para achar quem faz aquilo, e `["Motor","Chapa"]`
            não é uma resposta a essa pergunta. */
+        /* AS ETIQUETAS escritas à mão — o valor já é o que se lê. */
+        case 'etiquetas':
         case 'multi':
             return Array.isArray(v) && v.length > 0 ? (
                 <span className="inline-flex flex-wrap gap-1">
@@ -1138,6 +1198,71 @@ function EscolherVarios({ valor, opcoes, aoMudar, etiqueta }: {
     );
 }
 
+/**
+ * UMA LISTA ESCRITA À MÃO — os serviços incluídos num pacote.
+ *
+ * Ao contrário das especialidades do mecânico, aqui NÃO há lista de onde
+ * escolher: cada casa inclui no pacote o que quer, e escrever «Transfer do
+ * aeroporto» não pode obrigar a mexer no código.
+ *
+ * ENTER JUNTA, e não submete o formulário — que é o defeito clássico desta
+ * peça: quem escreve o primeiro serviço e carrega em Enter grava o registo a
+ * meio sem perceber porquê.
+ */
+function EscreverEtiquetas({ valor, aoMudar, etiqueta }: {
+    valor: Valor | undefined;
+    aoMudar: (v: string[]) => void;
+    etiqueta: string;
+}) {
+    const [aEscrever, porAEscrever] = useState('');
+    const lista = Array.isArray(valor) ? valor.map(String) : [];
+
+    const juntar = () => {
+        const nova = aEscrever.trim();
+
+        // Repetida não entra: duas linhas iguais no pacote não dizem nada.
+        if (nova !== '' && !lista.includes(nova)) aoMudar([...lista, nova]);
+
+        porAEscrever('');
+    };
+
+    return (
+        <div className="space-y-2">
+            <span className="flex gap-2">
+                <input
+                    value={aEscrever}
+                    onChange={(e) => porAEscrever(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') { e.preventDefault(); juntar(); }
+                    }}
+                    aria-label={etiqueta}
+                    placeholder={t('Escreva e carregue em Enter')}
+                    className={entrada}
+                />
+                <Botao icone="fa-plus" onClick={juntar} disabled={aEscrever.trim() === ''}>{t('Juntar')}</Botao>
+            </span>
+
+            {lista.length > 0 && (
+                <ul className="flex flex-wrap gap-1.5">
+                    {lista.map((x) => (
+                        <li key={x} className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700">
+                            {x}
+                            <button
+                                type="button"
+                                onClick={() => aoMudar(lista.filter((y) => y !== x))}
+                                aria-label={t('Remover: :nome', { nome: x })}
+                                className={cls('text-indigo-400 transition-colors hover:text-red-600', FOCO, RAIO)}
+                            >
+                                <i className="fas fa-xmark text-[10px]" aria-hidden="true" />
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
+}
+
 function CampoDeEsquema({ c, valor, erro, o, valores, aoMudar }: {
     c: Campo;
     valor: Valor | undefined;
@@ -1267,6 +1392,10 @@ function CampoDeEsquema({ c, valor, erro, o, valores, aoMudar }: {
         /* VÁRIAS DE UMA LISTA FECHADA — as especialidades do mecânico. */
         case 'multi':
             controlo = <EscolherVarios valor={valor} opcoes={c.opcoes ?? []} aoMudar={aoMudar} etiqueta={c.rotulo} />;
+            break;
+        /* UMA LISTA ESCRITA À MÃO — os serviços incluídos num pacote. */
+        case 'etiquetas':
+            controlo = <EscreverEtiquetas valor={valor} aoMudar={aoMudar} etiqueta={c.rotulo} />;
             break;
         default:
             controlo = <input type={c.tipo === 'email' ? 'email' : c.tipo === 'url' ? 'url' : 'text'} value={texto} onChange={(e) => aoMudar(e.target.value)} className={entrada} />;

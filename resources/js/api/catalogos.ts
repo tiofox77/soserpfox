@@ -32,7 +32,15 @@ export type TipoDeCampo =
      */
     | 'data' | 'validade'
     /** Uma lista fechada de onde se marcam VÁRIAS: as especialidades de um mecânico. */
-    | 'multi';
+    | 'multi'
+    /**
+     * UMA LISTA ESCRITA À MÃO — os serviços incluídos num pacote.
+     *
+     * Ao contrário do `multi`, não há lista de onde escolher: cada casa
+     * inclui no pacote o que quer, e escrever «Transfer do aeroporto» não
+     * pode obrigar a mexer no código.
+     */
+    | 'etiquetas';
 
 export type Campo = {
     chave: string;
@@ -55,7 +63,7 @@ export type Coluna = {
     chave: string;
     rotulo: string;
     formato: 'texto' | 'escolha' | 'booleano' | 'numero' | 'percentagem' | 'cor' | 'icone' | 'padrao' | 'dinheiro'
-        | 'hora' | 'dias' | 'data' | 'validade' | 'multi';
+        | 'hora' | 'dias' | 'data' | 'validade' | 'multi' | 'etiquetas';
     alinhar?: 'direita';
     /** Só nas colunas `multi`: os rótulos das chaves gravadas. */
     opcoes?: Escolha[];

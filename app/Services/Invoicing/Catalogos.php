@@ -112,6 +112,16 @@ final class Catalogos
             'quartos' => self::quartos(),
             'hospedes' => self::hospedes(),
             'pessoal-do-hotel' => self::pessoalDoHotel(),
+
+            /*
+             * OS PACOTES E OS CÓDIGOS PROMOCIONAIS vivem na mesma entrada do
+             * menu, em duas abas — eram duas listas dentro do mesmo componente
+             * Livewire. Aqui são dois catálogos, e o ecrã põe-lhes as abas.
+             */
+            'pacotes' => self::pacotes(),
+            'codigos-promocionais' => self::codigosPromocionais(),
+            /* E as ÉPOCAS, que são a primeira aba das tarifas. */
+            'epocas-do-hotel' => self::epocasDoHotel(),
         ];
     }
 
@@ -2335,6 +2345,309 @@ final class Catalogos
                     'is_active' => true,
                 ],
             ],
+        ];
+    }
+
+    private const TIPOS_DE_PACOTE = [
+        'romantic' => 'Romântico',
+        'family' => 'Família',
+        'business' => 'Negócios',
+        'wellness' => 'Bem-estar',
+        'adventure' => 'Aventura',
+        'other' => 'Outro',
+    ];
+
+    private static function pacotes(): array
+    {
+        return [
+            'modelo' => \App\Models\Hotel\Package::class,
+            'titulo' => 'Pacotes',
+            'singular' => 'Pacote',
+            'icone' => 'fa-gift',
+            'cor' => 'rosa',
+            'descricao' => 'O que a casa vende além da noite — e o que está incluído',
+            'novo' => 'Novo Pacote',
+            'rota' => '/hotel/packages',
+            'permissoes' => self::porVerbo('hotel.packages'),
+            'pesquisa' => ['name', 'description'],
+            'pesquisa_ajuda' => 'Nome ou descrição',
+            'ordem' => [['priority', 'desc'], ['name', 'asc']],
+            'colunas' => [
+                ['chave' => 'name', 'rotulo' => 'Pacote', 'formato' => 'texto'],
+                ['chave' => 'type', 'rotulo' => 'Tipo', 'formato' => 'escolha'],
+                ['chave' => 'price', 'rotulo' => 'Preço', 'formato' => 'dinheiro', 'alinhar' => 'direita'],
+                ['chave' => 'min_nights', 'rotulo' => 'Noites mín.', 'formato' => 'numero', 'alinhar' => 'direita'],
+                ['chave' => 'valid_until', 'rotulo' => 'Válido até', 'formato' => 'validade'],
+                ['chave' => 'included_services', 'rotulo' => 'Inclui', 'formato' => 'etiquetas'],
+                ['chave' => 'show_online', 'rotulo' => 'No site', 'formato' => 'booleano'],
+            ],
+            'filtros' => [
+                ['chave' => 'type', 'rotulo' => 'Tipo', 'opcoes' => self::escolhasDe(self::TIPOS_DE_PACOTE)],
+                ['chave' => 'show_online', 'rotulo' => 'No site de reservas', 'opcoes' => [
+                    ['valor' => '1', 'rotulo' => 'Só os que aparecem'],
+                    ['valor' => '0', 'rotulo' => 'Só os escondidos'],
+                ]],
+            ],
+            'campos' => [
+                self::campo('name', 'Nome', 'texto', obrigatorio: true),
+                self::campo('type', 'Tipo', 'escolha', obrigatorio: true, omissao: 'other',
+                    opcoes: self::escolhasDe(self::TIPOS_DE_PACOTE)),
+                self::campo('price', 'Preço do pacote (Kz)', 'numero', passo: 0.01, min: 0,
+                    ajuda: 'Em branco quando o pacote é só um desconto.'),
+                self::campo('discount_percentage', 'Desconto (%)', 'numero', passo: 0.01, min: 0, max: 100),
+                self::campo('discount_amount', 'Desconto fixo (Kz)', 'numero', passo: 0.01, min: 0),
+                self::campo('min_nights', 'Noites mínimas', 'numero', obrigatorio: true, omissao: 1, passo: 1, min: 1),
+                self::campo('max_nights', 'Noites máximas', 'numero', passo: 1, min: 1),
+                self::campo('valid_from', 'Válido de', 'data'),
+                self::campo('valid_until', 'Válido até', 'validade'),
+                self::campo('room_type_ids', 'Tipos de quarto', 'multi', omissao: [], referencia: 'tipos',
+                    largura: 'inteira', ajuda: 'Sem escolha nenhuma, vale para todos.'),
+                self::campo('included_services', 'Serviços incluídos', 'etiquetas', omissao: [], largura: 'inteira',
+                    ajuda: 'Escreva e carregue em Enter — «Pequeno-almoço», «Transfer do aeroporto».'),
+                self::campo('priority', 'Ordem', 'numero', omissao: 0, passo: 1, min: 0),
+                self::campo('show_online', 'Mostrar no site de reservas', 'booleano', omissao: true),
+                self::campo('is_active', 'Activo', 'booleano', omissao: true),
+                self::campo('description', 'Descrição', 'textarea', largura: 'inteira'),
+            ],
+            'regras' => [
+                'name' => 'required|string|min:2|max:255',
+                'type' => 'required|in:romantic,family,business,wellness,adventure,other',
+                'price' => 'nullable|numeric|min:0',
+                'discount_percentage' => 'nullable|numeric|min:0|max:100',
+                'discount_amount' => 'nullable|numeric|min:0',
+                'min_nights' => 'required|integer|min:1',
+                'max_nights' => 'nullable|integer|min:1',
+                'valid_from' => 'nullable|date',
+                'valid_until' => 'nullable|date',
+                'room_type_ids' => 'array',
+                'included_services' => 'array',
+                'included_services.*' => 'string|max:120',
+                'priority' => 'nullable|integer|min:0',
+                'show_online' => 'boolean',
+                'is_active' => 'boolean',
+                'description' => 'nullable|string|max:5000',
+            ],
+            'validar' => function (array $d): array {
+                $de = $d['valid_from'] ?? null;
+                $ate = $d['valid_until'] ?? null;
+
+                // Um pacote que acaba antes de começar nunca aparece no site, e
+                // ninguém percebe porquê.
+                if ($de && $ate && $ate < $de) {
+                    return ['valid_until' => __('A validade não pode acabar antes de começar.')];
+                }
+
+                $min = (int) ($d['min_nights'] ?? 1);
+                $max = $d['max_nights'] ?? null;
+
+                return ($max !== null && $max !== '' && (int) $max < $min)
+                    ? ['max_nights' => __('O máximo de noites não pode ser menor do que o mínimo.')]
+                    : [];
+            },
+            'preparar' => fn (array $d) => array_merge($d, [
+                'price' => ($d['price'] ?? '') === '' ? null : (float) $d['price'],
+                'discount_percentage' => ($d['discount_percentage'] ?? '') === '' ? null : (float) $d['discount_percentage'],
+                'discount_amount' => ($d['discount_amount'] ?? '') === '' ? null : (float) $d['discount_amount'],
+                'max_nights' => ($d['max_nights'] ?? '') === '' ? null : (int) $d['max_nights'],
+                'valid_from' => ($d['valid_from'] ?? '') ?: null,
+                'valid_until' => ($d['valid_until'] ?? '') ?: null,
+                'priority' => (int) ($d['priority'] ?? 0),
+                'included_services' => array_values(array_filter(array_map(
+                    fn ($s) => trim((string) $s), $d['included_services'] ?? []
+                ))),
+                'room_type_ids' => array_values(array_map('intval', $d['room_type_ids'] ?? [])),
+                // O `slug` é o que o site de reservas põe no endereço, e a
+                // coluna existia sem ninguém a preencher.
+                'slug' => \Illuminate\Support\Str::slug((string) ($d['name'] ?? '')) ?: null,
+            ]),
+            'referencias' => fn (int $t) => [
+                'tipos' => \App\Models\Hotel\RoomType::withoutGlobalScopes()
+                    ->where('tenant_id', $t)->orderBy('name')
+                    ->get(['id', 'name'])->map(fn ($r) => ['valor' => (string) $r->id, 'rotulo' => $r->name])->all(),
+            ],
+            'pode_apagar' => fn (Model $m) => true,
+            'accoes' => ['activar' => true, 'padrao' => false, 'logotipo' => true, 'apagar' => true],
+            'imagem' => ['coluna' => 'image', 'pasta' => 'hotel/packages', 'prefixo' => 'pacote', 'rotulo' => 'Imagem do pacote'],
+        ];
+    }
+
+    private static function codigosPromocionais(): array
+    {
+        return [
+            'modelo' => \App\Models\Hotel\PromoCode::class,
+            'titulo' => 'Códigos Promocionais',
+            'singular' => 'Código Promocional',
+            'icone' => 'fa-ticket',
+            'cor' => 'aviso',
+            'descricao' => 'Os códigos que dão desconto, e quantas vezes valem',
+            'novo' => 'Novo Código',
+            'rota' => '/hotel/packages',
+            'permissoes' => self::porVerbo('hotel.packages'),
+            'pesquisa' => ['code', 'name', 'description'],
+            'pesquisa_ajuda' => 'Código, nome ou descrição',
+            'ordem' => [['code', 'asc']],
+            'colunas' => [
+                ['chave' => 'code', 'rotulo' => 'Código', 'formato' => 'texto'],
+                ['chave' => 'name', 'rotulo' => 'Nome', 'formato' => 'texto'],
+                ['chave' => 'discount_type', 'rotulo' => 'Desconto', 'formato' => 'escolha'],
+                ['chave' => 'discount_value', 'rotulo' => 'Valor', 'formato' => 'numero', 'alinhar' => 'direita'],
+                /*
+                 * QUANTAS VEZES JÁ FOI USADO — a coluna existia e o ecrã não a
+                 * mostrava. É o número que decide se o código já deu o que
+                 * tinha a dar.
+                 */
+                ['chave' => 'times_used', 'rotulo' => 'Usado', 'formato' => 'numero', 'alinhar' => 'direita'],
+                ['chave' => 'valid_until', 'rotulo' => 'Válido até', 'formato' => 'validade'],
+            ],
+            'filtros' => [
+                ['chave' => 'discount_type', 'rotulo' => 'Tipo de desconto', 'opcoes' => [
+                    ['valor' => 'percentage', 'rotulo' => 'Percentagem'],
+                    ['valor' => 'fixed', 'rotulo' => 'Valor fixo'],
+                ]],
+            ],
+            'campos' => [
+                self::campo('code', 'Código', 'texto', obrigatorio: true, ajuda: 'É este que o hóspede escreve. Único nesta casa.'),
+                self::campo('name', 'Nome', 'texto', obrigatorio: true),
+                self::campo('discount_type', 'Tipo de desconto', 'escolha', obrigatorio: true, omissao: 'percentage', opcoes: [
+                    ['valor' => 'percentage', 'rotulo' => 'Percentagem'],
+                    ['valor' => 'fixed', 'rotulo' => 'Valor fixo'],
+                ]),
+                self::campo('discount_value', 'Valor do desconto', 'numero', obrigatorio: true, omissao: 0, passo: 0.01, min: 0),
+                self::campo('min_amount', 'Compra mínima (Kz)', 'numero', passo: 0.01, min: 0),
+                self::campo('max_discount', 'Desconto máximo (Kz)', 'numero', passo: 0.01, min: 0,
+                    ajuda: 'Trava uma percentagem que daria demasiado.'),
+                self::campo('usage_limit', 'Limite de utilizações', 'numero', passo: 1, min: 1,
+                    ajuda: 'Em branco é sem limite.'),
+                self::campo('usage_per_customer', 'Por hóspede', 'numero', omissao: 1, passo: 1, min: 1),
+                self::campo('valid_from', 'Válido de', 'data'),
+                self::campo('valid_until', 'Válido até', 'validade'),
+                self::campo('room_type_ids', 'Tipos de quarto', 'multi', omissao: [], referencia: 'tipos',
+                    largura: 'inteira', ajuda: 'Sem escolha nenhuma, vale para todos.'),
+                self::campo('is_active', 'Activo', 'booleano', omissao: true),
+                self::campo('description', 'Descrição', 'textarea', largura: 'inteira'),
+            ],
+            'regras' => [
+                'code' => 'required|string|max:50',
+                'name' => 'required|string|min:2|max:255',
+                'discount_type' => 'required|in:percentage,fixed',
+                'discount_value' => 'required|numeric|min:0',
+                'min_amount' => 'nullable|numeric|min:0',
+                'max_discount' => 'nullable|numeric|min:0',
+                'usage_limit' => 'nullable|integer|min:1',
+                'usage_per_customer' => 'nullable|integer|min:1',
+                'valid_from' => 'nullable|date',
+                'valid_until' => 'nullable|date',
+                'room_type_ids' => 'array',
+                'is_active' => 'boolean',
+                'description' => 'nullable|string|max:2000',
+            ],
+            'validar' => self::tudoIsto([
+                self::codigoUnico(\App\Models\Hotel\PromoCode::class, 'Já existe um código promocional com esse código.'),
+                /*
+                 * UMA PERCENTAGEM ACIMA DE 100 é uma estadia de graça com
+                 * troco. A regra `numeric|min:0` deixava passar 500%.
+                 */
+                function (array $d): array {
+                    return ($d['discount_type'] ?? '') === 'percentage' && (float) ($d['discount_value'] ?? 0) > 100
+                        ? ['discount_value' => __('Uma percentagem não passa dos 100%.')]
+                        : [];
+                },
+            ]),
+            'preparar' => fn (array $d) => array_merge($d, [
+                'code' => mb_strtoupper(trim((string) ($d['code'] ?? ''))),
+                'min_amount' => ($d['min_amount'] ?? '') === '' ? null : (float) $d['min_amount'],
+                'max_discount' => ($d['max_discount'] ?? '') === '' ? null : (float) $d['max_discount'],
+                'usage_limit' => ($d['usage_limit'] ?? '') === '' ? null : (int) $d['usage_limit'],
+                'usage_per_customer' => ($d['usage_per_customer'] ?? '') === '' ? 1 : (int) $d['usage_per_customer'],
+                'valid_from' => ($d['valid_from'] ?? '') ?: null,
+                'valid_until' => ($d['valid_until'] ?? '') ?: null,
+                'room_type_ids' => array_values(array_map('intval', $d['room_type_ids'] ?? [])),
+            ]),
+            'referencias' => fn (int $t) => [
+                'tipos' => \App\Models\Hotel\RoomType::withoutGlobalScopes()
+                    ->where('tenant_id', $t)->orderBy('name')
+                    ->get(['id', 'name'])->map(fn ($r) => ['valor' => (string) $r->id, 'rotulo' => $r->name])->all(),
+            ],
+            /*
+             * UM CÓDIGO JÁ USADO NÃO SE APAGA — guarda nova. As reservas que o
+             * usaram ficariam com um desconto sem explicação.
+             */
+            'pode_apagar' => fn (Model $m) => (int) $m->times_used === 0,
+            'porque_nao_apaga' => 'Este código já foi usado em reservas.',
+            'accoes' => ['activar' => true, 'padrao' => false, 'logotipo' => false, 'apagar' => true],
+        ];
+    }
+
+    private const MODIFICADORES_DA_EPOCA = [
+        'multiplier' => 'Multiplicador (× sobre o preço)',
+        'percentage' => 'Percentagem (+/- %)',
+        'fixed' => 'Valor fixo (Kz)',
+    ];
+
+    private static function epocasDoHotel(): array
+    {
+        return [
+            'modelo' => \App\Models\Hotel\RateSeason::class,
+            'titulo' => 'Épocas',
+            'singular' => 'Época',
+            'icone' => 'fa-calendar-week',
+            'cor' => 'teal',
+            'descricao' => 'Época alta, época baixa — o que muda o preço da noite',
+            'novo' => 'Nova Época',
+            'rota' => '/hotel/rates',
+            'permissoes' => self::porVerbo('hotel.rates'),
+            'pesquisa' => ['name', 'description'],
+            'pesquisa_ajuda' => 'Nome ou descrição',
+            'ordem' => [['start_date', 'asc']],
+            'colunas' => [
+                ['chave' => 'name', 'rotulo' => 'Época', 'formato' => 'texto'],
+                ['chave' => 'start_date', 'rotulo' => 'De', 'formato' => 'data'],
+                ['chave' => 'end_date', 'rotulo' => 'Até', 'formato' => 'data'],
+                ['chave' => 'modifier_type', 'rotulo' => 'Como muda', 'formato' => 'escolha'],
+                ['chave' => 'price_modifier', 'rotulo' => 'Valor', 'formato' => 'numero', 'alinhar' => 'direita'],
+                ['chave' => 'priority', 'rotulo' => 'Prioridade', 'formato' => 'numero', 'alinhar' => 'direita'],
+                ['chave' => 'color', 'rotulo' => 'Cor', 'formato' => 'cor'],
+            ],
+            'filtros' => [
+                ['chave' => 'modifier_type', 'rotulo' => 'Como muda', 'opcoes' => self::escolhasDe(self::MODIFICADORES_DA_EPOCA)],
+            ],
+            'campos' => [
+                self::campo('name', 'Nome', 'texto', obrigatorio: true),
+                self::campo('start_date', 'De', 'data', obrigatorio: true),
+                self::campo('end_date', 'Até', 'data', obrigatorio: true),
+                self::campo('modifier_type', 'Como muda o preço', 'escolha', obrigatorio: true, omissao: 'multiplier',
+                    opcoes: self::escolhasDe(self::MODIFICADORES_DA_EPOCA)),
+                self::campo('price_modifier', 'Valor', 'numero', obrigatorio: true, omissao: 1, passo: 0.01, min: 0,
+                    ajuda: 'No multiplicador, 1,5 é «mais 50%».'),
+                /*
+                 * A PRIORIDADE DECIDE QUEM GANHA quando duas épocas se
+                 * sobrepõem — e sobrepõem-se sempre (o Natal cai dentro da
+                 * época alta). O ecrã de sempre tinha o campo sem dizer para
+                 * que servia.
+                 */
+                self::campo('priority', 'Prioridade', 'numero', omissao: 0, passo: 1, min: 0,
+                    ajuda: 'Quando duas épocas se sobrepõem, ganha a de prioridade mais alta.'),
+                self::campo('color', 'Cor no calendário', 'cor', omissao: '#3b82f6'),
+                self::campo('is_active', 'Activa', 'booleano', omissao: true),
+                self::campo('description', 'Descrição', 'textarea', largura: 'inteira'),
+            ],
+            'regras' => [
+                'name' => 'required|string|min:2|max:255',
+                'start_date' => 'required|date',
+                'end_date' => 'required|date|after_or_equal:start_date',
+                'price_modifier' => 'required|numeric|min:0',
+                'modifier_type' => 'required|in:multiplier,percentage,fixed',
+                'priority' => 'nullable|integer|min:0',
+                'color' => 'nullable|string|max:7',
+                'is_active' => 'boolean',
+                'description' => 'nullable|string|max:2000',
+            ],
+            'preparar' => fn (array $d) => array_merge($d, [
+                'priority' => (int) ($d['priority'] ?? 0),
+                'price_modifier' => (float) ($d['price_modifier'] ?? 1),
+            ]),
+            'pode_apagar' => fn (Model $m) => true,
+            'accoes' => ['activar' => true, 'padrao' => false, 'logotipo' => false, 'apagar' => true],
         ];
     }
 
