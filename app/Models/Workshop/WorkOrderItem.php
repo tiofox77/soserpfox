@@ -4,7 +4,6 @@ namespace App\Models\Workshop;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\HR\Employee;
 
 class WorkOrderItem extends Model
 {
@@ -56,9 +55,18 @@ class WorkOrderItem extends Model
         return $this->belongsTo(Service::class);
     }
 
+    /**
+     * O MECÂNICO QUE FEZ ESTA LINHA — o da OFICINA, não o do RH.
+     *
+     * A caixa de escolha sempre ofereceu `workshop_mechanics` (é a lista de
+     * mecânicos que o ecrã carrega), e a relação lia `hr_employees`: o nome
+     * que aparecia na linha era o do funcionário com o MESMO NÚMERO, que é
+     * outra pessoa. A chave estrangeira apontava para o sítio errado desde o
+     * início — a da própria ordem foi corrigida em 2025-11-05 e esta ficou.
+     */
     public function mechanic()
     {
-        return $this->belongsTo(Employee::class, 'mechanic_id');
+        return $this->belongsTo(Mechanic::class, 'mechanic_id');
     }
 
     public function product()

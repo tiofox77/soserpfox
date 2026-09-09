@@ -61,10 +61,10 @@ class PaineisDosModulosTest extends TenantTestCase
 
         // E NENHUM painel com gráficos volta ao DOMContentLoaded, que dispara
         // uma só vez. Eram nove: os cinco perguntados mais a contabilidade, o
-        // CRM, o inventário e o restaurante, que tinham o mesmo defeito. São
-        // SETE desde que a tesouraria e o RH passaram a React — lá os
-        // gráficos são componentes, e não há canvas nenhum para o Livewire
-        // trocar.
+        // CRM, o inventário e o restaurante, que tinham o mesmo defeito. Vão
+        // baixando à medida que os módulos passam para React — lá os gráficos
+        // são componentes e não há canvas nenhum para o Livewire trocar: a
+        // tesouraria, o RH e a oficina já saíram desta conta.
         $comGraficos = array_filter(
             array_merge(
                 glob(resource_path('views/livewire/*/dashboard*.blade.php')),
@@ -73,7 +73,11 @@ class PaineisDosModulosTest extends TenantTestCase
             fn ($v) => str_contains(file_get_contents($v), 'partials.graficos')
         );
 
-        $this->assertGreaterThanOrEqual(7, count($comGraficos),
+        // O número é um PISO que desce com as migrações, e não uma meta: o que
+        // ele guarda é que o varrimento continua a encontrar painéis. A zero,
+        // este ensaio passava por vazio e deixava de dizer o que quer que
+        // fosse.
+        $this->assertGreaterThanOrEqual(6, count($comGraficos),
             'o varrimento tem de apanhar os painéis todos');
 
         foreach ($comGraficos as $vista) {
@@ -167,13 +171,35 @@ class PaineisDosModulosTest extends TenantTestCase
      */
     public function o_painel_da_oficina_conta_o_dia_inteiro(): void
     {
-        $fonte = file_get_contents(app_path('Livewire/Workshop/Dashboard.php'));
+        /*
+         * ISTO LIA O CÓDIGO-FONTE do componente Livewire à procura de
+         * `endOfDay()`. Com o painel em React o ficheiro deixou de existir — e
+         * um ensaio que procura texto num ficheiro morre com o ficheiro sem
+         * dizer nada sobre o que o utilizador vê. Agora pergunta-se ao painel.
+         */
+        $this->comModulo('oficina');
+        $this->comPermissoes('workshop.dashboard.view');
 
-        $this->assertStringContainsString('endOfDay()', $fonte,
-            'o intervalo tem de ir até ao fim do último dia');
+        $viatura = \App\Models\Workshop\Vehicle::create([
+            'plate' => 'LD-88-88-ZZ', 'vehicle_number' => 'VEH-' . substr(uniqid(), -5),
+            'owner_name' => 'Dono', 'brand' => 'Toyota', 'model' => 'Hilux',
+        ]);
 
-        $this->assertStringNotContainsString('[$this->dateFrom, $this->dateTo]', $fonte,
-            'as datas secas cortavam o dia de hoje às 00:00');
+        \App\Models\Workshop\WorkOrder::create([
+            'order_number' => 'OS-' . substr(uniqid(), -6),
+            'vehicle_id' => $viatura->id,
+            // Às três da tarde de hoje: com a data seca no limite de cima, o
+            // «até hoje» acabava à meia-noite e esta ordem não contava.
+            'received_at' => now()->startOfDay()->addHours(15),
+            'problem_description' => 'Não pega.',
+            'status' => 'pending',
+        ]);
+
+        $hoje = now()->toDateString();
+
+        $this->getJson("/api/v1/invoicing/react/oficina/painel?de={$hoje}&ate={$hoje}")
+            ->assertOk()
+            ->assertJsonPath('cartoes.ordens', 1);
     }
 
     /**

@@ -180,6 +180,7 @@ class PrepararBancadaPwa extends Command
 
         $mesas = $this->montarORestaurante($tenant, $armazem, $imposto);
         $pessoas = $this->montarORh($tenant);
+        $ordens = $this->montarAOficina($tenant);
 
         $this->newLine();
         $this->info('Bancada do PWA montada.');
@@ -192,6 +193,7 @@ class PrepararBancadaPwa extends Command
             ['Artigos',  $artigos],
             ['Mesas',    $mesas],
             ['Funcionários', $pessoas],
+            ['Ordens da oficina', $ordens],
             ['Cliente',  $cliente->name],
             ['Armazém',  $armazem->name],
         ]);
@@ -371,6 +373,150 @@ class PrepararBancadaPwa extends Command
         $this->pedidoPendenteDeEnsaio($tenant);
 
         return $pessoas;
+    }
+
+    /**
+     * A OFICINA DA BANCADA: mecânicos, viaturas, serviços e ordens.
+     *
+     * Um painel de oficina sem trabalho nenhum não distingue «os cartões
+     * funcionam» de «não há nada para contar», e um mapa vazio passa por
+     * qualquer coisa. Por isso a bancada monta o mínimo que faz os cinco mapas
+     * e os quatro gráficos terem o que dizer:
+     *
+     *  · TRÊS VIATURAS, e uma delas com o seguro CADUCADO e a inspecção a
+     *    caducar — é isso que o cartão dos documentos existe para mostrar;
+     *  · DUAS ORDENS EM ABERTO, uma delas URGENTE, para o painel ter o aviso;
+     *  · UMA ORDEM CONCLUÍDA E PAGA, com um serviço e uma peça, para haver
+     *    receita, mão-de-obra e peças nos mapas.
+     *
+     * @return int quantas ordens ficaram montadas
+     */
+    private function montarAOficina(Tenant $tenant): int
+    {
+        $mecanicos = [];
+
+        foreach ([
+            ['Zeca Mota', '923100001', ['Motor', 'Mecânica Geral'], 'senior', 3500],
+            ['Tó Chapa', '923100002', ['Chapa', 'Pintura'], 'pleno', 2500],
+        ] as [$nome, $telefone, $especialidades, $nivel, $hora]) {
+            $mecanicos[] = \App\Models\Workshop\Mechanic::withoutGlobalScopes()->firstOrCreate(
+                ['tenant_id' => $tenant->id, 'phone' => $telefone],
+                [
+                    'name' => $nome,
+                    'specialties' => $especialidades,
+                    'level' => $nivel,
+                    'hourly_rate' => $hora,
+                    'daily_rate' => $hora * 8,
+                    'is_active' => true,
+                    'is_available' => true,
+                ]
+            );
+        }
+
+        $viaturas = [];
+
+        foreach ([
+            // Esta traz o seguro já caducado e a inspecção quase — é o caso
+            // que o painel tem de saber mostrar.
+            ['LD-42-11-AA', 'Toyota', 'Hilux', 2019, now()->subDays(12), now()->addDays(9), now()->addYear()],
+            ['LD-77-08-BB', 'Nissan', 'Navara', 2021, now()->addMonths(8), now()->addMonths(5), now()->addMonths(11)],
+            ['LD-05-63-CC', 'Hyundai', 'H100', 2016, now()->addYear(), now()->addYear(), now()->addYear()],
+        ] as [$matricula, $marca, $modelo, $ano, $seguro, $inspeccao, $livrete]) {
+            $viaturas[] = \App\Models\Workshop\Vehicle::withoutGlobalScopes()->firstOrCreate(
+                ['tenant_id' => $tenant->id, 'plate' => $matricula],
+                [
+                    'vehicle_number' => 'VEH-' . substr($matricula, 3, 5),
+                    'owner_name' => 'Dono do ' . $modelo,
+                    'owner_phone' => '923200' . random_int(100, 999),
+                    'brand' => $marca,
+                    'model' => $modelo,
+                    'year' => $ano,
+                    'fuel_type' => 'Diesel',
+                    'mileage' => random_int(40000, 180000),
+                    'insurance_expiry' => $seguro,
+                    'inspection_expiry' => $inspeccao,
+                    'registration_expiry' => $livrete,
+                    'status' => 'active',
+                ]
+            );
+        }
+
+        $servicos = [];
+
+        foreach ([
+            ['SRV-BANC-01', 'Mudança de óleo e filtros', 'Manutenção', 15000, 1.5],
+            ['SRV-BANC-02', 'Substituição de pastilhas', 'Reparação', 22000, 2],
+        ] as [$codigo, $nome, $categoria, $custo, $horas]) {
+            $servicos[] = \App\Models\Workshop\Service::withoutGlobalScopes()->firstOrCreate(
+                ['tenant_id' => $tenant->id, 'service_code' => $codigo],
+                [
+                    'name' => $nome,
+                    'category' => $categoria,
+                    'labor_cost' => $custo,
+                    'estimated_hours' => $horas,
+                    'is_active' => true,
+                ]
+            );
+        }
+
+        $ordens = [
+            // [nº, viatura, mecânico, estado, prioridade, dias atrás]
+            ['OS-BANC-01', 0, 0, 'in_progress', 'urgent', 2],
+            ['OS-BANC-02', 1, 1, 'pending', 'normal', 1],
+            ['OS-BANC-03', 2, 0, 'completed', 'normal', 6],
+        ];
+
+        $quantas = 0;
+
+        foreach ($ordens as [$numero, $iv, $im, $estado, $prioridade, $dias]) {
+            $concluida = $estado === 'completed';
+
+            $ordem = \App\Models\Workshop\WorkOrder::withoutGlobalScopes()->firstOrCreate(
+                ['tenant_id' => $tenant->id, 'order_number' => $numero],
+                [
+                    'vehicle_id' => $viaturas[$iv]->id,
+                    'mechanic_id' => $mecanicos[$im]->id,
+                    'received_at' => now()->subDays($dias),
+                    'completed_at' => $concluida ? now()->subDays($dias - 1) : null,
+                    'problem_description' => 'Ruído na travagem e revisão dos 60.000 km.',
+                    'status' => $estado,
+                    'priority' => $prioridade,
+                    'labor_total' => $concluida ? 15000 : 0,
+                    'parts_total' => $concluida ? 8500 : 0,
+                    'total' => $concluida ? 23500 : 0,
+                    'payment_status' => $concluida ? 'paid' : 'pending',
+                    'paid_amount' => $concluida ? 23500 : 0,
+                    'warranty_days' => 30,
+                ]
+            );
+
+            if ($concluida && $ordem->items()->count() === 0) {
+                \App\Models\Workshop\WorkOrderItem::create([
+                    'work_order_id' => $ordem->id,
+                    'service_id' => $servicos[0]->id,
+                    'mechanic_id' => $mecanicos[$im]->id,
+                    'type' => 'service',
+                    'name' => $servicos[0]->name,
+                    'quantity' => 1,
+                    'unit_price' => 15000,
+                    'subtotal' => 15000,
+                    'hours' => 1.5,
+                ]);
+
+                \App\Models\Workshop\WorkOrderItem::create([
+                    'work_order_id' => $ordem->id,
+                    'type' => 'part',
+                    'name' => 'Filtro de óleo',
+                    'quantity' => 1,
+                    'unit_price' => 8500,
+                    'subtotal' => 8500,
+                ]);
+            }
+
+            $quantas++;
+        }
+
+        return $quantas;
     }
 
     /**

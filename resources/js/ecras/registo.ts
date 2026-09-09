@@ -184,4 +184,11 @@ export const ecras: Record<string, Ecra> = {
         import('./tesouraria/Relatorios'),
     'facturacao/editor-de-modelo': () =>
         import('./facturacao/EditorDeModelo'),
+
+    // A OFICINA. Os catálogos (mecânicos, viaturas, serviços) passam pelo ecrã
+    // genérico e as peças pelo dos artigos; estes dois são só dela.
+    'oficina/painel': () =>
+        import('./oficina/Painel'),
+    'oficina/relatorios': () =>
+        import('./oficina/Relatorios'),
 };

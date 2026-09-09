@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\Tenant;
-use App\Models\HR\Employee;
 use App\Traits\BelongsToTenant;
 use App\Traits\HasTenantNumber;
 
@@ -83,9 +82,18 @@ class WorkOrder extends Model
         return $this->belongsTo(Vehicle::class);
     }
 
+    /**
+     * O MECÂNICO DA ORDEM — o da OFICINA, não o do RH.
+     *
+     * A chave estrangeira aponta para `workshop_mechanics` desde 2025-11-05, a
+     * caixa de escolha do ecrã sempre ofereceu mecânicos da oficina, e esta
+     * relação continuava a ler `hr_employees`: o nome mostrado na ordem era o
+     * do funcionário com o MESMO NÚMERO — outra pessoa, sem erro nenhum a
+     * dizê-lo.
+     */
     public function mechanic()
     {
-        return $this->belongsTo(Employee::class, 'mechanic_id');
+        return $this->belongsTo(Mechanic::class, 'mechanic_id');
     }
 
     public function items()

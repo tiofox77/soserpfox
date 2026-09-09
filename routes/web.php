@@ -620,6 +620,21 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::get('/rh/painel', [\App\Http\Controllers\Api\Hr\PainelApiController::class, 'index'])->name('rh.painel');
 
         /*
+         * ─── OFICINA ───────────────────────────────────────────────────
+         *
+         * O painel e os cinco mapas. Os catálogos (mecânicos, viaturas,
+         * serviços) e as peças vivem nas rotas genéricas acima.
+         */
+        Route::get('/oficina/painel', [\App\Http\Controllers\Api\Workshop\PainelApiController::class, 'index'])->name('oficina.painel');
+
+        Route::prefix('oficina/relatorios')->name('oficina.relatorios.')->group(function () {
+            $c = \App\Http\Controllers\Api\Workshop\RelatoriosApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/', [$c, 'mostrar'])->name('mostrar');
+        });
+
+        /*
          * OS MAPAS: cinco relatórios e o mapa de IRT. Nenhum recalcula nada —
          * lêem o que ficou gravado no processamento da folha.
          */
@@ -1547,7 +1562,7 @@ Route::middleware(['auth', 'tenant.module:notifications'])->prefix('notification
  */
 Route::middleware(['auth', 'tenant.module:oficina'])->prefix('workshop')->name('workshop.')->group(function () {
     Route::middleware('permission:workshop.dashboard.view')
-        ->get('/dashboard', \App\Livewire\Workshop\Dashboard::class)->name('dashboard');
+        ->get('/dashboard', \App\Support\EcraReact::pagina('oficina/painel', 'Painel da Oficina'))->name('dashboard');
     /*
      * VIATURAS, MECÂNICOS E SERVIÇOS — o ecrã genérico dos catálogos.
      *
@@ -1587,7 +1602,19 @@ Route::middleware(['auth', 'tenant.module:oficina'])->prefix('workshop')->name('
     Route::get('/work-orders/{id}/print', [\App\Http\Controllers\Workshop\WorkOrderController::class, 'printPreview'])
         ->middleware('permission:workshop.work-orders.view')->name('work-orders.print');
     Route::middleware('permission:workshop.reports.view')
-        ->get('/reports', \App\Livewire\Workshop\Reports::class)->name('reports');
+        ->get('/reports', \App\Support\EcraReact::pagina('oficina/relatorios', 'Relatórios da Oficina'))->name('reports');
+    /*
+     * O PAPEL E O EXCEL DOS MAPAS.
+     *
+     * Os dois botões existiam e respondiam «Funcionalidade de exportação em
+     * desenvolvimento». Levam os mesmos filtros do ecrã no URL.
+     */
+    Route::middleware('permission:workshop.reports.view')->group(function () {
+        $c = \App\Http\Controllers\Workshop\MapaExportController::class;
+
+        Route::get('/reports/imprimir', [$c, 'imprimir'])->name('reports.imprimir');
+        Route::get('/reports/excel', [$c, 'excel'])->name('reports.excel');
+    });
 });
 
 // CRM — leads, oportunidades e o funil. Deixou de ser placeholder: as quatro
