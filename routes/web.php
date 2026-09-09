@@ -1244,16 +1244,19 @@ Route::middleware(['auth', 'tenant.module:treasury'])->prefix('treasury')->name(
 // Events Module Routes
 Route::middleware(['auth', 'tenant.module:eventos'])->prefix('events')->name('events.')->group(function () {
     // Dashboard
-    Route::get('/dashboard', \App\Livewire\Events\Dashboard::class)->name('dashboard');
-    
+    Route::middleware('permission:events.dashboard.view')
+        ->get('/dashboard', \App\Livewire\Events\Dashboard::class)->name('dashboard');
+
     // Calendário
-    Route::get('/calendar', \App\Livewire\Events\EventCalendar::class)->name('calendar');
-    
+    Route::middleware('permission:events.calendar.view')
+        ->get('/calendar', \App\Livewire\Events\EventCalendar::class)->name('calendar');
+
     // Relatórios
-    Route::get('/reports', \App\Livewire\Events\Reports::class)->name('reports');
-    
+    Route::middleware('permission:events.reports.view')
+        ->get('/reports', \App\Livewire\Events\Reports::class)->name('reports');
+
     // Equipamentos
-    Route::prefix('equipment')->name('equipment.')->group(function () {
+    Route::prefix('equipment')->name('equipment.')->middleware('permission:events.equipment.view')->group(function () {
         Route::get('/', \App\Livewire\Events\Equipment\EquipmentManager::class)->name('index');
         Route::get('/dashboard', \App\Livewire\Events\Equipment\EquipmentDashboard::class)->name('dashboard');
         Route::get('/sets', \App\Livewire\Events\Equipment\EquipmentSets::class)->name('sets');
@@ -1286,17 +1289,17 @@ Route::middleware(['auth', 'tenant.module:eventos'])->prefix('events')->name('ev
     });
     
     // Locais
-    Route::prefix('venues')->name('venues.')->group(function () {
+    Route::prefix('venues')->name('venues.')->middleware('permission:events.venues.view')->group(function () {
         Route::get('/', \App\Livewire\Events\Venues\VenuesManager::class)->name('index');
     });
-    
+
     // Tipos de Eventos
-    Route::prefix('types')->name('types.')->group(function () {
+    Route::prefix('types')->name('types.')->middleware('permission:events.types.view')->group(function () {
         Route::get('/', \App\Livewire\Events\EventTypes::class)->name('index');
     });
-    
+
     // Técnicos
-    Route::prefix('technicians')->name('technicians.')->group(function () {
+    Route::prefix('technicians')->name('technicians.')->middleware('permission:events.technicians.view')->group(function () {
         Route::get('/', \App\Livewire\Events\TechniciansManager::class)->name('index');
     });
 });
@@ -1458,24 +1461,43 @@ Route::middleware(['auth', 'tenant.module:rh'])->prefix('hr')->name('hr.')->grou
         ->name('settings');
 });
 
-// Accounting Module Routes
+/*
+ * A CONTABILIDADE — trinta permissões declaradas e nenhuma rota a exigi-las.
+ *
+ * É o módulo onde estão os movimentos, o balancete e os períodos: quem abre a
+ * lista de lançamentos vê tudo o que a empresa facturou, pagou e deve.
+ */
 Route::middleware(['auth', 'tenant.module:contabilidade'])->prefix('accounting')->name('accounting.')->group(function () {
-    Route::get('/dashboard', \App\Livewire\Accounting\Dashboard::class)->name('dashboard');
-    Route::get('/accounts', \App\Livewire\Accounting\AccountManagement::class)->name('accounts');
-    Route::get('/journals', \App\Livewire\Accounting\JournalManagement::class)->name('journals');
-    Route::get('/document-types', \App\Livewire\Accounting\DocumentTypeManagement::class)->name('document-types');
-    Route::get('/moves', \App\Livewire\Accounting\MoveManagement::class)->name('moves');
-    Route::get('/periods', \App\Livewire\Accounting\PeriodManagement::class)->name('periods');
-    Route::get('/reports', \App\Livewire\Accounting\ReportsManagement::class)->name('reports');
-    
+    Route::middleware('permission:accounting.dashboard.view')
+        ->get('/dashboard', \App\Livewire\Accounting\Dashboard::class)->name('dashboard');
+    Route::middleware('permission:accounting.accounts.view')
+        ->get('/accounts', \App\Livewire\Accounting\AccountManagement::class)->name('accounts');
+    Route::middleware('permission:accounting.journals.view')
+        ->get('/journals', \App\Livewire\Accounting\JournalManagement::class)->name('journals');
+    Route::middleware('permission:accounting.document-types.view')
+        ->get('/document-types', \App\Livewire\Accounting\DocumentTypeManagement::class)->name('document-types');
+    Route::middleware('permission:accounting.moves.view')
+        ->get('/moves', \App\Livewire\Accounting\MoveManagement::class)->name('moves');
+    Route::middleware('permission:accounting.periods.view')
+        ->get('/periods', \App\Livewire\Accounting\PeriodManagement::class)->name('periods');
+    Route::middleware('permission:accounting.reports.view')
+        ->get('/reports', \App\Livewire\Accounting\ReportsManagement::class)->name('reports');
+
     // R1 & R2 Routes
-    Route::get('/reconciliation', \App\Livewire\Accounting\BankReconciliationManagement::class)->name('reconciliation');
-    Route::get('/fixed-assets', \App\Livewire\Accounting\FixedAssetManagement::class)->name('fixed-assets');
-    Route::get('/currencies', \App\Livewire\Accounting\CurrencyManagement::class)->name('currencies');
-    Route::get('/cost-centers', \App\Livewire\Accounting\CostCenterManagement::class)->name('cost-centers');
-    Route::get('/analytics', \App\Livewire\Accounting\AnalyticManagement::class)->name('analytics');
-    Route::get('/budgets', \App\Livewire\Accounting\BudgetManagement::class)->name('budgets');
-    Route::get('/settings', \App\Livewire\Accounting\SettingsManagement::class)->name('settings');
+    Route::middleware('permission:accounting.reconciliation.view')
+        ->get('/reconciliation', \App\Livewire\Accounting\BankReconciliationManagement::class)->name('reconciliation');
+    Route::middleware('permission:accounting.fixed-assets.view')
+        ->get('/fixed-assets', \App\Livewire\Accounting\FixedAssetManagement::class)->name('fixed-assets');
+    Route::middleware('permission:accounting.currencies.view')
+        ->get('/currencies', \App\Livewire\Accounting\CurrencyManagement::class)->name('currencies');
+    Route::middleware('permission:accounting.cost-centers.view')
+        ->get('/cost-centers', \App\Livewire\Accounting\CostCenterManagement::class)->name('cost-centers');
+    Route::middleware('permission:accounting.analytics.view')
+        ->get('/analytics', \App\Livewire\Accounting\AnalyticManagement::class)->name('analytics');
+    Route::middleware('permission:accounting.budgets.view')
+        ->get('/budgets', \App\Livewire\Accounting\BudgetManagement::class)->name('budgets');
+    Route::middleware('permission:accounting.settings.view')
+        ->get('/settings', \App\Livewire\Accounting\SettingsManagement::class)->name('settings');
 });
 
 // Notifications Module Routes

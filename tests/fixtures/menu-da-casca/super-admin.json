@@ -60,117 +60,12 @@
             "texto": "Eventos"
         },
         {
-            "tag": "a",
-            "href": "/events/dashboard",
-            "texto": "Dashboard"
-        },
-        {
-            "tag": "a",
-            "href": "/events/calendar",
-            "texto": "Calendário"
-        },
-        {
-            "tag": "a",
-            "href": "/events/reports",
-            "texto": "Relatórios"
-        },
-        {
-            "tag": "a",
-            "href": "/events/equipment",
-            "texto": "Equipamentos"
-        },
-        {
-            "tag": "a",
-            "href": "/events/venues",
-            "texto": "Locais"
-        },
-        {
-            "tag": "a",
-            "href": "/events/types",
-            "texto": "Tipos de Eventos"
-        },
-        {
-            "tag": "a",
-            "href": "/events/technicians",
-            "texto": "Técnicos"
-        },
-        {
             "tag": "button",
             "texto": "Recursos Humanos"
         },
         {
             "tag": "button",
             "texto": "Contabilidade"
-        },
-        {
-            "tag": "a",
-            "href": "/accounting/dashboard",
-            "texto": "Dashboard"
-        },
-        {
-            "tag": "a",
-            "href": "/accounting/accounts",
-            "texto": "Plano de Contas"
-        },
-        {
-            "tag": "a",
-            "href": "/accounting/journals",
-            "texto": "Diários"
-        },
-        {
-            "tag": "a",
-            "href": "/accounting/document-types",
-            "texto": "Tipos de Documentos"
-        },
-        {
-            "tag": "a",
-            "href": "/accounting/moves",
-            "texto": "Lançamentos"
-        },
-        {
-            "tag": "a",
-            "href": "/accounting/periods",
-            "texto": "Períodos"
-        },
-        {
-            "tag": "a",
-            "href": "/accounting/reports",
-            "texto": "Relatórios"
-        },
-        {
-            "tag": "a",
-            "href": "/accounting/reconciliation",
-            "texto": "Reconciliação"
-        },
-        {
-            "tag": "a",
-            "href": "/accounting/fixed-assets",
-            "texto": "Imobilizado"
-        },
-        {
-            "tag": "a",
-            "href": "/accounting/currencies",
-            "texto": "Moedas"
-        },
-        {
-            "tag": "a",
-            "href": "/accounting/cost-centers",
-            "texto": "Centros Custo"
-        },
-        {
-            "tag": "a",
-            "href": "/accounting/analytics",
-            "texto": "Analítica"
-        },
-        {
-            "tag": "a",
-            "href": "/accounting/budgets",
-            "texto": "Orçamentos"
-        },
-        {
-            "tag": "a",
-            "href": "/accounting/settings",
-            "texto": "Configurações"
         },
         {
             "tag": "button",
