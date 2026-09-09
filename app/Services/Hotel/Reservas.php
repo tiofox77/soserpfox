@@ -80,8 +80,10 @@ class Reservas
 
         $reserva->update($dados);
 
-        // A fidelidade do hóspede conta o que ele já gastou na casa.
-        $reserva->client?->incrementStays($valor);
+        // A FIDELIDADE CONTA O DINHEIRO, e não uma visita nova: quem está a
+        // pagar já foi contado quando chegou. `incrementStays()` — que era o
+        // que aqui estava — soma uma estada de cada vez que se recebe.
+        $reserva->client?->registarGasto($valor);
 
         return ['reserva' => $reserva->fresh(['client', 'room', 'roomType', 'invoice']), 'factura' => $factura];
     }

@@ -154,19 +154,50 @@ class Client extends Authenticatable
         return $this;
     }
 
+    /**
+     * MAIS UMA ESTADA — e, se vier valor, mais o que gastou.
+     *
+     * Conta a VISITA. Chama-se uma vez por estada, à entrada.
+     */
     public function incrementStays($amount = 0)
     {
+        return $this->somarFidelidade(1, (float) $amount);
+    }
+
+    /**
+     * O QUE GASTOU, sem contar uma visita nova.
+     *
+     * A mesma estada passa por vários sítios que mexem em dinheiro — o
+     * adiantamento na reserva, o pagamento no check-out — e todos chamavam
+     * `incrementStays()`, que soma UMA VISITA de cada vez. Um hóspede que
+     * pagasse sinal e depois a conta ficava com três estadas contadas por uma
+     * noite passada cá, e o VIP automático (dez visitas) chegava a quem tinha
+     * vindo três vezes.
+     */
+    public function registarGasto(float $amount)
+    {
+        return $this->somarFidelidade(0, $amount);
+    }
+
+    private function somarFidelidade(int $visitas, float $amount)
+    {
         $data = $this->loyalty_data;
-        $newVisits = ($data['total_visits'] ?? 0) + 1;
+        $newVisits = ($data['total_visits'] ?? 0) + $visitas;
         $newSpent = ($data['total_spent'] ?? 0) + $amount;
         $newPoints = ($data['loyalty_points'] ?? 0) + floor($amount / 1000) * self::LOYALTY_POINTS_PER_1000;
 
-        $this->updateLoyaltyData([
+        $mudanca = [
             'total_visits' => $newVisits,
             'total_spent' => $newSpent,
             'loyalty_points' => $newPoints,
-            'last_visit_at' => now()->toISOString(),
-        ]);
+        ];
+
+        // A última visita é a data de quem CHEGA, e não a de quem paga.
+        if ($visitas > 0) {
+            $mudanca['last_visit_at'] = now()->toISOString();
+        }
+
+        $this->updateLoyaltyData($mudanca);
 
         // Auto VIP
         if (!$this->hotel_vip && ($newVisits >= self::VIP_MIN_VISITS || $newSpent >= self::VIP_MIN_SPENT)) {

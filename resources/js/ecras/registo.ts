@@ -200,6 +200,10 @@ export const ecras: Record<string, Ecra> = {
         import('./hotel/Balcao'),
     'hotel/calendario': () =>
         import('./hotel/Calendario'),
+    'hotel/check-out': () =>
+        import('./hotel/CheckOut'),
+    'hotel/folio': () =>
+        import('./hotel/Folio'),
     'hotel/limpeza': () =>
         import('./hotel/Limpeza'),
     'hotel/manutencao': () =>

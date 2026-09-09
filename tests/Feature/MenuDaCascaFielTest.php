@@ -59,7 +59,7 @@ class MenuDaCascaFielTest extends TenantTestCase
         'salon.categories.view', 'salon.professionals.view', 'salon.products.view',
         'salon.pos.access', 'salon.reports.view', 'salon.settings.view',
         // O HOTEL, pela mesma razão.
-        'hotel.reservations.view', 'hotel.reservations.edit', 'hotel.walk-in.create',
+        'hotel.reservations.view', 'hotel.reservations.edit', 'hotel.checkout.manage', 'hotel.walk-in.create',
         'hotel.housekeeping.view', 'hotel.maintenance.view', 'hotel.staff.view',
         'hotel.rooms.view', 'hotel.room-types.view', 'hotel.guests.view',
         'hotel.reports.view', 'hotel.rates.view', 'hotel.packages.view', 'hotel.settings.view',

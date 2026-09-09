@@ -664,3 +664,154 @@ export const balcao = {
     registar: (dados: EntradaParaRegistar) =>
         api.criar<{ data: EntradaRegistada; message: string }>('/hotel/balcao', dados),
 };
+
+/* ─── O folio e o check-out ─────────────────────────────────────────── */
+
+export type CategoriaDeConsumo = Escolha & { icone: string; cor: string };
+
+export type OpcoesDoFecho = {
+    categorias: CategoriaDeConsumo[];
+    meios_de_pagamento: Escolha[];
+    permissoes: { pode_fechar: boolean; pode_lancar: boolean };
+};
+
+export type EstadaPorSair = {
+    id: number;
+    numero: string;
+    hospede: string;
+    telefone: string | null;
+    quarto: string | null;
+    tipo_de_quarto: string | null;
+    entrada: string | null;
+    saida: string | null;
+    noites: number;
+    total: number;
+    pago: number;
+    por_receber: number;
+};
+
+/** Três grupos: quem já devia ter saído vem primeiro. */
+export type PorSair = {
+    atrasados: EstadaPorSair[];
+    hoje: EstadaPorSair[];
+    depois: EstadaPorSair[];
+    total: number;
+};
+
+export type FacturaDoAdiantamento = {
+    id: number;
+    numero: string;
+    data: string | null;
+    base: number;
+    total: number;
+};
+
+export type ContaDaEstada = {
+    alojamento: number;
+    consumos: number;
+    desconto: number;
+    base: number;
+    imposto: number;
+    total: number;
+    pago: number;
+    por_receber: number;
+    /** Base já documentada em facturas de adiantamento (sem imposto). */
+    ja_facturado: number;
+    /** Quando o sinal já cobre a estada, emitir outra factura é um documento a mais. */
+    ja_facturada: boolean;
+    facturas: FacturaDoAdiantamento[];
+};
+
+export type ConsumoDoFolio = {
+    id: number;
+    categoria: string;
+    categoria_rotulo: string;
+    icone: string;
+    descricao: string;
+    quantidade: number;
+    preco: number;
+    total: number;
+    quando: string | null;
+    quem: string | null;
+    notas: string | null;
+};
+
+export type ResumoPorCategoria = {
+    categoria: string;
+    rotulo: string;
+    icone: string;
+    quantos: number;
+    total: number;
+};
+
+export type EstadaNoFecho = {
+    id: number;
+    numero: string;
+    hospede: string;
+    client_id: number | null;
+    telefone: string | null;
+    quarto: string | null;
+    tipo_de_quarto: string | null;
+    entrada: string | null;
+    saida: string | null;
+    noites: number;
+    taxa: number;
+    adultos: number;
+    criancas: number;
+    estado: string;
+    estado_rotulo: string;
+    estado_de_pagamento: string;
+    saiu_em: string | null;
+    invoice_id: number | null;
+};
+
+export type FolioDaEstada = {
+    reserva: EstadaNoFecho;
+    conta: ContaDaEstada;
+    consumos: ConsumoDoFolio[];
+    por_categoria: ResumoPorCategoria[];
+    /** O folio fecha com a estada: depois do check-out não aceita consumos. */
+    aberto: boolean;
+    porque_fechou: string | null;
+};
+
+export type ConsumoParaLancar = {
+    category: string;
+    description: string;
+    quantity: string;
+    unit_price: string;
+    notes: string;
+};
+
+export type ExtraDoFecho = { description: string; quantity: number; unit_price: number };
+
+type RespostaDoFolio = {
+    conta: ContaDaEstada;
+    consumos: ConsumoDoFolio[];
+    por_categoria: ResumoPorCategoria[];
+    message: string;
+};
+
+export const fecho = {
+    opcoes: () => api.ler<OpcoesDoFecho>('/hotel/fecho/opcoes'),
+    porSair: (procura: string) => api.ler<PorSair>('/hotel/fecho/por-sair', { procura }),
+    conta: (id: number) => api.ler<FolioDaEstada>(`/hotel/fecho/${id}`),
+
+    lancar: (id: number, dados: ConsumoParaLancar) =>
+        api.criar<RespostaDoFolio>(`/hotel/fecho/${id}/consumos`, dados),
+
+    apagarConsumo: (id: number, consumo: number) =>
+        api.apagar<RespostaDoFolio>(`/hotel/fecho/${id}/consumos/${consumo}`),
+
+    fechar: (id: number, dados: {
+        extras: ExtraDoFecho[];
+        pagamento: string;
+        meio: string;
+        facturar: boolean;
+        notas: string;
+    }) => api.criar<{
+        reserva: EstadaNoFecho;
+        factura: { id: number; numero: string; total: number } | null;
+        message: string;
+    }>(`/hotel/fecho/${id}/fechar`, dados),
+};

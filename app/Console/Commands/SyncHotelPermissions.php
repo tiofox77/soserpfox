@@ -80,6 +80,8 @@ class SyncHotelPermissions extends Command
             }
         }
 
+        $linhas = array_merge($linhas, $this->alinharOCheckOut());
+
         $novas = 0;
 
         foreach (array_chunk($linhas, 1000) as $bloco) {
@@ -91,5 +93,40 @@ class SyncHotelPermissions extends Command
         $this->info(count($linhas) . ' ligação(ões) processada(s), ' . $novas . ' nova(s).');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * QUEM PODIA FECHAR UMA ESTADA CONTINUA A PODER.
+     *
+     * A morada do check-out era guardada por `hotel.reservations.edit` e o
+     * ecrã não pedia mais nada: chegar lá era poder fechar. Mas a permissão que
+     * existe para isto — e que o catálogo de papéis mostra — é
+     * `hotel.checkout.manage`, e estava em MENOS papéis do que a outra: passar
+     * a exigi-la tirava o check-out a quem sempre o fez.
+     *
+     * Esta passagem dá `hotel.checkout.manage` a todos os papéis que já tinham
+     * `hotel.reservations.edit`. Não alarga nada: põe a permissão certa onde o
+     * poder já estava.
+     *
+     * @return list<array{permission_id: int, role_id: int}>
+     */
+    private function alinharOCheckOut(): array
+    {
+        $fechar = Permission::firstOrCreate(
+            ['name' => 'hotel.checkout.manage', 'guard_name' => 'web'],
+            ['description' => 'Fechar estadas (check-out)']
+        );
+
+        $editar = Permission::where('name', 'hotel.reservations.edit')->first();
+
+        if (! $editar) {
+            return [];
+        }
+
+        return DB::table('role_has_permissions')
+            ->where('permission_id', $editar->id)
+            ->pluck('role_id')
+            ->map(fn ($papel) => ['permission_id' => $fechar->id, 'role_id' => $papel])
+            ->all();
     }
 }

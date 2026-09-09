@@ -2,12 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Hotel\Checkout;
 use App\Models\Hotel\Reservation;
 use App\Models\Hotel\Room;
 use App\Models\Hotel\RoomType;
 use App\Models\Treasury\PaymentMethod;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -20,6 +18,7 @@ use Tests\TenantTestCase;
 class HotelReservationTest extends TenantTestCase
 {
     private const API = '/api/v1/invoicing/react/hotel/reservas';
+    private const FECHO = '/api/v1/invoicing/react/hotel/fecho';
 
     private RoomType $tipoQuarto;
     private PaymentMethod $metodo;
@@ -33,7 +32,8 @@ class HotelReservationTest extends TenantTestCase
         // passava por nenhum dos dois.
         $this->comModulo('hotel');
         $this->comPermissoes(
-            'hotel.reservations.view', 'hotel.reservations.create', 'hotel.reservations.edit'
+            'hotel.reservations.view', 'hotel.reservations.create', 'hotel.reservations.edit',
+            'hotel.checkout.manage'
         );
 
         $this->tipoQuarto = RoomType::create([
@@ -94,14 +94,29 @@ class HotelReservationTest extends TenantTestCase
         ])->assertOk();
     }
 
+    /**
+     * FECHAR A ESTADA pela porta de sempre — agora HTTP.
+     *
+     * O `pagamento` e o saldo, como o ecra propunha por omissao.
+     */
+    private function fecharEstada(Reservation $r, bool $facturar = true, array $extras = []): \Illuminate\Testing\TestResponse
+    {
+        $conta = $this->getJson(self::FECHO . "/{$r->id}")->json('conta');
+
+        return $this->postJson(self::FECHO . "/{$r->id}/fechar", [
+            'extras' => $extras,
+            'pagamento' => $conta['por_receber'] ?? 0,
+            'meio' => $this->metodo->id,
+            'facturar' => $facturar,
+        ]);
+    }
+
     public function test_sinal_parcial_e_abatido_na_fatura_final(): void
     {
         $r = $this->reserva();
         $this->pagarSinal($r, 22800);   // 20.000 de base + IVA
 
-        Livewire::test(Checkout::class)
-            ->call('loadReservation', $r->id)
-            ->call('processCheckout');
+        $this->fecharEstada($r)->assertOk();
 
         $facturas = $r->fresh()->invoices()->get();
 
@@ -117,9 +132,7 @@ class HotelReservationTest extends TenantTestCase
         $r = $this->reserva();
         $this->pagarSinal($r, 22800);   // 20.000 de base + IVA
 
-        Livewire::test(Checkout::class)
-            ->call('loadReservation', $r->id)
-            ->call('processCheckout');
+        $this->fecharEstada($r)->assertOk();
 
         foreach ($r->fresh()->invoices()->get() as $factura) {
             $this->assertGreaterThan(0, (float) $factura->total, 'documento de total não positivo');
@@ -139,9 +152,7 @@ class HotelReservationTest extends TenantTestCase
         // Sinal de 20.000 de base contra alojamento de 60.000: sobram 40.000.
         $this->pagarSinal($r, 22800);
 
-        Livewire::test(Checkout::class)
-            ->call('loadReservation', $r->id)
-            ->call('processCheckout');
+        $this->fecharEstada($r)->assertOk();
 
         $final = $r->fresh()->invoices()->get()
             ->sortByDesc('id')
@@ -163,9 +174,7 @@ class HotelReservationTest extends TenantTestCase
         $r = $this->reserva();
         $this->pagarSinal($r, 68400);   // 60.000 de base + IVA
 
-        Livewire::test(Checkout::class)
-            ->call('loadReservation', $r->id)
-            ->call('processCheckout');
+        $this->fecharEstada($r)->assertOk();
 
         $this->assertCount(1, $r->fresh()->invoices()->get(),
             'Emitir uma FT de total zero ou negativo é pior do que não emitir');
@@ -176,11 +185,11 @@ class HotelReservationTest extends TenantTestCase
         $r = $this->reserva();
         $this->pagarSinal($r, 68400);
 
-        $ecra = Livewire::test(Checkout::class)->call('loadReservation', $r->id);
+        $conta = $this->getJson(self::FECHO . "/{$r->id}")->assertOk()->json('conta');
 
-        $this->assertTrue($ecra->get('estadiaJaFacturada'));
-        $this->assertFalse($ecra->get('generateInvoice'), 'Não propor emitir mais um documento');
-        $this->assertStringContainsString('reimprima', mb_strtolower($ecra->html()));
+        $this->assertTrue($conta['ja_facturada'], 'Não propor emitir mais um documento');
+        $this->assertEqualsWithDelta(60000, $conta['ja_facturado'], 0.05);
+        $this->assertNotEmpty($conta['facturas'], 'o ecrã diz QUAL documento reimprimir');
     }
 
     public function test_juntar_consumo_reabre_a_emissao_da_fatura(): void
@@ -188,16 +197,17 @@ class HotelReservationTest extends TenantTestCase
         $r = $this->reserva();
         $this->pagarSinal($r, 68400);
 
-        $ecra = Livewire::test(Checkout::class)->call('loadReservation', $r->id);
-        $this->assertFalse($ecra->get('generateInvoice'));
+        $this->assertTrue($this->getJson(self::FECHO . "/{$r->id}")->json('conta.ja_facturada'));
 
-        $ecra->set('newExtraDescription', 'Minibar')
-             ->set('newExtraAmount', 5000)
-             ->set('newExtraQuantity', 1)
-             ->call('addExtra');
+        $this->postJson(self::FECHO . "/{$r->id}/consumos", [
+            'category' => 'minibar',
+            'description' => 'Minibar',
+            'quantity' => 1,
+            'unit_price' => 5000,
+        ])->assertCreated();
 
-        $this->assertFalse($ecra->get('estadiaJaFacturada'));
-        $this->assertTrue($ecra->get('generateInvoice'), 'O consumo novo não pode sair sem fatura');
+        $this->assertFalse($this->getJson(self::FECHO . "/{$r->id}")->json('conta.ja_facturada'),
+            'O consumo novo não pode sair sem factura');
     }
 
     public function test_pagamento_acima_do_saldo_e_recusado(): void
@@ -245,9 +255,7 @@ class HotelReservationTest extends TenantTestCase
             'charged_at'     => now(),
         ]);
 
-        Livewire::test(Checkout::class)
-            ->call('loadReservation', $r->id)
-            ->call('processCheckout');
+        $this->fecharEstada($r)->assertOk();
 
         $factura = $r->fresh()->invoices()->first();
 
@@ -265,11 +273,8 @@ class HotelReservationTest extends TenantTestCase
 
         $antes = \App\Models\Invoicing\SalesInvoice::where('tenant_id', $this->tenant->id)->count();
 
-        $ecra = Livewire::test(Checkout::class)
-            ->call('loadReservation', $r->id)
-            ->call('processCheckout');
+        $this->fecharEstada($r)->assertStatus(422);
 
-        $this->assertFalse($ecra->get('checkoutComplete'));
         $this->assertSame($antes, \App\Models\Invoicing\SalesInvoice::where('tenant_id', $this->tenant->id)->count());
     }
 
@@ -365,16 +370,14 @@ class HotelReservationTest extends TenantTestCase
     {
         $r = $this->reserva('checked_out');
 
-        $ecra = Livewire::test(\App\Livewire\Hotel\ReservationFolio::class, ['id' => $r->id])
-            ->set('category', 'minibar')
-            ->set('description', 'Cerveja')
-            ->set('quantity', 1)
-            ->set('unitPrice', 1000)
-            ->call('addCharge');
+        $this->postJson(self::FECHO . "/{$r->id}/consumos", [
+            'category' => 'minibar',
+            'description' => 'Cerveja',
+            'quantity' => 1,
+            'unit_price' => 1000,
+        ])->assertStatus(422)->assertJsonValidationErrors('description');
 
         $this->assertSame(0, \App\Models\Hotel\ReservationItem::where('reservation_id', $r->id)->count(),
             'Um hóspede que já saiu não acumula consumos novos');
-
-        $ecra->assertDispatched('toast');
     }
 }

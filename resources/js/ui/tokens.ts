@@ -197,3 +197,24 @@ export function data(iso: string | null | undefined): string {
         ? '—'
         : d.toLocaleDateString(etiquetaIntl(), { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
+
+/**
+ * A DATA COM A HORA — para o que aconteceu num instante, e não num dia.
+ *
+ * Um consumo lançado no folio, uma limpeza começada, um documento emitido: a
+ * hora é a parte que responde «foi antes ou depois?».
+ */
+export function dataHora(iso: string | null | undefined): string {
+    if (!iso) {
+        return '—';
+    }
+
+    const d = new Date(iso);
+
+    return Number.isNaN(d.getTime())
+        ? '—'
+        : d.toLocaleString(etiquetaIntl(), {
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit',
+        });
+}

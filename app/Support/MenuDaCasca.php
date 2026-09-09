@@ -307,7 +307,7 @@ final class MenuDaCasca
                     ['rota' => 'hotel.dashboard', 'rotulo' => 'Dashboard', 'icone' => 'fa-chart-line', 'cor' => 'blue-400', 'activo' => 'hotel.dashboard', 'permissao' => 'hotel.dashboard.view'],
                     ['rota' => 'hotel.reservations', 'rotulo' => 'Reservas', 'icone' => 'fa-calendar-check', 'cor' => 'green-400', 'activo' => 'hotel.reservations*', 'permissao' => 'hotel.reservations.view'],
                     ['rota' => 'hotel.walk-in', 'rotulo' => 'Walk-in', 'icone' => 'fa-walking', 'cor' => 'emerald-400', 'activo' => 'hotel.walk-in*', 'permissao' => 'hotel.walk-in.create'],
-                    ['rota' => 'hotel.checkout', 'rotulo' => 'Check-out', 'icone' => 'fa-sign-out-alt', 'cor' => 'red-400', 'activo' => 'hotel.checkout*', 'permissao' => 'hotel.reservations.edit'],
+                    ['rota' => 'hotel.checkout', 'rotulo' => 'Check-out', 'icone' => 'fa-sign-out-alt', 'cor' => 'red-400', 'activo' => 'hotel.checkout*', 'permissao' => 'hotel.checkout.manage'],
                     ['rota' => 'hotel.calendar', 'rotulo' => 'Calendário', 'icone' => 'fa-calendar-alt', 'cor' => 'indigo-400', 'activo' => 'hotel.calendar*', 'permissao' => 'hotel.reservations.view'],
                     ['rota' => 'hotel.housekeeping', 'rotulo' => 'Housekeeping', 'icone' => 'fa-broom', 'cor' => 'teal-400', 'activo' => 'hotel.housekeeping*', 'permissao' => 'hotel.housekeeping.view'],
                     ['rota' => 'hotel.maintenance', 'rotulo' => 'Manutenção', 'icone' => 'fa-tools', 'cor' => 'orange-400', 'activo' => 'hotel.maintenance*', 'permissao' => 'hotel.maintenance.view'],

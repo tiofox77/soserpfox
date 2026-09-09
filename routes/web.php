@@ -737,6 +737,24 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::post('/', [$c, 'registar'])->name('registar');
         });
 
+        /*
+         * O FOLIO E O CHECK-OUT — a conta da estada, e o seu fecho.
+         *
+         * São o mesmo assunto em dois momentos: o folio acumula durante a
+         * estada, o check-out fecha-a e emite o documento.
+         */
+        Route::prefix('hotel/fecho')->name('hotel.fecho.')->group(function () {
+            $c = \App\Http\Controllers\Api\Hotel\FechoApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/por-sair', [$c, 'porSair'])->name('por-sair');
+            Route::get('/{id}', [$c, 'conta'])->whereNumber('id')->name('conta');
+            Route::post('/{id}/consumos', [$c, 'lancar'])->whereNumber('id')->name('consumos.lancar');
+            Route::delete('/{id}/consumos/{consumo}', [$c, 'apagarConsumo'])
+                ->whereNumber('id')->whereNumber('consumo')->name('consumos.apagar');
+            Route::post('/{id}/fechar', [$c, 'fechar'])->whereNumber('id')->name('fechar');
+        });
+
         Route::prefix('oficina/ordens')->name('oficina.ordens.')->group(function () {
             $c = \App\Http\Controllers\Api\Workshop\OrdensApiController::class;
 
@@ -1827,8 +1845,8 @@ Route::middleware(['auth', 'tenant.module:hotel'])->prefix('hotel')->name('hotel
     // Parâmetro opcional: permite abrir o check-out já numa reserva concreta
     // (é o que o botão da lista de reservas faz). Sem parâmetro continua a
     // abrir o ecrã de pesquisa, como o menu lateral espera.
-    Route::middleware('permission:hotel.reservations.edit')
-        ->get('/checkout/{reservationId?}', \App\Livewire\Hotel\Checkout::class)->name('checkout');
+    Route::middleware('permission:hotel.checkout.manage')
+        ->get('/checkout/{id?}', \App\Support\EcraReact::pagina('hotel/check-out', 'Check-out'))->name('checkout');
     Route::middleware('permission:hotel.reservations.view')
         ->get('/calendar', \App\Support\EcraReact::pagina('hotel/calendario', 'Calendário'))->name('calendar');
     Route::middleware('permission:hotel.housekeeping.view')
@@ -1876,7 +1894,7 @@ Route::middleware(['auth', 'tenant.module:hotel'])->prefix('hotel')->name('hotel
 
     // Folio (consumos por reserva)
     Route::middleware('permission:hotel.reservations.view')
-        ->get('/reservations/{id}/folio', \App\Livewire\Hotel\ReservationFolio::class)->name('reservations.folio');
+        ->get('/reservations/{id}/folio', \App\Support\EcraReact::pagina('hotel/folio', 'Folio'))->name('reservations.folio');
 
     // Documents (PDF/HTML print-friendly)
     Route::middleware('permission:hotel.reservations.view')->group(function () {
