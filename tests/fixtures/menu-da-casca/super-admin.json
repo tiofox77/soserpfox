@@ -177,41 +177,6 @@
             "texto": "Gestão de Oficina"
         },
         {
-            "tag": "a",
-            "href": "/workshop/dashboard",
-            "texto": "Dashboard"
-        },
-        {
-            "tag": "a",
-            "href": "/workshop/vehicles",
-            "texto": "Veículos"
-        },
-        {
-            "tag": "a",
-            "href": "/workshop/mechanics",
-            "texto": "Mecânicos"
-        },
-        {
-            "tag": "a",
-            "href": "/workshop/services",
-            "texto": "Serviços"
-        },
-        {
-            "tag": "a",
-            "href": "/workshop/parts",
-            "texto": "Peças"
-        },
-        {
-            "tag": "a",
-            "href": "/workshop/work-orders",
-            "texto": "Ordens de Serviço"
-        },
-        {
-            "tag": "a",
-            "href": "/workshop/reports",
-            "texto": "Relatórios"
-        },
-        {
             "tag": "button",
             "texto": "Gestão de Hotel"
         },
@@ -298,56 +263,6 @@
         {
             "tag": "button",
             "texto": "Salão de Beleza"
-        },
-        {
-            "tag": "a",
-            "href": "/salon/dashboard",
-            "texto": "Dashboard"
-        },
-        {
-            "tag": "a",
-            "href": "/salon/appointments",
-            "texto": "Agendamentos"
-        },
-        {
-            "tag": "a",
-            "href": "/salon/clients",
-            "texto": "Clientes"
-        },
-        {
-            "tag": "a",
-            "href": "/salon/services",
-            "texto": "Serviços"
-        },
-        {
-            "tag": "a",
-            "href": "/salon/services/categories",
-            "texto": "Categorias"
-        },
-        {
-            "tag": "a",
-            "href": "/salon/professionals",
-            "texto": "Profissionais"
-        },
-        {
-            "tag": "a",
-            "href": "/salon/products",
-            "texto": "Produtos"
-        },
-        {
-            "tag": "a",
-            "href": "/salon/pos",
-            "texto": "POS / Faturar"
-        },
-        {
-            "tag": "a",
-            "href": "/salon/reports/time",
-            "texto": "Relatórios"
-        },
-        {
-            "tag": "a",
-            "href": "/salon/settings",
-            "texto": "Configurações"
         },
         {
             "tag": "button",

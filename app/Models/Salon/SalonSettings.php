@@ -2,13 +2,14 @@
 
 namespace App\Models\Salon;
 
+use App\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
 class SalonSettings extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToTenant;
 
     protected $table = 'salon_settings';
 
@@ -97,13 +98,21 @@ class SalonSettings extends Model
     /**
      * Gera um slug único para booking
      */
+    /**
+     * Um slug que ainda ninguém usa — E NÃO SÓ NESTA EMPRESA.
+     *
+     * O slug é a morada pública (`/agendar/joana`) e tem de ser único no
+     * mundo, não por empresa. A verificação corre `withoutGlobalScopes()` de
+     * propósito: com o escopo de empresa a filtrar, dois salões chegavam ao
+     * mesmo «joana», e o segundo roubava a morada do primeiro.
+     */
     public static function generateUniqueSlug(string $name): string
     {
         $baseSlug = Str::slug($name);
         $slug = $baseSlug;
         $counter = 1;
 
-        while (self::where('booking_slug', $slug)->exists()) {
+        while (self::withoutGlobalScopes()->where('booking_slug', $slug)->exists()) {
             $slug = $baseSlug . '-' . $counter;
             $counter++;
         }
@@ -150,9 +159,18 @@ class SalonSettings extends Model
     /**
      * Obter settings pelo slug de booking
      */
+    /**
+     * O SALÃO PELA SUA MORADA PÚBLICA.
+     *
+     * SEM O ESCOPO DE EMPRESA, e de propósito: numa página pública o SLUG é
+     * que escolhe a empresa. Quem abre `/agendar/joana` pode não ter sessão
+     * nenhuma — e se tiver, pode estar com outra empresa activa. Deixar o
+     * escopo entrar aqui fazia a página do vizinho dar 404 a quem está com a
+     * sua própria empresa aberta noutro separador.
+     */
     public static function getBySlug(string $slug): ?self
     {
-        return static::where('booking_slug', $slug)->first();
+        return static::withoutGlobalScopes()->where('booking_slug', $slug)->first();
     }
 
     // Scopes

@@ -1484,16 +1484,35 @@ Route::middleware(['auth', 'tenant.module:notifications'])->prefix('notification
     Route::get('/templates', \App\Livewire\Settings\ManageNotificationTemplates::class)->name('templates');
 });
 
-// Workshop Module Routes
+/*
+ * A OFICINA — e as dezanove permissões que existiam sem ninguém as aplicar.
+ *
+ * Como no RH: estavam declaradas, apareciam no ecrã de papéis, e nenhuma das
+ * oito rotas as exigia. Quem tivesse o módulo activo abria a lista de ordens
+ * de trabalho, os mecânicos e os relatórios.
+ *
+ * A segunda tranca é o escopo de empresa nos modelos (`BelongsToTenant`), que
+ * fechou os `find()` que os componentes esqueciam.
+ */
 Route::middleware(['auth', 'tenant.module:oficina'])->prefix('workshop')->name('workshop.')->group(function () {
-    Route::get('/dashboard', \App\Livewire\Workshop\Dashboard::class)->name('dashboard');
-    Route::get('/vehicles', \App\Livewire\Workshop\VehicleManagement::class)->name('vehicles');
-    Route::get('/mechanics', \App\Livewire\Workshop\MechanicManagement::class)->name('mechanics');
-    Route::get('/services', \App\Livewire\Workshop\ServiceManagement::class)->name('services');
-    Route::get('/parts', \App\Livewire\Workshop\PartManagement::class)->name('parts');
-    Route::get('/work-orders', \App\Livewire\Workshop\WorkOrderManagement::class)->name('work-orders');
-    Route::get('/work-orders/{id}/print', [\App\Http\Controllers\Workshop\WorkOrderController::class, 'printPreview'])->name('work-orders.print');
-    Route::get('/reports', \App\Livewire\Workshop\Reports::class)->name('reports');
+    Route::middleware('permission:workshop.dashboard.view')
+        ->get('/dashboard', \App\Livewire\Workshop\Dashboard::class)->name('dashboard');
+    Route::middleware('permission:workshop.vehicles.view')
+        ->get('/vehicles', \App\Livewire\Workshop\VehicleManagement::class)->name('vehicles');
+    Route::middleware('permission:workshop.mechanics.view')
+        ->get('/mechanics', \App\Livewire\Workshop\MechanicManagement::class)->name('mechanics');
+    Route::middleware('permission:workshop.services.view')
+        ->get('/services', \App\Livewire\Workshop\ServiceManagement::class)->name('services');
+    Route::middleware('permission:workshop.parts.view')
+        ->get('/parts', \App\Livewire\Workshop\PartManagement::class)->name('parts');
+    Route::middleware('permission:workshop.work-orders.view')
+        ->get('/work-orders', \App\Livewire\Workshop\WorkOrderManagement::class)->name('work-orders');
+    // A ordem em papel leva a viatura, o dono e o preço: a mesma permissão do
+    // ecrã de onde se abre.
+    Route::get('/work-orders/{id}/print', [\App\Http\Controllers\Workshop\WorkOrderController::class, 'printPreview'])
+        ->middleware('permission:workshop.work-orders.view')->name('work-orders.print');
+    Route::middleware('permission:workshop.reports.view')
+        ->get('/reports', \App\Livewire\Workshop\Reports::class)->name('reports');
 });
 
 // CRM — leads, oportunidades e o funil. Deixou de ser placeholder: as quatro
@@ -1622,18 +1641,35 @@ Route::get('/booking/{tenant?}', function ($tenant = null) {
 
 Route::get('/hotel/booking/{slug}', \App\Livewire\Hotel\HotelBookingOnline::class)->name('hotel.booking.online');
 
-// Salon Module Routes
+/*
+ * O SALÃO — vinte e nove permissões declaradas e nenhuma rota a exigi-las.
+ *
+ * As DEFINIÇÕES são o caso mais caro: é lá que se muda a morada pública do
+ * salão, as horas de funcionamento e a política de cancelamento. Ver e alterar
+ * são duas permissões diferentes, e a rota pede a de ver — alterar é a guarda
+ * do próprio ecrã.
+ */
 Route::middleware(['auth', 'tenant.module:salon'])->prefix('salon')->name('salon.')->group(function () {
-    Route::get('/dashboard', \App\Livewire\Salon\Dashboard::class)->name('dashboard');
-    Route::get('/appointments', \App\Livewire\Salon\AppointmentManagement::class)->name('appointments');
-    Route::get('/services', \App\Livewire\Salon\ServiceManagement::class)->name('services');
-    Route::get('/services/categories', \App\Livewire\Salon\ServiceCategoryManagement::class)->name('services.categories');
-    Route::get('/professionals', \App\Livewire\Salon\ProfessionalManagement::class)->name('professionals');
-    Route::get('/clients', \App\Livewire\Salon\ClientManagement::class)->name('clients');
-    Route::get('/products', \App\Livewire\Salon\ProductManagement::class)->name('products');
-    Route::get('/pos', \App\Livewire\Salon\SalonPOS::class)->name('pos');
-    Route::get('/reports/time', \App\Livewire\Salon\TimeReport::class)->name('reports.time');
-    Route::get('/settings', \App\Livewire\Salon\SalonSettingsManagement::class)->name('settings');
+    Route::middleware('permission:salon.dashboard.view')
+        ->get('/dashboard', \App\Livewire\Salon\Dashboard::class)->name('dashboard');
+    Route::middleware('permission:salon.appointments.view')
+        ->get('/appointments', \App\Livewire\Salon\AppointmentManagement::class)->name('appointments');
+    Route::middleware('permission:salon.services.view')
+        ->get('/services', \App\Livewire\Salon\ServiceManagement::class)->name('services');
+    Route::middleware('permission:salon.categories.view')
+        ->get('/services/categories', \App\Livewire\Salon\ServiceCategoryManagement::class)->name('services.categories');
+    Route::middleware('permission:salon.professionals.view')
+        ->get('/professionals', \App\Livewire\Salon\ProfessionalManagement::class)->name('professionals');
+    Route::middleware('permission:salon.clients.view')
+        ->get('/clients', \App\Livewire\Salon\ClientManagement::class)->name('clients');
+    Route::middleware('permission:salon.products.view')
+        ->get('/products', \App\Livewire\Salon\ProductManagement::class)->name('products');
+    Route::middleware('permission:salon.pos.access')
+        ->get('/pos', \App\Livewire\Salon\SalonPOS::class)->name('pos');
+    Route::middleware('permission:salon.reports.view')
+        ->get('/reports/time', \App\Livewire\Salon\TimeReport::class)->name('reports.time');
+    Route::middleware('permission:salon.settings.view')
+        ->get('/settings', \App\Livewire\Salon\SalonSettingsManagement::class)->name('settings');
 });
 
 // Salon Booking Online (Public) - Landing Page Customizada

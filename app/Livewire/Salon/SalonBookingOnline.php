@@ -177,7 +177,13 @@ class SalonBookingOnline extends Component
             return [];
         }
         
-        $professional = Professional::find($this->selectedProfessional);
+        // PELO SALÃO DESTA MORADA, e não por id solto: `selectedProfessional`
+        // é uma propriedade pública do Livewire — vem do browser —, e sem o
+        // filtro dava para pedir a agenda de um profissional de outro salão.
+        $professional = Professional::withoutGlobalScopes()
+            ->where('tenant_id', $this->tenantId)
+            ->find($this->selectedProfessional);
+
         if (!$professional) {
             return [];
         }
@@ -532,7 +538,9 @@ class SalonBookingOnline extends Component
             $this->confirmationData = [
                 'appointment' => $appointment->load(['client', 'professional', 'services.service']),
                 'services' => $this->selectedServicesData,
-                'professional' => Professional::find($this->selectedProfessional),
+                'professional' => Professional::withoutGlobalScopes()
+                    ->where('tenant_id', $this->tenantId)
+                    ->find($this->selectedProfessional),
             ];
             
             $this->step = 4;

@@ -226,6 +226,16 @@ class ModuloDoSalaoTest extends TenantTestCase
     /** As áreas todas do salão abrem. @test */
     public function todos_os_ecras_do_salao_abrem(): void
     {
+        // AS DEZ ROTAS PASSARAM A PEDIR PERMISSÃO. As vinte e nove do salão
+        // existiam e nenhuma rota as exigia; o que este ensaio mede é que os
+        // ecrãs abrem a quem PODE, e a permissão que falta está no
+        // `SalaoNaoAtravessaEmpresasTest`.
+        $this->comPermissoes(
+            'salon.dashboard.view', 'salon.appointments.view', 'salon.clients.view',
+            'salon.professionals.view', 'salon.services.view', 'salon.categories.view',
+            'salon.products.view', 'salon.pos.access', 'salon.reports.view', 'salon.settings.view',
+        );
+
         foreach ([
             '/salon/dashboard', '/salon/appointments', '/salon/clients',
             '/salon/professionals', '/salon/services', '/salon/services/categories',

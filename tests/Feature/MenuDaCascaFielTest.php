@@ -51,6 +51,13 @@ class MenuDaCascaFielTest extends TenantTestCase
         'restaurant.dashboard.view', 'restaurant.floor.view', 'restaurant.orders.view', 'restaurant.settings.view',
         'restaurant.kitchen.view', 'restaurant.reservations.view', 'restaurant.recipes.view', 'restaurant.stock.view',
         'restaurant.reports.view',
+        // A OFICINA E O SALÃO: as entradas do menu passaram a estar atrás da
+        // permissão que a rota exige, como as do RH.
+        'workshop.vehicles.view', 'workshop.mechanics.view', 'workshop.services.view',
+        'workshop.parts.view', 'workshop.work-orders.view', 'workshop.reports.view',
+        'salon.appointments.view', 'salon.clients.view', 'salon.services.view',
+        'salon.categories.view', 'salon.professionals.view', 'salon.products.view',
+        'salon.pos.access', 'salon.reports.view', 'salon.settings.view',
         'crm.dashboard.view', 'crm.integrations.manage', 'compras.dashboard.view', 'compras.requisicoes.view',
         'compras.encomendas.view', 'projetos.dashboard.view', 'projetos.tarefas.view', 'projetos.horas.registar',
         'settings.view',

@@ -2,14 +2,24 @@
 
 namespace App\Models\Workshop;
 
+use App\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * O MECÂNICO PERTENCE A UMA EMPRESA — e o escopo global é que o garante.
+ *
+ * Os componentes filtravam por `tenant_id` em quase todo o lado e esqueciam-se
+ * num ou noutro: `Mechanic::find($this->editingId)->update(...)` sobre uma
+ * propriedade pública do Livewire, que o browser define, e um
+ * `findOrFail($id)` no «ver». Filtrar os sítios à mão deixa o próximo aberto;
+ * o escopo fecha-os todos e os que vierem.
+ */
 class Mechanic extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, BelongsToTenant;
     
     protected $table = 'workshop_mechanics';
     
