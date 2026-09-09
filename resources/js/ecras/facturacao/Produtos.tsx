@@ -121,10 +121,27 @@ function rotuloDe(lista: Escolha[] | undefined, valor: string | null): string {
     return lista?.find((e) => e.valor === valor)?.rotulo ?? valor ?? '';
 }
 
-export default function Produtos() {
+/**
+ * O CATÁLOGO DE ARTIGOS — e, na oficina, as PEÇAS.
+ *
+ * Uma peça É um produto do catálogo: a mesma tabela, as mesmas regras fiscais,
+ * os mesmos campos. O ecrã da oficina em Livewire já herdava deste (dizia-o no
+ * cabeçalho: «quando a oficina migrar, isto vai com ela») — aqui a herança é
+ * uma prop.
+ *
+ * O `tipo` é um valor INICIAL do filtro e não um valor imposto: a oficina abre
+ * nas peças, mas quem lá está pode alargar a «Todos». Fixá-lo a cada desenho
+ * deixava o filtro impossível de limpar, e numa empresa de serviços o ecrã
+ * ficava vazio sem forma de lá chegar.
+ */
+export default function Produtos({ tipo, titulo, subtitulo }: {
+    tipo?: string;
+    titulo?: string;
+    subtitulo?: string;
+} = {}) {
     const cache = useQueryClient();
 
-    const [filtros, porFiltros] = useState<FiltrosDeArtigos>({ procura: '', page: 1 });
+    const [filtros, porFiltros] = useState<FiltrosDeArtigos>({ procura: '', page: 1, ...(tipo ? { tipo } : {}) });
     /** O artigo cujo rastreio está aberto. Null é o modal fechado. */
     const [aRastrear, porARastrear] = useState<Artigo | null>(null);
     /** O artigo cuja FICHA está aberta — só para ler, sem risco de lhe mexer. */
@@ -295,8 +312,8 @@ export default function Produtos() {
                 botão principal à direita, como em Blade. A migração deixou a
                 página a começar por uma fila de cartões, sem título nenhum. */}
             <Faixa
-                titulo={t('Produtos/Serviços')}
-                subtitulo={t('Gerir catálogo de produtos')}
+                titulo={titulo ? t(titulo) : t('Produtos/Serviços')}
+                subtitulo={subtitulo ? t(subtitulo) : t('Gerir catálogo de produtos')}
                 icone="fa-box"
                 cor="roxo"
                 accoes={

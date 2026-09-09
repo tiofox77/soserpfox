@@ -493,6 +493,15 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         // de pagamento e impostos — uma API só, o esquema vem do Catalogos.
         Route::get('/catalogos/{tipo}/opcoes', [\App\Http\Controllers\Api\Invoicing\CatalogoApiController::class, 'opcoes'])
             ->where('tipo', '[a-z-]+')->name('catalogos.opcoes');
+        /*
+         * IMPORTAR PARA O CATÁLOGO — hoje, os mecânicos a partir do pessoal do
+         * RH. Não pende de um registo (não há `{id}`): a lista é de quem AINDA
+         * NÃO está cá dentro, e o POST cria-os.
+         */
+        Route::get('/catalogos/{tipo}/importaveis', [\App\Http\Controllers\Api\Invoicing\CatalogoApiController::class, 'importaveis'])
+            ->where('tipo', '[a-z-]+')->name('catalogos.importaveis');
+        Route::post('/catalogos/{tipo}/importar', [\App\Http\Controllers\Api\Invoicing\CatalogoApiController::class, 'importar'])
+            ->where('tipo', '[a-z-]+')->name('catalogos.importar');
         // O EXTRATO — só nos fornecedores, que são os únicos que o têm. Vem
         // ANTES do `{tipo}/{id}` genérico: uma rota mais larga declarada antes
         // apanharia `/fornecedores/12/extrato` como um `accao`.
@@ -1539,14 +1548,38 @@ Route::middleware(['auth', 'tenant.module:notifications'])->prefix('notification
 Route::middleware(['auth', 'tenant.module:oficina'])->prefix('workshop')->name('workshop.')->group(function () {
     Route::middleware('permission:workshop.dashboard.view')
         ->get('/dashboard', \App\Livewire\Workshop\Dashboard::class)->name('dashboard');
+    /*
+     * VIATURAS, MECÂNICOS E SERVIÇOS — o ecrã genérico dos catálogos.
+     *
+     * Eram três componentes Livewire com a forma de sempre (lista, modal,
+     * gravar, apagar) e três cópias das mesmas quinhentas linhas. O que os
+     * distingue vive agora no esquema (`App\Services\Invoicing\Catalogos`), e
+     * o ecrã é o mesmo que serve os fornecedores e os turnos.
+     */
     Route::middleware('permission:workshop.vehicles.view')
-        ->get('/vehicles', \App\Livewire\Workshop\VehicleManagement::class)->name('vehicles');
+        ->get('/vehicles', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Viaturas', ['tipo' => 'viaturas']))->name('vehicles');
     Route::middleware('permission:workshop.mechanics.view')
-        ->get('/mechanics', \App\Livewire\Workshop\MechanicManagement::class)->name('mechanics');
+        ->get('/mechanics', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Mecânicos', ['tipo' => 'mecanicos']))->name('mechanics');
     Route::middleware('permission:workshop.services.view')
-        ->get('/services', \App\Livewire\Workshop\ServiceManagement::class)->name('services');
+        ->get('/services', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Serviços', ['tipo' => 'servicos']))->name('services');
+    /*
+     * AS PEÇAS SÃO OS ARTIGOS DA FACTURAÇÃO, filtrados ao que é físico.
+     *
+     * O Livewire da oficina já herdava do ecrã de artigos — o cabeçalho da
+     * classe copiada dizia-o: «quando a oficina migrar, isto vai com ela». É o
+     * que acontece aqui: a mesma tabela, as mesmas regras fiscais, o mesmo
+     * ecrã, com o filtro do tipo já posto e o nome que a oficina lhe dá.
+     *
+     * A API dos artigos continua a pedir `invoicing.products.*`, que é a
+     * autoridade verdadeira sobre o catálogo — quem gere peças gere artigos.
+     * O `permissions:sync-oficina` reparte-a por quem tinha só a da oficina.
+     */
     Route::middleware('permission:workshop.parts.view')
-        ->get('/parts', \App\Livewire\Workshop\PartManagement::class)->name('parts');
+        ->get('/parts', \App\Support\EcraReact::pagina('facturacao/produtos', 'Peças', [
+            'tipo' => 'produto',
+            'titulo' => 'Peças',
+            'subtitulo' => 'O catálogo de artigos da casa, aberto nas peças',
+        ]))->name('parts');
     Route::middleware('permission:workshop.work-orders.view')
         ->get('/work-orders', \App\Livewire\Workshop\WorkOrderManagement::class)->name('work-orders');
     // A ordem em papel leva a viatura, o dono e o preço: a mesma permissão do

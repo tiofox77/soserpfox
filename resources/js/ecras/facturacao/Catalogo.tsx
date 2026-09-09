@@ -15,7 +15,7 @@ import { Modal } from '@/ui/Modal';
 import { IntervaloDeDatas, PorPagina } from '@/ui/FiltrosComuns';
 import { ACCAO_DA_FAIXA, Faixa, type TomDaFaixa } from './faixa';
 import { Dado, JanelaDoExtrato, Seccao } from './ExtratoDaParte';
-import { FOCO, RAIO, cls, kz } from '@/ui/tokens';
+import { FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
 import { etiquetaIntl, t, tPartes } from '@/i18n';
 
 /**
@@ -31,9 +31,9 @@ import { etiquetaIntl, t, tPartes } from '@/i18n';
  * mesma do Livewire. Esconder um botão aqui é conveniência, nunca segurança.
  */
 
-/* O `number[]` é dos DIAS DA SEMANA de um turno — o único campo que guarda
-   uma lista e não um valor só. */
-type Valor = string | number | boolean | number[] | null;
+/* As LISTAS: os dias da semana de um turno (`number[]`) e as especialidades de
+   um mecânico (`string[]`). Tudo o resto guarda um valor só. */
+type Valor = string | number | boolean | number[] | string[] | null;
 type Valores = Record<string, Valor>;
 
 /**
@@ -69,6 +69,8 @@ export default function Catalogo({ tipo }: { tipo: string }) {
     const [aVer, porAVer] = useState<Linha | null>(null);
     /** A linha a quem se está a atribuir gente — só onde o esquema o oferece. */
     const [aAtribuir, porAAtribuir] = useState<Linha | null>(null);
+    /** Se o modal de IMPORTAR está aberto — não pende de linha nenhuma. */
+    const [aImportar, porAImportar] = useState(false);
 
     const opcoes = useQuery({ queryKey: ['catalogo', tipo, 'opcoes'], queryFn: () => catalogos.opcoes(tipo), staleTime: 5 * 60_000 });
     const lista = useQuery({ queryKey: ['catalogo', tipo, filtros], queryFn: () => catalogos.lista(tipo, filtros), placeholderData: keepPreviousData });
@@ -103,8 +105,17 @@ export default function Catalogo({ tipo }: { tipo: string }) {
     const linhas = lista.data?.data ?? [];
     const contas = lista.data?.meta;
 
+    /**
+     * COMO SE CHAMA ESTA LINHA — quase sempre pelo `name`, mas não sempre.
+     *
+     * Uma viatura chama-se pela MATRÍCULA: sem isto, a pergunta de apagar
+     * dizia «Vai apagar . Não há volta.» e o título da ficha vinha vazio.
+     */
+    const nomeDe = (l: Linha | null | undefined): string =>
+        l ? String(l[o.nome] ?? l.name ?? l.id) : '';
+
     const vazio = (): Valores => Object.fromEntries(o.campos.map((c) => {
-        if (c.tipo === 'dias') return [c.chave, Array.isArray(c.omissao) ? c.omissao : []];
+        if (c.tipo === 'dias' || c.tipo === 'multi') return [c.chave, Array.isArray(c.omissao) ? c.omissao : []];
 
         return [c.chave, c.omissao ?? (c.tipo === 'booleano' ? false : '')];
     }));
@@ -118,6 +129,7 @@ export default function Catalogo({ tipo }: { tipo: string }) {
             // Uma LISTA fica lista: passá-la por `String()` dava «1,2,3» na
             // caixa e um erro de validação ao gravar.
             if (c.tipo === 'dias') return [c.chave, Array.isArray(v) ? v.map(Number) : []];
+            if (c.tipo === 'multi') return [c.chave, Array.isArray(v) ? v.map(String) : []];
             return [c.chave, v === null || v === undefined ? '' : String(v)];
         })));
     };
@@ -135,13 +147,26 @@ export default function Catalogo({ tipo }: { tipo: string }) {
                 cor={(o.cor as TomDaFaixa) ?? 'primaria'}
                 accoes={
                     o.permissoes.pode_escrever && (
-                        <button type="button" onClick={abrirNovo} className={cls(ACCAO_DA_FAIXA, 'group')}>
-                            <i
-                                className="fas fa-plus transition-transform duration-300 group-hover:rotate-90"
-                                aria-hidden="true"
-                            />
-                            {o.novo}
-                        </button>
+                        <>
+                            {/* IMPORTAR DE OUTRO SÍTIO — «Importar de RH», nos
+                                mecânicos. Só onde o esquema o declara. */}
+                            {o.importar && (
+                                <button type="button" onClick={() => porAImportar(true)} className={cls(ACCAO_DA_FAIXA, 'group')}>
+                                    <i
+                                        className="fas fa-file-import transition-transform duration-300 group-hover:-translate-y-0.5"
+                                        aria-hidden="true"
+                                    />
+                                    {o.importar.botao}
+                                </button>
+                            )}
+                            <button type="button" onClick={abrirNovo} className={cls(ACCAO_DA_FAIXA, 'group')}>
+                                <i
+                                    className="fas fa-plus transition-transform duration-300 group-hover:rotate-90"
+                                    aria-hidden="true"
+                                />
+                                {o.novo}
+                            </button>
+                        </>
                     )
                 }
             />
@@ -162,7 +187,7 @@ export default function Catalogo({ tipo }: { tipo: string }) {
                 <JanelaDoExtrato
                     aberto={aVer !== null}
                     aoFechar={() => porAVer(null)}
-                    titulo={String(aVer?.name ?? '')}
+                    titulo={nomeDe(aVer)}
                     subtitulo={aVer?.nif ? String(aVer.nif) : undefined}
                     icone={o.icone}
                     cor={(o.cor as TomDaFaixa) ?? 'primaria'}
@@ -356,7 +381,7 @@ export default function Catalogo({ tipo }: { tipo: string }) {
                                                     type="button"
                                                     onClick={() => porAVer(l)}
                                                     title={t('Ver')}
-                                                    aria-label={t('Ver: :nome', { nome: String(l.name ?? l.id) })}
+                                                    aria-label={t('Ver: :nome', { nome: nomeDe(l) })}
                                                     className={cls('p-2 text-slate-400 transition-all duration-200 hover:scale-110 active:scale-100 hover:text-indigo-600', RAIO, FOCO)}
                                                 >
                                                     <i className="fas fa-eye" aria-hidden="true" />
@@ -366,10 +391,10 @@ export default function Catalogo({ tipo }: { tipo: string }) {
                                             {o.permissoes.pode_escrever && (
                                             <>
                                                 {o.accoes.padrao && !l.is_default && (
-                                                    <button type="button" onClick={() => accao.mutate({ l, qual: 'padrao' })} title={t('Tornar padrão')} aria-label={t('Tornar padrão: :nome', { nome: String(l.name ?? l.id) })} className={cls('p-2 text-slate-400 transition-all duration-200 hover:scale-110 active:scale-100 hover:text-amber-500', RAIO, FOCO)}><i className="fas fa-star" aria-hidden="true" /></button>
+                                                    <button type="button" onClick={() => accao.mutate({ l, qual: 'padrao' })} title={t('Tornar padrão')} aria-label={t('Tornar padrão: :nome', { nome: nomeDe(l) })} className={cls('p-2 text-slate-400 transition-all duration-200 hover:scale-110 active:scale-100 hover:text-amber-500', RAIO, FOCO)}><i className="fas fa-star" aria-hidden="true" /></button>
                                                 )}
                                                 {o.accoes.activar && (
-                                                    <button type="button" onClick={() => accao.mutate({ l, qual: 'activar' })} title={l.is_active ? t('Desactivar') : t('Activar')} aria-label={t(l.is_active ? 'Desactivar: :nome' : 'Activar: :nome', { nome: String(l.name ?? l.id) })} className={cls('p-2 text-slate-400 transition-all duration-200 hover:scale-110 active:scale-100 hover:text-slate-700', RAIO, FOCO)}><i className={cls('fas', l.is_active ? 'fa-toggle-on text-emerald-500' : 'fa-toggle-off')} aria-hidden="true" /></button>
+                                                    <button type="button" onClick={() => accao.mutate({ l, qual: 'activar' })} title={l.is_active ? t('Desactivar') : t('Activar')} aria-label={t(l.is_active ? 'Desactivar: :nome' : 'Activar: :nome', { nome: nomeDe(l) })} className={cls('p-2 text-slate-400 transition-all duration-200 hover:scale-110 active:scale-100 hover:text-slate-700', RAIO, FOCO)}><i className={cls('fas', l.is_active ? 'fa-toggle-on text-emerald-500' : 'fa-toggle-off')} aria-hidden="true" /></button>
                                                 )}
                                                 {/* ATRIBUIR EM LOTE — pôr trinta
                                                     pessoas neste turno de uma
@@ -380,7 +405,7 @@ export default function Catalogo({ tipo }: { tipo: string }) {
                                                         type="button"
                                                         onClick={() => porAAtribuir(l)}
                                                         title={t('Atribuir')}
-                                                        aria-label={t('Atribuir a :nome', { nome: String(l.name ?? l.id) })}
+                                                        aria-label={t('Atribuir a :nome', { nome: nomeDe(l) })}
                                                         className={cls('p-2 text-slate-400 transition-all duration-200 hover:scale-110 active:scale-100 hover:text-emerald-600', RAIO, FOCO)}
                                                     >
                                                         <i className="fas fa-user-plus" aria-hidden="true" />
@@ -389,13 +414,13 @@ export default function Catalogo({ tipo }: { tipo: string }) {
                                                 {o.accoes.logotipo && (
                                                     <label title={t('Logótipo')} className={cls('cursor-pointer p-2 text-slate-400 transition-all duration-200 hover:scale-110 active:scale-100 hover:text-indigo-600', RAIO)}>
                                                         <i className="fas fa-image" aria-hidden="true" />
-                                                        <span className="sr-only">{t('Logótipo de :nome', { nome: String(l.name ?? l.id) })}</span>
+                                                        <span className="sr-only">{t('Logótipo de :nome', { nome: nomeDe(l) })}</span>
                                                         <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) logotipo.mutate({ l, ficheiro: f }); e.target.value = ''; }} />
                                                     </label>
                                                 )}
-                                                <button type="button" onClick={() => abrirEdicao(l)} aria-label={t('Editar: :nome', { nome: String(l.name ?? l.id) })} className={cls('p-2 text-slate-400 transition-all duration-200 hover:scale-110 active:scale-100 hover:text-indigo-600', RAIO, FOCO)}><i className="fas fa-pen" aria-hidden="true" /></button>
+                                                <button type="button" onClick={() => abrirEdicao(l)} aria-label={t('Editar: :nome', { nome: nomeDe(l) })} className={cls('p-2 text-slate-400 transition-all duration-200 hover:scale-110 active:scale-100 hover:text-indigo-600', RAIO, FOCO)}><i className="fas fa-pen" aria-hidden="true" /></button>
                                                 {o.accoes.apagar && (
-                                                    <button type="button" disabled={!l.pode_apagar} onClick={() => porAApagar(l)} title={l.pode_apagar ? t('Apagar') : t('Em uso — não se pode apagar')} aria-label={t('Apagar: :nome', { nome: String(l.name ?? l.id) })} className={cls('p-2 text-slate-400 transition-all duration-200 hover:scale-110 active:scale-100 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40', RAIO, FOCO)}><i className="fas fa-trash" aria-hidden="true" /></button>
+                                                    <button type="button" disabled={!l.pode_apagar} onClick={() => porAApagar(l)} title={l.pode_apagar ? t('Apagar') : t('Em uso — não se pode apagar')} aria-label={t('Apagar: :nome', { nome: nomeDe(l) })} className={cls('p-2 text-slate-400 transition-all duration-200 hover:scale-110 active:scale-100 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40', RAIO, FOCO)}><i className="fas fa-trash" aria-hidden="true" /></button>
                                                 )}
                                             </>
                                             )}
@@ -423,7 +448,7 @@ export default function Catalogo({ tipo }: { tipo: string }) {
                     valores={formulario}
                     erros={erros}
                     titulo={aEditar ? t('Editar :nome', { nome: o.singular.toLowerCase() }) : o.novo}
-                    subtitulo={aEditar ? String(aEditar.name ?? '') : undefined}
+                    subtitulo={aEditar ? nomeDe(aEditar) : undefined}
                     aGravar={gravar.isPending}
                     erroGeral={gravar.error}
                     aoMudar={porFormulario}
@@ -438,17 +463,30 @@ export default function Catalogo({ tipo }: { tipo: string }) {
                 titulo={t('Apagar :nome?', { nome: o.singular.toLowerCase() })}
                 rodape={<><Botao onClick={() => porAApagar(null)}>{t('Cancelar')}</Botao><Botao cor="perigo" tom="solida" icone="fa-trash" aTrabalhar={apagar.isPending} onClick={() => aApagar && apagar.mutate(aApagar)}>{t('Apagar')}</Botao></>}
             >
-                <p className="text-sm text-slate-700">{tPartes('Vai apagar :nome. Não há volta.', { nome: <strong>{String(aApagar?.name ?? '')}</strong> })}</p>
+                <p className="text-sm text-slate-700">{tPartes('Vai apagar :nome. Não há volta.', { nome: <strong>{nomeDe(aApagar)}</strong> })}</p>
             </Modal>
 
             {/* ATRIBUIR EM LOTE — o modal que o ecrã dos turnos em Blade tinha. */}
             {o.atribuir && aAtribuir && (
                 <Atribuicao
                     tipo={tipo}
+                    modo="atribuir"
                     linha={aAtribuir}
+                    nome={nomeDe(aAtribuir)}
                     descricao={o.atribuir}
                     aoFechar={() => porAAtribuir(null)}
                     aoGravar={(m) => { porAAtribuir(null); porRecado(m); invalidar(); }}
+                />
+            )}
+
+            {/* IMPORTAR EM LOTE — o mesmo modal, outro verbo. */}
+            {o.importar && aImportar && (
+                <Atribuicao
+                    tipo={tipo}
+                    modo="importar"
+                    descricao={o.importar}
+                    aoFechar={() => porAImportar(false)}
+                    aoGravar={(m) => { porAImportar(false); porRecado(m); invalidar(); }}
                 />
             )}
         </div>
@@ -458,30 +496,42 @@ export default function Catalogo({ tipo }: { tipo: string }) {
 /* ─── Atribuir em lote ──────────────────────────────────────────────── */
 
 /**
- * PÔR GENTE NESTE REGISTO, DE UMA VEZ.
+ * ESCOLHER MUITOS DE UMA VEZ — e fazer-lhes a mesma coisa.
  *
- * Trinta pessoas no turno da manhã, uma a uma pela ficha de cada uma, é meia
- * hora de trabalho. Aqui procura-se, marcam-se todas, grava-se uma vez.
+ * Serve os dois trabalhos em lote que os ecrãs em Blade tinham, porque são o
+ * mesmo modal com verbos diferentes:
  *
- * O QUE SE GRAVA É A LISTA COMPLETA de quem fica — e por isso desmarcar
- * alguém tira-o mesmo. Mandar só os novos deixava sem maneira de tirar uma
- * pessoa do turno sem ir à ficha dela, que é precisamente o trabalho que este
- * modal existe para poupar. A frase por baixo do título di-lo.
+ *  · ATRIBUIR — trinta pessoas no turno da manhã. Grava-se a LISTA COMPLETA de
+ *    quem fica, e por isso desmarcar alguém tira-o mesmo: mandar só os novos
+ *    deixava sem maneira de tirar uma pessoa do turno sem ir à ficha dela, que
+ *    é precisamente o trabalho que este modal existe para poupar.
+ *  · IMPORTAR — os mecânicos a partir do pessoal do RH. Aqui só se CRIA: quem
+ *    já cá está vem marcado e trancado, e desmarcá-lo não o apagaria — apagar
+ *    um mecânico é decisão que se toma na lista, com a sua guarda.
+ *
+ * A frase por baixo da lista diz qual dos dois é, porque a diferença importa e
+ * não se adivinha olhando.
  */
-function Atribuicao({ tipo, linha, descricao, aoFechar, aoGravar }: {
+function Atribuicao({ tipo, modo, linha, nome, descricao, aoFechar, aoGravar }: {
     tipo: string;
-    linha: Linha;
+    modo: 'atribuir' | 'importar';
+    /** Só na atribuição: o registo a quem se atribui. Importar não pende de um. */
+    linha?: Linha;
+    nome?: string;
     descricao: { titulo: string; nada: string; pesquisa_ajuda: string };
     aoFechar: () => void;
     aoGravar: (mensagem: string) => void;
 }) {
+    const aImportar = modo === 'importar';
     const [procura, porProcura] = useState('');
     /* `null` enquanto a lista não chegou: só então se sabe quem já lá está. */
     const [escolhidos, porEscolhidos] = useState<Set<number> | null>(null);
 
     const q = useQuery({
-        queryKey: ['catalogo', tipo, 'atribuiveis', linha.id, procura],
-        queryFn: () => catalogos.atribuiveis(tipo, linha.id, procura),
+        queryKey: ['catalogo', tipo, modo, linha?.id ?? 0, procura],
+        queryFn: () => (aImportar
+            ? catalogos.importaveis(tipo, procura)
+            : catalogos.atribuiveis(tipo, linha!.id, procura)),
         placeholderData: keepPreviousData,
     });
 
@@ -499,7 +549,13 @@ function Atribuicao({ tipo, linha, descricao, aoFechar, aoGravar }: {
 
     const marcados = escolhidos ?? new Set<number>();
 
+    /* Quem já cá está não se desmarca: importá-lo outra vez não faz nada, e
+       desmarcá-lo não o apaga — deixá-lo mexer prometia o que não acontece. */
+    const trancado = (id: number) => candidatos.some((c) => c.id === id && c.bloqueado);
+
     const alternar = (id: number) => porEscolhidos((antes) => {
+        if (trancado(id)) return antes ?? new Set<number>();
+
         const novo = new Set(antes ?? []);
         novo.has(id) ? novo.delete(id) : novo.add(id);
 
@@ -507,17 +563,23 @@ function Atribuicao({ tipo, linha, descricao, aoFechar, aoGravar }: {
     });
 
     /* «Todos» é todos OS QUE SE VÊEM: com a procura posta, marca só esses. */
-    const todosAVista = candidatos.length > 0 && candidatos.every((c) => marcados.has(c.id));
+    const livres = candidatos.filter((c) => !c.bloqueado);
+    const todosAVista = livres.length > 0 && livres.every((c) => marcados.has(c.id));
 
     const alternarTodos = () => porEscolhidos((antes) => {
         const novo = new Set(antes ?? []);
-        candidatos.forEach((c) => (todosAVista ? novo.delete(c.id) : novo.add(c.id)));
+        livres.forEach((c) => (todosAVista ? novo.delete(c.id) : novo.add(c.id)));
 
         return novo;
     });
 
+    /* Na importação, os que já cá estão vieram marcados e não são trabalho. */
+    const aFazer = aImportar ? [...marcados].filter((id) => !trancado(id)) : [...marcados];
+
     const gravar = useMutation({
-        mutationFn: () => catalogos.atribuir(tipo, linha.id, [...marcados]),
+        mutationFn: () => (aImportar
+            ? catalogos.importar(tipo, aFazer)
+            : catalogos.atribuir(tipo, linha!.id, aFazer)),
         onSuccess: (r) => aoGravar(r.message),
     });
 
@@ -526,15 +588,22 @@ function Atribuicao({ tipo, linha, descricao, aoFechar, aoGravar }: {
             aberto
             aoFechar={aoFechar}
             titulo={descricao.titulo}
-            subtitulo={String(linha.name ?? '')}
-            icone="fa-user-plus"
+            subtitulo={nome}
+            icone={aImportar ? 'fa-file-import' : 'fa-user-plus'}
             cor="bom"
             largura="md"
             rodape={
                 <>
                     <Botao onClick={aoFechar}>{t('Cancelar')}</Botao>
-                    <Botao cor="bom" tom="solida" icone="fa-check" aTrabalhar={gravar.isPending} onClick={() => gravar.mutate()}>
-                        {t('Gravar atribuição')}
+                    <Botao
+                        cor="bom"
+                        tom="solida"
+                        icone={aImportar ? 'fa-file-import' : 'fa-check'}
+                        aTrabalhar={gravar.isPending}
+                        onClick={() => gravar.mutate()}
+                        disabled={aImportar && aFazer.length === 0}
+                    >
+                        {aImportar ? t('Importar escolhidos') : t('Gravar atribuição')}
                     </Botao>
                 </>
             }
@@ -593,14 +662,19 @@ function Atribuicao({ tipo, linha, descricao, aoFechar, aoGravar }: {
                                     <input
                                         type="checkbox"
                                         checked={marcado}
+                                        disabled={c.bloqueado}
                                         onChange={() => alternar(c.id)}
-                                        className="h-4 w-4 rounded border-slate-300 text-emerald-600"
+                                        className="h-4 w-4 rounded border-slate-300 text-emerald-600 disabled:opacity-50"
                                     />
                                     <span className="min-w-0 flex-1">
                                         <span className="block truncate font-semibold text-slate-800">{c.nome}</span>
                                         {c.nota && <span className="block font-mono text-xs text-slate-400">{c.nota}</span>}
                                     </span>
-                                    {c.atribuido && !marcado && (
+                                    {/* QUEM JÁ CÁ ESTÁ di-lo, em vez de desaparecer da
+                                        lista: escondê-lo fazia quem procurasse um nome
+                                        já importado julgar que ele saíra do RH. */}
+                                    {c.bloqueado && <Etiqueta cor="bom" icone="fa-check">{t('Já importado')}</Etiqueta>}
+                                    {!aImportar && c.atribuido && !marcado && (
                                         <Etiqueta cor="aviso" icone="fa-arrow-right-from-bracket">{t('Vai sair')}</Etiqueta>
                                     )}
                                 </label>
@@ -611,10 +685,47 @@ function Atribuicao({ tipo, linha, descricao, aoFechar, aoGravar }: {
 
                 <p className="text-xs text-slate-500">
                     <i className="fas fa-circle-info mr-1" aria-hidden="true" />
-                    {t('Grava-se a lista completa: quem estiver aqui e for desmarcado sai.')}
+                    {aImportar
+                        ? t('Importar só acrescenta: quem já cá está não muda, e nada se apaga.')
+                        : t('Grava-se a lista completa: quem estiver aqui e for desmarcado sai.')}
                 </p>
             </div>
         </Modal>
+    );
+}
+
+/**
+ * UMA DATA NA LISTA — e, sendo validade, o aviso de que passou.
+ *
+ * A inspecção de uma viatura caduca num dia certo, e é isso que faz alguém
+ * abrir a lista. Escrita a preto no meio de vinte outras, não se vê: a que já
+ * passou sai a vermelho, e a que está quase sai a âmbar, com o ícone a dizer
+ * o mesmo a quem não distingue as cores.
+ */
+function DataDaCelula({ valor, validade }: { valor: unknown; validade: boolean }) {
+    if (valor === null || valor === undefined || valor === '') {
+        return null;
+    }
+
+    const quando = new Date(String(valor));
+
+    if (Number.isNaN(quando.getTime())) {
+        return <span className="tabular-nums">{String(valor)}</span>;
+    }
+
+    const dias = Math.ceil((quando.getTime() - Date.now()) / 86_400_000);
+    const passou = validade && dias < 0;
+    const perto = validade && dias >= 0 && dias <= 30;
+
+    return (
+        <span className={cls('inline-flex items-center gap-1.5 tabular-nums',
+            passou ? 'font-bold text-red-600' : perto ? 'font-semibold text-amber-700' : '')}>
+            {(passou || perto) && (
+                <i className={cls('fas text-xs', passou ? 'fa-triangle-exclamation' : 'fa-clock')} aria-hidden="true" />
+            )}
+            {data(String(valor))}
+            {passou && <span className="text-[10px] font-bold uppercase">{t('caducou')}</span>}
+        </span>
     );
 }
 
@@ -643,6 +754,26 @@ function Celula({ c, l }: { c: Coluna; l: Linha }) {
         /* A HORA sai sempre `08:00`, mesmo que a coluna seja um `datetime`. */
         case 'hora':
             return v ? <span className="inline-flex items-center gap-1.5 tabular-nums"><i className="fas fa-clock text-xs text-slate-400" aria-hidden="true" />{String(v).slice(0, 5)}</span> : null;
+        /* A DATA, e a de VALIDADE a dizer que passou.
+           Numa lista de viaturas, a inspecção caducada é o que faz alguém
+           pegar no ecrã — e uma data escrita a preto no meio de vinte não se
+           vê. Por isso o formato `validade` pinta o que já lá vai. */
+        case 'data':
+        case 'validade':
+            return <DataDaCelula valor={v} validade={c.formato === 'validade'} />;
+        /* AS ESCOLHAS MÚLTIPLAS EM CRACHÁS — «Motor», «Chapa». A lista de
+           mecânicos serve para achar quem faz aquilo, e `["Motor","Chapa"]`
+           não é uma resposta a essa pergunta. */
+        case 'multi':
+            return Array.isArray(v) && v.length > 0 ? (
+                <span className="inline-flex flex-wrap gap-1">
+                    {(v as unknown[]).map((x) => (
+                        <span key={String(x)} className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                            {String(x)}
+                        </span>
+                    ))}
+                </span>
+            ) : null;
         /* OS DIAS EM CRACHÁS, e não «1, 2, 3, 4, 5»: quem olha a lista quer
            ver de relance que o turno não trabalha ao sábado. */
         case 'dias':
@@ -817,6 +948,62 @@ function EscolherDias({ valor, aoMudar, etiqueta }: {
     );
 }
 
+/**
+ * MARCAR VÁRIAS DE UMA LISTA FECHADA — as especialidades de um mecânico.
+ *
+ * O mesmo desenho dos dias da semana, e pela mesma razão: seis caixas de
+ * verificação em coluna ocupam meio formulário e lêem-se uma a uma; seis
+ * botões que se acendem lêem-se de relance e cabem numa linha.
+ *
+ * O que muda é que aqui o valor é o RÓTULO — «Motor», «Chapa» — porque é assim
+ * que a coluna `specialties` está gravada desde sempre, e traduzir a chave ao
+ * gravar mudava o que já lá está.
+ */
+function EscolherVarios({ valor, opcoes, aoMudar, etiqueta }: {
+    valor: Valor | undefined;
+    opcoes: Array<{ valor: string; rotulo: string }>;
+    aoMudar: (v: string[]) => void;
+    etiqueta: string;
+}) {
+    const escolhidos = Array.isArray(valor) ? valor.map(String) : [];
+
+    const alternar = (v: string) =>
+        aoMudar(escolhidos.includes(v) ? escolhidos.filter((x) => x !== v) : [...escolhidos, v]);
+
+    return (
+        <div role="group" aria-label={etiqueta} className="flex flex-wrap gap-1.5">
+            {opcoes.map((op) => {
+                const aceso = escolhidos.includes(op.valor);
+
+                return (
+                    <button
+                        key={op.valor}
+                        type="button"
+                        onClick={() => alternar(op.valor)}
+                        aria-pressed={aceso}
+                        className={cls(
+                            'border px-2.5 py-1.5 text-xs font-bold transition-all duration-200',
+                            'hover:-translate-y-0.5 active:translate-y-0',
+                            RAIO,
+                            FOCO,
+                            aceso
+                                ? 'border-indigo-500 bg-indigo-50 text-indigo-700 shadow-sm'
+                                : 'border-slate-200 bg-white text-slate-400 hover:border-slate-300 hover:text-slate-600',
+                        )}
+                    >
+                        <i
+                            className={cls('fas mr-1 text-[10px] transition-opacity duration-200',
+                                aceso ? 'fa-check opacity-100' : 'fa-plus opacity-40')}
+                            aria-hidden="true"
+                        />
+                        {op.rotulo}
+                    </button>
+                );
+            })}
+        </div>
+    );
+}
+
 function CampoDeEsquema({ c, valor, erro, o, valores, aoMudar }: {
     c: Campo;
     valor: Valor | undefined;
@@ -894,6 +1081,12 @@ function CampoDeEsquema({ c, valor, erro, o, valores, aoMudar }: {
         case 'numero':
             controlo = <input type="number" value={texto} step={c.passo ?? 1} min={c.min} max={c.max} onChange={(e) => aoMudar(e.target.value)} className={cls(entrada, 'text-right tabular-nums')} />;
             break;
+        /* A DATA e a VALIDADE escrevem-se do mesmo modo — o que muda é como se
+           LÊEM na lista, onde a que passou sai a vermelho. */
+        case 'data':
+        case 'validade':
+            controlo = <input type="date" value={texto.slice(0, 10)} onChange={(e) => aoMudar(e.target.value)} className={cls(entrada, 'tabular-nums')} />;
+            break;
         case 'cor':
             controlo = (
                 <span className="flex items-center gap-2">
@@ -937,6 +1130,10 @@ function CampoDeEsquema({ c, valor, erro, o, valores, aoMudar }: {
         case 'dias':
             controlo = <EscolherDias valor={valor} aoMudar={aoMudar} etiqueta={c.rotulo} />;
             break;
+        /* VÁRIAS DE UMA LISTA FECHADA — as especialidades do mecânico. */
+        case 'multi':
+            controlo = <EscolherVarios valor={valor} opcoes={c.opcoes ?? []} aoMudar={aoMudar} etiqueta={c.rotulo} />;
+            break;
         default:
             controlo = <input type={c.tipo === 'email' ? 'email' : c.tipo === 'url' ? 'url' : 'text'} value={texto} onChange={(e) => aoMudar(e.target.value)} className={entrada} />;
     }
@@ -971,6 +1168,9 @@ function FichaDaLinha({ linha, colunas }: { linha: Linha; colunas: Campo[] }) {
         const v = linha[c.chave];
 
         if (typeof v === 'boolean') return v ? t('Sim') : t('Não');
+        // Uma lista lê-se «Motor, Chapa» e não «Motor,Chapa»: o `String()` de
+        // um array cola tudo sem espaço e a ficha ficava a parecer código.
+        if (Array.isArray(v)) return v.length > 0 ? v.join(', ') : null;
         // O rótulo já resolvido do servidor (o país por extenso, a
         // categoria-mãe pelo nome) ganha ao número cru.
         return linha.rotulos?.[c.chave] || (v === null || v === undefined ? null : String(v));

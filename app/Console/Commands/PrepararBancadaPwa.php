@@ -491,8 +491,10 @@ class PrepararBancadaPwa extends Command
         // de "não contratado".
         //
         // O RH entra pela mesma razão: os catálogos (departamentos, cargos,
-        // turnos) já são React e os ensaios de browser abrem-nos.
-        foreach (['invoicing', 'treasury', 'restaurant', 'rh'] as $slug) {
+        // turnos) já são React e os ensaios de browser abrem-nos. E a OFICINA,
+        // desde que as viaturas, os mecânicos e os serviços passaram para o
+        // mesmo ecrã genérico.
+        foreach (['invoicing', 'treasury', 'restaurant', 'rh', 'oficina'] as $slug) {
             $modulo = Module::firstOrCreate(
                 ['slug' => $slug],
                 ['name' => ucfirst($slug), 'is_active' => true]

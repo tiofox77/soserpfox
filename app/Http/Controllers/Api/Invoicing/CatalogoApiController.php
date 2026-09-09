@@ -49,14 +49,30 @@ class CatalogoApiController extends Controller
             // por catálogo. Um «Novo(a) fornecedor» montado à mão a partir do
             // singular não é português, e noutras línguas é pior.
             'novo' => __($def['novo'] ?? 'Novo registo'),
+            /*
+             * A COLUNA POR QUE SE CHAMA UMA LINHA.
+             *
+             * O ecrã escrevia `l.name` em sete sítios — o título da ficha, a
+             * pergunta de apagar, todos os rótulos de leitura. Uma viatura não
+             * tem `name`: chama-se pela matrícula, e a pergunta saía «Vai
+             * apagar . Não há volta.»
+             */
+            'nome' => $def['nome'] ?? 'name',
             'pesquisa' => __($def['pesquisa_ajuda']),
             'colunas' => array_map(fn ($c) => array_merge($c, ['rotulo' => __($c['rotulo'])]), $def['colunas']),
-            'campos' => $def['campos'],
+            /*
+             * OS RÓTULOS DAS ESCOLHAS TAMBÉM SE TRADUZEM.
+             *
+             * O `campo()` traduzia o rótulo do campo e deixava as opções em
+             * português: um formulário em inglês com «Nível: Júnior/Pleno» é
+             * meia tradução, que é pior do que nenhuma — parece avaria.
+             */
+            'campos' => array_map(fn ($c) => isset($c['opcoes']) ? array_merge($c, ['opcoes' => self::traduzidas($c['opcoes'])]) : $c, $def['campos']),
             'filtros' => array_map(fn ($f) => array_merge($f, [
                 'rotulo' => __($f['rotulo']),
                 'tipo' => $f['tipo'] ?? 'escolha',
                 'ajuda' => isset($f['ajuda']) ? __($f['ajuda']) : null,
-            ]), $def['filtros']),
+            ], isset($f['opcoes']) ? ['opcoes' => self::traduzidas($f['opcoes'])] : []), $def['filtros']),
             // Se este catálogo aceita o intervalo de datas de criação: é o
             // ecrã que desenha os dois campos, e só onde eles servem.
             'datas' => ! empty($def['datas']),
@@ -73,6 +89,19 @@ class CatalogoApiController extends Controller
                 'titulo' => __($def['atribuir']['titulo']),
                 'nada' => __($def['atribuir']['nada']),
                 'pesquisa_ajuda' => __($def['atribuir']['pesquisa_ajuda']),
+            ] : null,
+            /*
+             * A IMPORTAÇÃO EM LOTE — «Importar de RH», nos mecânicos.
+             *
+             * Como a atribuição: só o rótulo do botão, o título e a dica da
+             * procura chegam ao browser. De onde se importa e o que se copia
+             * é decisão do esquema.
+             */
+            'importar' => ! empty($def['accoes']['importar']) ? [
+                'botao' => __($def['importar']['botao']),
+                'titulo' => __($def['importar']['titulo']),
+                'nada' => __($def['importar']['nada']),
+                'pesquisa_ajuda' => __($def['importar']['pesquisa_ajuda']),
             ] : null,
             'referencias' => $this->referencias($def, $tenantId),
             'geografia' => ! empty($def['geografia']) ? [
@@ -136,9 +165,22 @@ class CatalogoApiController extends Controller
         $dados = $this->validar($request, $def, null, $tenantId);
 
         // O catálogo PARTILHADO não leva empresa: a tabela não tem a coluna.
-        $m = $def['modelo']::create(empty($def['partilhado'])
+        $atributos = empty($def['partilhado'])
             ? array_merge($dados, ['tenant_id' => $tenantId])
-            : $dados);
+            : $dados;
+
+        /*
+         * QUEM TEM NÚMERO PRÓPRIO CRIA-SE PELA SUA PORTA.
+         *
+         * A viatura ganha um `vehicle_number` e o serviço um `service_code`,
+         * gerados por empresa e de forma atómica (`createWithTenantNumber`,
+         * que repete em caso de choque). Um `create()` cru deixava a coluna a
+         * nulo e o índice único `(tenant_id, …)` recusava o segundo registo —
+         * que era exactamente o que o Livewire fazia bem e não se pode perder.
+         */
+        $m = isset($def['criar'])
+            ? ($def['criar'])($atributos)
+            : $def['modelo']::create($atributos);
         $this->depois($def, $m);
 
         return response()->json([
@@ -306,6 +348,125 @@ class CatalogoApiController extends Controller
     }
 
     /**
+     * QUEM SE PODE IMPORTAR PARA ESTE CATÁLOGO.
+     *
+     * O ecrã dos mecânicos tinha o «Importar de RH»: a oficina não contrata
+     * duas vezes a mesma pessoa — ela já está na ficha de pessoal, com o nome,
+     * o telefone e o BI, e escrevê-la outra vez à mão é trabalho e é um erro à
+     * espera de acontecer.
+     *
+     * QUEM JÁ CÁ ESTÁ VEM MARCADO E BLOQUEADO, não escondido: escondê-lo fazia
+     * a lista mudar de tamanho sem explicação e quem procurasse um nome que já
+     * tinha importado julgava que o funcionário tinha desaparecido do RH.
+     */
+    public function importaveis(Request $request, string $tipo): JsonResponse
+    {
+        [$def, $importar, $tenantId] = $this->paraImportar($request, $tipo, null);
+
+        $procura = trim((string) $request->query('procura', ''));
+
+        $candidatos = $importar['modelo']::query()
+            ->where('tenant_id', $tenantId)
+            ->when(isset($importar['onde']), fn ($q) => $importar['onde']($q))
+            ->when($procura !== '', fn ($q) => $q->where(function ($sub) use ($importar, $procura) {
+                foreach ($importar['pesquisa'] as $coluna) {
+                    $sub->orWhere($coluna, 'like', "%{$procura}%");
+                }
+            }))
+            ->limit(300)
+            ->get();
+
+        $jaCa = ($importar['ja_ca'])($candidatos, $tenantId);
+
+        return response()->json([
+            'data' => $candidatos->map(fn (Model $c) => [
+                'id' => $c->id,
+                'nome' => ($importar['nome'])($c),
+                'nota' => isset($importar['nota']) ? (string) ($importar['nota'])($c) : null,
+                // O ecrã lê `atribuido` para marcar — é o mesmo modal.
+                'atribuido' => in_array($c->id, $jaCa, true),
+                'bloqueado' => in_array($c->id, $jaCa, true),
+            ])->sortBy('nome')->values(),
+            'total' => $candidatos->count(),
+        ]);
+    }
+
+    /**
+     * IMPORTAR EM LOTE — cria no catálogo quem vier na lista.
+     *
+     * Ao contrário do atribuir, isto NÃO é «a lista completa de quem fica»:
+     * quem já cá está não se apaga por não vir marcado. Importar é uma
+     * entrada, e desfazê-la é apagar o mecânico — decisão que se toma na
+     * lista, com a guarda do `pode_apagar` a valer.
+     */
+    public function importar(Request $request, string $tipo): JsonResponse
+    {
+        // Importar CRIA registos: pede a permissão de criar.
+        [$def, $importar, $tenantId] = $this->paraImportar($request, $tipo, $this->definicao($tipo)['permissoes']['criar']);
+
+        $dados = $request->validate([
+            'ids' => ['present', 'array'],
+            'ids.*' => ['integer'],
+        ]);
+
+        // Os ids vêm do pedido e não provam nada: confirmam-se contra esta
+        // empresa antes de se escrever seja o que for.
+        $candidatos = $importar['modelo']::query()
+            ->where('tenant_id', $tenantId)
+            ->when(isset($importar['onde']), fn ($q) => $importar['onde']($q))
+            ->whereIn('id', $dados['ids'])
+            ->get();
+
+        $jaCa = ($importar['ja_ca'])($candidatos, $tenantId);
+
+        $criados = 0;
+        $repetidos = 0;
+
+        DB::transaction(function () use ($def, $importar, $candidatos, $jaCa, $tenantId, &$criados, &$repetidos) {
+            foreach ($candidatos as $c) {
+                if (in_array($c->id, $jaCa, true)) {
+                    $repetidos++;
+
+                    continue;
+                }
+
+                $atributos = array_merge(($importar['mapear'])($c), ['tenant_id' => $tenantId]);
+
+                isset($def['criar'])
+                    ? ($def['criar'])($atributos)
+                    : $def['modelo']::create($atributos);
+
+                $criados++;
+            }
+        });
+
+        return response()->json([
+            'quantos' => $criados,
+            'message' => $criados === 0
+                ? __('Não havia nada de novo para importar.')
+                : ($repetidos > 0
+                    ? __(':quantos importado(s), :repetidos já existia(m).', ['quantos' => $criados, 'repetidos' => $repetidos])
+                    : __(':quantos importado(s).', ['quantos' => $criados])),
+        ]);
+    }
+
+    /**
+     * O que os dois pontos de importação precisam: o esquema, a descrição da
+     * importação e a empresa.
+     *
+     * @return array{0: array, 1: array, 2: int}
+     */
+    private function paraImportar(Request $request, string $tipo, ?string $permissao): array
+    {
+        $def = $this->definicao($tipo);
+        $this->exigir($request, $permissao ?? $def['permissoes']['criar']);
+
+        abort_unless(! empty($def['accoes']['importar']), 404, __('Aqui não se importa nada.'));
+
+        return [$def, $def['importar'], activeTenantId()];
+    }
+
+    /**
      * O que os dois pontos de atribuição precisam, resolvido de uma vez: o
      * esquema, a descrição da atribuição, o registo desta empresa e o id.
      *
@@ -431,6 +592,12 @@ class CatalogoApiController extends Controller
         if (isset($def['depois'])) {
             ($def['depois'])($m);
         }
+    }
+
+    /** Uma lista de escolhas com os rótulos na língua de quem está a ver. */
+    private static function traduzidas(array $opcoes): array
+    {
+        return array_map(fn ($o) => array_merge($o, ['rotulo' => __($o['rotulo'])]), $opcoes);
     }
 
     private function exigir(Request $request, string $permissao): void

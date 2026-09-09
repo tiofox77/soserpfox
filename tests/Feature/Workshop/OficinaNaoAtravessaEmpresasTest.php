@@ -7,7 +7,6 @@ use App\Models\Workshop\Mechanic;
 use App\Models\Workshop\Service;
 use App\Models\Workshop\Vehicle;
 use App\Models\Workshop\WorkOrder;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -31,6 +30,8 @@ use Tests\TenantTestCase;
  */
 class OficinaNaoAtravessaEmpresasTest extends TenantTestCase
 {
+    private const API = '/api/v1/invoicing/react/catalogos';
+
     private Tenant $outra;
 
     protected function setUp(): void
@@ -66,27 +67,24 @@ class OficinaNaoAtravessaEmpresasTest extends TenantTestCase
     }
 
     /**
-     * O CASO CONCRETO: a propriedade pública do Livewire.
+     * O CASO CONCRETO, agora pela API.
      *
-     * `editingId` vem do browser. Sem escopo, `save()` reescrevia a ficha de um
-     * mecânico de outra empresa sem nunca passar pelo `edit()` que filtra.
+     * Era uma propriedade PÚBLICA do Livewire (`editingId`) que o browser
+     * definia; passou a ser o id no URL, que o browser também define. O que
+     * guarda continua a ser o mesmo: o escopo de empresa.
      */
     public function test_gravar_com_o_id_de_outra_empresa_nao_lhe_toca(): void
     {
+        $this->comPermissoes('workshop.mechanics.view', 'workshop.mechanics.edit');
+
         $alheio = $this->alheio(Mechanic::class, ['name' => 'Mecânico do Lado', 'phone' => '900000000']);
 
-        $componente = Livewire::test(\App\Livewire\Workshop\MechanicManagement::class)
-            ->set('editingId', $alheio->id)
-            ->set('name', 'Roubado')
-            ->set('phone', '911111111');
-
-        // Sem escopo isto era um `->update()` sobre a linha alheia. Com escopo,
-        // o `find()` devolve nulo — e o componente não tem em que mexer.
-        try {
-            $componente->call('save');
-        } catch (\Throwable $e) {
-            // Um erro é aceitável; escrever na casa do vizinho não é.
-        }
+        $this->putJson(self::API . "/mecanicos/{$alheio->id}", [
+            'name' => 'Roubado',
+            'phone' => '911111111',
+            'level' => 'pleno',
+            'specialties' => ['Motor'],
+        ])->assertNotFound();
 
         $this->assertSame(
             'Mecânico do Lado',
@@ -97,20 +95,26 @@ class OficinaNaoAtravessaEmpresasTest extends TenantTestCase
 
     public function test_ver_um_mecanico_de_outra_empresa_nao_o_mostra(): void
     {
+        $this->comPermissoes('workshop.mechanics.view');
+
         $alheio = $this->alheio(Mechanic::class, ['name' => 'Mecânico do Lado', 'phone' => '900000000']);
 
-        $componente = Livewire::test(\App\Livewire\Workshop\MechanicManagement::class);
+        $nomes = collect($this->getJson(self::API . '/mecanicos')->assertOk()->json('data'))->pluck('name');
 
-        try {
-            $componente->call('view', $alheio->id);
-        } catch (\Throwable $e) {
-            // `findOrFail` sobre uma linha fora do escopo dá 404 — que é o certo.
-        }
+        $this->assertNotContains('Mecânico do Lado', $nomes->all(),
+            'a lista não mostra mecânicos de outra empresa');
+    }
 
-        $this->assertNull(
-            $componente->get('viewingMechanic'),
-            'não se abre a ficha de um mecânico de outra empresa'
-        );
+    /** A guarda também está no APAGAR: um id alheio não se apaga. */
+    public function test_apagar_um_mecanico_de_outra_empresa_nao_o_apaga(): void
+    {
+        $this->comPermissoes('workshop.mechanics.view', 'workshop.mechanics.delete');
+
+        $alheio = $this->alheio(Mechanic::class, ['name' => 'Mecânico do Lado', 'phone' => '900000000']);
+
+        $this->deleteJson(self::API . "/mecanicos/{$alheio->id}")->assertNotFound();
+
+        $this->assertNotNull(Mechanic::withoutGlobalScopes()->find($alheio->id));
     }
 
     public function test_uma_viatura_um_servico_e_uma_ordem_de_outra_empresa_tambem_nao(): void

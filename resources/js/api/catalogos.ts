@@ -22,14 +22,25 @@ export type TipoDeCampo =
     | 'texto' | 'numero' | 'email' | 'url' | 'textarea' | 'booleano' | 'cor' | 'icone'
     | 'escolha' | 'referencia' | 'pais' | 'provincia' | 'municipio' | 'cidade'
     /** Uma hora do dia (`08:00`) e os dias da semana em que se trabalha. */
-    | 'hora' | 'dias';
+    | 'hora' | 'dias'
+    /**
+     * UMA DATA, e a `validade` que é uma data com prazo.
+     *
+     * Escrevem-se do mesmo modo; o que muda é a leitura na lista — o seguro
+     * de uma viatura que já caducou sai a vermelho, e é isso que faz alguém
+     * pegar no ecrã.
+     */
+    | 'data' | 'validade'
+    /** Uma lista fechada de onde se marcam VÁRIAS: as especialidades de um mecânico. */
+    | 'multi';
 
 export type Campo = {
     chave: string;
     rotulo: string;
     tipo: TipoDeCampo;
     obrigatorio: boolean;
-    omissao: string | number | boolean | null;
+    /** As listas (`dias`, `multi`) trazem a omissão já em lista. */
+    omissao: string | number | boolean | number[] | string[] | null;
     largura: 'meia' | 'inteira';
     opcoes?: Escolha[];
     /** Para `referencia`: a chave em `referencias` de onde vêm as opções. */
@@ -44,7 +55,7 @@ export type Coluna = {
     chave: string;
     rotulo: string;
     formato: 'texto' | 'escolha' | 'booleano' | 'numero' | 'percentagem' | 'cor' | 'icone' | 'padrao' | 'dinheiro'
-        | 'hora' | 'dias';
+        | 'hora' | 'dias' | 'data' | 'validade' | 'multi';
     alinhar?: 'direita';
 };
 
@@ -68,6 +79,14 @@ export type OpcoesDoCatalogo = {
     descricao: string;
     /** O rótulo do botão de criar: «Novo Fornecedor», «Nova Categoria». */
     novo: string;
+    /**
+     * A COLUNA POR QUE SE CHAMA UMA LINHA — quase sempre `name`.
+     *
+     * É o que sai no título da janela de ver, no subtítulo do formulário e na
+     * pergunta de apagar. Uma viatura não tem `name`: chama-se pela matrícula,
+     * e «Vai apagar . Não há volta.» era o que a pergunta dizia.
+     */
+    nome: string;
     pesquisa: string;
     colunas: Coluna[];
     campos: Campo[];
@@ -76,9 +95,11 @@ export type OpcoesDoCatalogo = {
     datas: boolean;
     /** Se tem ficha de VER com extrato — hoje, só os fornecedores. */
     extrato: boolean;
-    accoes: { activar: boolean; padrao: boolean; logotipo: boolean; apagar: boolean; atribuir?: boolean };
+    accoes: { activar: boolean; padrao: boolean; logotipo: boolean; apagar: boolean; atribuir?: boolean; importar?: boolean };
     /** Como se chama a atribuição em lote neste catálogo — nulo onde não há. */
     atribuir: { titulo: string; nada: string; pesquisa_ajuda: string } | null;
+    /** Como se chama a importação em lote — «Importar de RH», nos mecânicos. */
+    importar: { botao: string; titulo: string; nada: string; pesquisa_ajuda: string } | null;
     referencias: Record<string, Escolha[]>;
     geografia: { paises: Escolha[]; provincias: string[]; municipios: Record<string, string[]>; pais_padrao: string } | null;
     /**
@@ -110,6 +131,8 @@ export type Atribuivel = {
     /** A segunda linha: o número do funcionário, o código. */
     nota: string | null;
     atribuido: boolean;
+    /** Na IMPORTAÇÃO: quem já cá está vem marcado e não se desmarca. */
+    bloqueado?: boolean;
 };
 
 export type FiltrosDoCatalogo = {
@@ -147,6 +170,17 @@ export const catalogos = {
      */
     atribuir: (tipo: string, id: number, ids: number[]) =>
         api.criar<{ quantos: number; message: string }>(`/catalogos/${tipo}/${id}/atribuir`, { ids }),
+
+    /** Quem se pode importar para este catálogo — os que já cá estão vêm bloqueados. */
+    importaveis: (tipo: string, procura: string) =>
+        api.ler<{ data: Atribuivel[]; total: number }>(`/catalogos/${tipo}/importaveis`, { procura }),
+
+    /**
+     * IMPORTAR CRIA — e não apaga quem não vier na lista. Desfazer uma
+     * importação é apagar o registo, com a guarda do `pode_apagar` a valer.
+     */
+    importar: (tipo: string, ids: number[]) =>
+        api.criar<{ quantos: number; message: string }>(`/catalogos/${tipo}/importar`, { ids }),
 
     logotipo: (tipo: string, id: number, ficheiro: File) => {
         const corpo = new FormData();

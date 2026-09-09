@@ -91,8 +91,23 @@ final class Catalogos
             'departamentos' => self::departamentos(),
             'cargos' => self::cargos(),
             'turnos' => self::turnos(),
+
+            /*
+             * OS DA OFICINA. Mecânicos, viaturas e serviços eram três
+             * componentes Livewire com a forma de sempre — lista, modal,
+             * gravar, apagar — e nenhum deles tinha guarda de empresa nos
+             * `find()`. Aqui têm a do escopo global mais a das permissões.
+             */
+            'mecanicos' => self::mecanicos(),
+            'viaturas' => self::viaturas(),
+            'servicos' => self::servicos(),
         ];
     }
+
+    /** As especialidades que a oficina reconhece — as do ecrã de sempre. */
+    public const ESPECIALIDADES = [
+        'Mecânica Geral', 'Motor', 'Suspensão', 'Elétrica', 'Pintura', 'Chapa',
+    ];
 
     /* ─── Os esquemas ──────────────────────────────────────────────────── */
 
@@ -1425,6 +1440,417 @@ final class Catalogos
         ];
     }
 
+    /* ─── A oficina ────────────────────────────────────────────────────── */
+
+    private static function mecanicos(): array
+    {
+        return [
+            'modelo' => \App\Models\Workshop\Mechanic::class,
+            'titulo' => 'Mecânicos',
+            'singular' => 'Mecânico',
+            'icone' => 'fa-user-gear',
+            'cor' => 'laranja',
+            'descricao' => 'A equipa da oficina, as especialidades e o preço da mão-de-obra',
+            'novo' => 'Novo Mecânico',
+            'rota' => '/workshop/mechanics',
+            'permissoes' => self::porVerbo('workshop.mechanics'),
+            'pesquisa' => ['name', 'email', 'phone', 'document'],
+            'pesquisa_ajuda' => 'Nome, email, telefone ou documento',
+            'ordem' => [['name', 'asc']],
+            'colunas' => [
+                ['chave' => 'name', 'rotulo' => 'Nome', 'formato' => 'texto'],
+                ['chave' => 'specialties', 'rotulo' => 'Especialidades', 'formato' => 'multi'],
+                ['chave' => 'level', 'rotulo' => 'Nível', 'formato' => 'escolha'],
+                ['chave' => 'phone', 'rotulo' => 'Telefone', 'formato' => 'texto'],
+                ['chave' => 'hourly_rate', 'rotulo' => 'Preço/hora', 'formato' => 'dinheiro', 'alinhar' => 'direita'],
+                ['chave' => 'daily_rate', 'rotulo' => 'Preço/dia', 'formato' => 'dinheiro', 'alinhar' => 'direita'],
+                ['chave' => 'is_available', 'rotulo' => 'Disponível', 'formato' => 'booleano'],
+            ],
+            'filtros' => [
+                ['chave' => 'level', 'rotulo' => 'Nível', 'opcoes' => self::NIVEIS_DE_MECANICO],
+                ['chave' => 'is_available', 'rotulo' => 'Disponibilidade', 'opcoes' => [
+                    ['valor' => '1', 'rotulo' => 'Disponível'],
+                    ['valor' => '0', 'rotulo' => 'Ocupado'],
+                ]],
+            ],
+            'campos' => [
+                self::campo('name', 'Nome', 'texto', obrigatorio: true),
+                self::campo('phone', 'Telefone', 'texto', obrigatorio: true),
+                self::campo('email', 'Email', 'email'),
+                self::campo('mobile', 'Telemóvel', 'texto'),
+                self::campo('document', 'Documento (BI/NIF)', 'texto'),
+                self::campo('level', 'Nível', 'escolha', obrigatorio: true, omissao: 'pleno', opcoes: self::NIVEIS_DE_MECANICO),
+                /*
+                 * AS ESPECIALIDADES SÃO O QUE FAZ A LISTA SERVIR PARA ALGUMA
+                 * COISA: quem tem um carro com o motor aberto procura quem
+                 * mexe em motores, e não a lista toda por ordem alfabética.
+                 * Por isso é obrigatório escolher pelo menos uma — era a regra
+                 * do ecrã de sempre.
+                 */
+                self::campo('specialties', 'Especialidades', 'multi', obrigatorio: true, omissao: [],
+                    opcoes: array_map(fn ($e) => ['valor' => $e, 'rotulo' => __($e)], self::ESPECIALIDADES),
+                    largura: 'inteira', ajuda: 'Pelo menos uma.'),
+                self::campo('hourly_rate', 'Preço por hora (Kz)', 'numero', omissao: 0, passo: 0.01, min: 0),
+                self::campo('daily_rate', 'Preço por dia (Kz)', 'numero', omissao: 0, passo: 0.01, min: 0),
+                self::campo('birth_date', 'Data de nascimento', 'data'),
+                self::campo('hire_date', 'Data de admissão', 'data'),
+                /*
+                 * DISPONÍVEL não é o mesmo que ACTIVO, e o ecrã de sempre
+                 * mostrava os dois crachás lado a lado: activo é «trabalha
+                 * cá», disponível é «pode pegar numa ordem agora».
+                 */
+                self::campo('is_available', 'Disponível para trabalho', 'booleano', omissao: true),
+                self::campo('is_active', 'Activo', 'booleano', omissao: true),
+                self::campo('address', 'Morada', 'textarea', largura: 'inteira'),
+                self::campo('notes', 'Notas', 'textarea', largura: 'inteira'),
+            ],
+            'regras' => [
+                'name' => 'required|string|min:2|max:255',
+                'phone' => 'required|string|max:20',
+                'email' => 'nullable|email|max:255',
+                'mobile' => 'nullable|string|max:20',
+                'document' => 'nullable|string|max:50',
+                'level' => 'required|in:junior,pleno,senior,master',
+                'specialties' => 'required|array|min:1',
+                'specialties.*' => 'string|max:100',
+                'hourly_rate' => 'nullable|numeric|min:0',
+                'daily_rate' => 'nullable|numeric|min:0',
+                'birth_date' => 'nullable|date',
+                'hire_date' => 'nullable|date',
+                'is_available' => 'boolean',
+                'is_active' => 'boolean',
+                'address' => 'nullable|string|max:2000',
+                'notes' => 'nullable|string|max:2000',
+            ],
+            'preparar' => fn (array $d) => array_merge($d, [
+                // Só as que a oficina reconhece: uma especialidade inventada no
+                // pedido entrava na lista e ficava lá para sempre.
+                'specialties' => array_values(array_intersect(
+                    array_map('strval', $d['specialties'] ?? []), self::ESPECIALIDADES,
+                )),
+                'hourly_rate' => ($d['hourly_rate'] ?? '') === '' ? 0 : (float) $d['hourly_rate'],
+                'daily_rate' => ($d['daily_rate'] ?? '') === '' ? 0 : (float) $d['daily_rate'],
+                'birth_date' => ($d['birth_date'] ?? '') ?: null,
+                'hire_date' => ($d['hire_date'] ?? '') ?: null,
+            ]),
+            'validar' => function (array $d): array {
+                // O `preparar` corre DEPOIS desta verificação: uma lista só com
+                // nomes inventados esvaziava-se em silêncio e gravava um
+                // mecânico sem especialidade nenhuma.
+                $boas = array_intersect(array_map('strval', $d['specialties'] ?? []), self::ESPECIALIDADES);
+
+                return $boas ? [] : ['specialties' => __('Escolha pelo menos uma especialidade.')];
+            },
+            /*
+             * UM MECÂNICO COM ORDENS NÃO SE APAGA — guarda que o ecrã em
+             * Livewire não tinha. Apagá-lo deixava as ordens de serviço a
+             * apontar para quem já não existe, e o relatório de produtividade
+             * a somar horas a ninguém.
+             */
+            'pode_apagar' => fn (Model $m) => ! \App\Models\Workshop\WorkOrder::where('mechanic_id', $m->id)->exists(),
+            'porque_nao_apaga' => 'Há ordens de serviço deste mecânico.',
+            'accoes' => ['activar' => true, 'padrao' => false, 'logotipo' => false, 'apagar' => true, 'importar' => true],
+            /*
+             * IMPORTAR DE RH — o botão que o ecrã de sempre tinha.
+             *
+             * A oficina não contrata duas vezes a mesma pessoa: ela já está na
+             * ficha de pessoal, com o nome, o telefone e o BI. Escrevê-la
+             * outra vez à mão é trabalho e é um erro à espera de acontecer.
+             */
+            'importar' => [
+                'modelo' => \App\Models\HR\Employee::class,
+                'botao' => 'Importar de RH',
+                'titulo' => 'Importar mecânicos do pessoal',
+                'nada' => 'Não há funcionários ao serviço nesta empresa.',
+                'pesquisa' => ['first_name', 'last_name', 'employee_number'],
+                'pesquisa_ajuda' => 'Nome ou número',
+                'onde' => fn ($q) => $q->where('status', 'active'),
+                'nome' => fn (Model $e) => trim(($e->first_name ?? '') . ' ' . ($e->last_name ?? '')) ?: ($e->full_name ?? '—'),
+                'nota' => fn (Model $e) => $e->employee_number,
+                /*
+                 * JÁ CÁ ESTÁ quem tem o mesmo email OU o mesmo telefone — a
+                 * mesma regra do ecrã de sempre, mas numa consulta só em vez
+                 * de uma por funcionário.
+                 */
+                'ja_ca' => function ($candidatos, int $tenantId): array {
+                    $emails = $candidatos->pluck('email')->filter()->all();
+                    $telefones = $candidatos->pluck('phone')->filter()->all();
+
+                    if (! $emails && ! $telefones) {
+                        return [];
+                    }
+
+                    $existem = \App\Models\Workshop\Mechanic::withoutGlobalScopes()
+                        ->where('tenant_id', $tenantId)
+                        ->where(function ($q) use ($emails, $telefones) {
+                            $emails && $q->orWhereIn('email', $emails);
+                            $telefones && $q->orWhereIn('phone', $telefones);
+                        })
+                        ->get(['email', 'phone']);
+
+                    $temEmail = $existem->pluck('email')->filter()->all();
+                    $temTelefone = $existem->pluck('phone')->filter()->all();
+
+                    return $candidatos
+                        ->filter(fn ($e) => ($e->email && in_array($e->email, $temEmail, true))
+                            || ($e->phone && in_array($e->phone, $temTelefone, true)))
+                        ->pluck('id')->all();
+                },
+                'mapear' => fn (Model $e) => [
+                    'user_id' => $e->user_id,
+                    'name' => $e->full_name,
+                    'email' => $e->email,
+                    'phone' => $e->phone,
+                    'mobile' => $e->mobile,
+                    'document' => $e->bi_number ?? $e->nif,
+                    // O cargo que a pessoa tem no RH é o palpite mais honesto
+                    // para a especialidade; quem sabe melhor corrige na ficha.
+                    'specialties' => [in_array($e->position?->title, self::ESPECIALIDADES, true)
+                        ? $e->position->title : 'Mecânica Geral'],
+                    'level' => 'pleno',
+                    'hourly_rate' => 0,
+                    'daily_rate' => 0,
+                    'is_active' => true,
+                    'is_available' => true,
+                ],
+            ],
+        ];
+    }
+
+    /** Os quatro níveis de um mecânico — os do ecrã de sempre. */
+    private const NIVEIS_DE_MECANICO = [
+        ['valor' => 'junior', 'rotulo' => 'Júnior'],
+        ['valor' => 'pleno', 'rotulo' => 'Pleno'],
+        ['valor' => 'senior', 'rotulo' => 'Sénior'],
+        ['valor' => 'master', 'rotulo' => 'Mestre'],
+    ];
+
+    private static function viaturas(): array
+    {
+        return [
+            'modelo' => \App\Models\Workshop\Vehicle::class,
+            'titulo' => 'Viaturas',
+            'singular' => 'Viatura',
+            'icone' => 'fa-car',
+            'cor' => 'primaria',
+            'descricao' => 'As viaturas da oficina, os donos e a validade dos documentos',
+            'novo' => 'Nova Viatura',
+            'rota' => '/workshop/vehicles',
+            'permissoes' => self::porVerbo('workshop.vehicles'),
+            /*
+             * UMA VIATURA CHAMA-SE PELA MATRÍCULA, e não tem `name` nenhum.
+             * Sem isto, a pergunta de apagar saía «Vai apagar . Não há volta.»
+             */
+            'nome' => 'plate',
+            'pesquisa' => ['plate', 'vehicle_number', 'owner_name', 'brand', 'model', 'vin'],
+            'pesquisa_ajuda' => 'Matrícula, nº, dono, marca, modelo ou chassis',
+            'ordem' => [['created_at', 'desc']],
+            'colunas' => [
+                ['chave' => 'plate', 'rotulo' => 'Matrícula', 'formato' => 'texto'],
+                ['chave' => 'vehicle_number', 'rotulo' => 'Nº', 'formato' => 'texto'],
+                ['chave' => 'owner_name', 'rotulo' => 'Proprietário', 'formato' => 'texto'],
+                ['chave' => 'brand', 'rotulo' => 'Marca', 'formato' => 'texto'],
+                ['chave' => 'model', 'rotulo' => 'Modelo', 'formato' => 'texto'],
+                ['chave' => 'year', 'rotulo' => 'Ano', 'formato' => 'numero', 'alinhar' => 'direita'],
+                ['chave' => 'mileage', 'rotulo' => 'KM', 'formato' => 'numero', 'alinhar' => 'direita'],
+                /*
+                 * AS TRÊS VALIDADES SAEM A VERMELHO QUANDO PASSAM.
+                 *
+                 * É a coluna «Documentos» do ecrã de sempre. Uma viatura com o
+                 * seguro caducado não sai da oficina, e uma data escrita a
+                 * preto no meio de vinte não se vê.
+                 */
+                ['chave' => 'registration_expiry', 'rotulo' => 'Livrete', 'formato' => 'validade'],
+                ['chave' => 'insurance_expiry', 'rotulo' => 'Seguro', 'formato' => 'validade'],
+                ['chave' => 'inspection_expiry', 'rotulo' => 'Inspecção', 'formato' => 'validade'],
+                ['chave' => 'status', 'rotulo' => 'Estado', 'formato' => 'escolha'],
+            ],
+            'filtros' => [
+                ['chave' => 'status', 'rotulo' => 'Estado', 'opcoes' => self::ESTADOS_DE_VIATURA],
+                ['chave' => 'fuel_type', 'rotulo' => 'Combustível', 'opcoes' => self::COMBUSTIVEIS],
+            ],
+            'campos' => [
+                self::campo('plate', 'Matrícula', 'texto', obrigatorio: true, ajuda: 'Única nesta empresa.'),
+                self::campo('status', 'Estado', 'escolha', obrigatorio: true, omissao: 'active', opcoes: self::ESTADOS_DE_VIATURA),
+                /*
+                 * O DONO PODE SER UM CLIENTE DA FACTURAÇÃO — e é o que liga a
+                 * ordem de serviço à factura. Escolhê-lo aqui não substitui os
+                 * campos escritos: há viaturas de quem nunca foi facturado.
+                 */
+                self::campo('client_id', 'Cliente', 'referencia', referencia: 'clientes',
+                    ajuda: 'Se o dono já é cliente da casa.'),
+                self::campo('owner_name', 'Proprietário', 'texto', obrigatorio: true),
+                self::campo('owner_phone', 'Telefone do dono', 'texto'),
+                self::campo('owner_email', 'Email do dono', 'email'),
+                self::campo('owner_nif', 'NIF do dono', 'texto'),
+                self::campo('owner_address', 'Morada do dono', 'textarea', largura: 'inteira'),
+                self::campo('brand', 'Marca', 'texto', obrigatorio: true),
+                self::campo('model', 'Modelo', 'texto', obrigatorio: true),
+                self::campo('year', 'Ano', 'numero', passo: 1, min: 1900, max: 2100),
+                self::campo('color', 'Cor', 'texto'),
+                self::campo('vin', 'Nº de chassis (VIN)', 'texto'),
+                self::campo('engine_number', 'Nº do motor', 'texto'),
+                self::campo('fuel_type', 'Combustível', 'escolha', omissao: 'Gasolina', opcoes: self::COMBUSTIVEIS),
+                self::campo('mileage', 'Quilómetros', 'numero', omissao: 0, passo: 1, min: 0),
+                self::campo('registration_document', 'Nº do livrete', 'texto'),
+                self::campo('registration_expiry', 'Validade do livrete', 'validade'),
+                self::campo('insurance_company', 'Seguradora', 'texto'),
+                self::campo('insurance_policy', 'Apólice', 'texto'),
+                self::campo('insurance_expiry', 'Validade do seguro', 'validade'),
+                self::campo('inspection_expiry', 'Validade da inspecção', 'validade'),
+                self::campo('notes', 'Notas', 'textarea', largura: 'inteira'),
+            ],
+            'regras' => [
+                'plate' => 'required|string|max:20',
+                'client_id' => 'nullable|integer',
+                'owner_name' => 'required|string|max:255',
+                'owner_phone' => 'nullable|string|max:20',
+                'owner_email' => 'nullable|email|max:255',
+                'owner_nif' => 'nullable|string|max:20',
+                'owner_address' => 'nullable|string|max:2000',
+                'brand' => 'required|string|max:100',
+                'model' => 'required|string|max:100',
+                'year' => 'nullable|integer|min:1900|max:2100',
+                'color' => 'nullable|string|max:50',
+                'vin' => 'nullable|string|max:50',
+                'engine_number' => 'nullable|string|max:50',
+                'fuel_type' => 'nullable|in:Gasolina,Diesel,Elétrico,Híbrido,GPL',
+                'mileage' => 'nullable|integer|min:0',
+                'registration_document' => 'nullable|string|max:100',
+                'registration_expiry' => 'nullable|date',
+                'insurance_company' => 'nullable|string|max:150',
+                'insurance_policy' => 'nullable|string|max:100',
+                'insurance_expiry' => 'nullable|date',
+                'inspection_expiry' => 'nullable|date',
+                'status' => 'required|in:active,in_service,completed,inactive',
+                'notes' => 'nullable|string|max:2000',
+            ],
+            'validar' => self::tudoIsto([
+                // A MATRÍCULA É ÚNICA POR EMPRESA — a regra do ecrã de sempre.
+                self::codigoUnico(\App\Models\Workshop\Vehicle::class, 'Esta matrícula já está registada.', 'plate'),
+                self::daCasa('client_id', \App\Models\Client::class, 'Esse cliente não é desta empresa.'),
+            ]),
+            'preparar' => fn (array $d) => array_merge($d, [
+                // A matrícula lê-se sempre igual: sem espaços à volta e em
+                // maiúsculas, senão «LD-42-11-AA» e «ld-42-11-aa» são duas.
+                'plate' => mb_strtoupper(trim((string) ($d['plate'] ?? ''))),
+                'client_id' => ($d['client_id'] ?? null) ?: null,
+                'year' => ($d['year'] ?? '') === '' ? null : (int) $d['year'],
+                'mileage' => ($d['mileage'] ?? '') === '' ? 0 : (int) $d['mileage'],
+                'registration_expiry' => ($d['registration_expiry'] ?? '') ?: null,
+                'insurance_expiry' => ($d['insurance_expiry'] ?? '') ?: null,
+                'inspection_expiry' => ($d['inspection_expiry'] ?? '') ?: null,
+            ]),
+            'referencias' => fn (int $t) => [
+                'clientes' => \App\Models\Client::withoutGlobalScopes()
+                    ->where('tenant_id', $t)->orderBy('name')
+                    ->get(['id', 'name'])->map(fn ($c) => ['valor' => (string) $c->id, 'rotulo' => $c->name])->all(),
+            ],
+            /*
+             * O NÚMERO INTERNO É GERADO, e de forma atómica: a coluna tem
+             * índice único por empresa e um `create()` cru deixava-a a nulo.
+             */
+            'criar' => fn (array $dados) => \App\Models\Workshop\Vehicle::createWithTenantNumber($dados, 'vehicle_number', 'VEH-'),
+            /*
+             * UMA VIATURA COM ORDENS NÃO SE APAGA — guarda nova. Apagá-la
+             * deixava a ordem de serviço sem viatura: sem matrícula na folha
+             * de obra e sem nada a que ligar a factura.
+             */
+            'pode_apagar' => fn (Model $m) => ! \App\Models\Workshop\WorkOrder::where('vehicle_id', $m->id)->exists(),
+            'porque_nao_apaga' => 'Há ordens de serviço desta viatura.',
+            'accoes' => ['activar' => false, 'padrao' => false, 'logotipo' => false, 'apagar' => true],
+            'datas' => true,
+        ];
+    }
+
+    private const ESTADOS_DE_VIATURA = [
+        ['valor' => 'active', 'rotulo' => 'Activa'],
+        ['valor' => 'in_service', 'rotulo' => 'Em serviço'],
+        ['valor' => 'completed', 'rotulo' => 'Concluída'],
+        ['valor' => 'inactive', 'rotulo' => 'Inactiva'],
+    ];
+
+    private const COMBUSTIVEIS = [
+        ['valor' => 'Gasolina', 'rotulo' => 'Gasolina'],
+        ['valor' => 'Diesel', 'rotulo' => 'Gasóleo'],
+        ['valor' => 'Elétrico', 'rotulo' => 'Eléctrico'],
+        ['valor' => 'Híbrido', 'rotulo' => 'Híbrido'],
+        ['valor' => 'GPL', 'rotulo' => 'GPL'],
+    ];
+
+    private static function servicos(): array
+    {
+        return [
+            'modelo' => \App\Models\Workshop\Service::class,
+            'titulo' => 'Serviços',
+            'singular' => 'Serviço',
+            'icone' => 'fa-screwdriver-wrench',
+            'cor' => 'roxo',
+            'descricao' => 'O que a oficina faz, o preço da mão-de-obra e as horas previstas',
+            'novo' => 'Novo Serviço',
+            'rota' => '/workshop/services',
+            'permissoes' => self::porVerbo('workshop.services'),
+            'pesquisa' => ['name', 'service_code', 'description'],
+            'pesquisa_ajuda' => 'Nome, código ou descrição',
+            'ordem' => [['sort_order', 'asc'], ['name', 'asc']],
+            'colunas' => [
+                ['chave' => 'service_code', 'rotulo' => 'Código', 'formato' => 'texto'],
+                ['chave' => 'name', 'rotulo' => 'Serviço', 'formato' => 'texto'],
+                ['chave' => 'category', 'rotulo' => 'Categoria', 'formato' => 'escolha'],
+                ['chave' => 'labor_cost', 'rotulo' => 'Mão-de-obra', 'formato' => 'dinheiro', 'alinhar' => 'direita'],
+                ['chave' => 'estimated_hours', 'rotulo' => 'Horas', 'formato' => 'numero', 'alinhar' => 'direita'],
+            ],
+            'filtros' => [
+                ['chave' => 'category', 'rotulo' => 'Categoria', 'opcoes' => self::CATEGORIAS_DE_SERVICO],
+            ],
+            'campos' => [
+                self::campo('name', 'Serviço', 'texto', obrigatorio: true),
+                self::campo('category', 'Categoria', 'escolha', obrigatorio: true, omissao: 'Manutenção', opcoes: self::CATEGORIAS_DE_SERVICO),
+                self::campo('labor_cost', 'Mão-de-obra (Kz)', 'numero', obrigatorio: true, omissao: 0, passo: 0.01, min: 0),
+                self::campo('estimated_hours', 'Horas previstas', 'numero', obrigatorio: true, omissao: 1, passo: 0.25, min: 0),
+                self::campo('sort_order', 'Ordem', 'numero', omissao: 0, passo: 1, min: 0),
+                self::campo('is_active', 'Activo', 'booleano', omissao: true),
+                self::campo('description', 'Descrição', 'textarea', largura: 'inteira'),
+            ],
+            'regras' => [
+                'name' => 'required|string|min:2|max:255',
+                'category' => 'required|in:Manutenção,Reparação,Inspeção,Pintura,Mecânica,Elétrica,Chapa,Pneus,Outro',
+                'labor_cost' => 'required|numeric|min:0',
+                'estimated_hours' => 'required|numeric|min:0',
+                'sort_order' => 'nullable|integer|min:0',
+                'is_active' => 'boolean',
+                'description' => 'nullable|string|max:2000',
+            ],
+            'preparar' => fn (array $d) => array_merge($d, [
+                'labor_cost' => (float) ($d['labor_cost'] ?? 0),
+                'estimated_hours' => (float) ($d['estimated_hours'] ?? 0),
+                'sort_order' => (int) ($d['sort_order'] ?? 0),
+            ]),
+            // O código do serviço é gerado por empresa, de forma atómica.
+            'criar' => fn (array $dados) => \App\Models\Workshop\Service::createWithTenantNumber($dados, 'service_code', 'SRV-'),
+            /*
+             * UM SERVIÇO JÁ LANÇADO NUMA ORDEM NÃO SE APAGA — guarda nova. A
+             * linha da ordem aponta para ele, e sem ele a folha de obra deixa
+             * de dizer o que se fez ao carro.
+             */
+            'pode_apagar' => fn (Model $m) => ! \App\Models\Workshop\WorkOrderItem::where('service_id', $m->id)->exists(),
+            'porque_nao_apaga' => 'Este serviço já foi lançado em ordens de serviço.',
+            'accoes' => ['activar' => true, 'padrao' => false, 'logotipo' => false, 'apagar' => true],
+        ];
+    }
+
+    private const CATEGORIAS_DE_SERVICO = [
+        ['valor' => 'Manutenção', 'rotulo' => 'Manutenção'],
+        ['valor' => 'Reparação', 'rotulo' => 'Reparação'],
+        ['valor' => 'Inspeção', 'rotulo' => 'Inspecção'],
+        ['valor' => 'Pintura', 'rotulo' => 'Pintura'],
+        ['valor' => 'Mecânica', 'rotulo' => 'Mecânica'],
+        ['valor' => 'Elétrica', 'rotulo' => 'Eléctrica'],
+        ['valor' => 'Chapa', 'rotulo' => 'Chapa'],
+        ['valor' => 'Pneus', 'rotulo' => 'Pneus'],
+        ['valor' => 'Outro', 'rotulo' => 'Outro'],
+    ];
+
     private static function porVerbo(string $prefixo): array
     {
         return ['ver' => "$prefixo.view", 'criar' => "$prefixo.create", 'editar' => "$prefixo.edit", 'apagar' => "$prefixo.delete"];
@@ -1633,12 +2059,38 @@ final class Catalogos
                     : ($valor ? substr((string) $valor, 0, 5) : null);
             }
 
+            /*
+             * UMA DATA SAI `2026-09-09`, pela mesma razão que a hora.
+             *
+             * O modelo converte-a para Carbon e em JSON ela vai com hora e
+             * fuso; o `<input type="date">` não a lê, e o campo abria vazio.
+             */
+            if (in_array($c['tipo'] ?? '', ['data', 'validade'], true)) {
+                $linha[$c['chave']] = $valor instanceof \DateTimeInterface
+                    ? $valor->format('Y-m-d')
+                    : ($valor ? substr((string) $valor, 0, 10) : null);
+            }
+
             if ($c['tipo'] === 'escolha') {
                 $linha['rotulos'][$c['chave']] = collect($c['opcoes'])->firstWhere('valor', (string) $valor)['rotulo'] ?? (string) $valor;
             } elseif ($c['tipo'] === 'referencia') {
                 $linha['rotulos'][$c['chave']] = collect($referencias[$c['referencia']] ?? [])->firstWhere('valor', (string) $valor)['rotulo'] ?? '';
             } elseif ($c['tipo'] === 'pais') {
                 $linha['rotulos'][$c['chave']] = Geografia::nomeDoPais($valor) ?? (string) $valor;
+            }
+        }
+
+        /*
+         * AS COLUNAS QUE NÃO SÃO CAMPOS — o número gerado da viatura, o código
+         * do serviço.
+         *
+         * A linha nascia só dos CAMPOS DO FORMULÁRIO, e o que se mostra sem se
+         * poder escrever ficava de fora: a coluna «Nº» da lista de viaturas
+         * saía vazia em todas as linhas, sem erro nenhum a dizer porquê.
+         */
+        foreach ($def['colunas'] as $c) {
+            if (! array_key_exists($c['chave'], $linha) && array_key_exists($c['chave'], $m->getAttributes())) {
+                $linha[$c['chave']] = $m->{$c['chave']};
             }
         }
 

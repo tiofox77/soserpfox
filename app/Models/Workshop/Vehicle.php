@@ -59,9 +59,16 @@ class Vehicle extends Model
         return $this->belongsTo(Tenant::class);
     }
     
+    /**
+     * O DONO, quando é cliente da casa.
+     *
+     * O nome vinha sem espaço de nomes e resolvia para
+     * `App\Models\Workshop\Client`, que não existe: chamar esta relação dava
+     * «Class not found». Ninguém a chamava — e por isso ninguém deu por ela.
+     */
     public function client()
     {
-        return $this->belongsTo(Client::class);
+        return $this->belongsTo(\App\Models\Client::class);
     }
 
     public function workOrders()
