@@ -694,6 +694,26 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::post('/{id}/atribuir', [$c, 'atribuir'])->whereNumber('id')->name('atribuir');
         });
 
+        /*
+         * AS RESERVAS. As transições têm porta própria — confirmar, dar
+         * entrada, cancelar e «não compareceu» não são um `update` de uma
+         * coluna: cada uma delas mexe também no QUARTO. O CHECK-OUT não está
+         * aqui de propósito: fecha-se no ecrã que factura.
+         */
+        Route::prefix('hotel/reservas')->name('hotel.reservas.')->group(function () {
+            $c = \App\Http\Controllers\Api\Hotel\ReservasApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/hospedes', [$c, 'hospedes'])->name('hospedes');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'store'])->name('store');
+            Route::get('/{id}', [$c, 'ficha'])->whereNumber('id')->name('ficha');
+            Route::put('/{id}', [$c, 'update'])->whereNumber('id')->name('update');
+            Route::get('/{id}/quartos-livres', [$c, 'quartosLivres'])->whereNumber('id')->name('quartos-livres');
+            Route::post('/{id}/estado', [$c, 'estado'])->whereNumber('id')->name('estado');
+            Route::post('/{id}/receber', [$c, 'receber'])->whereNumber('id')->name('receber');
+        });
+
         Route::prefix('oficina/ordens')->name('oficina.ordens.')->group(function () {
             $c = \App\Http\Controllers\Api\Workshop\OrdensApiController::class;
 
@@ -1778,7 +1798,7 @@ Route::middleware(['auth', 'tenant.module:hotel'])->prefix('hotel')->name('hotel
     Route::middleware('permission:hotel.guests.view')
         ->get('/guests', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Hóspedes', ['tipo' => 'hospedes']))->name('guests');
     Route::middleware('permission:hotel.reservations.view')
-        ->get('/reservations', \App\Livewire\Hotel\ReservationManagement::class)->name('reservations');
+        ->get('/reservations', \App\Support\EcraReact::pagina('hotel/reservas', 'Reservas'))->name('reservations');
     Route::middleware('permission:hotel.walk-in.create')
         ->get('/walk-in', \App\Livewire\Hotel\WalkIn::class)->name('walk-in');
     // Parâmetro opcional: permite abrir o check-out já numa reserva concreta

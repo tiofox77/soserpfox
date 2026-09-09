@@ -2153,6 +2153,13 @@ final class Catalogos
                  */
                 self::campo('hotel_vip', 'Hóspede VIP', 'booleano', omissao: false),
                 self::campo('hotel_blacklisted', 'Na lista negra', 'booleano', omissao: false),
+                /*
+                 * A PROVÍNCIA FALTAVA À FICHA DO HÓSPEDE, e estava no
+                 * formulário rápido das reservas: quem criava o hóspede pelo
+                 * balcão escrevia-a, quem o criava por aqui não tinha onde. É a
+                 * mesma coluna do cliente, e alimenta a morada da factura.
+                 */
+                self::campo('province', 'Província', 'provincia'),
                 self::campo('city', 'Cidade', 'texto'),
                 self::campo('country', 'País', 'texto', omissao: 'Angola'),
                 self::campo('address', 'Morada', 'textarea', largura: 'inteira'),
@@ -2169,6 +2176,7 @@ final class Catalogos
                 'gender' => 'nullable|in:male,female,other',
                 'address' => 'nullable|string|max:2000',
                 'city' => 'nullable|string|max:100',
+                'province' => 'nullable|string|max:100',
                 'country' => 'nullable|string|max:100',
                 'nif' => 'nullable|string|max:50',
                 'notes' => 'nullable|string|max:2000',

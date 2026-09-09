@@ -358,3 +358,155 @@ export const limpeza = {
 
     atribuir: (id: number, pessoa: string) => api.criar<RespostaDaTarefa>(`/hotel/limpeza/${id}/atribuir`, { pessoa }),
 };
+
+/* ─── As reservas ───────────────────────────────────────────────────── */
+
+export type OpcoesDasReservas = {
+    estados: Escolha[];
+    fontes: Escolha[];
+    estados_de_pagamento: Escolha[];
+    filtros_de_data: Escolha[];
+    /** O preço base viaja com o tipo: escolher o tipo preenche a taxa. */
+    tipos_de_quarto: Array<Escolha & { preco: number }>;
+    /** `tipo` liga o quarto ao tipo — a lista filtra-se sem ir ao servidor. */
+    quartos: Array<Escolha & { tipo: string }>;
+    meios_de_pagamento: Escolha[];
+    provincias: string[];
+    permissoes: {
+        pode_criar: boolean;
+        pode_editar: boolean;
+        pode_apagar: boolean;
+        /** Criar o hóspede aqui mesmo é a permissão da FICHA, não a da reserva. */
+        pode_criar_hospede: boolean;
+    };
+};
+
+/** O que se pode fazer a esta reserva — decidido pela tabela de transições. */
+export type PodeNaReserva = {
+    confirmar: boolean;
+    entrada: boolean;
+    saida: boolean;
+    cancelar: boolean;
+    nao_compareceu: boolean;
+    editar: boolean;
+    receber: boolean;
+};
+
+export type Reserva = {
+    id: number;
+    numero: string;
+    codigo: string | null;
+    client_id: number | null;
+    hospede: string;
+    telefone: string | null;
+    email: string | null;
+    room_type_id: number | null;
+    tipo_de_quarto: string | null;
+    room_id: number | null;
+    quarto: string | null;
+    entrada: string | null;
+    saida: string | null;
+    noites: number;
+    adultos: number;
+    criancas: number;
+    camas_extra: number;
+    fonte: string;
+    fonte_rotulo: string;
+    estado: string;
+    estado_rotulo: string;
+    taxa: number;
+    total: number;
+    pago: number;
+    por_receber: number;
+    estado_de_pagamento: string;
+    estado_de_pagamento_rotulo: string;
+    invoice_id: number | null;
+    factura: string | null;
+    pode: PodeNaReserva;
+
+    /* Só na ficha (o modal de ver). */
+    subtotal?: number;
+    desconto?: number;
+    imposto?: number;
+    extras?: number;
+    pedidos?: string | null;
+    notas?: string | null;
+    meio_de_pagamento?: string | null;
+    criada_por?: string | null;
+    criada_em?: string | null;
+    cancelada_em?: string | null;
+    motivo_do_cancelamento?: string | null;
+};
+
+export type FiltrosDasReservas = {
+    procura?: string;
+    estado?: string;
+    fonte?: string;
+    quando?: string;
+    page?: number;
+    por_pagina?: number;
+};
+
+export type ListaDeReservas = {
+    data: Reserva[];
+    meta: { total: number; current_page: number; last_page: number; per_page: number };
+    /** Da casa, e não da página nem do filtro. */
+    resumo: { entram_hoje: number; saem_hoje: number; hospedados: number; pendentes: number };
+};
+
+export type HospedeDaProcura = {
+    id: number;
+    nome: string;
+    telefone: string | null;
+    email: string | null;
+    nif: string | null;
+    vip: boolean;
+    /** Quem está na lista negra não volta a ficar hospedado. */
+    lista_negra: boolean;
+};
+
+export type QuartoLivre = {
+    id: number;
+    numero: string;
+    piso: string | null;
+    limpeza: string | null;
+    limpeza_rotulo: string;
+};
+
+export type ReservaParaGravar = {
+    client_id: string;
+    room_type_id: string;
+    room_id: string;
+    check_in_date: string;
+    check_out_date: string;
+    adults: string;
+    children: string;
+    extra_beds: string;
+    source: string;
+    room_rate: string;
+    discount: string;
+    special_requests: string;
+    internal_notes: string;
+    payment_method: string;
+    paid_amount: string;
+};
+
+/** `aviso` é o das facturas por regularizar — cancelar não anula documentos. */
+type RespostaDaReserva = { data: Reserva; message?: string; aviso?: string | null };
+
+export const reservas = {
+    opcoes: () => api.ler<OpcoesDasReservas>('/hotel/reservas/opcoes'),
+    lista: (filtros: FiltrosDasReservas) => api.ler<ListaDeReservas>('/hotel/reservas', filtros),
+    ficha: (id: number) => api.ler<{ data: Reserva }>(`/hotel/reservas/${id}`),
+    hospedes: (procura: string) => api.ler<{ data: HospedeDaProcura[] }>('/hotel/reservas/hospedes', { procura }),
+    quartosLivres: (id: number) => api.ler<{ data: QuartoLivre[] }>(`/hotel/reservas/${id}/quartos-livres`),
+
+    criar: (dados: ReservaParaGravar) => api.criar<RespostaDaReserva>('/hotel/reservas', dados),
+    guardar: (id: number, dados: ReservaParaGravar) => api.guardar<RespostaDaReserva>(`/hotel/reservas/${id}`, dados),
+
+    estado: (id: number, accao: 'confirmar' | 'entrada' | 'nao-compareceu' | 'cancelar', extra?: { quarto?: number; motivo?: string }) =>
+        api.criar<RespostaDaReserva>(`/hotel/reservas/${id}/estado`, { accao, ...extra }),
+
+    receber: (id: number, valor: string, meio: string, facturar: boolean) =>
+        api.criar<RespostaDaReserva>(`/hotel/reservas/${id}/receber`, { valor, meio, facturar }),
+};

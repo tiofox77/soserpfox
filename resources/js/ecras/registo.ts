@@ -204,4 +204,6 @@ export const ecras: Record<string, Ecra> = {
         import('./hotel/Painel'),
     'hotel/relatorios': () =>
         import('./hotel/Relatorios'),
+    'hotel/reservas': () =>
+        import('./hotel/Reservas'),
 };

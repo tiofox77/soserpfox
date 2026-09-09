@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Livewire\Hotel\Checkout;
-use App\Livewire\Hotel\ReservationManagement;
 use App\Models\Hotel\Reservation;
 use App\Models\Hotel\Room;
 use App\Models\Hotel\RoomType;
@@ -20,12 +19,22 @@ use Tests\TenantTestCase;
  */
 class HotelReservationTest extends TenantTestCase
 {
+    private const API = '/api/v1/invoicing/react/hotel/reservas';
+
     private RoomType $tipoQuarto;
     private PaymentMethod $metodo;
 
     protected function setUp(): void
     {
         parent::setUp();
+
+        // O ECRA DAS RESERVAS E REACT: fala-se com ele por HTTP, e a porta
+        // exige o modulo e a permissao — o `Livewire::test` de antes nao
+        // passava por nenhum dos dois.
+        $this->comModulo('hotel');
+        $this->comPermissoes(
+            'hotel.reservations.view', 'hotel.reservations.create', 'hotel.reservations.edit'
+        );
 
         $this->tipoQuarto = RoomType::create([
             'tenant_id'  => $this->tenant->id,
@@ -78,12 +87,11 @@ class HotelReservationTest extends TenantTestCase
 
     private function pagarSinal(Reservation $r, float $valor): void
     {
-        Livewire::test(ReservationManagement::class)
-            ->call('openPaymentModal', $r->id)
-            ->set('payment_amount', $valor)
-            ->set('payment_method_id', $this->metodo->id)
-            ->set('generate_invoice', true)
-            ->call('registerPayment');
+        $this->postJson(self::API . "/{$r->id}/receber", [
+            'valor' => $valor,
+            'meio' => $this->metodo->id,
+            'facturar' => true,
+        ])->assertOk();
     }
 
     public function test_sinal_parcial_e_abatido_na_fatura_final(): void
@@ -196,14 +204,13 @@ class HotelReservationTest extends TenantTestCase
     {
         $r = $this->reserva();
 
-        $ecra = Livewire::test(ReservationManagement::class)
-            ->call('openPaymentModal', $r->id)
-            ->set('payment_amount', 999999)
-            ->set('payment_method_id', $this->metodo->id)
-            ->set('generate_invoice', false)
-            ->call('registerPayment');
+        $this->postJson(self::API . "/{$r->id}/receber", [
+            'valor' => 999999,
+            'meio' => $this->metodo->id,
+            'facturar' => false,
+        ])->assertStatus(422)->assertJsonValidationErrors('valor');
 
-        $ecra->assertHasErrors('payment_amount');
+        $this->assertEquals(0, $r->fresh()->paid_amount);
     }
 
     public function test_pagamento_sem_fatura_nao_apaga_a_ligacao_existente(): void
@@ -214,12 +221,11 @@ class HotelReservationTest extends TenantTestCase
         $idFactura = $r->fresh()->invoice_id;
         $this->assertNotNull($idFactura);
 
-        Livewire::test(ReservationManagement::class)
-            ->call('openPaymentModal', $r->id)
-            ->set('payment_amount', 5000)
-            ->set('payment_method_id', $this->metodo->id)
-            ->set('generate_invoice', false)
-            ->call('registerPayment');
+        $this->postJson(self::API . "/{$r->id}/receber", [
+            'valor' => 5000,
+            'meio' => $this->metodo->id,
+            'facturar' => false,
+        ])->assertOk();
 
         $this->assertSame($idFactura, $r->fresh()->invoice_id);
     }
@@ -283,18 +289,16 @@ class HotelReservationTest extends TenantTestCase
             'status' => 'confirmed', 'payment_status' => 'pending',
         ]);
 
-        Livewire::test(ReservationManagement::class)
-            ->call('openModal')
-            ->set('client_id', $this->cliente->id)
-            ->set('room_type_id', $this->tipoQuarto->id)
-            ->set('room_id', $quarto->id)
-            ->set('check_in_date', now()->addDays(6)->toDateString())
-            ->set('check_out_date', now()->addDays(7)->toDateString())
-            ->set('room_rate', 30000)
-            ->set('adults', 1)->set('children', 0)->set('extra_beds', 0)
-            ->set('discount', 0)->set('paid_amount', 0)
-            ->call('save')
-            ->assertHasErrors('room_id');
+        $this->postJson(self::API, [
+            'client_id' => $this->cliente->id,
+            'room_type_id' => $this->tipoQuarto->id,
+            'room_id' => $quarto->id,
+            'check_in_date' => now()->addDays(6)->toDateString(),
+            'check_out_date' => now()->addDays(7)->toDateString(),
+            'room_rate' => 30000,
+            'adults' => 1, 'children' => 0, 'extra_beds' => 0,
+            'source' => 'direct', 'discount' => 0, 'paid_amount' => 0,
+        ])->assertStatus(422)->assertJsonValidationErrors('room_id');
     }
 
     #[\PHPUnit\Framework\Attributes\DataProvider("transicoesInvalidas")]
@@ -320,7 +324,7 @@ class HotelReservationTest extends TenantTestCase
         $r = $this->reserva('confirmed', $quarto);
         $quarto->update(['status' => 'occupied']);
 
-        Livewire::test(ReservationManagement::class)->call('marcarNaoCompareceu', $r->id);
+        $this->postJson(self::API . "/{$r->id}/estado", ['accao' => 'nao-compareceu'])->assertOk();
 
         $this->assertSame('no_show', $r->fresh()->status);
         $this->assertSame('available', $quarto->fresh()->status,
