@@ -101,7 +101,16 @@ export default function TurnosDoPos() {
                         [t('Cartão / TPA'), kz(turno.card_sales), 'fa-credit-card', 'indigo'],
                         [t('Transferência'), kz(turno.bank_transfer_sales), 'fa-building-columns', 'roxo'],
                         [t('Outros'), kz(turno.other_sales), 'fa-ellipsis', 'cinza'],
-                        [t('Total de vendas'), kz(turno.total_sales), 'fa-chart-line', 'verde'],
+                        /*
+                         * O QUE FICOU, e não o que passou. Uma devolução paga
+                         * da gaveta tira dinheiro dela: o turno só sabia de
+                         * facturas, e o total lia-se igual com ou sem
+                         * devoluções.
+                         */
+                        [t('Total de vendas'), kz(turno.net_sales), 'fa-chart-line', 'verde'],
+                        ...(turno.credit_notes_amount > 0
+                            ? [[t('Devolvido'), kz(turno.credit_notes_amount), 'fa-rotate-left', 'ambar']] as Array<[string, string, string, TomDoCartao]>
+                            : []),
                         [t('Documentos'), t(':facturas facturas · :recibos recibos', { facturas: turno.total_invoices, recibos: turno.total_receipts }), 'fa-file-invoice', 'azul'],
                         [t('Esperado em caixa'), kz(turno.expected_cash), 'fa-vault', 'ambar'],
                     ] as Array<[string, string, string, TomDoCartao]>).map(([r, v, icone, tom], i) => (

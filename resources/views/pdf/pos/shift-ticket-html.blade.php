@@ -87,14 +87,22 @@
         <tr><td>Cartão/TPA</td><td class="right">{{ number_format($shift->card_sales, 2) }} Kz</td></tr>
         <tr><td>Transferência</td><td class="right">{{ number_format($shift->bank_transfer_sales, 2) }} Kz</td></tr>
         <tr><td>Outros</td><td class="right">{{ number_format($shift->other_sales, 2) }} Kz</td></tr>
+        @if($shift->credit_notes_amount > 0)
+        {{-- Os baldes acima já vêm líquidos: o movimento da devolução é
+             negativo. Esta linha é para o operador VER o que devolveu. --}}
+        <tr><td>Devolvido ({{ $shift->total_credit_notes }} NC)</td><td class="right">-{{ number_format($shift->credit_notes_amount, 2) }} Kz</td></tr>
+        @endif
     </table>
     <hr class="dashed">
     <table>
         <tr>
             <td class="b">TOTAL VENDAS:</td>
-            <td class="right b">{{ number_format($shift->total_sales, 2) }} Kz</td>
+            <td class="right b">{{ number_format($shift->net_sales, 2) }} Kz</td>
         </tr>
         <tr><td>Nº Faturas:</td><td class="right">{{ $shift->total_invoices }}</td></tr>
+        @if($shift->total_credit_notes > 0)
+        <tr><td>Nº Notas de Crédito:</td><td class="right">{{ $shift->total_credit_notes }}</td></tr>
+        @endif
         <tr><td>Nº Recibos:</td><td class="right">{{ $shift->total_receipts }}</td></tr>
     </table>
 

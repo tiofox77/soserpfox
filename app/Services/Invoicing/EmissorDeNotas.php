@@ -9,12 +9,14 @@ use App\Models\Invoicing\CreditNoteItem;
 use App\Models\Invoicing\DebitNote;
 use App\Models\Invoicing\DebitNoteItem;
 use App\Models\Invoicing\LineTax;
+use App\Models\Invoicing\PosShift;
 use App\Models\Invoicing\SalesInvoice;
 use App\Models\Product;
 use App\Services\AGT\AutoSubmissao;
 use DomainException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * EMITIR NOTAS DE CRÉDITO E DE DÉBITO — num sítio só.
@@ -247,8 +249,35 @@ class EmissorDeNotas
             return $nota;
         });
 
+        $this->ligarAoTurnoAberto($nota, $tenantId);
+
         // À AGT em SEGUNDO passo: a nota já está gravada.
         return ['nota' => $nota, 'fila' => AutoSubmissao::enfileirar($nota)];
+    }
+
+    /**
+     * A DEVOLUÇÃO NO TURNO DE QUEM A FEZ.
+     *
+     * Quem tem turno aberto é o caixa, e o dinheiro que devolve sai da gaveta
+     * dele — como a venda já entrava por `PosSaleService::linkToOpenShift`. Sem
+     * isto, o turno só sabia de facturas: 1177 movimentos gravados, todos
+     * `invoice`, e nem um a dizer que saiu dinheiro. O «Dinheiro Esperado»
+     * ficava alto e o operador fechava o turno com uma falta que não era dele.
+     *
+     * BEST-EFFORT, e depois do commit: a nota já está emitida e assinada, e uma
+     * falha a escrever no turno não a pode desfazer. Sem turno aberto não há
+     * gaveta — a nota fica só nos documentos, que é onde ela sempre esteve.
+     */
+    private function ligarAoTurnoAberto(CreditNote $nota, int $tenantId): void
+    {
+        try {
+            PosShift::abertoDe($tenantId, auth()->id())?->registarNotaDeCredito($nota);
+        } catch (\Throwable $e) {
+            Log::warning('EmissorDeNotas: falha ao registar a devolução no turno', [
+                'nota' => $nota->credit_note_number,
+                'erro' => $e->getMessage(),
+            ]);
+        }
     }
 
     /* ─── Nota de débito ──────────────────────────────────────────────── */

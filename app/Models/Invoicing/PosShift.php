@@ -28,8 +28,10 @@ class PosShift extends Model
         'bank_transfer_sales',
         'other_sales',
         'total_sales',
+        'credit_notes_amount',
         'total_invoices',
         'total_receipts',
+        'total_credit_notes',
         'expected_cash',
         'actual_cash',
         'cash_difference',
@@ -50,6 +52,7 @@ class PosShift extends Model
         'bank_transfer_sales' => 'decimal:2',
         'other_sales' => 'decimal:2',
         'total_sales' => 'decimal:2',
+        'credit_notes_amount' => 'decimal:2',
         'expected_cash' => 'decimal:2',
         'actual_cash' => 'decimal:2',
         'cash_difference' => 'decimal:2',
@@ -160,6 +163,74 @@ class PosShift extends Model
     }
 
     /**
+     * O TURNO ABERTO DE UM OPERADOR — ou nenhum.
+     *
+     * Quem tem turno aberto é o caixa: o dinheiro dos documentos que emite
+     * passa pela gaveta dele. É a mesma pergunta que a venda já fazia (ver
+     * `PosSaleService::linkToOpenShift`), agora num sítio só.
+     */
+    public static function abertoDe(int $tenantId, ?int $userId): ?self
+    {
+        if (! $userId) {
+            return null;
+        }
+
+        return static::where('tenant_id', $tenantId)
+            ->where('user_id', $userId)
+            ->where('status', 'open')
+            ->latest('opened_at')
+            ->first();
+    }
+
+    /**
+     * UMA DEVOLUÇÃO — dinheiro a SAIR da gaveta.
+     *
+     * O valor entra negativo de propósito: é o que faz o balde do meio de
+     * pagamento descer e o «Dinheiro Esperado» bater certo com o que lá está.
+     *
+     * O MEIO DE PAGAMENTO É O DA VENDA e não uma escolha nova: o dinheiro
+     * volta pelo caminho por onde veio. Vem, por esta ordem: do movimento
+     * DESTE turno que registou a venda (o mais fiável — foi esta gaveta que o
+     * recebeu), depois do que ficou gravado na factura, e, quando nenhum dos
+     * dois se sabe, `other` — que é o balde que NÃO mexe no dinheiro esperado.
+     * Não saber é razão para não tocar na contagem, não para adivinhar.
+     */
+    public function registarNotaDeCredito(\App\Models\Invoicing\CreditNote $nota): ?PosShiftTransaction
+    {
+        $valor = round((float) $nota->total, 2);
+
+        if ($valor <= 0) {
+            return null;
+        }
+
+        $factura = $nota->invoice;
+
+        $daVenda = $factura
+            ? $this->transactions()
+                ->where('type', 'invoice')
+                ->where('reference_id', $factura->id)
+                ->value('payment_method')
+            : null;
+
+        return $this->addTransaction([
+            'type' => 'credit_note',
+            'reference_type' => \App\Models\Invoicing\CreditNote::class,
+            'reference_id' => $nota->id,
+            'reference_number' => $nota->credit_note_number,
+            'payment_method' => $daVenda ?: ($factura?->payment_method ?: 'other'),
+            'amount' => -$valor,
+            'description' => __('Devolução :nota', ['nota' => $nota->credit_note_number]),
+            'metadata' => [
+                'invoice_id' => $factura?->id,
+                'invoice_number' => $factura?->invoice_number,
+                // Se a venda foi neste turno, a devolução é da gaveta com
+                // certeza. Se não foi, o meio veio da factura — e fica dito.
+                'venda_deste_turno' => $daVenda !== null,
+            ],
+        ]);
+    }
+
+    /**
      * Adicionar transação ao turno
      */
     public function addTransaction(array $data): ?PosShiftTransaction
@@ -239,18 +310,47 @@ class PosShift extends Model
             return 'other';
         };
 
+        /*
+         * OS BALDES CONTAM TUDO, DEVOLUÇÕES INCLUÍDAS.
+         *
+         * É deles que sai o «Dinheiro Esperado», e uma devolução paga da
+         * gaveta tira dinheiro dela: o movimento da nota de crédito é
+         * NEGATIVO, e por isso o balde certo desce sozinho. Antes não havia
+         * movimento nenhum e o esperado ficava alto — o operador acabava o
+         * turno com uma falta que não era dele.
+         */
         $byBucket = $transactions->groupBy(fn($t) => $bucket($t->payment_method));
 
         $this->cash_sales          = (float) ($byBucket->get('cash')?->sum('amount') ?? 0);
         $this->card_sales          = (float) ($byBucket->get('card')?->sum('amount') ?? 0);
         $this->bank_transfer_sales = (float) ($byBucket->get('bank_transfer')?->sum('amount') ?? 0);
         $this->other_sales         = (float) ($byBucket->get('other')?->sum('amount') ?? 0);
-        $this->total_sales = $transactions->sum('amount');
-        
+
+        /*
+         * BRUTO E DEVOLVIDO SÃO DOIS NÚMEROS, e não um só.
+         *
+         * `total_sales` continua a querer dizer o que sempre quis — o que se
+         * vendeu — e o devolvido fica à parte, em positivo, porque é assim que
+         * se lê («devolveram-se 50.000», e não «vendeu-se menos 50.000»). O
+         * líquido é a subtracção dos dois, e é o mesmo vocabulário que o
+         * relatório de vendas do POS já usava.
+         */
+        $devolucoes = $transactions->where('type', 'credit_note');
+
+        $this->total_sales = $transactions->where('type', '!=', 'credit_note')->sum('amount');
+        $this->credit_notes_amount = abs((float) $devolucoes->sum('amount'));
+
         $this->total_invoices = $transactions->where('type', 'invoice')->count();
         $this->total_receipts = $transactions->where('type', 'receipt')->count();
+        $this->total_credit_notes = $devolucoes->count();
 
         $this->save();
+    }
+
+    /** O que ficou de facto — o que se vendeu menos o que se devolveu. */
+    public function getNetSalesAttribute(): float
+    {
+        return (float) $this->total_sales - (float) $this->credit_notes_amount;
     }
 
     /**

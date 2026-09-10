@@ -73,7 +73,18 @@ export default function HistoricoDeTurnos() {
                                     <td className="px-4 py-2">{turno.operador}</td>
                                     <td className="whitespace-nowrap px-4 py-2 text-slate-600">{turno.opened_at}</td>
                                     <td className="whitespace-nowrap px-4 py-2 text-slate-600">{turno.closed_at ?? '—'}</td>
-                                    <td className="px-4 py-2 text-right tabular-nums">{kz(turno.total_sales)}</td>
+                                    {/* O LÍQUIDO, e a devolução por baixo quando a houve.
+                                        Mostrar só o bruto fazia um turno de 150.000 com
+                                        50.000 devolvidos ler-se igual a um sem devolução
+                                        nenhuma. */}
+                                    <td className="px-4 py-2 text-right tabular-nums">
+                                        {kz(turno.net_sales)}
+                                        {turno.credit_notes_amount > 0 && (
+                                            <span className="block text-xs text-amber-600">
+                                                {t('−:v devolvido', { v: kz(turno.credit_notes_amount) })}
+                                            </span>
+                                        )}
+                                    </td>
                                     <td className="px-4 py-2 text-right tabular-nums">{kz(turno.expected_cash)}</td>
                                     <td className="px-4 py-2 text-right tabular-nums">{turno.actual_cash === null ? '—' : kz(turno.actual_cash)}</td>
                                     <td className={cls('px-4 py-2 text-right tabular-nums', (turno.cash_difference ?? 0) < 0 && 'text-red-700')}>{turno.cash_difference === null ? '—' : kz(turno.cash_difference)}</td>
@@ -118,7 +129,13 @@ function Detalhe({ id, aoFechar }: { id: number; aoFechar: () => void }) {
                         {[
                             [t('Operador'), turno.operador ?? '—'], [t('Abertura'), turno.opened_at ?? '—'], [t('Fecho'), turno.closed_at ?? '—'], [t('Fechado por'), turno.fechado_por ?? '—'],
                             [t('Saldo inicial'), `${kz(turno.opening_balance)} Kz`], [t('Dinheiro'), `${kz(turno.cash_sales)} Kz`], [t('Cartão'), `${kz(turno.card_sales)} Kz`], [t('Transferência'), `${kz(turno.bank_transfer_sales)} Kz`],
-                            [t('Outros'), `${kz(turno.other_sales)} Kz`], [t('Total de vendas'), `${kz(turno.total_sales)} Kz`], [t('Esperado'), `${kz(turno.expected_cash)} Kz`], [t('Contado'), turno.actual_cash === null ? '—' : `${kz(turno.actual_cash)} Kz`],
+                            [t('Outros'), `${kz(turno.other_sales)} Kz`],
+                            // BRUTO, DEVOLVIDO, LÍQUIDO — o mesmo vocabulário do
+                            // relatório de vendas do POS, que já os distinguia.
+                            [t('Vendido'), `${kz(turno.total_sales)} Kz`],
+                            [t('Devolvido'), `${kz(turno.credit_notes_amount)} Kz`],
+                            [t('Líquido'), `${kz(turno.net_sales)} Kz`],
+                            [t('Esperado'), `${kz(turno.expected_cash)} Kz`], [t('Contado'), turno.actual_cash === null ? '—' : `${kz(turno.actual_cash)} Kz`],
                             [t('Diferença'), turno.cash_difference === null ? '—' : `${kz(turno.cash_difference)} Kz`], [t('Motivo'), turno.difference_reason ?? '—'], [t('Notas'), turno.closing_notes ?? turno.opening_notes ?? '—'],
                         ].map(([r, v]) => <div key={r}><dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">{r}</dt><dd className="font-medium text-slate-900">{v}</dd></div>)}
                     </dl>

@@ -42,6 +42,8 @@ class PosShiftTransaction extends Model
         return match($this->type) {
             'invoice' => __('Fatura'),
             'receipt' => __('Recibo'),
+            // Vale NEGATIVO no turno: é dinheiro a sair da gaveta.
+            'credit_note' => __('Nota de crédito'),
             'adjustment' => __('Ajuste'),
             'withdrawal' => __('Retirada'),
             'deposit' => __('Depósito'),

@@ -116,8 +116,19 @@ class TurnosApiController extends Controller
             'bank_transfer_sales' => (float) $s->bank_transfer_sales,
             'other_sales' => (float) $s->other_sales,
             'total_sales' => (float) $s->total_sales,
+            /*
+             * BRUTO, DEVOLVIDO E LÍQUIDO — três números e não um.
+             *
+             * O turno só sabia de facturas: 1177 movimentos gravados, todos
+             * `invoice`, e nem um a dizer que saiu dinheiro. Um turno de
+             * 150.000 com 50.000 devolvidos lia-se igual a um de 150.000 sem
+             * devolução nenhuma.
+             */
+            'credit_notes_amount' => (float) $s->credit_notes_amount,
+            'net_sales' => $s->net_sales,
             'total_invoices' => (int) $s->total_invoices,
             'total_receipts' => (int) $s->total_receipts,
+            'total_credit_notes' => (int) $s->total_credit_notes,
             // O esperado em caixa é o saldo inicial mais o que entrou em dinheiro.
             'expected_cash' => $s->status === 'closed' ? (float) $s->expected_cash : (float) $s->opening_balance + (float) $s->cash_sales,
             'actual_cash' => $s->actual_cash !== null ? (float) $s->actual_cash : null,

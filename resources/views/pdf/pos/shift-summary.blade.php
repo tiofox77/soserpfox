@@ -62,7 +62,7 @@
             </table>
         </div>
         <div class="col">
-            <div class="kpi"><div class="label">Total Vendas</div><div class="value">{{ number_format($shift->total_sales, 2) }} Kz</div></div>
+            <div class="kpi"><div class="label">Total Vendas</div><div class="value">{{ number_format($shift->net_sales, 2) }} Kz</div></div>
             <div class="kpi"><div class="label">Nº Faturas</div><div class="value">{{ $shift->total_invoices }}</div></div>
             <div class="kpi"><div class="label">Nº Recibos</div><div class="value">{{ $shift->total_receipts }}</div></div>
         </div>
@@ -81,9 +81,15 @@
             <tr><td>Cartão (TPA/Multicaixa)</td><td class="text-right">{{ number_format($shift->card_sales, 2) }}</td></tr>
             <tr><td>Transferência Bancária</td><td class="text-right">{{ number_format($shift->bank_transfer_sales, 2) }}</td></tr>
             <tr><td>Outros</td><td class="text-right">{{ number_format($shift->other_sales, 2) }}</td></tr>
+            {{-- O QUE SAIU DA GAVETA. Os baldes acima já vêm líquidos — o
+                 movimento da devolução é negativo — e por isso o TOTAL tem de
+                 ser o líquido, senão não bate com a soma deles. --}}
+            @if($shift->credit_notes_amount > 0)
+            <tr><td>Devolvido ({{ $shift->total_credit_notes }} NC)</td><td class="text-right">-{{ number_format($shift->credit_notes_amount, 2) }}</td></tr>
+            @endif
             <tr class="totals-row">
                 <td>TOTAL</td>
-                <td class="text-right">{{ number_format($shift->total_sales, 2) }}</td>
+                <td class="text-right">{{ number_format($shift->net_sales, 2) }}</td>
             </tr>
         </tbody>
     </table>

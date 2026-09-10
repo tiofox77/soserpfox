@@ -9,6 +9,8 @@ export type Turno = {
     opened_at: string | null; closed_at: string | null; duration: number | null;
     opening_balance: number; opening_notes: string | null;
     cash_sales: number; card_sales: number; bank_transfer_sales: number; other_sales: number; total_sales: number;
+    /** O que se devolveu (positivo) e o que ficou: bruto − devolvido. */
+    credit_notes_amount: number; net_sales: number; total_credit_notes: number;
     total_invoices: number; total_receipts: number; expected_cash: number; actual_cash: number | null; cash_difference: number | null;
     closing_notes: string | null; difference_reason: string | null;
     exportar: { pdf: string; talao: string };
