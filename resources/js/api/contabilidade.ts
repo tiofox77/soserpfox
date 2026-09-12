@@ -175,6 +175,100 @@ export type OpcoesDosLancamentos = {
     permissoes: { gerir: boolean };
 };
 
+/* ─── Os períodos ─────────────────────────────────────────────────────── */
+
+export type PeriodoContabilistico = {
+    id: number;
+    codigo: string;
+    nome: string;
+    de: string | null;
+    ate: string | null;
+    estado: string;
+    estado_rotulo: string;
+    fechado_em: string | null;
+    fechado_por: string | null;
+    /** O período em que hoje cai: é o que se usa ao lançar. */
+    e_o_de_hoje: boolean;
+    lancamentos: number;
+    rascunhos: number;
+    debito: number;
+    credito: number;
+    diferenca: number;
+    equilibrado: boolean;
+    /** O que segura o fecho, decidido no servidor e dito antes do clique. */
+    pode_fechar: boolean;
+    porque_nao_fecha: string | null;
+    pode_reabrir: boolean;
+};
+
+export type PeriodosDoAno = {
+    ano: number;
+    anos: number[];
+    data: PeriodoContabilistico[];
+    resumo: { total: number; abertos: number; fechados: number; rascunhos: number };
+    permissoes: { gerir: boolean };
+};
+
+/* ─── As moedas e os câmbios ──────────────────────────────────────────── */
+
+export type Moeda = {
+    id: number;
+    codigo: string;
+    nome: string;
+    simbolo: string;
+    casas: number;
+    activa: boolean;
+    /** Quantos câmbios a usam — é o que decide se se pode apagar. */
+    cambios: number;
+};
+
+export type Cambio = {
+    id: number;
+    de_id: number;
+    de: string | null;
+    para_id: number;
+    para: string | null;
+    dia: string | null;
+    taxa: number;
+    origem: string | null;
+};
+
+export type MoedasECambios = {
+    moedas: Moeda[];
+    taxas: Cambio[];
+    resumo: { moedas: number; activas: number; cambios: number; ultimo_cambio: string | null };
+    /** A lista é da PLATAFORMA: escrever nela mexe com todas as empresas. */
+    permissoes: { gerir: boolean };
+};
+
+/* ─── A analítica ─────────────────────────────────────────────────────── */
+
+export type Dimensao = {
+    id: number;
+    codigo: string;
+    nome: string;
+    /** Uma pergunta que não se pode deixar em branco ao lançar. */
+    obrigatoria: boolean;
+    etiquetas: number;
+    etiquetas_activas: number;
+};
+
+export type Etiqueta = {
+    id: number;
+    codigo: string;
+    nome: string;
+    descricao: string | null;
+    activa: boolean;
+};
+
+export type Analitica = {
+    dimensoes: Dimensao[];
+    escolhida: number | null;
+    etiquetas: Etiqueta[];
+    resumo: { dimensoes: number; obrigatorias: number; etiquetas: number };
+    permissoes: { gerir: boolean };
+};
+
 const C = '/contabilidade';
 
 export const contabilidade = {
@@ -197,6 +291,39 @@ export const contabilidade = {
         estado: (id: number) => api.criar<Recado & { bloqueada: boolean }>(`${C}/contas/${id}/estado`, {}),
         razao: (id: number, f: { de?: string; ate?: string }) =>
             api.ler<RazaoDaConta>(`${C}/contas/${id}/razao`, f),
+    },
+
+    moedas: {
+        listar: (f: { procura?: string; so_activas?: boolean; moeda?: number | ''; de?: string; ate?: string }) =>
+            api.ler<MoedasECambios>(`${C}/moedas`, f),
+        guardar: (id: number | null, dados: Record<string, unknown>) =>
+            id ? api.guardar<Recado>(`${C}/moedas/${id}`, dados) : api.criar<Recado>(`${C}/moedas`, dados),
+        apagar: (id: number) => api.apagar<Recado>(`${C}/moedas/${id}`),
+        /** O par mais a data são a chave: repetir CORRIGE em vez de somar. */
+        guardarCambio: (dados: Record<string, unknown>) => api.criar<Recado>(`${C}/moedas/cambios`, dados),
+        apagarCambio: (id: number) => api.apagar<Recado>(`${C}/moedas/cambios/${id}`),
+    },
+
+    analitica: {
+        listar: (f: { dimensao?: number | ''; procura?: string; estado?: string }) =>
+            api.ler<Analitica>(`${C}/analitica`, f),
+        guardarDimensao: (id: number | null, dados: Record<string, unknown>) =>
+            id ? api.guardar<Recado & { id: number }>(`${C}/analitica/dimensoes/${id}`, dados)
+               : api.criar<Recado & { id: number }>(`${C}/analitica/dimensoes`, dados),
+        apagarDimensao: (id: number) => api.apagar<Recado>(`${C}/analitica/dimensoes/${id}`),
+        guardarEtiqueta: (id: number | null, dados: Record<string, unknown>) =>
+            id ? api.guardar<Recado>(`${C}/analitica/etiquetas/${id}`, dados)
+               : api.criar<Recado>(`${C}/analitica/etiquetas`, dados),
+        apagarEtiqueta: (id: number) => api.apagar<Recado>(`${C}/analitica/etiquetas/${id}`),
+    },
+
+    periodos: {
+        listar: (ano?: number) => api.ler<PeriodosDoAno>(`${C}/periodos`, ano ? { ano } : {}),
+        criar: (dados: Record<string, unknown>) => api.criar<Recado>(`${C}/periodos`, dados),
+        /** Os doze meses de um exercício. Incremental: nunca toca num existente. */
+        gerar: (ano: number) => api.criar<Recado & { criados: number }>(`${C}/periodos/gerar`, { ano }),
+        fechar: (id: number) => api.criar<Recado>(`${C}/periodos/${id}/fechar`, {}),
+        reabrir: (id: number) => api.criar<Recado>(`${C}/periodos/${id}/reabrir`, {}),
     },
 
     lancamentos: {

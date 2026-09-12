@@ -22,7 +22,7 @@ class PeriodClosingService
         return DB::transaction(function () use ($period) {
             // Validações
             if ($period->state === 'closed') {
-                throw new \Exception('Período já está fechado');
+                throw new \Exception(__('Este período já está fechado.'));
             }
             
             // Verificar se há lançamentos não postados
@@ -32,13 +32,15 @@ class PeriodClosingService
                 ->count();
             
             if ($draftMoves > 0) {
-                throw new \Exception("Existem {$draftMoves} lançamentos em rascunho. Poste ou delete antes de fechar o período.");
+                throw new \Exception(__('Há :n lançamento(s) em rascunho neste período. Confirme-os ou apague-os antes de o fechar.', ['n' => $draftMoves]));
             }
             
             // Verificar balancete balanceado
             $balance = $this->checkBalance($period);
             if (!$balance['balanced']) {
-                throw new \Exception('Balancete não está balanceado. Diferença: ' . number_format($balance['difference'], 2));
+                throw new \Exception(__('O balancete não bate certo. Diferença: :valor.', [
+                    'valor' => number_format($balance['difference'], 2, ',', '.'),
+                ]));
             }
             
             // Fechar período
@@ -50,7 +52,7 @@ class PeriodClosingService
             
             return [
                 'success' => true,
-                'message' => 'Período fechado com sucesso',
+                'message' => __('Período :nome fechado.', ['nome' => $period->name ?: $period->code]),
                 'period' => $period->fresh(),
                 'balance' => $balance,
             ];
@@ -67,7 +69,7 @@ class PeriodClosingService
     {
         return DB::transaction(function () use ($period) {
             if ($period->state !== 'closed') {
-                throw new \Exception('Período não está fechado');
+                throw new \Exception(__('Este período não está fechado.'));
             }
             
             // Verificar se não há períodos posteriores fechados
@@ -77,7 +79,7 @@ class PeriodClosingService
                 ->count();
             
             if ($laterClosedPeriods > 0) {
-                throw new \Exception('Não é possível reabrir. Existem períodos posteriores já fechados.');
+                throw new \Exception(__('Não se reabre este: há períodos posteriores já fechados. Reabra-os primeiro, do mais recente para o mais antigo.'));
             }
             
             $period->update([
@@ -88,7 +90,7 @@ class PeriodClosingService
             
             return [
                 'success' => true,
-                'message' => 'Período reaberto com sucesso',
+                'message' => __('Período :nome reaberto.', ['nome' => $period->name ?: $period->code]),
                 'period' => $period->fresh(),
             ];
         });

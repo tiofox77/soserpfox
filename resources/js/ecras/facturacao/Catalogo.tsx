@@ -922,6 +922,18 @@ function Celula({ c, l }: { c: Coluna; l: Linha }) {
     switch (c.formato) {
         case 'escolha':
             return <>{l.rotulos[c.chave] ?? (v === null || v === undefined ? '' : String(v))}</>;
+        /*
+         * UMA REFERÊNCIA MOSTRA O NOME, não o id.
+         *
+         * Faltava o caso e caía no `default`, que escreve o valor cru: a coluna
+         * «Banco» da lista de contas bancárias mostrava `7`, e a do «Centro-mãe»
+         * mostrava `106`. O rótulo vem no `rotulos`, resolvido no servidor a
+         * partir das mesmas referências que o formulário usa.
+         */
+        case 'referencia':
+            return l.rotulos[c.chave]
+                ? <>{l.rotulos[c.chave]}</>
+                : <span className="text-slate-300">—</span>;
         case 'booleano':
             return v ? <Etiqueta cor="bom">{t('Sim')}</Etiqueta> : <Etiqueta>{t('Não')}</Etiqueta>;
         case 'padrao':

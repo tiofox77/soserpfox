@@ -1371,6 +1371,53 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
                 Route::get('/{id}/razao', [$c, 'razao'])->whereNumber('id')->name('razao');
             });
 
+            /*
+             * OS PERÍODOS. Faltava por completo CRIAR um: nasciam de um seeder
+             * corrido à mão, e uma empresa nova via «não há períodos abertos»
+             * nos lançamentos sem ter por onde resolver.
+             */
+            /*
+             * AS MOEDAS SÃO DA PLATAFORMA — as tabelas não têm `tenant_id` — e
+             * por isso escrever nelas pede a permissão de GERIR: mudar o nome
+             * de uma moeda muda-o para todas as empresas.
+             */
+            Route::prefix('moedas')->name('moedas.')->group(function () {
+                $c = \App\Http\Controllers\Api\Contabilidade\MoedasApiController::class;
+
+                Route::get('/', [$c, 'index'])->name('index');
+                Route::post('/', [$c, 'guardarMoeda'])->name('criar');
+                Route::put('/{id}', [$c, 'guardarMoeda'])->whereNumber('id')->name('guardar');
+                Route::delete('/{id}', [$c, 'apagarMoeda'])->whereNumber('id')->name('apagar');
+                Route::post('/cambios', [$c, 'guardarTaxa'])->name('cambios.guardar');
+                Route::delete('/cambios/{id}', [$c, 'apagarTaxa'])->whereNumber('id')->name('cambios.apagar');
+            });
+
+            /*
+             * A ANALÍTICA. Editar uma etiqueta CRIAVA outra, e nada olhava à
+             * empresa: o id bastava para mexer na etiqueta de outra companhia.
+             */
+            Route::prefix('analitica')->name('analitica.')->group(function () {
+                $c = \App\Http\Controllers\Api\Contabilidade\AnaliticaApiController::class;
+
+                Route::get('/', [$c, 'index'])->name('index');
+                Route::post('/dimensoes', [$c, 'guardarDimensao'])->name('dimensoes.criar');
+                Route::put('/dimensoes/{id}', [$c, 'guardarDimensao'])->whereNumber('id')->name('dimensoes.guardar');
+                Route::delete('/dimensoes/{id}', [$c, 'apagarDimensao'])->whereNumber('id')->name('dimensoes.apagar');
+                Route::post('/etiquetas', [$c, 'guardarEtiqueta'])->name('etiquetas.criar');
+                Route::put('/etiquetas/{id}', [$c, 'guardarEtiqueta'])->whereNumber('id')->name('etiquetas.guardar');
+                Route::delete('/etiquetas/{id}', [$c, 'apagarEtiqueta'])->whereNumber('id')->name('etiquetas.apagar');
+            });
+
+            Route::prefix('periodos')->name('periodos.')->group(function () {
+                $c = \App\Http\Controllers\Api\Contabilidade\PeriodosApiController::class;
+
+                Route::get('/', [$c, 'index'])->name('index');
+                Route::post('/', [$c, 'criar'])->name('criar');
+                Route::post('/gerar', [$c, 'gerar'])->name('gerar');
+                Route::post('/{id}/fechar', [$c, 'fechar'])->whereNumber('id')->name('fechar');
+                Route::post('/{id}/reabrir', [$c, 'reabrir'])->whereNumber('id')->name('reabrir');
+            });
+
             Route::prefix('lancamentos')->name('lancamentos.')->group(function () {
                 $c = \App\Http\Controllers\Api\Contabilidade\LancamentosApiController::class;
 
@@ -2378,14 +2425,19 @@ Route::middleware(['auth', 'tenant.module:contabilidade'])->prefix('accounting')
         ->get('/dashboard', \App\Support\EcraReact::pagina('contabilidade/painel', 'Painel da Contabilidade'))->name('dashboard');
     Route::middleware('permission:accounting.accounts.view')
         ->get('/accounts', \App\Support\EcraReact::pagina('contabilidade/contas', 'Plano de Contas'))->name('accounts');
+    /*
+     * OS TRÊS CATÁLOGOS. Têm a forma de sempre — lista, modal, gravar, apagar
+     * — e por isso vivem no ecrã genérico dos catálogos, com o esquema em
+     * `Services\Invoicing\Catalogos`, em vez de três componentes iguais.
+     */
     Route::middleware('permission:accounting.journals.view')
-        ->get('/journals', \App\Livewire\Accounting\JournalManagement::class)->name('journals');
+        ->get('/journals', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Diários', ['tipo' => 'diarios']))->name('journals');
     Route::middleware('permission:accounting.document-types.view')
-        ->get('/document-types', \App\Livewire\Accounting\DocumentTypeManagement::class)->name('document-types');
+        ->get('/document-types', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Tipos de Documento', ['tipo' => 'tipos-de-documento']))->name('document-types');
     Route::middleware('permission:accounting.moves.view')
         ->get('/moves', \App\Support\EcraReact::pagina('contabilidade/lancamentos', 'Lançamentos'))->name('moves');
     Route::middleware('permission:accounting.periods.view')
-        ->get('/periods', \App\Livewire\Accounting\PeriodManagement::class)->name('periods');
+        ->get('/periods', \App\Support\EcraReact::pagina('contabilidade/periodos', 'Períodos Contabilísticos'))->name('periods');
     Route::middleware('permission:accounting.reports.view')
         ->get('/reports', \App\Livewire\Accounting\ReportsManagement::class)->name('reports');
 
@@ -2395,11 +2447,11 @@ Route::middleware(['auth', 'tenant.module:contabilidade'])->prefix('accounting')
     Route::middleware('permission:accounting.fixed-assets.view')
         ->get('/fixed-assets', \App\Livewire\Accounting\FixedAssetManagement::class)->name('fixed-assets');
     Route::middleware('permission:accounting.currencies.view')
-        ->get('/currencies', \App\Livewire\Accounting\CurrencyManagement::class)->name('currencies');
+        ->get('/currencies', \App\Support\EcraReact::pagina('contabilidade/moedas', 'Moedas e Câmbios'))->name('currencies');
     Route::middleware('permission:accounting.cost-centers.view')
-        ->get('/cost-centers', \App\Livewire\Accounting\CostCenterManagement::class)->name('cost-centers');
+        ->get('/cost-centers', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Centros de Custo', ['tipo' => 'centros-de-custo']))->name('cost-centers');
     Route::middleware('permission:accounting.analytics.view')
-        ->get('/analytics', \App\Livewire\Accounting\AnalyticManagement::class)->name('analytics');
+        ->get('/analytics', \App\Support\EcraReact::pagina('contabilidade/analitica', 'Contabilidade Analítica'))->name('analytics');
     Route::middleware('permission:accounting.budgets.view')
         ->get('/budgets', \App\Livewire\Accounting\BudgetManagement::class)->name('budgets');
     Route::middleware('permission:accounting.settings.view')

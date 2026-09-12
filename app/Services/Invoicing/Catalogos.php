@@ -122,6 +122,16 @@ final class Catalogos
             'codigos-promocionais' => self::codigosPromocionais(),
             /* E as ÉPOCAS, que são a primeira aba das tarifas. */
             'epocas-do-hotel' => self::epocasDoHotel(),
+
+            /*
+             * OS DA CONTABILIDADE. Três listas com a forma de sempre — e cada
+             * uma com uma guarda que o Livewire não tinha: os `find()` dos
+             * diários e das dimensões não olhavam à empresa, apagava-se um
+             * diário com lançamentos em cima, e o código repetia-se à vontade.
+             */
+            'diarios' => self::diarios(),
+            'tipos-de-documento' => self::tiposDeDocumento(),
+            'centros-de-custo' => self::centrosDeCusto(),
         ];
     }
 
@@ -2658,6 +2668,312 @@ final class Catalogos
             'accoes' => ['activar' => true, 'padrao' => false, 'logotipo' => false, 'apagar' => true],
         ];
     }
+
+    /* ─── Os da contabilidade ──────────────────────────────────────────── */
+
+    /** As contas que recebem movimento — nem bloqueadas nem de agregação. */
+    private static function contasDeMovimento(int $tenantId): array
+    {
+        return \App\Models\Accounting\Account::where('tenant_id', $tenantId)
+            ->where('blocked', false)->where('is_view', false)
+            ->orderBy('code')->get(['id', 'code', 'name'])
+            ->map(fn ($c) => ['valor' => (string) $c->id, 'rotulo' => $c->code.' · '.$c->name])->all();
+    }
+
+    /**
+     * OS DIÁRIOS — por onde entram os lançamentos.
+     *
+     * O QUE ESTAVA PARTIDO: `Journal::find($id)` no editar e no apagar, sem
+     * olhar à empresa — o diário de outra companhia editava-se e apagava-se
+     * pelo id. E apagar um diário com LANÇAMENTOS em cima deixava-os a apontar
+     * para um id que já não existe.
+     *
+     * O CÓDIGO tinha de ser único e não era: a base tem o índice
+     * `(tenant_id, code)` e repetir dava um 1062 cru.
+     */
+    private static function diarios(): array
+    {
+        $tipos = [
+            ['valor' => 'sale', 'rotulo' => 'Vendas'],
+            ['valor' => 'purchase', 'rotulo' => 'Compras'],
+            ['valor' => 'cash', 'rotulo' => 'Caixa'],
+            ['valor' => 'bank', 'rotulo' => 'Banco'],
+            ['valor' => 'payroll', 'rotulo' => 'Salários'],
+            ['valor' => 'adjustment', 'rotulo' => 'Ajustes'],
+            /*
+             * `general` está no `enum` da base e em diários a sério — o
+             * apuramento de resultados procura-o por `type = 'general'` — e
+             * faltava na lista: abrir um diário geral e carregar em Guardar
+             * dava erro de validação sobre o valor que o registo já tinha.
+             */
+            ['valor' => 'general', 'rotulo' => 'Operações diversas'],
+        ];
+
+        return [
+            'modelo' => \App\Models\Accounting\Journal::class,
+            'titulo' => 'Diários',
+            'singular' => 'Diário',
+            'icone' => 'fa-book',
+            'cor' => 'bom',
+            'descricao' => 'Por onde entram os lançamentos',
+            'novo' => 'Novo Diário',
+            'rota' => '/accounting/journals',
+            'permissoes' => [
+                'ver' => 'accounting.journals.view', 'criar' => 'accounting.journals.manage',
+                'editar' => 'accounting.journals.manage', 'apagar' => 'accounting.journals.manage',
+            ],
+            'pesquisa' => ['code', 'name'],
+            'pesquisa_ajuda' => 'Código ou nome do diário',
+            'ordem' => [['code', 'asc']],
+            'colunas' => [
+                ['chave' => 'code', 'rotulo' => 'Código', 'formato' => 'texto'],
+                ['chave' => 'name', 'rotulo' => 'Nome', 'formato' => 'texto'],
+                ['chave' => 'type', 'rotulo' => 'Tipo', 'formato' => 'escolha'],
+                ['chave' => 'sequence_prefix', 'rotulo' => 'Prefixo', 'formato' => 'texto'],
+                ['chave' => 'last_number', 'rotulo' => 'Último nº', 'formato' => 'numero'],
+                ['chave' => 'active', 'rotulo' => 'Activo', 'formato' => 'booleano'],
+            ],
+            'filtros' => [
+                ['chave' => 'type', 'rotulo' => 'Tipo', 'opcoes' => $tipos],
+            ],
+            'campos' => [
+                self::campo('code', 'Código', 'texto', obrigatorio: true),
+                self::campo('name', 'Nome', 'texto', obrigatorio: true),
+                self::campo('type', 'Tipo', 'escolha', obrigatorio: true, omissao: 'general', opcoes: $tipos),
+                self::campo('sequence_prefix', 'Prefixo da referência', 'texto', obrigatorio: true, omissao: 'DG-',
+                    ajuda: 'O que vem antes do número: «DG-» dá «DG-00001».'),
+                /*
+                 * O ÚLTIMO NÚMERO mexe-se, mas com aviso: é o contador da
+                 * referência, e baixá-lo faria o diário tentar repetir
+                 * referências já usadas. Quem grava salta as tomadas, mas o
+                 * campo diz para que serve em vez de ser um número solto.
+                 */
+                self::campo('last_number', 'Último número usado', 'numero', omissao: 0, min: 0,
+                    ajuda: 'A referência seguinte sai daqui. Só se mexe ao trazer numeração de outro sistema.'),
+                self::campo('default_debit_account_id', 'Conta de débito por omissão', 'referencia', referencia: 'contas'),
+                self::campo('default_credit_account_id', 'Conta de crédito por omissão', 'referencia', referencia: 'contas'),
+                self::campo('active', 'Activo', 'booleano', omissao: true),
+            ],
+            'regras' => [
+                'code' => 'required|max:20',
+                'name' => 'required|max:255',
+                'type' => 'required|in:sale,purchase,cash,bank,payroll,adjustment,general',
+                'sequence_prefix' => 'required|max:10',
+                'last_number' => 'nullable|integer|min:0',
+                'default_debit_account_id' => 'nullable|integer',
+                'default_credit_account_id' => 'nullable|integer',
+                'active' => 'boolean',
+            ],
+            'validar' => self::tudoIsto([
+                self::codigoUnico(\App\Models\Accounting\Journal::class, 'Já existe um diário com esse código.'),
+                // AS CONTAS SÃO DESTA EMPRESA: `nullable|integer` aceitava o id
+                // da conta de outra companhia, e o diário ficava a apontar para
+                // fora de casa sem erro nenhum.
+                self::daCasa('default_debit_account_id', \App\Models\Accounting\Account::class, 'Conta não encontrada nesta empresa.'),
+                self::daCasa('default_credit_account_id', \App\Models\Accounting\Account::class, 'Conta não encontrada nesta empresa.'),
+            ]),
+            'preparar' => fn (array $d) => array_merge($d, ['last_number' => (int) ($d['last_number'] ?? 0)]),
+            // UM DIÁRIO COM LANÇAMENTOS NÃO DESAPARECE: os lançamentos ficariam
+            // a apontar para um id que não existe. Desactiva-se.
+            'pode_apagar' => fn (Model $m) => ! \App\Models\Accounting\Move::where('journal_id', $m->id)->exists()
+                && ! \App\Models\Accounting\DocumentType::where('journal_id', $m->id)->exists(),
+            'porque_nao_apaga' => 'Há lançamentos ou tipos de documento neste diário. Desactive-o em vez de o apagar.',
+            'referencias' => fn (int $t) => ['contas' => self::contasDeMovimento($t)],
+            'accoes' => ['activar' => true, 'padrao' => false, 'logotipo' => false, 'apagar' => true],
+        ];
+    }
+
+    /**
+     * OS TIPOS DE DOCUMENTO — o que cada documento faz aos mapas legais.
+     *
+     * As bandeiras não são enfeite: dizem se o documento entra nos mapas
+     * recapitulativos, se leva retenção na fonte, e se conta para o balanço
+     * financeiro ou para o analítico. É por elas que os mapas da AGT saem
+     * certos, e por isso vêem-se na lista e filtram-se.
+     */
+    private static function tiposDeDocumento(): array
+    {
+        return [
+            'modelo' => \App\Models\Accounting\DocumentType::class,
+            'titulo' => 'Tipos de Documento',
+            'singular' => 'Tipo de documento',
+            'icone' => 'fa-file-lines',
+            'cor' => 'ciano',
+            'descricao' => 'O que cada documento faz aos mapas legais',
+            'novo' => 'Novo Tipo de Documento',
+            'rota' => '/accounting/document-types',
+            'nome' => 'description',
+            'permissoes' => [
+                'ver' => 'accounting.document-types.view', 'criar' => 'accounting.document-types.manage',
+                'editar' => 'accounting.document-types.manage', 'apagar' => 'accounting.document-types.manage',
+            ],
+            'pesquisa' => ['code', 'description'],
+            'pesquisa_ajuda' => 'Código ou descrição',
+            'ordem' => [['display_order', 'asc'], ['code', 'asc']],
+            'colunas' => [
+                ['chave' => 'code', 'rotulo' => 'Código', 'formato' => 'texto'],
+                ['chave' => 'description', 'rotulo' => 'Descrição', 'formato' => 'texto'],
+                ['chave' => 'journal_id', 'rotulo' => 'Diário', 'formato' => 'referencia'],
+                ['chave' => 'recapitulativos', 'rotulo' => 'Recapitulativos', 'formato' => 'booleano'],
+                ['chave' => 'retencao_fonte', 'rotulo' => 'Retenção', 'formato' => 'booleano'],
+                ['chave' => 'bal_financeira', 'rotulo' => 'Bal. financeira', 'formato' => 'booleano'],
+                ['chave' => 'is_active', 'rotulo' => 'Activo', 'formato' => 'booleano'],
+            ],
+            'filtros' => [
+                ['chave' => 'journal_id', 'rotulo' => 'Diário', 'referencia' => 'diarios'],
+                ['chave' => 'recapitulativos', 'rotulo' => 'Recapitulativos', 'opcoes' => self::SIM_OU_NAO],
+                ['chave' => 'retencao_fonte', 'rotulo' => 'Retenção na fonte', 'opcoes' => self::SIM_OU_NAO],
+                ['chave' => 'bal_financeira', 'rotulo' => 'Balanço financeiro', 'opcoes' => self::SIM_OU_NAO],
+            ],
+            'campos' => [
+                self::campo('code', 'Código', 'texto', obrigatorio: true, ajuda: 'Até 10 caracteres.'),
+                self::campo('description', 'Descrição', 'texto', obrigatorio: true),
+                self::campo('journal_id', 'Diário', 'referencia', referencia: 'diarios'),
+                self::campo('journal_code', 'Código do diário', 'texto',
+                    ajuda: 'O código que o sistema antigo usava, quando é diferente do diário escolhido.'),
+                self::campo('display_order', 'Ordem', 'numero', omissao: 0, min: 0),
+                self::campo('recapitulativos', 'Entra nos mapas recapitulativos', 'booleano'),
+                self::campo('retencao_fonte', 'Leva retenção na fonte', 'booleano'),
+                self::campo('bal_financeira', 'Conta para o balanço financeiro', 'booleano', omissao: true),
+                self::campo('bal_analitica', 'Conta para o balanço analítico', 'booleano'),
+                self::campo('rec_informacao', 'Recolha de informação', 'numero', omissao: 0, min: 0),
+                self::campo('tipo_doc_imo', 'Tipo de documento do imobilizado', 'numero', omissao: 0, min: 0),
+                self::campo('calculo_fluxo_caixa', 'Cálculo do fluxo de caixa', 'numero', omissao: 0, min: 0),
+                self::campo('is_active', 'Activo', 'booleano', omissao: true),
+            ],
+            'regras' => [
+                'code' => 'required|string|max:10',
+                'description' => 'required|string|max:255',
+                'journal_id' => 'nullable|integer',
+                'journal_code' => 'nullable|string|max:20',
+                'display_order' => 'nullable|integer|min:0',
+                'recapitulativos' => 'boolean',
+                'retencao_fonte' => 'boolean',
+                'bal_financeira' => 'boolean',
+                'bal_analitica' => 'boolean',
+                'rec_informacao' => 'nullable|integer|min:0',
+                'tipo_doc_imo' => 'nullable|integer|min:0',
+                'calculo_fluxo_caixa' => 'nullable|integer|min:0',
+                'is_active' => 'boolean',
+            ],
+            'validar' => self::tudoIsto([
+                self::codigoUnico(\App\Models\Accounting\DocumentType::class, 'Já existe um tipo de documento com esse código.'),
+                // O DIÁRIO É DESTA EMPRESA. A regra era `exists:accounting_journals,id`
+                // sem empresa: apontava para o diário de outra companhia.
+                self::daCasa('journal_id', \App\Models\Accounting\Journal::class, 'Diário não encontrado nesta empresa.'),
+            ]),
+            'preparar' => fn (array $d) => array_merge($d, [
+                'display_order' => (int) ($d['display_order'] ?? 0),
+                'rec_informacao' => (int) ($d['rec_informacao'] ?? 0),
+                'tipo_doc_imo' => (int) ($d['tipo_doc_imo'] ?? 0),
+                'calculo_fluxo_caixa' => (int) ($d['calculo_fluxo_caixa'] ?? 0),
+            ]),
+            // Um tipo já usado num lançamento não desaparece: o lançamento
+            // deixaria de saber o que era.
+            'pode_apagar' => fn (Model $m) => ! \App\Models\Accounting\Move::where('document_type_id', $m->id)->exists(),
+            'porque_nao_apaga' => 'Há lançamentos deste tipo de documento. Desactive-o em vez de o apagar.',
+            'referencias' => fn (int $t) => [
+                'diarios' => \App\Models\Accounting\Journal::where('tenant_id', $t)->orderBy('code')
+                    ->get(['id', 'code', 'name'])
+                    ->map(fn ($j) => ['valor' => (string) $j->id, 'rotulo' => $j->code.' · '.$j->name])->all(),
+            ],
+            'accoes' => ['activar' => true, 'padrao' => false, 'logotipo' => false, 'apagar' => true],
+        ];
+    }
+
+    /**
+     * OS CENTROS DE CUSTO — onde o gasto foi feito.
+     *
+     * O QUE ESTAVA PARTIDO: não havia como APAGAR nem como DESACTIVAR. Pior: o
+     * gravar forçava `is_active => true` em toda a edição, pelo que um centro
+     * desactivado por outra via voltava a ficar activo sem ninguém pedir. E a
+     * lista só mostrava os de raiz — um centro pendurado noutro não aparecia em
+     * lado nenhum, e não havia como o editar.
+     */
+    private static function centrosDeCusto(): array
+    {
+        $tipos = [
+            ['valor' => 'revenue', 'rotulo' => 'Proveito'],
+            ['valor' => 'cost', 'rotulo' => 'Custo'],
+            ['valor' => 'support', 'rotulo' => 'Apoio'],
+        ];
+
+        return [
+            'modelo' => \App\Models\Accounting\CostCenter::class,
+            'titulo' => 'Centros de Custo',
+            'singular' => 'Centro de custo',
+            'icone' => 'fa-building',
+            'cor' => 'roxo',
+            'descricao' => 'Onde o gasto foi feito',
+            'novo' => 'Novo Centro de Custo',
+            'rota' => '/accounting/cost-centers',
+            'permissoes' => [
+                'ver' => 'accounting.cost-centers.view', 'criar' => 'accounting.cost-centers.manage',
+                'editar' => 'accounting.cost-centers.manage', 'apagar' => 'accounting.cost-centers.manage',
+            ],
+            'pesquisa' => ['code', 'name'],
+            'pesquisa_ajuda' => 'Código ou nome',
+            'ordem' => [['code', 'asc']],
+            'colunas' => [
+                ['chave' => 'code', 'rotulo' => 'Código', 'formato' => 'texto'],
+                ['chave' => 'name', 'rotulo' => 'Nome', 'formato' => 'texto'],
+                ['chave' => 'type', 'rotulo' => 'Tipo', 'formato' => 'escolha'],
+                ['chave' => 'parent_id', 'rotulo' => 'Centro-mãe', 'formato' => 'referencia'],
+                ['chave' => 'is_active', 'rotulo' => 'Activo', 'formato' => 'booleano'],
+            ],
+            'filtros' => [
+                ['chave' => 'type', 'rotulo' => 'Tipo', 'opcoes' => $tipos],
+                ['chave' => 'nivel', 'rotulo' => 'Nível', 'opcoes' => [
+                    ['valor' => 'principal', 'rotulo' => 'De raiz'],
+                    ['valor' => 'filha', 'rotulo' => 'Pendurado noutro'],
+                ]],
+            ],
+            'campos' => [
+                self::campo('code', 'Código', 'texto', obrigatorio: true),
+                self::campo('name', 'Nome', 'texto', obrigatorio: true),
+                self::campo('type', 'Tipo', 'escolha', obrigatorio: true, omissao: 'cost', opcoes: $tipos),
+                self::campo('parent_id', 'Centro-mãe', 'referencia', referencia: 'centros'),
+                self::campo('is_active', 'Activo', 'booleano', omissao: true),
+                self::campo('description', 'Descrição', 'textarea', largura: 'inteira'),
+            ],
+            'regras' => [
+                'code' => 'required|max:50',
+                'name' => 'required|max:255',
+                'type' => 'required|in:revenue,cost,support',
+                'parent_id' => 'nullable|integer',
+                'is_active' => 'boolean',
+                'description' => 'nullable|string|max:2000',
+            ],
+            'validar' => self::tudoIsto([
+                self::codigoUnico(\App\Models\Accounting\CostCenter::class, 'Já existe um centro de custo com esse código.'),
+                self::daCasa('parent_id', \App\Models\Accounting\CostCenter::class, 'Centro-mãe não encontrado nesta empresa.'),
+                // NÃO SE PENDURA EM SI PRÓPRIO: fazia um ciclo que deitava
+                // abaixo qualquer percurso da árvore.
+                function (array $d, ?Model $m, int $t) {
+                    return $m && ! empty($d['parent_id']) && (int) $d['parent_id'] === (int) $m->id
+                        ? ['parent_id' => __('Um centro de custo não se pendura em si próprio.')]
+                        : [];
+                },
+            ]),
+            // Um centro com FILHOS ou já usado numa conta não desaparece.
+            'pode_apagar' => fn (Model $m) => ! \App\Models\Accounting\CostCenter::where('parent_id', $m->id)->exists()
+                && ! \App\Models\Accounting\Account::where('default_cost_center_id', $m->id)->exists()
+                && ! \App\Models\Accounting\Budget::where('cost_center_id', $m->id)->exists(),
+            'porque_nao_apaga' => 'Há centros pendurados neste, contas ou orçamentos que o usam. Desactive-o em vez de o apagar.',
+            'referencias' => fn (int $t) => [
+                'centros' => \App\Models\Accounting\CostCenter::where('tenant_id', $t)->orderBy('code')
+                    ->get(['id', 'code', 'name'])
+                    ->map(fn ($c) => ['valor' => (string) $c->id, 'rotulo' => $c->code.' · '.$c->name])->all(),
+            ],
+            'accoes' => ['activar' => true, 'padrao' => false, 'logotipo' => false, 'apagar' => true],
+        ];
+    }
+
+    /** As duas respostas de um filtro sobre uma bandeira. */
+    private const SIM_OU_NAO = [
+        ['valor' => '1', 'rotulo' => 'Sim'],
+        ['valor' => '0', 'rotulo' => 'Não'],
+    ];
 
     private static function porVerbo(string $prefixo): array
     {

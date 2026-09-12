@@ -1384,6 +1384,89 @@ class PrepararBancadaPwa extends Command
             'last_number' => 5,
         ]);
 
+        /*
+         * UM TIPO DE DOCUMENTO e um CENTRO DE CUSTO, para as listas não abrirem
+         * vazias — e para o tipo aparecer na escolha do lançamento.
+         */
+        \App\Models\Accounting\DocumentType::withoutGlobalScopes()->updateOrCreate(
+            ['tenant_id' => $tenant->id, 'code' => 'DIV'],
+            [
+                'description' => 'Operações diversas',
+                'journal_id' => $diario->id,
+                'bal_financeira' => true,
+                'is_active' => true,
+                'display_order' => 1,
+            ]
+        );
+
+        $loja = \App\Models\Accounting\CostCenter::withoutGlobalScopes()->updateOrCreate(
+            ['tenant_id' => $tenant->id, 'code' => 'CC-LOJA'],
+            ['name' => 'Loja da Bancada', 'type' => 'revenue', 'is_active' => true]
+        );
+
+        \App\Models\Accounting\CostCenter::withoutGlobalScopes()->updateOrCreate(
+            ['tenant_id' => $tenant->id, 'code' => 'CC-BALCAO'],
+            // PENDURADO NOUTRO: a lista antiga só mostrava os de raiz, e este
+            // não aparecia em lado nenhum.
+            ['name' => 'Balcão', 'type' => 'revenue', 'parent_id' => $loja->id, 'is_active' => true]
+        );
+
+        /*
+         * AS MOEDAS SÃO DA PLATAFORMA — e por isso semeiam-se com
+         * `firstOrCreate`: se outra empresa já as criou, ficam como estão.
+         */
+        $moedas = [];
+
+        foreach ([
+            ['AOA', 'Kwanza', 'Kz', 2],
+            ['USD', 'Dólar dos EUA', '$', 2],
+            ['EUR', 'Euro', '€', 2],
+        ] as [$codigo, $nome, $simbolo, $casas]) {
+            $moedas[$codigo] = \App\Models\Accounting\Currency::firstOrCreate(
+                ['code' => $codigo],
+                ['name' => $nome, 'symbol' => $simbolo, 'decimal_places' => $casas, 'is_active' => true]
+            );
+        }
+
+        foreach ([['USD', 920.5], ['EUR', 995.0]] as [$codigo, $taxa]) {
+            \App\Models\Accounting\ExchangeRate::updateOrCreate(
+                [
+                    'currency_from_id' => $moedas[$codigo]->id,
+                    'currency_to_id' => $moedas['AOA']->id,
+                    'date' => now()->format('Y-m-d'),
+                ],
+                ['rate' => $taxa, 'source' => 'manual']
+            );
+        }
+
+        /*
+         * A ANALÍTICA: uma dimensão OBRIGATÓRIA e outra não, com etiquetas — e
+         * uma delas inactiva, que é o estado que o ecrã antigo não sabia
+         * mostrar nem mudar.
+         */
+        $projecto = \App\Models\Accounting\AnalyticDimension::withoutGlobalScopes()->updateOrCreate(
+            ['tenant_id' => $tenant->id, 'code' => 'PROJ'],
+            ['name' => 'Projecto', 'is_mandatory' => true]
+        );
+
+        $canal = \App\Models\Accounting\AnalyticDimension::withoutGlobalScopes()->updateOrCreate(
+            ['tenant_id' => $tenant->id, 'code' => 'CANAL'],
+            ['name' => 'Canal de venda', 'is_mandatory' => false]
+        );
+
+        foreach ([
+            [$projecto, 'OBRA-KIL', 'Obra do Kilamba', true],
+            [$projecto, 'OBRA-TAL', 'Obra do Talatona', true],
+            [$projecto, 'OBRA-ANT', 'Obra antiga (encerrada)', false],
+            [$canal, 'BALCAO', 'Balcão', true],
+            [$canal, 'ONLINE', 'Online', true],
+        ] as [$dimensao, $codigo, $nome, $activa]) {
+            \App\Models\Accounting\AnalyticTag::updateOrCreate(
+                ['dimension_id' => $dimensao->id, 'code' => $codigo],
+                ['name' => $nome, 'is_active' => $activa]
+            );
+        }
+
         return \App\Models\Accounting\Move::withoutGlobalScopes()->where('tenant_id', $tenant->id)->count();
     }
 
