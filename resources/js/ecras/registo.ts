@@ -351,4 +351,11 @@ export const ecras: Record<string, Ecra> = {
         import('./utilizadores/Papeis'),
     'utilizadores/convites': () =>
         import('./utilizadores/Convites'),
+
+    // O SUPORTE — pedir ajuda e sugerir melhorias. Sem permissão: é
+    // auto-serviço, e o quadro é de toda a gente da empresa.
+    'suporte/pedidos': () =>
+        import('./suporte/Pedidos'),
+    'suporte/melhorias': () =>
+        import('./suporte/Melhorias'),
 };

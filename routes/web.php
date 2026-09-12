@@ -1323,6 +1323,30 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::post('/{id}/pin', [$c, 'pin'])->whereNumber('id')->name('pin');
         });
 
+        /*
+         * O SUPORTE.
+         *
+         * Sem permissão nenhuma, e de propósito: pedir ajuda é auto-serviço. O
+         * que está fechado à chave é o escopo — um pedido é de quem o abriu, e
+         * uma sugestão de outra empresa não se lê nem se vota.
+         */
+        Route::prefix('suporte')->name('suporte.')->group(function () {
+            $c = \App\Http\Controllers\Api\Suporte\SuporteApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+
+            Route::get('/pedidos', [$c, 'tickets'])->name('pedidos');
+            Route::post('/pedidos', [$c, 'abrirTicket'])->name('abrir');
+            Route::get('/pedidos/{id}', [$c, 'ticket'])->whereNumber('id')->name('pedido');
+            Route::post('/pedidos/{id}/responder', [$c, 'responder'])->whereNumber('id')->name('responder');
+            Route::post('/pedidos/{id}/fechar', [$c, 'fecharTicket'])->whereNumber('id')->name('fechar');
+
+            Route::get('/sugestoes', [$c, 'sugestoes'])->name('sugestoes');
+            Route::post('/sugestoes', [$c, 'sugerir'])->name('sugerir');
+            Route::post('/sugestoes/{id}/votar', [$c, 'votar'])->whereNumber('id')->name('votar');
+            Route::delete('/sugestoes/{id}', [$c, 'apagarSugestao'])->whereNumber('id')->name('apagar-sugestao');
+        });
+
         Route::prefix('papeis')->name('papeis.')->group(function () {
             $c = \App\Http\Controllers\Api\Utilizadores\PapeisApiController::class;
 
@@ -2661,8 +2685,13 @@ Route::middleware(['auth', 'tenant.module:restaurant'])->prefix('restaurant')->n
     });
 });
 
-// Support/Help Center Routes
+/*
+ * O SUPORTE.
+ *
+ * Sem permissão: pedir ajuda é auto-serviço, e o quadro de melhorias é de toda
+ * a gente da empresa — é esse o sentido de haver votos.
+ */
 Route::middleware(['auth'])->prefix('support')->name('support.')->group(function () {
-    Route::get('/tickets', \App\Livewire\Support\TicketsManagement::class)->name('tickets');
-    Route::get('/features', \App\Livewire\Support\FeatureRequestsBoard::class)->name('features');
+    Route::get('/tickets', \App\Support\EcraReact::pagina('suporte/pedidos', 'Pedidos de Suporte'))->name('tickets');
+    Route::get('/features', \App\Support\EcraReact::pagina('suporte/melhorias', 'Quadro de Melhorias'))->name('features');
 });

@@ -187,6 +187,7 @@ class PrepararBancadaPwa extends Command
         $obras = $this->montarOsProjetos($tenant);
         $encomendas = $this->montarAsCompras($tenant, $armazem);
         $papeis = $this->montarOsPapeis($tenant, $caixa);
+        $suporte = $this->montarOSuporte($tenant, $utilizador);
 
         $this->newLine();
         $this->info('Bancada do PWA montada.');
@@ -206,6 +207,7 @@ class PrepararBancadaPwa extends Command
             ['Projetos', $obras],
             ['Encomendas de compra', $encomendas],
             ['Papéis', $papeis],
+            ['Suporte', $suporte],
             ['Cliente',  $cliente->name],
             ['Armazém',  $armazem->name],
         ]);
@@ -1126,6 +1128,77 @@ class PrepararBancadaPwa extends Command
         app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
 
         return \Spatie\Permission\Models\Role::where('tenant_id', $tenant->id)->count();
+    }
+
+    /**
+     * O SUPORTE DA BANCADA: um pedido aberto, um à espera de resposta (com o
+     * fio já começado pelo suporte) e duas sugestões, uma delas votada.
+     *
+     * O pedido «à espera de si» é o que interessa: é o estado que durante anos
+     * não teve sítio nenhum onde responder, e um ensaio que não o encontre não
+     * mede o que o ecrã passou a fazer.
+     *
+     * @return int quantos pedidos ficaram montados
+     */
+    private function montarOSuporte(Tenant $tenant, User $autor): int
+    {
+        $pedido = function (string $numero, array $dados) use ($tenant, $autor) {
+            return \App\Models\Support\Ticket::firstOrCreate(
+                ['tenant_id' => $tenant->id, 'ticket_number' => $numero],
+                array_merge(['user_id' => $autor->id, 'status' => 'open'], $dados)
+            );
+        };
+
+        $pedido('TKT-000001', [
+            'subject' => 'O talão sai cortado a meio',
+            'description' => 'A impressora térmica corta o talão antes do total. Acontece só nas vendas com mais de dez linhas.',
+            'priority' => 'high',
+            'category' => 'bug',
+        ]);
+
+        $aEsperar = $pedido('TKT-000002', [
+            'subject' => 'Não consigo emitir a nota de crédito',
+            'description' => 'Escolho a factura, carrego em anular, e o ecrã volta atrás sem dizer nada.',
+            'priority' => 'urgent',
+            'category' => 'technical',
+            'status' => 'waiting_response',
+        ]);
+
+        \App\Models\Support\TicketMessage::firstOrCreate(
+            ['ticket_id' => $aEsperar->id, 'is_staff' => true],
+            [
+                'user_id' => $autor->id,
+                'message' => 'Bom dia. Consegue dizer-nos o número da factura e a série? Assim vamos directos ao documento.',
+            ]
+        );
+
+        $sugestao = function (string $titulo, array $dados) use ($tenant, $autor) {
+            return \App\Models\Support\FeatureRequest::firstOrCreate(
+                ['tenant_id' => $tenant->id, 'title' => $titulo],
+                array_merge(['user_id' => $autor->id, 'status' => 'pending', 'votes_count' => 0], $dados)
+            );
+        };
+
+        $votada = $sugestao('Exportar o mapa de vendas para folha de cálculo', [
+            'description' => 'Todos os meses copiamos os números à mão para o Excel do contabilista. Um botão de exportar poupava a manhã inteira.',
+            'status' => 'planned',
+        ]);
+
+        $sugestao('Pesquisar o cliente pelo telefone no ponto de venda', [
+            'description' => 'Ao balcão, quase ninguém sabe o NIF de cor mas toda a gente sabe o número de telemóvel.',
+        ]);
+
+        // UMA COM VOTO E OUTRA SEM: é a diferença entre a sugestão que se pode
+        // retirar e a que já não é só de quem a escreveu.
+        \App\Models\Support\FeatureRequestVote::firstOrCreate([
+            'request_id' => $votada->id, 'user_id' => $autor->id,
+        ]);
+
+        $votada->update([
+            'votes_count' => \App\Models\Support\FeatureRequestVote::where('request_id', $votada->id)->count(),
+        ]);
+
+        return \App\Models\Support\Ticket::where('tenant_id', $tenant->id)->count();
     }
 
     private function limpar(): int
