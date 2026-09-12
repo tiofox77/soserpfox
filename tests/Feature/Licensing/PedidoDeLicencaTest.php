@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Licensing;
 
-use App\Livewire\SuperAdmin\Licenciamento;
 use App\Models\LicenseRequest;
 use App\Models\Tenant;
 use App\Models\User;
@@ -10,7 +9,6 @@ use App\Services\Licensing\LicenseIssuer;
 use App\Services\Licensing\LicenseState;
 use App\Services\Licensing\LicenseVerifier;
 use Carbon\CarbonImmutable;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -37,6 +35,13 @@ class PedidoDeLicencaTest extends TenantTestCase
             'name' => 'Root', 'email' => 'root_' . uniqid() . '@x.com', 'password' => bcrypt('x'),
         ]);
         $this->super->forceFill(['is_super_admin' => true])->save();
+    }
+
+    /** O plano da aprovação. O componente escolhia o primeiro que houvesse; a API pede-o. */
+    private function plano(): int
+    {
+        return \App\Models\Plan::query()->value('id')
+            ?? \App\Models\Plan::create(['name' => 'Plano', 'slug' => 'plano-' . uniqid(), 'price_monthly' => 0, 'is_active' => true])->id;
     }
 
     private function semMiddlewareDeTenant()
@@ -84,15 +89,17 @@ class PedidoDeLicencaTest extends TenantTestCase
 
         $antes = Tenant::count();
 
-        Livewire::actingAs($this->super)->test(Licenciamento::class)
-            ->call('abrirPedido', $pedido->id)
-            ->set('pedDias', 90)
-            ->set('pedMaxUsers', 3)
-            ->set('pedTodosModulos', false)
-            ->set('pedModulos', ['invoicing'])
-            ->set('pedPrenderMaquina', true)
-            ->call('aprovarPedido')
-            ->assertHasNoErrors();
+        // O módulo tem de existir: o ecrã só oferece os do catálogo, e a API recusa os que não há.
+        \App\Models\Module::firstOrCreate(['slug' => 'invoicing'], ['name' => 'Facturação', 'is_active' => true]);
+
+        $this->actingAs($this->super)->postJson("/api/v1/plataforma/react/licenciamento/pedidos/{$pedido->id}/aprovar", [
+            'plano_id' => $this->plano(),
+            'dias' => 90,
+            'max_utilizadores' => 3,
+            'todos_os_modulos' => false,
+            'modulos' => ['invoicing'],
+            'prender_a_maquina' => true,
+        ])->assertOk();
 
         // Criou a empresa (billing) na cloud
         $this->assertSame($antes + 1, Tenant::count());
@@ -145,11 +152,11 @@ class PedidoDeLicencaTest extends TenantTestCase
             'estado' => LicenseRequest::PENDENTE,
         ]);
 
-        Livewire::actingAs($this->super)->test(Licenciamento::class)
-            ->call('abrirPedido', $pedido->id)
-            ->set('pedMaxUsers', 2)
-            ->call('aprovarPedido')
-            ->assertHasNoErrors();
+        $this->actingAs($this->super)->postJson("/api/v1/plataforma/react/licenciamento/pedidos/{$pedido->id}/aprovar", [
+            'plano_id' => $this->plano(),
+            'dias' => 365,
+            'max_utilizadores' => 2,
+        ])->assertOk();
 
         // A instalação passa a existir na lista de clientes offline
         $inst = \App\Models\LicencaEmitida::where('fingerprint', 'fp-mercearia')->first();
@@ -192,9 +199,8 @@ class PedidoDeLicencaTest extends TenantTestCase
             'expira_em'   => CarbonImmutable::now()->subDay(),   // já expirada
         ]);
 
-        Livewire::actingAs($this->super)->test(Licenciamento::class)
-            ->call('renovarInstalacao', $inst->id, 365)
-            ->assertHasNoErrors();
+        $this->actingAs($this->super)->postJson("/api/v1/plataforma/react/licenciamento/instalacoes/{$inst->id}/renovar", ['dias' => 365])
+            ->assertOk();
 
         $inst->refresh();
         $this->assertNotNull($inst->token, 'a renovação devia guardar o token');
@@ -216,11 +222,9 @@ class PedidoDeLicencaTest extends TenantTestCase
             'codigo' => 'DDDD-EEEE-FFFF', 'empresa' => 'Y', 'estado' => LicenseRequest::PENDENTE,
         ]);
 
-        Livewire::actingAs($this->super)->test(Licenciamento::class)
-            ->call('abrirPedido', $pedido->id)
-            ->set('pedMotivoRecusa', 'Empresa sem contrato assinado')
-            ->call('recusarPedido')
-            ->assertHasNoErrors();
+        $this->actingAs($this->super)->postJson("/api/v1/plataforma/react/licenciamento/pedidos/{$pedido->id}/recusar", [
+            'motivo' => 'Empresa sem contrato assinado',
+        ])->assertOk();
 
         $this->semMiddlewareDeTenant()->getJson('/api/license/request/DDDD-EEEE-FFFF')
             ->assertOk()

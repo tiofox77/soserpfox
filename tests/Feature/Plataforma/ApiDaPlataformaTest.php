@@ -681,6 +681,10 @@ class ApiDaPlataformaTest extends TenantTestCase
     /** Sem período anterior, a tendência é nula e não «0%». */
     public function test_sem_periodo_anterior_a_tendencia_e_nula(): void
     {
+        // Ao meio-dia: «há uma hora» logo depois da meia-noite já é ontem, e o
+        // ensaio falhava só quando corria entre a meia-noite e a uma.
+        $this->travelTo(now()->setTime(12, 0));
+
         AnalyticsEvent::query()->delete();
         $this->evento(['created_at' => now()->subHour()]);
 

@@ -39,6 +39,11 @@ const MORADAS = [
     ['/superadmin/email-templates', 'Email Templates'],
     ['/superadmin/mensagens', 'Mensagens às empresas'],
     ['/superadmin/sms-empresas', 'SMS às empresas'],
+    ['/superadmin/system-optimization', 'Otimização do Sistema'],
+    ['/superadmin/system-commands', 'Comandos & Seeders'],
+    ['/superadmin/script-runner', 'Executar Scripts'],
+    ['/superadmin/system-updates', 'Atualizações do Sistema'],
+    ['/superadmin/licenciamento', 'Licenciamento Offline'],
 ];
 
 async function entrarComoDono(page) {
@@ -404,5 +409,82 @@ test.describe("as ferramentas da plataforma", () => {
         await page.getByLabel("Data de").fill("2026-01-01");
         expect((await pedido).status()).toBe(200);
         await expect(page.getByRole("button", { name: "Limpar filtros" })).toBeVisible();
+    });
+});
+
+/**
+ * AS FERRAMENTAS DE SISTEMA. Nenhum destes ensaios corre um comando, um
+ * script, uma instalação ou uma assinatura: provam que a pergunta aparece
+ * ANTES, e cancelam.
+ */
+test.describe("o sistema da plataforma", () => {
+    test.beforeEach(async ({ page }) => {
+        await entrarComoDono(page);
+    });
+
+    test("o perfil de produção preenche o .user.ini e a descarga leva os valores", async ({ page }) => {
+        await abrir(page, "/superadmin/system-optimization", "Otimização do Sistema");
+
+        await page.getByRole("button", { name: /Configurações/ }).click();
+
+        const janela = page.getByRole("dialog");
+
+        await janela.getByRole("button", { name: /Produção/ }).click();
+        await expect(janela.getByLabel("opcache.validate_timestamps")).toHaveValue("0");
+        await expect(janela.getByRole("link", { name: /Download .user.ini/ })).toHaveAttribute("href", /max_input_vars=3000/);
+        await janela.getByRole("button", { name: "Cancelar" }).click();
+    });
+
+    test("um comando que mexe na base pergunta antes de correr", async ({ page }) => {
+        await abrir(page, "/superadmin/system-commands", "Comandos & Seeders");
+
+        let correu = false;
+        page.on("request", (r) => { if (r.method() === "POST" && r.url().includes("/api/v1/plataforma/react/comandos/")) correu = true; });
+
+        await page.locator("article", { hasText: "Executar Migrations" }).getByRole("button", { name: "Executar" }).click();
+
+        const janela = page.getByRole("dialog");
+
+        await expect(janela.getByText("php artisan migrate")).toBeVisible();
+        await janela.getByRole("button", { name: "Cancelar" }).click();
+        expect(correu).toBe(false);
+
+        await page.getByRole("tab", { name: /Seeders/ }).click();
+        await expect(page.locator("#painel-seeders")).toBeVisible();
+    });
+
+    test("correr um script pede confirmação, e os logs abrem", async ({ page }) => {
+        await abrir(page, "/superadmin/script-runner", "Executar Scripts");
+
+        let correu = false;
+        page.on("request", (r) => { if (r.url().includes("/api/v1/plataforma/react/scripts/correr")) correu = true; });
+
+        await page.getByRole("button", { name: "Executar" }).first().click();
+        await expect(page.getByRole("dialog").getByText(/não se desfaz/)).toBeVisible();
+        await page.getByRole("dialog").getByRole("button", { name: "Cancelar" }).click();
+        expect(correu).toBe(false);
+
+        await page.getByRole("button", { name: "Ver Logs" }).click();
+        await expect(page.getByText("Logs Recentes (últimas 100 linhas)")).toBeVisible();
+    });
+
+    test("as atualizações não vão ao GitHub só por abrir a página", async ({ page }) => {
+        let foi = false;
+        page.on("request", (r) => { if (r.url().includes("/actualizacoes/releases")) foi = true; });
+
+        await abrir(page, "/superadmin/system-updates", "Atualizações do Sistema");
+        await expect(page.getByText("Nenhuma release encontrada")).toBeVisible();
+        expect(foi).toBe(false);
+    });
+
+    test("o licenciamento abre os quatro separadores", async ({ page }) => {
+        await abrir(page, "/superadmin/licenciamento", "Licenciamento Offline");
+
+        await page.getByRole("tab", { name: /Pedidos de licença/ }).click();
+        await expect(page.locator("#painel-pedidos")).toBeVisible();
+        await page.getByRole("tab", { name: "Emitir licença" }).click();
+        await expect(page.locator("#painel-emitir").getByLabel(/Validade \(dias\)/)).toHaveValue("365");
+        await page.getByRole("tab", { name: "Versões" }).click();
+        await expect(page.locator("#painel-versoes").getByText("Publicar versão")).toBeVisible();
     });
 });

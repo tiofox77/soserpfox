@@ -759,3 +759,139 @@ export const ferramentas = {
         }>('/sms-empresas/enviar', dados),
     },
 };
+
+// ---- o sistema: optimização, comandos, scripts, actualizações e licenças ----
+
+export type LinhaDaConsola = { tipo: 'info' | 'saida' | 'sucesso' | 'erro' | 'aviso' | 'separador'; texto: string };
+
+export type ValoresDoIni = {
+    environment: 'production' | 'development';
+    validate_timestamps: number;
+    revalidate_freq: number;
+    max_input_vars: number;
+    memory_limit: string;
+    max_execution_time: number;
+};
+
+export type EstadoDoOpcache = {
+    available: boolean;
+    enabled: boolean;
+    cache_full?: boolean;
+    restart_pending?: boolean;
+    stats?: { hit_rate: number; hits: string; misses: string; cached_scripts: string; max_scripts: string };
+    memory?: { total_mb: number; used_mb: number; free_mb: number; wasted_mb: number; usage_percentage: number; wasted_percentage: number };
+    config?: { memory_consumption: string; max_files: string; validate_timestamps: string; revalidate_freq: string; cli_enabled: string };
+};
+
+export type ComandoDoSistema = {
+    chave: string; nome: string; descricao: string; comando: string; icone: string; cor: string; grupo: string;
+    parametros: Array<{ nome: string; rotulo: string; tipo: 'checkbox' | 'select'; opcoes: 'plans' | 'modules' | 'tenants' | null; obrigatorio: boolean }>;
+};
+
+export type SeederDoSistema = {
+    classe: string; namespace: string; nome: string; categoria: string; executado: boolean; executado_em: string | null;
+};
+
+export type ExecucaoDoHistorico = {
+    command_key: string; command_name: string; success: boolean; output: string; executed_by: string; executed_at: string;
+};
+
+export type ReleaseDoGithub = {
+    tag_name: string; name: string; body: string; published_at: string | null; prerelease: boolean; is_newer: boolean; is_current: boolean;
+};
+
+export type LinhaDoRegisto = { hora: string; mensagem: string; tipo: 'info' | 'success' | 'warning' | 'error' };
+
+export type InstalacaoOffline = {
+    id: number; empresa: string; maquina: string | null; plano: string | null; todos_os_modulos: boolean; modulos: number;
+    max_utilizadores: number | null; versao: string | null; ultimo_contacto: string | null;
+    situacao: 'activa' | 'silenciosa' | 'expirada' | 'nunca_ligou'; expira_em: string | null;
+};
+
+export type FichaDaInstalacao = {
+    id: number;
+    empresa: { nome: string; nif: string | null; email: string | null; telefone: string | null; activa: boolean } | null;
+    plano: string | null; modulos: string[]; max_utilizadores: number | null;
+    emitida_em: string | null; expira_em: string | null; dias_sugeridos: number;
+    maquina: string | null; versao: string | null; ultimo_ip: string | null; ultimo_contacto: string | null;
+    situacao: InstalacaoOffline['situacao'];
+    pedido: { codigo: string; responsavel: string | null } | null;
+    token: string | null;
+};
+
+export type PedidoDeLicenca = {
+    id: number; codigo: string; empresa: string; nif: string | null; email: string | null; telefone: string | null;
+    responsavel: string | null; utilizadores: number | null; maquina: string | null; observacoes: string | null;
+    estado: 'pendente' | 'aprovado' | 'recusado'; motivo_recusa: string | null; entregue: boolean; pedido_em: string | null;
+};
+
+export type VersaoPublicada = {
+    id: number; versao: string; min_versao: string | null; rollout: 'none' | 'all'; obrigatorio: boolean;
+    alvos: Array<{ id: number; empresa: string }>;
+};
+
+export const sistema = {
+    otimizacao: {
+        ler: () => apiDaPlataforma.ler<{
+            opcache: EstadoDoOpcache;
+            saude: { status: 'success' | 'info' | 'warning' | 'error'; message: string; issues?: string[]; warnings?: string[] };
+            php: Record<'version' | 'memory_limit' | 'max_execution_time' | 'upload_max_filesize' | 'post_max_size' | 'max_input_vars', string>;
+            actuais: ValoresDoIni;
+            perfis: Record<'production' | 'development', Omit<ValoresDoIni, 'environment'>>;
+        }>('/otimizacao'),
+        limparOpcache: () => apiDaPlataforma.criar<Recado>('/otimizacao/limpar-opcache', {}),
+        limparCaches: () => apiDaPlataforma.criar<Recado>('/otimizacao/limpar-caches', {}),
+        otimizar: () => apiDaPlataforma.criar<Recado>('/otimizacao/otimizar', {}),
+        gerarIni: (valores: ValoresDoIni) => apiDaPlataforma.criar<Recado>('/otimizacao/user-ini', valores),
+    },
+    comandos: {
+        ler: () => apiDaPlataforma.ler<{
+            comandos: ComandoDoSistema[];
+            opcoes: Record<'plans' | 'modules' | 'tenants', Escolha[]>;
+            seeders: SeederDoSistema[];
+            numeros_dos_seeders: { total: number; executados: number; pendentes: number };
+            historico: ExecucaoDoHistorico[];
+        }>('/comandos'),
+        correr: (chave: string, parametros: Record<string, unknown>) =>
+            apiDaPlataforma.criar<{ ok: boolean; linhas: LinhaDaConsola[]; historico: ExecucaoDoHistorico[] }>(`/comandos/${chave}`, { parametros }),
+        semear: (seeder: string) =>
+            apiDaPlataforma.criar<{ ok: boolean; linhas: LinhaDaConsola[]; historico: ExecucaoDoHistorico[] }>('/comandos/seeder', { seeder }),
+        limparHistorico: () => apiDaPlataforma.apagar<Recado>('/comandos/historico'),
+    },
+    scripts: {
+        ler: () => apiDaPlataforma.ler<{
+            scripts: Array<{ nome: string; tamanho: number; modificado_em: string; descricao: string | null }>;
+            log: string[];
+        }>('/scripts'),
+        log: () => apiDaPlataforma.ler<{ log: string[] }>('/scripts/log'),
+        correr: (script: string) => apiDaPlataforma.criar<Recado & { ok: boolean; saida: string; log: string[] }>('/scripts/correr', { script }),
+        limparLog: () => apiDaPlataforma.apagar<Recado>('/scripts/log'),
+    },
+    actualizacoes: {
+        ler: () => apiDaPlataforma.ler<{ versao_actual: string; repositorio: string }>('/actualizacoes'),
+        releases: () => apiDaPlataforma.ler<Recado & { releases: ReleaseDoGithub[] }>('/actualizacoes/releases'),
+        instalar: (versao: string) => apiDaPlataforma.criar<Recado & { ok: boolean; registo: LinhaDoRegisto[]; versao_actual?: string }>('/actualizacoes/instalar', { versao }),
+    },
+    licenciamento: {
+        ler: () => apiDaPlataforma.ler<{
+            estado: { cripto: boolean; chave_das_licencas: boolean; chave_das_versoes: boolean; problema_da_chave: string | null };
+            resumo: { total: number; activas: number; silenciosas: number; expiradas: number; por_ligar: number };
+            instalacoes: InstalacaoOffline[];
+            pedidos: PedidoDeLicenca[];
+            versoes: VersaoPublicada[];
+            opcoes: { empresas: Nomeado[]; planos: Nomeado[]; modulos: Array<{ slug: string; nome: string }> };
+        }>('/licenciamento'),
+        instalacao: (id: number) => apiDaPlataforma.ler<{ instalacao: FichaDaInstalacao }>(`/licenciamento/instalacoes/${id}`),
+        emitir: (dados: Record<string, unknown>) => apiDaPlataforma.criar<Recado & { token: string }>('/licenciamento/licencas', dados),
+        guardarEmpresa: (id: number, dados: Record<string, unknown>) => apiDaPlataforma.guardar<Recado>(`/licenciamento/instalacoes/${id}/empresa`, dados),
+        alternarSuspensao: (id: number) => apiDaPlataforma.criar<Recado & { activa: boolean }>(`/licenciamento/instalacoes/${id}/suspensao`, {}),
+        avisar: (id: number, mensagem: string) => apiDaPlataforma.criar<Recado>(`/licenciamento/instalacoes/${id}/aviso`, { mensagem }),
+        renovar: (id: number, dias: number) => apiDaPlataforma.criar<Recado & { token: string }>(`/licenciamento/instalacoes/${id}/renovar`, { dias }),
+        aprovarPedido: (id: number, dados: Record<string, unknown>) => apiDaPlataforma.criar<Recado>(`/licenciamento/pedidos/${id}/aprovar`, dados),
+        recusarPedido: (id: number, motivo: string) => apiDaPlataforma.criar<Recado>(`/licenciamento/pedidos/${id}/recusar`, { motivo }),
+        publicarVersao: (dados: Record<string, unknown>) => apiDaPlataforma.criar<Recado>('/licenciamento/versoes', dados),
+        definirRollout: (id: number, rollout: 'none' | 'all') => apiDaPlataforma.guardar<Recado>(`/licenciamento/versoes/${id}/rollout`, { rollout }),
+        adicionarAlvo: (tenant_id: number, versao: string) => apiDaPlataforma.criar<Recado>('/licenciamento/alvos', { tenant_id, versao }),
+        removerAlvo: (id: number) => apiDaPlataforma.apagar<Recado>(`/licenciamento/alvos/${id}`),
+    },
+};

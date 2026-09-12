@@ -195,3 +195,40 @@ export function Dado({ rotulo, children, className }: { rotulo: string; children
         </div>
     );
 }
+
+/**
+ * A CONSOLA — onde aparece o que um comando, um seeder ou um script disse.
+ *
+ * O componente montava HTML no servidor (`<div class='text-red-600'>`) e o
+ * Blade despejava-o com `{!! !!}`. Aqui vão linhas com o tipo, e a cor sai do
+ * tipo: a saída de um comando nunca é interpretada como HTML.
+ */
+export function Consola({ linhas, vazio, aTrabalhar = false, altura = 'h-80' }: {
+    linhas: Array<{ tipo: string; texto: string }>;
+    vazio: string;
+    aTrabalhar?: boolean;
+    altura?: string;
+}) {
+    const cor: Record<string, string> = {
+        info: 'text-sky-300',
+        saida: 'text-slate-200',
+        sucesso: 'text-emerald-400',
+        success: 'text-emerald-400',
+        erro: 'text-red-400',
+        error: 'text-red-400',
+        aviso: 'text-amber-300',
+        warning: 'text-amber-300',
+    };
+
+    return (
+        <div className={cls('overflow-auto bg-slate-950 p-4 font-mono text-xs leading-relaxed shadow-inner', RAIO, altura)} aria-live="polite">
+            {linhas.length === 0 && !aTrabalhar && <p className="text-slate-500">{vazio}</p>}
+            {linhas.map((l, i) => (l.tipo === 'separador'
+                ? <hr key={i} className="my-2 border-slate-700" />
+                : <pre key={i} className={cls('entra whitespace-pre-wrap break-words', cor[l.tipo] ?? 'text-slate-300')}>{l.texto}</pre>))}
+            {aTrabalhar && (
+                <p className="mt-2 text-amber-300"><i className="fas fa-circle-notch fa-spin mr-2" aria-hidden="true" />{t('A executar…')}</p>
+            )}
+        </div>
+    );
+}

@@ -447,6 +447,60 @@ Route::middleware(['auth', 'superadmin'])->prefix('api/v1/plataforma/react')->na
         Route::post('/rever', [$c, 'rever'])->name('rever');
         Route::post('/enviar', [$c, 'enviar'])->name('enviar');
     });
+
+    Route::prefix('otimizacao')->name('otimizacao.')->group(function () {
+        $c = \App\Http\Controllers\Api\Plataforma\OtimizacaoApiController::class;
+
+        Route::get('/', [$c, 'index'])->name('index');
+        Route::post('/limpar-opcache', [$c, 'limparOpcache'])->name('opcache');
+        Route::post('/limpar-caches', [$c, 'limparCaches'])->name('caches');
+        Route::post('/otimizar', [$c, 'otimizar'])->name('otimizar');
+        Route::post('/user-ini', [$c, 'gerarIni'])->name('ini');
+    });
+
+    Route::prefix('comandos')->name('comandos.')->group(function () {
+        $c = \App\Http\Controllers\Api\Plataforma\ComandosApiController::class;
+
+        Route::get('/', [$c, 'index'])->name('index');
+        Route::post('/seeder', [$c, 'semear'])->name('seeder');
+        Route::delete('/historico', [$c, 'limparHistorico'])->name('historico');
+        Route::post('/{chave}', [$c, 'correr'])->where('chave', '[a-z_]+')->name('correr');
+    });
+
+    Route::prefix('scripts')->name('scripts.')->group(function () {
+        $c = \App\Http\Controllers\Api\Plataforma\ScriptsApiController::class;
+
+        Route::get('/', [$c, 'index'])->name('index');
+        Route::get('/log', [$c, 'log'])->name('log');
+        Route::post('/correr', [$c, 'correr'])->name('correr');
+        Route::delete('/log', [$c, 'limparLog'])->name('limpar-log');
+    });
+
+    Route::prefix('actualizacoes')->name('actualizacoes.')->group(function () {
+        $c = \App\Http\Controllers\Api\Plataforma\ActualizacoesApiController::class;
+
+        Route::get('/', [$c, 'index'])->name('index');
+        Route::get('/releases', [$c, 'releases'])->name('releases');
+        Route::post('/instalar', [$c, 'instalar'])->name('instalar');
+    });
+
+    Route::prefix('licenciamento')->name('licenciamento.')->group(function () {
+        $c = \App\Http\Controllers\Api\Plataforma\LicenciamentoApiController::class;
+
+        Route::get('/', [$c, 'index'])->name('index');
+        Route::post('/licencas', [$c, 'emitir'])->name('emitir');
+        Route::get('/instalacoes/{id}', [$c, 'instalacao'])->whereNumber('id')->name('instalacao');
+        Route::put('/instalacoes/{id}/empresa', [$c, 'guardarEmpresa'])->whereNumber('id')->name('empresa');
+        Route::post('/instalacoes/{id}/suspensao', [$c, 'alternarSuspensao'])->whereNumber('id')->name('suspensao');
+        Route::post('/instalacoes/{id}/aviso', [$c, 'avisar'])->whereNumber('id')->name('aviso');
+        Route::post('/instalacoes/{id}/renovar', [$c, 'renovar'])->whereNumber('id')->name('renovar');
+        Route::post('/pedidos/{id}/aprovar', [$c, 'aprovarPedido'])->whereNumber('id')->name('pedidos.aprovar');
+        Route::post('/pedidos/{id}/recusar', [$c, 'recusarPedido'])->whereNumber('id')->name('pedidos.recusar');
+        Route::post('/versoes', [$c, 'publicarVersao'])->name('versoes');
+        Route::put('/versoes/{id}/rollout', [$c, 'definirRollout'])->whereNumber('id')->name('rollout');
+        Route::post('/alvos', [$c, 'adicionarAlvo'])->name('alvos');
+        Route::delete('/alvos/{id}', [$c, 'removerAlvo'])->whereNumber('id')->name('alvos.remover');
+    });
 });
 
 // Super Admin Routes
@@ -458,17 +512,19 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
     Route::get('/modules', \App\Support\EcraReact::plataforma('plataforma/modulos', 'Módulos'))->name('modules');
     Route::get('/plans', \App\Support\EcraReact::plataforma('plataforma/planos', 'Planos'))->name('plans');
     Route::get('/billing', \App\Support\EcraReact::plataforma('plataforma/facturacao', 'Facturação da plataforma'))->name('billing');
-    Route::get('/licenciamento', \App\Livewire\SuperAdmin\Licenciamento::class)->name('licenciamento');
+    Route::get('/licenciamento', \App\Support\EcraReact::plataforma('plataforma/licenciamento', 'Licenciamento offline'))->name('licenciamento');
 
     // Que empresas usam o PWA, em que aparelhos e em que VERSÃO. Existe porque
     // um deploy do motor podia não chegar aos aparelhos e não havia como saber.
     Route::get('/aparelhos-pwa', \App\Support\EcraReact::plataforma('plataforma/aparelhos-pwa', 'Aparelhos PWA'))->name('aparelhos-pwa');
-    Route::get('/system-updates', \App\Livewire\SuperAdmin\SystemUpdates::class)->name('system-updates');
-    Route::get('/system-commands', \App\Livewire\SuperAdmin\SystemCommands::class)->name('system-commands');
-    Route::get('/script-runner', \App\Livewire\SuperAdmin\ScriptRunner::class)->name('script-runner');
+    Route::get('/system-updates', \App\Support\EcraReact::plataforma('plataforma/actualizacoes', 'Atualizações do Sistema'))->name('system-updates');
+    Route::get('/system-commands', \App\Support\EcraReact::plataforma('plataforma/comandos', 'Comandos do Sistema'))->name('system-commands');
+    Route::get('/script-runner', \App\Support\EcraReact::plataforma('plataforma/scripts', 'Executar Scripts'))->name('script-runner');
     Route::get('/system-settings', \App\Support\EcraReact::plataforma('plataforma/sistema', 'Definições do sistema'))->name('system-settings');
     Route::get('/software-settings', \App\Support\EcraReact::plataforma('plataforma/software', 'Definições do software'))->name('software-settings');
-    Route::get('/system-optimization', \App\Livewire\SuperAdmin\SystemOptimization::class)->name('system-optimization');
+    // O .user.ini gerado com os valores do formulário: é um ficheiro, e por isso uma rota de página.
+    Route::get('/system-optimization/user-ini', [\App\Http\Controllers\Api\Plataforma\OtimizacaoApiController::class, 'descarregarIni'])->name('system-optimization.ini');
+    Route::get('/system-optimization', \App\Support\EcraReact::plataforma('plataforma/otimizacao', 'Otimização do Sistema'))->name('system-optimization');
     Route::get('/email-templates', \App\Support\EcraReact::plataforma('plataforma/modelos-de-email', 'Modelos de email'))->name('email-templates');
     Route::get('/smtp-settings', \App\Support\EcraReact::plataforma('plataforma/correio', 'Servidores de correio'))->name('smtp-settings');
     Route::get('/email-logs', \App\Support\EcraReact::plataforma('plataforma/registo-de-emails', 'Registo de emails'))->name('email-logs');
