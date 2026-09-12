@@ -1027,6 +1027,102 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::post('/endereco', [$c, 'novoEndereco'])->name('endereco');
         });
 
+        /*
+         * OS EVENTOS.
+         *
+         * O CALENDÁRIO tem porta própria (`/agenda/calendario`) e devolve o mês
+         * em semanas inteiras: é o servidor que monta a grelha, e não uma
+         * biblioteca que o ecrã ia buscar a um CDN — numa instalação sem
+         * internet ficava um quadrado branco sem aviso nenhum.
+         */
+        Route::get('/eventos/painel', [\App\Http\Controllers\Api\Events\PainelApiController::class, 'index'])
+            ->name('eventos.painel');
+
+        Route::prefix('eventos/agenda')->name('eventos.agenda.')->group(function () {
+            $c = \App\Http\Controllers\Api\Events\AgendaApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/calendario', [$c, 'calendario'])->name('calendario');
+            Route::post('/clientes', [$c, 'clienteRapido'])->name('clientes.criar');
+            Route::post('/locais', [$c, 'localRapido'])->name('locais.criar');
+            Route::post('/tipos', [$c, 'tipoRapido'])->name('tipos.criar');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'guardar'])->name('criar');
+            Route::get('/{id}', [$c, 'ficha'])->whereNumber('id')->name('ficha');
+            Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+            Route::post('/{id}/mover', [$c, 'mover'])->whereNumber('id')->name('mover');
+            Route::post('/{id}/estado', [$c, 'estado'])->whereNumber('id')->name('estado');
+            Route::post('/{id}/fase', [$c, 'avancarFase'])->whereNumber('id')->name('fase');
+            Route::delete('/{id}', [$c, 'apagar'])->whereNumber('id')->name('apagar');
+            Route::post('/tarefas/{id}', [$c, 'tarefa'])->whereNumber('id')->name('tarefa');
+        });
+
+        Route::prefix('eventos/equipamentos')->name('eventos.equipamentos.')->group(function () {
+            $c = \App\Http\Controllers\Api\Events\EquipamentosApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/painel', [$c, 'painel'])->name('painel');
+            Route::get('/conjuntos', [$c, 'conjuntos'])->name('conjuntos');
+            Route::post('/conjuntos', [$c, 'guardarConjunto'])->name('conjuntos.criar');
+            Route::put('/conjuntos/{id}', [$c, 'guardarConjunto'])->whereNumber('id')->name('conjuntos.guardar');
+            Route::post('/conjuntos/{id}/itens', [$c, 'juntarAoConjunto'])->whereNumber('id')->name('conjuntos.juntar');
+            Route::delete('/conjuntos/{id}/itens/{equipamento}', [$c, 'tirarDoConjunto'])
+                ->whereNumber('id')->whereNumber('equipamento')->name('conjuntos.tirar');
+            Route::delete('/conjuntos/{id}', [$c, 'apagarConjunto'])->whereNumber('id')->name('conjuntos.apagar');
+            Route::post('/categorias', [$c, 'guardarCategoria'])->name('categorias.criar');
+            Route::put('/categorias/{id}', [$c, 'guardarCategoria'])->whereNumber('id')->name('categorias.guardar');
+            Route::post('/categorias/{id}/alternar', [$c, 'alternarCategoria'])->whereNumber('id')->name('categorias.alternar');
+            Route::delete('/categorias/{id}', [$c, 'apagarCategoria'])->whereNumber('id')->name('categorias.apagar');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'guardar'])->name('criar');
+            Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+            Route::post('/{id}/imagem', [$c, 'imagem'])->whereNumber('id')->name('imagem');
+            Route::post('/{id}/emprestar', [$c, 'emprestar'])->whereNumber('id')->name('emprestar');
+            Route::post('/{id}/devolver', [$c, 'devolver'])->whereNumber('id')->name('devolver');
+            Route::post('/{id}/manutencao', [$c, 'manutencao'])->whereNumber('id')->name('manutencao');
+            Route::get('/{id}/historial', [$c, 'historial'])->whereNumber('id')->name('historial');
+            Route::delete('/{id}', [$c, 'apagar'])->whereNumber('id')->name('apagar');
+        });
+
+        Route::prefix('eventos/locais')->name('eventos.locais.')->group(function () {
+            $c = \App\Http\Controllers\Api\Events\LocaisApiController::class;
+
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'guardar'])->name('criar');
+            Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+            Route::post('/{id}/alternar', [$c, 'alternar'])->whereNumber('id')->name('alternar');
+            Route::delete('/{id}', [$c, 'apagar'])->whereNumber('id')->name('apagar');
+        });
+
+        Route::prefix('eventos/tipos')->name('eventos.tipos.')->group(function () {
+            $c = \App\Http\Controllers\Api\Events\TiposApiController::class;
+
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'guardar'])->name('criar');
+            Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+            Route::post('/{id}/mover', [$c, 'mover'])->whereNumber('id')->name('mover');
+            Route::post('/{id}/alternar', [$c, 'alternar'])->whereNumber('id')->name('alternar');
+            Route::delete('/{id}', [$c, 'apagar'])->whereNumber('id')->name('apagar');
+        });
+
+        Route::prefix('eventos/tecnicos')->name('eventos.tecnicos.')->group(function () {
+            $c = \App\Http\Controllers\Api\Events\TecnicosApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/do-rh', [$c, 'doRh'])->name('do-rh');
+            Route::post('/do-rh', [$c, 'importarDoRh'])->name('do-rh.importar');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'guardar'])->name('criar');
+            Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+            Route::post('/{id}/alternar', [$c, 'alternar'])->whereNumber('id')->name('alternar');
+            Route::delete('/{id}', [$c, 'apagar'])->whereNumber('id')->name('apagar');
+        });
+
+        Route::get('/eventos/relatorios', [\App\Http\Controllers\Api\Events\RelatoriosApiController::class, 'index'])
+            ->name('eventos.relatorios');
+        Route::get('/eventos/relatorios/csv', [\App\Http\Controllers\Api\Events\RelatoriosApiController::class, 'csv'])
+            ->name('eventos.relatorios.csv');
+
         Route::prefix('oficina/ordens')->name('oficina.ordens.')->group(function () {
             $c = \App\Http\Controllers\Api\Workshop\OrdensApiController::class;
 
@@ -1697,67 +1793,54 @@ Route::middleware(['auth', 'tenant.module:treasury'])->prefix('treasury')->name(
         ->name('transfers');
 });
 
-// Events Module Routes
+/*
+ * OS EVENTOS — as moradas de sempre, agora em React.
+ *
+ * A ROTA DE TESTE DO QR CODE SAIU DAQUI. Era um `/events/equipment/test-qrcode`
+ * que desenhava um QR com o endereço `soserp.test` escrito à mão e devolvia o
+ * `getMessage()`, o ficheiro e a linha da excepção a quem o abrisse — um
+ * diagnóstico de programador exposto a qualquer utilizador autenticado. O QR
+ * verdadeiro de cada equipamento continua em `/{id}/qrcode`.
+ */
 Route::middleware(['auth', 'tenant.module:eventos'])->prefix('events')->name('events.')->group(function () {
-    // Dashboard
     Route::middleware('permission:events.dashboard.view')
-        ->get('/dashboard', \App\Livewire\Events\Dashboard::class)->name('dashboard');
+        ->get('/dashboard', \App\Support\EcraReact::pagina('eventos/painel', 'Painel dos Eventos'))->name('dashboard');
 
-    // Calendário
     Route::middleware('permission:events.calendar.view')
-        ->get('/calendar', \App\Livewire\Events\EventCalendar::class)->name('calendar');
+        ->get('/calendar', \App\Support\EcraReact::pagina('eventos/agenda', 'Agenda de Eventos'))->name('calendar');
 
-    // Relatórios
     Route::middleware('permission:events.reports.view')
-        ->get('/reports', \App\Livewire\Events\Reports::class)->name('reports');
+        ->get('/reports', \App\Support\EcraReact::pagina('eventos/relatorios', 'Relatórios de Eventos'))->name('reports');
 
-    // Equipamentos
     Route::prefix('equipment')->name('equipment.')->middleware('permission:events.equipment.view')->group(function () {
-        Route::get('/', \App\Livewire\Events\Equipment\EquipmentManager::class)->name('index');
-        Route::get('/dashboard', \App\Livewire\Events\Equipment\EquipmentDashboard::class)->name('dashboard');
-        Route::get('/sets', \App\Livewire\Events\Equipment\EquipmentSets::class)->name('sets');
-        Route::get('/categories', \App\Livewire\Events\Equipment\EquipmentCategories::class)->name('categories');
-        Route::get('/scan/{id}', function($id) {
-            $equipment = \App\Models\Equipment::findOrFail($id);
-            return redirect()->route('events.equipment.index')->with('scan_equipment', $equipment->id);
-        })->name('scan');
+        Route::get('/', \App\Support\EcraReact::pagina('eventos/equipamentos', 'Equipamentos'))->name('index');
+        Route::get('/dashboard', \App\Support\EcraReact::pagina('eventos/equipamentos-painel', 'Painel dos Equipamentos'))->name('dashboard');
+        Route::get('/sets', \App\Support\EcraReact::pagina('eventos/equipamentos', 'Conjuntos de Equipamentos', ['separador' => 'conjuntos']))->name('sets');
+        Route::get('/categories', \App\Support\EcraReact::pagina('eventos/equipamentos', 'Categorias de Equipamentos', ['separador' => 'categorias']))->name('categories');
+
+        /*
+         * O QR COLADO AO EQUIPAMENTO aponta para aqui, e os que já estão
+         * impressos continuam a apontar: a morada não muda. O que muda é o
+         * destino — a lista em React abre a ficha do equipamento lido.
+         */
+        Route::get('/scan/{id}', function (int $id) {
+            $equipamento = \App\Models\Equipment::forTenant()->findOrFail($id);
+
+            return redirect()->route('events.equipment.index', ['equipamento' => $equipamento->id]);
+        })->whereNumber('id')->name('scan');
+
         Route::get('/{id}/qrcode', [\App\Http\Controllers\EquipmentController::class, 'generateQrCode'])->name('qrcode');
         Route::get('/{id}/qrcode/print', [\App\Http\Controllers\EquipmentController::class, 'printQrCode'])->name('qrcode.print');
-        
-        // Rota de teste QR Code
-        Route::get('/test-qrcode', function() {
-            try {
-                $renderer = new \BaconQrCode\Renderer\ImageRenderer(
-                    new \BaconQrCode\Renderer\RendererStyle\RendererStyle(400, 2),
-                    new \BaconQrCode\Renderer\Image\SvgImageBackEnd()
-                );
-                $writer = new \BaconQrCode\Writer($renderer);
-                $qrCode = $writer->writeString('https://soserp.test/events/equipment');
-                return response($qrCode)->header('Content-Type', 'image/svg+xml');
-            } catch (\Exception $e) {
-                return response()->json([
-                    'error' => $e->getMessage(),
-                    'line' => $e->getLine(),
-                    'file' => $e->getFile()
-                ], 500);
-            }
-        })->name('test.qrcode');
-    });
-    
-    // Locais
-    Route::prefix('venues')->name('venues.')->middleware('permission:events.venues.view')->group(function () {
-        Route::get('/', \App\Livewire\Events\Venues\VenuesManager::class)->name('index');
     });
 
-    // Tipos de Eventos
-    Route::prefix('types')->name('types.')->middleware('permission:events.types.view')->group(function () {
-        Route::get('/', \App\Livewire\Events\EventTypes::class)->name('index');
-    });
+    Route::middleware('permission:events.venues.view')
+        ->get('/venues', \App\Support\EcraReact::pagina('eventos/locais', 'Locais'))->name('venues.index');
 
-    // Técnicos
-    Route::prefix('technicians')->name('technicians.')->middleware('permission:events.technicians.view')->group(function () {
-        Route::get('/', \App\Livewire\Events\TechniciansManager::class)->name('index');
-    });
+    Route::middleware('permission:events.types.view')
+        ->get('/types', \App\Support\EcraReact::pagina('eventos/tipos', 'Tipos de Eventos'))->name('types.index');
+
+    Route::middleware('permission:events.technicians.view')
+        ->get('/technicians', \App\Support\EcraReact::pagina('eventos/tecnicos', 'Técnicos'))->name('technicians.index');
 });
 
 // ============================================

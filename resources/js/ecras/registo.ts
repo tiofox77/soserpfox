@@ -226,6 +226,29 @@ export const ecras: Record<string, Ecra> = {
     'salao/definicoes': () =>
         import('./salao/Definicoes'),
 
+    /*
+     * OS EVENTOS. O parque, os conjuntos e as categorias eram TRÊS MORADAS com
+     * a mesma barra de navegação copiada no topo de cada uma — e a barra era a
+     * prova de que pertenciam ao mesmo ecrã. Hoje são três separadores do
+     * mesmo, e cada morada continua a existir, a abrir no seu.
+     */
+    'eventos/painel': () =>
+        import('./eventos/Painel'),
+    'eventos/agenda': () =>
+        import('./eventos/Agenda'),
+    'eventos/equipamentos': () =>
+        import('./eventos/Equipamentos'),
+    'eventos/equipamentos-painel': () =>
+        import('./eventos/EquipamentosPainel'),
+    'eventos/locais': () =>
+        import('./eventos/Locais'),
+    'eventos/tipos': () =>
+        import('./eventos/Tipos'),
+    'eventos/tecnicos': () =>
+        import('./eventos/Tecnicos'),
+    'eventos/relatorios': () =>
+        import('./eventos/Relatorios'),
+
     // A TESOURARIA. Os catálogos (bancos, formas, caixas, tipos, categorias,
     // contas) passam pelo ecrã genérico; os movimentos têm o seu.
     'tesouraria/movimentos': () =>

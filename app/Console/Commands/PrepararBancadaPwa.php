@@ -182,6 +182,7 @@ class PrepararBancadaPwa extends Command
         $pessoas = $this->montarORh($tenant);
         $ordens = $this->montarAOficina($tenant);
         $quartos = $this->montarOHotel($tenant);
+        $eventos = $this->montarOsEventos($tenant);
 
         $this->newLine();
         $this->info('Bancada do PWA montada.');
@@ -196,6 +197,7 @@ class PrepararBancadaPwa extends Command
             ['Funcionários', $pessoas],
             ['Ordens da oficina', $ordens],
             ['Quartos do hotel', $quartos],
+            ['Eventos', $eventos],
             ['Cliente',  $cliente->name],
             ['Armazém',  $armazem->name],
         ]);
@@ -838,6 +840,84 @@ class PrepararBancadaPwa extends Command
         $folha->forceFill(['status' => 'approved', 'approved_at' => now()])->save();
     }
 
+    /**
+     * Os eventos: um tipo, um local, um técnico, equipamento e um evento.
+     *
+     * O ensaio do browser abre as moradas todas do módulo, e uma lista vazia
+     * não distingue «não implementado» de «ainda não há nada»: um calendário
+     * sem eventos desenha-se exactamente igual quer a consulta funcione quer
+     * não.
+     *
+     * @return int quantos eventos ficaram montados
+     */
+    private function montarOsEventos(Tenant $tenant): int
+    {
+        $tipo = \App\Models\Events\EventType::firstOrCreate(
+            ['tenant_id' => $tenant->id, 'name' => 'Conferência'],
+            ['icon' => '🎤', 'color' => '#8b5cf6', 'order' => 1, 'is_active' => true],
+        );
+
+        $local = \App\Models\Events\Venue::firstOrCreate(
+            ['tenant_id' => $tenant->id, 'name' => 'Salão da Bancada'],
+            [
+                'address' => 'Luanda, Angola', 'city' => 'Luanda',
+                'phone' => '923000001', 'contact_person' => 'Sr. Bancada',
+                'capacity' => 400, 'is_active' => true,
+            ],
+        );
+
+        \App\Models\Events\Technician::firstOrCreate(
+            ['tenant_id' => $tenant->id, 'name' => 'Técnico da Bancada'],
+            [
+                'phone' => '923000002', 'email' => 'tecnico@bancada.local',
+                'specialties' => ['audio', 'streaming'], 'level' => 'senior',
+                'hourly_rate' => 2500, 'daily_rate' => 18000,
+                'is_active' => true, 'is_available' => true,
+            ],
+        );
+
+        $categoria = \App\Models\EquipmentCategory::firstOrCreate(
+            ['tenant_id' => $tenant->id, 'name' => 'Som da Bancada'],
+            ['icon' => '🔊', 'color' => '#6366f1', 'sort_order' => 1, 'is_active' => true],
+        );
+
+        \App\Models\Equipment::firstOrCreate(
+            ['tenant_id' => $tenant->id, 'name' => 'Mesa de som da bancada'],
+            [
+                'category_id' => $categoria->id, 'serial_number' => 'BANCADA-SOM-01',
+                'location' => 'Armazém da bancada', 'status' => 'disponivel',
+                'purchase_price' => 450000, 'current_value' => 300000, 'is_active' => true,
+            ],
+        );
+
+        $evento = \App\Models\Events\Event::firstOrCreate(
+            ['tenant_id' => $tenant->id, 'name' => 'Conferência da Bancada'],
+            [
+                'type_id' => $tipo->id,
+                'venue_id' => $local->id,
+                /*
+                 * A MEIO DO MÊS, e de propósito: um evento no dia 1 ou no 31
+                 * cai numa semana que a grelha também pinta com os dias do mês
+                 * ao lado, e um ensaio que o procure no calendário do mês
+                 * certo pode não o encontrar onde espera.
+                 */
+                'start_date' => now()->startOfMonth()->addDays(14)->setTime(9, 0),
+                'end_date' => now()->startOfMonth()->addDays(14)->setTime(18, 0),
+                'expected_attendees' => 200,
+                'total_value' => 850000,
+                'status' => 'confirmado',
+                'phase' => 'planejamento',
+            ],
+        );
+
+        if ($evento->checklists()->count() === 0) {
+            $evento->createDefaultChecklistForPhase('planejamento');
+            $evento->updateChecklistProgress();
+        }
+
+        return \App\Models\Events\Event::where('tenant_id', $tenant->id)->count();
+    }
+
     private function limpar(): int
     {
         $tenant = Tenant::where('slug', self::SLUG)->first();
@@ -895,8 +975,9 @@ class PrepararBancadaPwa extends Command
         // O RH entra pela mesma razão: os catálogos (departamentos, cargos,
         // turnos) já são React e os ensaios de browser abrem-nos. E a OFICINA,
         // desde que as viaturas, os mecânicos e os serviços passaram para o
-        // mesmo ecrã genérico.
-        foreach (['invoicing', 'treasury', 'restaurant', 'rh', 'oficina'] as $slug) {
+        // mesmo ecrã genérico. E os EVENTOS, que passaram a React inteiros: a
+        // agenda, os equipamentos, os locais, os tipos e os técnicos.
+        foreach (['invoicing', 'treasury', 'restaurant', 'rh', 'oficina', 'eventos'] as $slug) {
             $modulo = Module::firstOrCreate(
                 ['slug' => $slug],
                 ['name' => ucfirst($slug), 'is_active' => true]

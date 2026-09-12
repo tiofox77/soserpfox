@@ -16,6 +16,15 @@ class EquipmentHistory extends Model
         'equipment_id',
         'tenant_id',
         'action_type',
+        /*
+         * O `event_id` FALTAVA AQUI e é uma coluna a sério.
+         *
+         * O próprio modelo do equipamento o passava ao `addToHistory` quando o
+         * material entrava em uso num evento — e a atribuição em massa
+         * deitava-o fora em silêncio. O historial ficava com «em uso» sem dizer
+         * em que evento, que é a única coisa que essa linha tinha para dizer.
+         */
+        'event_id',
         'client_id',
         'user_id',
         'start_datetime',

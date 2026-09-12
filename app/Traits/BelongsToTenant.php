@@ -37,6 +37,26 @@ trait BelongsToTenant
     }
     
     /**
+     * O FILTRO POR EMPRESA, ESCRITO À MÃO.
+     *
+     * O escopo global acima já o faz — mas SÓ com sessão aberta. Fora dela (um
+     * comando de consola, uma tarefa agendada, um ensaio) não filtra nada, e
+     * uma consulta que parecia segura passa a ver a casa toda.
+     *
+     * Este atalho diz o que quer, e diz-se a ler: `Evento::forTenant()`. Era
+     * escrito à mão em vinte e tal modelos, cada um com a sua assinatura; os
+     * que já o têm continuam com o seu — um método da classe manda sempre mais
+     * do que um do trait.
+     */
+    public function scopeForTenant($query, $tenantId = null)
+    {
+        return $query->where(
+            $query->getModel()->getTable().'.tenant_id',
+            $tenantId ?: activeTenantId()
+        );
+    }
+
+    /**
      * Relacionamento com Tenant
      */
     public function tenant()

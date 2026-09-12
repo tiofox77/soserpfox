@@ -49,8 +49,15 @@ class EventType extends Model
         return $query->orderBy('order')->orderBy('name');
     }
 
-    public function scopeForTenant($query, $tenantId)
+    /**
+     * O ARGUMENTO PASSOU A SER OPCIONAL.
+     *
+     * Era o único `forTenant` da casa que EXIGIA o id — todos os outros o
+     * assumem da empresa activa —, e quem o chamasse como chama os restantes
+     * levava um erro de argumento em falta.
+     */
+    public function scopeForTenant($query, $tenantId = null)
     {
-        return $query->where('tenant_id', $tenantId);
+        return $query->where('tenant_id', $tenantId ?: activeTenantId());
     }
 }
