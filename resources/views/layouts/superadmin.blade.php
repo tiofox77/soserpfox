@@ -455,9 +455,11 @@
         @endif
     </script>
     
+    {{-- OS ECRÃS EM REACT. O painel da plataforma tem layout próprio e precisa
+         do mesmo pacote que o resto da aplicação. --}}
+    @include('partials.react-pacote')
+
     <!-- PWA Service Worker -->
     @include('partials.pwa-register')
-    <script>
-    </script>
 </body>
 </html>

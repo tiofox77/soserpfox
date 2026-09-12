@@ -2,24 +2,26 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\SuperAdmin\Tenants as EcraTenants;
 use App\Models\Plan;
 use App\Models\Tenant;
+use App\Models\User;
 use App\Services\Plataforma\TrocarDePlano;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
- * O modal «Alterar Plano» é dinâmico e grava o acordo que mostra.
+ * A janela «Alterar o plano» é dinâmica e grava o acordo que mostra.
  *
- * Duas queixas do dono (2026-09-02): o modal mostrava um plano actual
+ * Duas queixas do dono (2026-09-02): a janela mostrava um plano actual
  * diferente do da lista, e não deixava fechar um acordo diferente da tabela
  * (sem oferta, N dias, preço por utilizador). O que se prende aqui:
  *
- *   · abrir o modal traz o acordo ACTUAL da empresa, tal como está;
+ *   · abrir traz o acordo ACTUAL da empresa, tal como está;
  *   · o resumo recalcula ao mudar ciclo/dias/preço, no servidor, pela
  *     mesma regra que grava;
  *   · o que se grava é exactamente o que o resumo prometeu.
+ *
+ * Era um ensaio do componente em Livewire; o ecrã passou a React e fala com
+ * `/api/v1/plataforma/react/empresas/{id}/plano`, atrás da guarda do dono.
  */
 class AlterarPlanoModalTest extends TenantTestCase
 {
@@ -41,11 +43,19 @@ class AlterarPlanoModalTest extends TenantTestCase
         ]);
     }
 
-    private function ecra()
+    private function dono(): static
     {
-        $this->actingAs($this->user);
+        $dono = User::create(['name' => 'Dono', 'email' => 'dono_'.uniqid().'@exemplo.ao', 'password' => bcrypt('x')]);
+        $dono->forceFill(['is_super_admin' => true])->save();
 
-        return Livewire::test(EcraTenants::class);
+        return $this->actingAs($dono);
+    }
+
+    private function resumo(Tenant $empresa, array $escolha): array
+    {
+        return $this->dono()
+            ->postJson("/api/v1/plataforma/react/empresas/{$empresa->id}/plano/resumo", $escolha)
+            ->assertOk()->json();
     }
 
     /** @test */
@@ -57,16 +67,15 @@ class AlterarPlanoModalTest extends TenantTestCase
             'com_oferta' => false, 'preco_por_utilizador' => 1500, 'utilizadores' => 4,
         ]);
 
-        $this->ecra()
-            ->call('managePlan', $empresa->id)
-            ->assertSet('showPlanModal', true)
-            ->assertSet('selectedPlanId', $plano->id)
-            ->assertSet('billingCycle', 'yearly')
-            ->assertSet('comOferta', false)
-            ->assertSet('precoPorUtilizador', '1500')
-            ->assertSet('utilizadoresCobrados', '4')
-            ->assertSee('sem oferta')
-            ->assertSee('4 utilizador(es)');
+        $actual = $this->dono()
+            ->getJson("/api/v1/plataforma/react/empresas/{$empresa->id}/plano")
+            ->assertOk()->json('actual');
+
+        $this->assertSame($plano->id, $actual['plano_id']);
+        $this->assertSame('yearly', $actual['ciclo']);
+        $this->assertFalse($actual['com_oferta']);
+        $this->assertSame(1500.0, (float) $actual['preco_por_utilizador']);
+        $this->assertSame(4, $actual['utilizadores_cobrados']);
     }
 
     /** @test */
@@ -74,34 +83,28 @@ class AlterarPlanoModalTest extends TenantTestCase
     {
         $empresa = $this->empresa();
         $plano = $this->plano(10000, 100000, 10);
+        $base = ['plano' => $plano->id, 'ciclo' => 'yearly'];
 
-        $ecra = $this->ecra()
-            ->call('managePlan', $empresa->id)
-            ->set('selectedPlanId', $plano->id)
-            ->set('billingCycle', 'yearly');
-
-        // Anual com oferta: 14 meses, preço de tabela. (Ao dia — o resumo é
-        // calculado uns milissegundos antes do now() daqui.)
-        $resumo = $ecra->instance()->resumoDoPlano;
-        $this->assertSame(100000.0, $resumo['valor']);
-        $this->assertTrue(now()->addMonths(14)->isSameDay($resumo['fim']));
-        $this->assertTrue($resumo['oferta_aplicavel']);
+        // Anual com oferta: 14 meses, preço de tabela.
+        $r = $this->resumo($empresa, $base);
+        $this->assertSame(100000.0, (float) $r['valor']);
+        $this->assertSame(now()->addMonths(14)->format('d/m/Y'), $r['fim']);
+        $this->assertTrue($r['oferta_aplicavel']);
 
         // Tira-se a oferta: 12 meses.
-        $ecra->set('comOferta', false);
-        $this->assertTrue(now()->addMonths(12)->isSameDay($ecra->instance()->resumoDoPlano['fim']));
+        $r = $this->resumo($empresa, $base + ['com_oferta' => false]);
+        $this->assertSame(now()->addMonths(12)->format('d/m/Y'), $r['fim']);
 
         // Dias à medida ganham ao ciclo.
-        $ecra->set('diasPersonalizados', '364');
-        $resumo = $ecra->instance()->resumoDoPlano;
-        $this->assertSame(364, $resumo['dias']);
-        $this->assertFalse($resumo['oferta_aplicavel'], 'com dias à medida a oferta não se aplica');
+        $r = $this->resumo($empresa, $base + ['com_oferta' => false, 'dias' => 364]);
+        $this->assertSame(364, $r['dias']);
+        $this->assertFalse($r['oferta_aplicavel'], 'com dias à medida a oferta não se aplica');
 
         // Preço por utilizador: N × preço, N por omissão = os do plano.
-        $ecra->set('precoPorUtilizador', '2000');
-        $this->assertSame(20000.0, $ecra->instance()->resumoDoPlano['valor']);
-        $ecra->set('utilizadoresCobrados', '3');
-        $this->assertSame(6000.0, $ecra->instance()->resumoDoPlano['valor']);
+        $r = $this->resumo($empresa, $base + ['dias' => 364, 'preco_por_utilizador' => 2000]);
+        $this->assertSame(20000.0, (float) $r['valor']);
+        $r = $this->resumo($empresa, $base + ['dias' => 364, 'preco_por_utilizador' => 2000, 'utilizadores' => 3]);
+        $this->assertSame(6000.0, (float) $r['valor']);
     }
 
     /** @test */
@@ -112,16 +115,14 @@ class AlterarPlanoModalTest extends TenantTestCase
         $novo = $this->plano(12000, 120000, 20);
         app(TrocarDePlano::class)->aplicar($empresa, $antigo, 'monthly');
 
-        $this->ecra()
-            ->call('managePlan', $empresa->id)
-            ->set('selectedPlanId', $novo->id)
-            ->set('billingCycle', 'yearly')
-            ->set('comOferta', false)
-            ->set('precoPorUtilizador', '1500')
-            ->set('utilizadoresCobrados', '6')
-            ->call('updateTenantPlan')
-            ->assertHasNoErrors()
-            ->assertSet('showPlanModal', false);
+        $escolha = [
+            'plano' => $novo->id, 'ciclo' => 'yearly', 'com_oferta' => false,
+            'preco_por_utilizador' => 1500, 'utilizadores' => 6,
+        ];
+
+        $prometido = $this->resumo($empresa, $escolha);
+
+        $this->dono()->putJson("/api/v1/plataforma/react/empresas/{$empresa->id}/plano", $escolha)->assertOk();
 
         $sub = $empresa->fresh()->activeSubscription;
 
@@ -130,6 +131,7 @@ class AlterarPlanoModalTest extends TenantTestCase
         $this->assertFalse((bool) $sub->com_oferta);
         $this->assertSame(12, (int) $sub->current_period_start->diffInMonths($sub->current_period_end));
         $this->assertSame(9000.0, (float) $sub->amount);
+        $this->assertSame((float) $prometido['valor'], (float) $sub->amount, 'grava o que o resumo prometeu');
         $this->assertSame(6, (int) $sub->utilizadores_cobrados);
     }
 
@@ -139,13 +141,9 @@ class AlterarPlanoModalTest extends TenantTestCase
         $empresa = $this->empresa();
         $plano = $this->plano();
 
-        $this->ecra()
-            ->call('managePlan', $empresa->id)
-            ->set('selectedPlanId', $plano->id)
-            ->set('billingCycle', 'yearly')
-            ->set('diasPersonalizados', '364')
-            ->call('updateTenantPlan')
-            ->assertHasNoErrors();
+        $this->dono()->putJson("/api/v1/plataforma/react/empresas/{$empresa->id}/plano", [
+            'plano' => $plano->id, 'ciclo' => 'yearly', 'dias' => 364,
+        ])->assertOk();
 
         $sub = $empresa->fresh()->activeSubscription;
 
@@ -159,18 +157,15 @@ class AlterarPlanoModalTest extends TenantTestCase
         $empresa = $this->empresa();
         $plano = $this->plano();
 
-        $this->ecra()
-            ->call('managePlan', $empresa->id)
-            ->set('selectedPlanId', $plano->id)
-            ->set('diasPersonalizados', '99999')
-            ->call('updateTenantPlan')
-            ->assertHasErrors(['diasPersonalizados']);
+        $this->dono()->putJson("/api/v1/plataforma/react/empresas/{$empresa->id}/plano", [
+            'plano' => $plano->id, 'ciclo' => 'monthly', 'dias' => 99999,
+        ])->assertStatus(422)->assertJsonValidationErrors('dias');
     }
 
     /**
-     * A lista e o modal têm de concordar. Uma empresa com DUAS subscrições
+     * A lista e a janela têm de concordar. Uma empresa com DUAS subscrições
      * vivas (herança de antes do TrocarDePlano cancelar tudo) mostrava uma
-     * na lista e outra no modal — a relação não tinha ordem determinística.
+     * na lista e outra na janela — a relação não tinha ordem determinística.
      *
      * @test
      */

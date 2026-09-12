@@ -23,6 +23,15 @@ namespace App\Services\Analytics;
  */
 class Origem
 {
+    /**
+     * Os canais que `classificar()` sabe devolver.
+     *
+     * A lista estava escrita à mão no Blade do ecrã, ao lado do `match` das
+     * cores e do `match` dos ícones — três sítios a repetir os mesmos seis
+     * nomes. Acrescentar um canal aqui obrigava a lembrar dos outros dois.
+     */
+    public const CANAIS = ['directo', 'orgânico', 'social', 'campanha', 'referência', 'interno'];
+
     /** Motores de busca: tráfego orgânico. */
     private const BUSCA = [
         'google.', 'bing.', 'yahoo.', 'duckduckgo.', 'yandex.', 'baidu.',

@@ -2,16 +2,17 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\SuperAdmin\Tenants;
 use App\Models\Tenant;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
- * O NIF no cartao de cada empresa, na lista do super admin.
+ * O NIF no cartão de cada empresa, na lista do dono da plataforma.
  *
- * E por ele que a AGT identifica a empresa, e e o primeiro numero que se pede
- * ao telefone quando um cliente liga — estava so dentro da ficha de edicao.
+ * É por ele que a AGT identifica a empresa, e é o primeiro número que se pede
+ * ao telefone quando um cliente liga — estava só dentro da ficha de edição.
+ *
+ * O ecrã passou a React: o que se prova aqui é o que a API lhe entrega. O
+ * desenho (o aviso a amarelo, «por preencher») vive no cartão.
  */
 class CartaoDaEmpresaNifTest extends TenantTestCase
 {
@@ -28,57 +29,58 @@ class CartaoDaEmpresaNifTest extends TenantTestCase
         ]);
     }
 
+    private function linha(string $procura): ?array
+    {
+        return collect(
+            $this->getJson('/api/v1/plataforma/react/empresas?'.http_build_query(['procura' => $procura]))
+                ->assertOk()->json('empresas')
+        )->first();
+    }
+
     public function test_o_cartao_mostra_o_nif(): void
     {
         $this->comoDonoDaPlataforma();
         $this->empresa('Farmacia Com NIF', '5417289442');
 
-        Livewire::test(Tenants::class)
-            ->set('search', 'Farmacia Com NIF')
-            ->assertSee('5417289442');
+        $this->assertSame('5417289442', $this->linha('Farmacia Com NIF')['nif']);
     }
 
-    /** Um NIF que nao comeca por 5 fica assinalado onde se ve. */
+    /** Um NIF que não começa por 5 fica assinalado onde se vê. */
     public function test_um_nif_que_nao_e_de_empresa_e_assinalado(): void
     {
         $this->comoDonoDaPlataforma();
         $this->empresa('Empresa Com NIF Pessoal', '004512345');
 
-        Livewire::test(Tenants::class)
-            ->set('search', 'Empresa Com NIF Pessoal')
-            ->assertSee('Não é NIF de empresa');
+        $this->assertFalse($this->linha('Empresa Com NIF Pessoal')['nif_de_empresa']);
     }
 
-    /** E um NIF de empresa nao leva aviso nenhum. */
+    /** E um NIF de empresa não leva aviso nenhum. */
     public function test_um_nif_de_empresa_nao_leva_aviso(): void
     {
         $this->comoDonoDaPlataforma();
         $this->empresa('Empresa Correcta', '5417289442');
 
-        Livewire::test(Tenants::class)
-            ->set('search', 'Empresa Correcta')
-            ->assertDontSee('Não é NIF de empresa');
+        $this->assertTrue($this->linha('Empresa Correcta')['nif_de_empresa']);
     }
 
-    /** Sem NIF diz que falta, em vez de deixar o espaco em branco. */
+    /** Sem NIF diz que falta: nem «é», nem «não é» de empresa. */
     public function test_sem_nif_diz_que_falta(): void
     {
         $this->comoDonoDaPlataforma();
         $this->empresa('Empresa Sem NIF', null);
 
-        Livewire::test(Tenants::class)
-            ->set('search', 'Empresa Sem NIF')
-            ->assertSee('por preencher');
+        $linha = $this->linha('Empresa Sem NIF');
+
+        $this->assertNull($linha['nif']);
+        $this->assertNull($linha['nif_de_empresa']);
     }
 
-    /** A pesquisa encontra pelo NIF, como o proprio campo promete. */
+    /** A pesquisa encontra pelo NIF, como o próprio campo promete. */
     public function test_a_pesquisa_encontra_pelo_nif(): void
     {
         $this->comoDonoDaPlataforma();
         $this->empresa('Procurada Pelo Numero', '5999888777');
 
-        Livewire::test(Tenants::class)
-            ->set('search', '5999888777')
-            ->assertSee('Procurada Pelo Numero');
+        $this->assertSame('Procurada Pelo Numero', $this->linha('5999888777')['nome']);
     }
 }

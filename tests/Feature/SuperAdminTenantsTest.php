@@ -2,13 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\SuperAdmin\Tenants as EcraTenants;
 use App\Models\HR\HRSetting;
 use App\Models\NotificationTemplate;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -19,11 +17,34 @@ use Tests\TenantTestCase;
  */
 class SuperAdminTenantsTest extends TenantTestCase
 {
+    private int $donoId = 0;
+
+    /**
+     * O dono da plataforma. Os ensaios chamavam o componente em Livewire
+     * directamente, sem a guarda; a API está atrás do `superadmin`.
+     */
     private function superAdmin(): void
     {
-        // O ecrã está atrás do middleware `superadmin`; os testes chamam o
-        // componente directamente, portanto o que se exercita é a lógica.
-        $this->actingAs($this->user);
+        $dono = User::create([
+            'name' => 'Dono', 'email' => 'dono_' . uniqid() . '@exemplo.ao', 'password' => bcrypt('x'),
+        ]);
+        $dono->forceFill(['is_super_admin' => true])->save();
+
+        $this->donoId = $dono->id;
+        $this->actingAs($dono);
+    }
+
+    private function empresaNova(array $troca = []): array
+    {
+        return array_merge([
+            'name' => 'Empresa Nova',
+            'slug' => 'nova-' . uniqid(),
+            'email' => 'nova' . uniqid() . '@exemplo.ao',
+            'country' => 'AO',
+            'max_users' => 5,
+            'max_storage_mb' => 1000,
+            'is_active' => true,
+        ], $troca);
     }
 
     private function empresaVazia(): Tenant
@@ -146,14 +167,11 @@ class SuperAdminTenantsTest extends TenantTestCase
 
         $this->movimentoDeStock($empresa);
 
-        Livewire::test(EcraTenants::class)
-            ->set('deletingTenantId', $empresa->id)
-            ->call('confirmDelete');
+        $this->postJson("/api/v1/plataforma/react/empresas/{$empresa->id}/suspender")
+            ->assertStatus(422)
+            ->assertJsonFragment(['id' => [$empresa->canBeDeleted()['reason']]]);
 
-        $this->assertNotNull(
-            Tenant::withTrashed()->find($empresa->id)?->deleted_at === null ? $empresa->fresh() : null,
-            'a empresa tem de continuar lá'
-        );
+        $this->assertNotNull($empresa->fresh(), 'a empresa tem de continuar lá');
     }
 
     public function test_apagar_em_soft_nao_destroi_os_utilizadores(): void
@@ -213,14 +231,8 @@ class SuperAdminTenantsTest extends TenantTestCase
 
         $slug = 'nova-' . uniqid();
 
-        Livewire::test(EcraTenants::class)
-            ->set('name', 'Empresa Nova')
-            ->set('slug', $slug)
-            ->set('email', 'nova' . uniqid() . '@exemplo.ao')
-            ->set('max_users', 5)
-            ->set('max_storage_mb', 1000)
-            ->call('save')
-            ->assertHasNoErrors();
+        $this->postJson('/api/v1/plataforma/react/empresas', $this->empresaNova(['slug' => $slug]))
+            ->assertCreated();
 
         $nova = Tenant::where('slug', $slug)->first();
 
@@ -246,18 +258,22 @@ class SuperAdminTenantsTest extends TenantTestCase
         // não tinha permissões nem contabilidade.
         $this->superAdmin();
 
-        $slug = 'falha-' . uniqid();
         $antes = Tenant::count();
 
-        // Um slug demasiado longo faz a inserção falhar dentro da transacção.
-        Livewire::test(EcraTenants::class)
-            ->set('name', 'Empresa Que Falha')
-            ->set('slug', $slug)
-            ->set('email', 'x' . uniqid() . '@exemplo.ao')
-            ->set('max_users', 5)
-            ->set('max_storage_mb', 1000)
-            ->set('country', str_repeat('X', 5000))   // não cabe na coluna
-            ->call('save');
+        // Uma falha DEPOIS de a empresa estar gravada, dentro da transacção: o
+        // país já é validado à entrada, por isso a falha provoca-se no passo
+        // seguinte ao `create`.
+        Tenant::created(function () {
+            throw new \RuntimeException('falha a meio do provisionamento');
+        });
+
+        $this->withoutExceptionHandling([\RuntimeException::class]);
+
+        try {
+            $this->postJson('/api/v1/plataforma/react/empresas', $this->empresaNova(['name' => 'Empresa Que Falha']));
+        } catch (\RuntimeException) {
+            // o que interessa é o que ficou na base
+        }
 
         $this->assertSame($antes, Tenant::count(), 'não pode sobrar uma empresa meia feita');
     }
@@ -268,14 +284,9 @@ class SuperAdminTenantsTest extends TenantTestCase
 
         $existente = $this->empresaVazia();
 
-        Livewire::test(EcraTenants::class)
-            ->set('name', 'Outra')
-            ->set('slug', $existente->slug)
-            ->set('email', 'outra' . uniqid() . '@exemplo.ao')
-            ->set('max_users', 5)
-            ->set('max_storage_mb', 1000)
-            ->call('save')
-            ->assertHasErrors('slug');
+        $this->postJson('/api/v1/plataforma/react/empresas', $this->empresaNova(['name' => 'Outra', 'slug' => $existente->slug]))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('slug');
     }
 
     public function test_editar_nao_se_queixa_do_proprio_slug(): void
@@ -284,11 +295,9 @@ class SuperAdminTenantsTest extends TenantTestCase
 
         $empresa = $this->empresaVazia();
 
-        Livewire::test(EcraTenants::class)
-            ->call('edit', $empresa->id)
-            ->set('name', 'Nome Alterado')
-            ->call('save')
-            ->assertHasNoErrors();
+        $this->putJson("/api/v1/plataforma/react/empresas/{$empresa->id}", $this->empresaNova([
+            'name' => 'Nome Alterado', 'slug' => $empresa->slug, 'email' => $empresa->email,
+        ]))->assertOk();
 
         $this->assertSame('Nome Alterado', $empresa->fresh()->name);
     }
@@ -299,11 +308,9 @@ class SuperAdminTenantsTest extends TenantTestCase
 
         $empresa = $this->empresaVazia();
 
-        Livewire::test(EcraTenants::class)
-            ->set('deactivatingTenantId', $empresa->id)
-            ->set('deactivationReason', 'curto')
-            ->call('confirmDeactivation')
-            ->assertHasErrors('deactivationReason');
+        $this->postJson("/api/v1/plataforma/react/empresas/{$empresa->id}/desactivar", ['motivo' => 'curto'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('motivo');
 
         $this->assertTrue((bool) $empresa->fresh()->is_active, 'sem motivo válido não se desactiva');
     }
@@ -314,16 +321,15 @@ class SuperAdminTenantsTest extends TenantTestCase
 
         $empresa = $this->empresaVazia();
 
-        Livewire::test(EcraTenants::class)
-            ->set('deactivatingTenantId', $empresa->id)
-            ->set('deactivationReason', 'Falta de pagamento das últimas três mensalidades.')
-            ->call('confirmDeactivation');
+        $this->postJson("/api/v1/plataforma/react/empresas/{$empresa->id}/desactivar", [
+            'motivo' => 'Falta de pagamento das últimas três mensalidades.',
+        ])->assertOk();
 
         $empresa->refresh();
 
         $this->assertFalse((bool) $empresa->is_active);
         $this->assertNotNull($empresa->deactivated_at);
-        $this->assertSame($this->user->id, (int) $empresa->deactivated_by);
+        $this->assertSame($this->donoId, (int) $empresa->deactivated_by);
         $this->assertStringContainsString('mensalidades', $empresa->deactivation_reason);
     }
 }

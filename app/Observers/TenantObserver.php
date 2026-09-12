@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Log;
  * O aviso ao dono da plataforma vive aqui, e não em cada ecrã de registo.
  *
  * Há três vias que criam uma empresa — o registo público (RegisterWizard), a
- * criação pelo super admin (SuperAdmin\Tenants), e o acrescentar de outra
+ * criação pelo super admin (Api\Plataforma\EmpresasApiController), e o acrescentar de outra
  * empresa na conta (MyAccount) — e mais nenhuma delas avisava ninguém. Repetir
  * o envio nas três dava três sítios para esquecer quando aparecesse a quarta.
  * No observador, qualquer via que grave um Tenant fica coberta.

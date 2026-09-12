@@ -214,14 +214,96 @@ Route::middleware(['auth'])->prefix('users')->name('users.')->group(function () 
         ->get('/invitations', \App\Support\EcraReact::pagina('utilizadores/convites', 'Convites'))->name('invitations');
 });
 
+/*
+ * A API DO PAINEL DA PLATAFORMA.
+ *
+ * GRUPO PRÓPRIO, e por duas razões: aqui não há empresa no escopo — quem olha é
+ * o dono da plataforma e o que conta são TODAS as empresas — e o `subscription`
+ * não se aplica, porque o dono não é subscritor de nada. O `superadmin` é a
+ * única porta, e cada controlador não precisa de mais nada.
+ */
+Route::middleware(['auth', 'superadmin'])->prefix('api/v1/plataforma/react')->name('api.plataforma.react.')->group(function () {
+    Route::prefix('painel')->name('painel.')->group(function () {
+        $c = \App\Http\Controllers\Api\Plataforma\PainelApiController::class;
+
+        Route::get('/', [$c, 'index'])->name('index');
+        // ENTRAR NA CASA DE UMA EMPRESA: o acto com mais poder que há, e o que
+        // fica na trilha é o momento da entrada.
+        Route::post('/empresas/{id}/entrar', [$c, 'entrarNaEmpresa'])->whereNumber('id')->name('empresas.entrar');
+    });
+
+    Route::prefix('analitica')->name('analitica.')->group(function () {
+        $c = \App\Http\Controllers\Api\Plataforma\AnalyticsApiController::class;
+
+        Route::get('/', [$c, 'index'])->name('index');
+        // O PERCURSO DE UM VISITANTE tem morada própria: abrir a ficha de
+        // alguém não tem de recalcular os vinte agregados do ecrã todo.
+        Route::get('/percurso/{visitante}', [$c, 'percurso'])->name('percurso');
+    });
+
+    Route::prefix('planos')->name('planos.')->group(function () {
+        $c = \App\Http\Controllers\Api\Plataforma\PlanosApiController::class;
+
+        Route::get('/', [$c, 'index'])->name('index');
+        Route::post('/', [$c, 'guardar'])->name('criar');
+        Route::get('/{id}', [$c, 'ficha'])->whereNumber('id')->name('ficha');
+        Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+        Route::post('/{id}/alternar', [$c, 'alternar'])->whereNumber('id')->name('alternar');
+        Route::delete('/{id}', [$c, 'apagar'])->whereNumber('id')->name('apagar');
+    });
+
+    Route::prefix('empresas')->name('empresas.')->group(function () {
+        $c = \App\Http\Controllers\Api\Plataforma\EmpresasApiController::class;
+
+        Route::get('/', [$c, 'index'])->name('index');
+        Route::post('/', [$c, 'guardar'])->name('criar');
+        Route::get('/{id}', [$c, 'ver'])->whereNumber('id')->name('ver');
+        Route::get('/{id}/ficha', [$c, 'ficha'])->whereNumber('id')->name('ficha');
+        Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+        Route::post('/{id}/desactivar', [$c, 'desactivar'])->whereNumber('id')->name('desactivar');
+        Route::post('/{id}/activar', [$c, 'activar'])->whereNumber('id')->name('activar');
+        Route::post('/{id}/suspender', [$c, 'suspender'])->whereNumber('id')->name('suspender');
+        // APAGAR MESMO: primeiro vê-se o que se perde, depois escreve-se o nome.
+        Route::get('/{id}/apagar', [$c, 'oQueSePerde'])->whereNumber('id')->name('perdas');
+        Route::delete('/{id}', [$c, 'apagarDefinitivo'])->whereNumber('id')->name('apagar');
+
+        $u = \App\Http\Controllers\Api\Plataforma\EmpresaUtilizadoresApiController::class;
+
+        Route::get('/{empresa}/utilizadores', [$u, 'index'])->whereNumber('empresa')->name('utilizadores');
+        Route::get('/{empresa}/utilizadores/procurar', [$u, 'procurar'])->whereNumber('empresa')->name('utilizadores.procurar');
+        Route::post('/{empresa}/utilizadores', [$u, 'juntar'])->whereNumber('empresa')->name('utilizadores.juntar');
+        Route::put('/{empresa}/utilizadores/{utilizador}/papel', [$u, 'papel'])->whereNumber(['empresa', 'utilizador'])->name('utilizadores.papel');
+        Route::delete('/{empresa}/utilizadores/{utilizador}', [$u, 'retirar'])->whereNumber(['empresa', 'utilizador'])->name('utilizadores.retirar');
+
+        $p = \App\Http\Controllers\Api\Plataforma\EmpresaPlanoApiController::class;
+
+        Route::get('/{empresa}/plano', [$p, 'index'])->whereNumber('empresa')->name('plano');
+        Route::post('/{empresa}/plano/resumo', [$p, 'resumo'])->whereNumber('empresa')->name('plano.resumo');
+        Route::put('/{empresa}/plano', [$p, 'guardar'])->whereNumber('empresa')->name('plano.guardar');
+        Route::get('/{empresa}/plano-a-medida', [$p, 'medida'])->whereNumber('empresa')->name('medida');
+        Route::post('/{empresa}/plano-a-medida', [$p, 'guardarMedida'])->whereNumber('empresa')->name('medida.guardar');
+    });
+
+    Route::prefix('modulos')->name('modulos.')->group(function () {
+        $c = \App\Http\Controllers\Api\Plataforma\ModulosApiController::class;
+
+        Route::get('/', [$c, 'index'])->name('index');
+        Route::post('/', [$c, 'guardar'])->name('criar');
+        Route::get('/{id}', [$c, 'ficha'])->whereNumber('id')->name('ficha');
+        Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+        Route::post('/{id}/alternar', [$c, 'alternar'])->whereNumber('id')->name('alternar');
+        Route::delete('/{id}', [$c, 'apagar'])->whereNumber('id')->name('apagar');
+    });
+});
+
 // Super Admin Routes
 Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmin.')->group(function () {
-    Route::get('/dashboard', \App\Livewire\SuperAdmin\Dashboard::class)->name('dashboard');
-    Route::get('/analytics', \App\Livewire\SuperAdmin\Analytics::class)->name('analytics');
-    Route::get('/tenants', \App\Livewire\SuperAdmin\Tenants::class)->name('tenants');
+    Route::get('/dashboard', \App\Support\EcraReact::plataforma('plataforma/painel', 'Painel da Plataforma'))->name('dashboard');
+    Route::get('/analytics', \App\Support\EcraReact::plataforma('plataforma/analitica', 'Analítica e visitantes'))->name('analytics');
+    Route::get('/tenants', \App\Support\EcraReact::plataforma('plataforma/empresas', 'Empresas'))->name('tenants');
     Route::get('/restaurant-venue-requests', \App\Livewire\SuperAdmin\RestaurantVenueRequests::class)->name('restaurant-venue-requests');
-    Route::get('/modules', \App\Livewire\SuperAdmin\Modules::class)->name('modules');
-    Route::get('/plans', \App\Livewire\SuperAdmin\Plans::class)->name('plans');
+    Route::get('/modules', \App\Support\EcraReact::plataforma('plataforma/modulos', 'Módulos'))->name('modules');
+    Route::get('/plans', \App\Support\EcraReact::plataforma('plataforma/planos', 'Planos'))->name('plans');
     Route::get('/billing', \App\Livewire\SuperAdmin\Billing::class)->name('billing');
     Route::get('/licenciamento', \App\Livewire\SuperAdmin\Licenciamento::class)->name('licenciamento');
 

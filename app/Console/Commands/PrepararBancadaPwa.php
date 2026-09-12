@@ -42,6 +42,14 @@ class PrepararBancadaPwa extends Command
     public const EMAIL_CAIXA = 'caixa@pwa.local';
     public const PIN_CAIXA   = '7391';
 
+    /**
+     * O DONO DA PLATAFORMA da bancada — para os ensaios dos ecrãs do superadmin.
+     *
+     * Não pertence a empresa nenhuma, como o dono verdadeiro. Existe só porque
+     * este comando só corre em `local`: num servidor a sério seria uma porta.
+     */
+    public const EMAIL_DONO = 'dono@pwa.local';
+
     public function handle(): int
     {
         if (!app()->environment('local')) {
@@ -109,6 +117,14 @@ class PrepararBancadaPwa extends Command
 
         $utilizador->tenants()->syncWithoutDetaching([$tenant->id => ['is_active' => true]]);
         setPermissionsTeamId($tenant->id);
+
+        $dono = User::firstOrCreate(
+            ['email' => self::EMAIL_DONO],
+            ['name' => 'Dono da Bancada', 'password' => Hash::make(self::PASSWORD), 'is_active' => true]
+        );
+        // A password é reposta sempre, e a marca de dono também: é ela que abre
+        // a porta `superadmin` (isPlatformSuperAdmin).
+        $dono->forceFill(['password' => Hash::make(self::PASSWORD), 'is_active' => true, 'is_super_admin' => true])->save();
 
         $this->darTodasAsPermissoes($utilizador);
         $this->fazerDono($tenant, $utilizador);
@@ -215,6 +231,7 @@ class PrepararBancadaPwa extends Command
             ['Email',    self::EMAIL],
             ['Password', self::PASSWORD],
             ['PIN',      self::PIN],
+            ['Dono da plataforma', self::EMAIL_DONO],
             ['Artigos',  $artigos],
             ['Mesas',    $mesas],
             ['Funcionários', $pessoas],
@@ -1612,6 +1629,7 @@ class PrepararBancadaPwa extends Command
         InvoicingSettings::where('tenant_id', $tenant->id)->delete();
         User::where('email', self::EMAIL)->forceDelete();
         User::where('email', self::EMAIL_CAIXA)->forceDelete();
+        User::where('email', self::EMAIL_DONO)->forceDelete();
         $tenant->forceDelete();
 
         $this->info('Bancada apagada.');

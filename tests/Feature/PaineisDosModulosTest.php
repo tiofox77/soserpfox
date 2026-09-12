@@ -118,16 +118,30 @@ class PaineisDosModulosTest extends TenantTestCase
      */
     public function nenhum_painel_vai_buscar_o_chart_js_a_um_cdn(): void
     {
+        /*
+         * JÁ NÃO HÁ PAINÉIS EM BLADE — o último, o do superadmin, passou a
+         * React. O varrimento alargou-se a TODAS as vistas e a todo o código
+         * dos ecrãs: o que interessa continua a ser que nada vá buscar o
+         * Chart.js à internet, e um `assertNotEmpty` sobre uma pasta vazia
+         * deixava de medir o que quer que fosse.
+         */
         $paineis = array_merge(
-            glob(resource_path('views/livewire/*/dashboard*.blade.php')),
-            glob(resource_path('views/livewire/*/*/*dashboard*.blade.php')),
+            glob(resource_path('views/*.blade.php')),
+            glob(resource_path('views/*/*.blade.php')),
+            glob(resource_path('views/*/*/*.blade.php')),
+            glob(resource_path('views/*/*/*/*.blade.php')),
+            glob(resource_path('js/ecras/*/*.tsx')),
+            glob(resource_path('js/ui/*.tsx')),
         );
 
-        $this->assertNotEmpty($paineis, 'o varrimento tem de encontrar painéis');
+        $this->assertNotEmpty($paineis, 'o varrimento tem de encontrar ficheiros');
 
+        // O que se procura é o CHART.JS num CDN. Alargado a todas as vistas, o
+        // varrimento apanha a página pública, que carrega o Alpine do jsDelivr —
+        // é outra conversa (a página pública só abre com internet).
         foreach ($paineis as $vista) {
-            $this->assertStringNotContainsString(
-                'cdn.jsdelivr.net',
+            $this->assertDoesNotMatchRegularExpression(
+                '#(cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com|unpkg\.com)/[^"\']*chart#i',
                 file_get_contents($vista),
                 basename(dirname($vista)).'/'.basename($vista).': o Chart.js tem de ser o local'
             );

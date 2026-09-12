@@ -2,12 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\SuperAdmin\Tenants as EcraTenants;
 use App\Models\Plan;
 use App\Models\Subscription;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\DB;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -16,9 +14,21 @@ use Tests\TenantTestCase;
  * A lista serve para responder a perguntas — "quem está adormecido?", "quem
  * está no Business?", "quem desactivámos?" — e sem filtros a única resposta
  * possível era ler as páginas todas à mão.
+ *
+ * O ecrã passou a React e os filtros vão para `/api/v1/plataforma/react/empresas`.
+ * O que era estado do componente (o cartão aceso, voltar à primeira página ao
+ * mudar um filtro) vive no browser e prova-se no ensaio `react.plataforma`.
  */
 class TenantsFiltrosTest extends TenantTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->user->update(['is_super_admin' => true]);
+        $this->actingAs($this->user->fresh());
+    }
+
     private function empresa(array $extra = []): Tenant
     {
         return Tenant::create(array_merge([
@@ -43,37 +53,45 @@ class TenantsFiltrosTest extends TenantTestCase
         ]);
     }
 
+    /** Os nomes das empresas da resposta, por ordem. */
+    private function nomes(array $filtros): array
+    {
+        return array_column(
+            $this->getJson('/api/v1/plataforma/react/empresas?' . http_build_query($filtros + ['por_pagina' => '50']))
+                ->assertOk()->json('empresas'),
+            'nome'
+        );
+    }
+
     public function test_filtrar_por_estado_mostra_so_esse_estado(): void
     {
         $aFacturar = $this->empresa(['name' => 'Facturadora Lda']);
-        $vazia     = $this->empresa(['name' => 'Fantasma Lda']);
+        $this->empresa(['name' => 'Fantasma Lda']);
         $this->comFactura($aFacturar);
 
-        Livewire::test(EcraTenants::class)
-            ->call('filtrarPorEstado', 'activa')
-            ->assertSee('Facturadora Lda')
-            ->assertDontSee('Fantasma Lda');
+        $nomes = $this->nomes(['estado' => 'activa']);
+
+        $this->assertContains('Facturadora Lda', $nomes);
+        $this->assertNotContains('Fantasma Lda', $nomes);
     }
 
-    /** O mesmo clique liga e desliga o filtro. */
-    public function test_o_cartao_de_estado_alterna(): void
+    /** Um estado que não existe não devolve a lista toda, como se não houvesse filtro. */
+    public function test_um_estado_inventado_e_recusado(): void
     {
-        Livewire::test(EcraTenants::class)
-            ->call('filtrarPorEstado', 'vazia')
-            ->assertSet('filtroEstado', 'vazia')
-            ->call('filtrarPorEstado', 'vazia')
-            ->assertSet('filtroEstado', '');
+        $this->getJson('/api/v1/plataforma/react/empresas?estado=inventado')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('estado');
     }
 
     public function test_filtrar_por_desactivadas(): void
     {
-        $morta = $this->empresa(['name' => 'Desligada Lda', 'is_active' => false]);
-        $viva  = $this->empresa(['name' => 'Ligada Lda']);
+        $this->empresa(['name' => 'Desligada Lda', 'is_active' => false]);
+        $this->empresa(['name' => 'Ligada Lda']);
 
-        Livewire::test(EcraTenants::class)
-            ->set('filtroActivo', '0')
-            ->assertSee('Desligada Lda')
-            ->assertDontSee('Ligada Lda');
+        $nomes = $this->nomes(['activa' => '0']);
+
+        $this->assertContains('Desligada Lda', $nomes);
+        $this->assertNotContains('Ligada Lda', $nomes);
     }
 
     public function test_filtrar_por_plano_segue_a_subscricao_em_vigor(): void
@@ -85,7 +103,7 @@ class TenantsFiltrosTest extends TenantTestCase
         ]);
 
         $dentro = $this->empresa(['name' => 'No Plano Lda']);
-        $fora   = $this->empresa(['name' => 'Fora do Plano Lda']);
+        $this->empresa(['name' => 'Fora do Plano Lda']);
 
         Subscription::create([
             'tenant_id' => $dentro->id, 'plan_id' => $plano->id, 'status' => 'active',
@@ -93,10 +111,10 @@ class TenantsFiltrosTest extends TenantTestCase
             'current_period_end' => now()->addMonth(),
         ]);
 
-        Livewire::test(EcraTenants::class)
-            ->set('filtroPlano', (string) $plano->id)
-            ->assertSee('No Plano Lda')
-            ->assertDontSee('Fora do Plano Lda');
+        $nomes = $this->nomes(['plano' => (string) $plano->id]);
+
+        $this->assertContains('No Plano Lda', $nomes);
+        $this->assertNotContains('Fora do Plano Lda', $nomes);
     }
 
     /** Ordenar por facturas põe quem factura no topo. */
@@ -106,44 +124,37 @@ class TenantsFiltrosTest extends TenantTestCase
         $this->comFactura($comMovimento);
         $this->empresa(['name' => 'Parada Lda']);
 
-        $html = Livewire::test(EcraTenants::class)
-            ->set('ordenar', 'facturas')
-            ->html();
+        $nomes = $this->nomes(['ordenar' => 'facturas']);
 
         $this->assertLessThan(
-            strpos($html, 'Parada Lda') ?: PHP_INT_MAX,
-            strpos($html, 'Movimentada Lda'),
+            array_search('Parada Lda', $nomes, true),
+            array_search('Movimentada Lda', $nomes, true),
             'Quem factura tem de aparecer antes de quem está parado.'
         );
     }
 
-    /** Um porPagina inventado no pedido não pode partir a lista. */
-    public function test_um_por_pagina_invalido_cai_para_dez(): void
+    /** Um por-página inventado no pedido é recusado, e não parte a lista. */
+    public function test_um_por_pagina_invalido_e_recusado(): void
     {
-        Livewire::test(EcraTenants::class)
-            ->set('porPagina', 9999)
-            ->assertOk();
+        $this->getJson('/api/v1/plataforma/react/empresas?por_pagina=9999')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('por_pagina');
     }
 
-    public function test_mudar_um_filtro_volta_a_primeira_pagina(): void
+    /**
+     * UMA PÁGINA PARA LÁ DA ÚLTIMA cai na última. Filtrar na página 3 mostrava
+     * «nenhum resultado» com resultados a existir na primeira.
+     */
+    public function test_uma_pagina_para_la_da_ultima_cai_na_ultima(): void
     {
-        Livewire::test(EcraTenants::class)
-            ->call('setPage', 3)
-            ->set('filtroActivo', '1')
-            ->assertSet('paginators.page', 1);
-    }
+        $this->empresa(['name' => 'Unica Filtrada Lda']);
 
-    public function test_limpar_filtros_limpa_tudo(): void
-    {
-        Livewire::test(EcraTenants::class)
-            ->set('search', 'x')
-            ->set('filtroActivo', '0')
-            ->call('filtrarPorEstado', 'vazia')
-            ->call('limparFiltros')
-            ->assertSet('search', '')
-            ->assertSet('filtroEstado', '')
-            ->assertSet('filtroActivo', '')
-            ->assertSet('filtroPlano', '');
+        $json = $this->getJson('/api/v1/plataforma/react/empresas?' . http_build_query([
+            'procura' => 'Unica Filtrada Lda', 'pagina' => 3,
+        ]))->assertOk()->json();
+
+        $this->assertSame(1, $json['paginacao']['pagina']);
+        $this->assertSame(['Unica Filtrada Lda'], array_column($json['empresas'], 'nome'));
     }
 
     /** As contagens dos cartões não mudam quando se filtra por um estado. */
@@ -153,15 +164,12 @@ class TenantsFiltrosTest extends TenantTestCase
         $this->comFactura($aFacturar);
         $this->empresa(['name' => 'Fantasma Lda']);
 
-        $semFiltro = Livewire::test(EcraTenants::class);
-        $contagens = $semFiltro->viewData('contagens');
-
-        $comFiltro = Livewire::test(EcraTenants::class)->call('filtrarPorEstado', 'activa');
-        $contagensFiltradas = $comFiltro->viewData('contagens');
+        $contagens = $this->getJson('/api/v1/plataforma/react/empresas')->json('contagens');
+        $filtradas = $this->getJson('/api/v1/plataforma/react/empresas?estado=activa')->json('contagens');
 
         $this->assertEquals(
             $contagens['vazia'] ?? 0,
-            $contagensFiltradas['vazia'] ?? 0,
+            $filtradas['vazia'] ?? 0,
             'Clicar num cartão não pode zerar as contagens dos outros.'
         );
     }

@@ -21,12 +21,29 @@ final class EcraReact
      */
     public static function pagina(string $ecra, string $titulo, array $props = [], ?Closure $aoAbrir = null): Closure
     {
-        return function () use ($ecra, $titulo, $props, $aoAbrir) {
+        return self::servir('react.ecra', $ecra, $titulo, $props, $aoAbrir);
+    }
+
+    /**
+     * O MESMO, NO PAINEL DA PLATAFORMA.
+     *
+     * O superadmin tem layout próprio — outro menu, outras cores, outros nomes
+     * de secção — e é por isso que precisa de uma porta sua. O que muda é só a
+     * vista que embrulha a ilha; as props e o título vêm pelo mesmo caminho.
+     */
+    public static function plataforma(string $ecra, string $titulo, array $props = [], ?Closure $aoAbrir = null): Closure
+    {
+        return self::servir('react.ecra-superadmin', $ecra, $titulo, $props, $aoAbrir);
+    }
+
+    private static function servir(string $vista, string $ecra, string $titulo, array $props, ?Closure $aoAbrir): Closure
+    {
+        return function () use ($vista, $ecra, $titulo, $props, $aoAbrir) {
             $daRota = collect(request()->route()?->parameters() ?? [])
                 ->map(fn ($v) => is_string($v) && ctype_digit($v) ? (int) $v : $v)
                 ->all();
 
-            return view('react.ecra', [
+            return view($vista, [
                 'ecra' => $ecra,
                 // O cabeçalho da página é desenhado pelo Laravel e traduz-se
                 // como o resto do layout. Sem o `__()`, quem trabalha em

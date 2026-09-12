@@ -101,16 +101,15 @@ class GaleriaDeIconesTest extends TestCase
          * selector com a mesma galeria — ver o ensaio dos ecrãs em React, mais
          * abaixo.
          */
-        foreach ([
-            'resources/views/livewire/super-admin/modules/partials/form-modal.blade.php',
-        ] as $caminho) {
-            $blade = file_get_contents(base_path($caminho));
+        /*
+         * O DOS MÓDULOS TAMBÉM SAIU: o ecrã do superadmin passou a React, e o
+         * ícone escolhe-se pelo `EscolherIcone`. Fica a prova de que não voltou
+         * a haver uma caixa de texto para o código.
+         */
+        $modulos = file_get_contents(resource_path('js/ecras/plataforma/Modulos.tsx'));
 
-            $this->assertStringContainsString('<x-icon-picker', $blade,
-                basename($caminho) . ': o ícone escolhe-se da galeria');
-            $this->assertStringNotContainsString('wire:model.live="icon" type="text"', $blade,
-                basename($caminho) . ': voltou a pedir o código escrito');
-        }
+        $this->assertStringContainsString('<EscolherIcone', $modulos, 'Modulos.tsx: o ícone escolhe-se da galeria');
+        $this->assertStringNotContainsString("mexer('icon', e.target.value)", $modulos, 'Modulos.tsx: voltou a pedir o código escrito');
 
         // E nos catálogos em React, o campo é do tipo que abre a galeria.
         $esquemas = file_get_contents(app_path('Services/Invoicing/Catalogos.php'));

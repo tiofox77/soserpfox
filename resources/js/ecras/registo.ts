@@ -398,4 +398,20 @@ export const ecras: Record<string, Ecra> = {
         import('./contabilidade/Relatorios'),
     'contabilidade/definicoes': () =>
         import('./contabilidade/Definicoes'),
+
+    /*
+     * O PAINEL DA PLATAFORMA — o do dono, não o de uma empresa. Corre no layout
+     * do superadmin e fala com outra raiz de API (`/api/v1/plataforma/react`),
+     * porque ali não há empresa no escopo nenhuma.
+     */
+    'plataforma/painel': () =>
+        import('./plataforma/Painel'),
+    'plataforma/analitica': () =>
+        import('./plataforma/Analitica'),
+    'plataforma/planos': () =>
+        import('./plataforma/Planos'),
+    'plataforma/modulos': () =>
+        import('./plataforma/Modulos'),
+    'plataforma/empresas': () =>
+        import('./plataforma/Empresas'),
 };

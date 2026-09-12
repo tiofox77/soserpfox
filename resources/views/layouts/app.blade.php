@@ -1120,28 +1120,9 @@
          quem chegasse ao painel pela barra lateral via tudo em branco. --}}
     <script src="/js/painel-facturacao.js?v={{ filemtime(public_path('js/painel-facturacao.js')) }}" defer></script>
 
-    {{-- OS ECRÃS EM REACT.
-
-         O nome vem do manifesto e leva hash — e SEM `?v=` por cima. Os pedaços
-         importam a entrada por caminho relativo e sem query; com um nome fixo
-         mais query, o browser via dois módulos e carregava o React duas vezes.
-         Ver App\Support\PacoteReact.
-
-         Null quando ainda não foi construído, que é um estado normal numa
-         instalação acabada de clonar: os ecrãs React não montam e o resto da
-         aplicação abre na mesma. --}}
-    @php($pacoteReact = \App\Support\PacoteReact::caminho())
-    @if($pacoteReact)
-        {{-- A língua dos ecrãs em React. O dicionário só se anuncia a quem
-             precisa dele: em português a chave já é a frase. --}}
-        <script>
-            window.__reactLingua = @json(app()->getLocale());
-            @if(\App\Support\DicionarioDoReact::precisa())
-            window.__reactDicionarioUrl = @json(route('react.traducoes', ['marca' => \App\Support\DicionarioDoReact::marca()]));
-            @endif
-        </script>
-        <script type="module" src="{{ $pacoteReact }}" defer></script>
-    @endif
+    {{-- OS ECRÃS EM REACT. O bloco vive num partial porque o painel da
+         plataforma tem layout próprio e precisa do mesmo. --}}
+    @include('partials.react-pacote')
 
     <!-- Custom Scripts Stack -->
     @stack('scripts')

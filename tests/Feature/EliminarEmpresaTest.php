@@ -162,19 +162,17 @@ class EliminarEmpresaTest extends TenantTestCase
         $this->actingAs($this->user->fresh());
     }
 
-    /** Sem escrever o nome, nao apaga. */
+    /** Sem escrever o nome, não apaga. */
     public function test_o_ecra_exige_o_nome_escrito(): void
     {
         $this->comoDonoDaPlataforma();
         $e = $this->empresaDescartavel();
 
-        \Livewire\Livewire::test(\App\Livewire\SuperAdmin\Tenants::class)
-            ->call("abrirApagarDefinitivo", $e->id)
-            ->set("apagarDefinitivoConfirmacao", "nome errado")
-            ->call("confirmarApagarDefinitivo")
-            ->assertHasErrors("apagarDefinitivoConfirmacao");
+        $this->deleteJson("/api/v1/plataforma/react/empresas/{$e->id}", ['confirmacao' => 'nome errado'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('confirmacao');
 
-        $this->assertDatabaseHas("tenants", ["id" => $e->id]);
+        $this->assertDatabaseHas('tenants', ['id' => $e->id]);
     }
 
     /** Com o nome certo, apaga. */
@@ -183,28 +181,32 @@ class EliminarEmpresaTest extends TenantTestCase
         $this->comoDonoDaPlataforma();
         $e = $this->empresaDescartavel();
 
-        \Livewire\Livewire::test(\App\Livewire\SuperAdmin\Tenants::class)
-            ->call("abrirApagarDefinitivo", $e->id)
-            ->set("apagarDefinitivoConfirmacao", $e->name)
-            ->call("confirmarApagarDefinitivo");
+        $this->deleteJson("/api/v1/plataforma/react/empresas/{$e->id}", ['confirmacao' => $e->name])
+            ->assertOk();
 
-        $this->assertDatabaseMissing("tenants", ["id" => $e->id]);
+        $this->assertDatabaseMissing('tenants', ['id' => $e->id]);
     }
 
-    /** E o ecra impede quando houve comunicacao a AGT. */
+    /** E o ecrã impede quando houve comunicação à AGT — dito antes, e recusado depois. */
     public function test_o_ecra_impede_quando_houve_comunicacao(): void
     {
         $this->comoDonoDaPlataforma();
         $e = $this->empresaDescartavel();
 
-        \Illuminate\Support\Facades\DB::table("agt_submissions")->insert([
-            "tenant_id" => $e->id, "status" => "validated", "document_type" => "invoice",
-            "document_id" => 1, "document_number" => "FT X/1", "document_type_code" => "FT",
-            "created_at" => now(), "updated_at" => now(),
+        \Illuminate\Support\Facades\DB::table('agt_submissions')->insert([
+            'tenant_id' => $e->id, 'status' => 'validated', 'document_type' => 'invoice',
+            'document_id' => 1, 'document_number' => 'FT X/1', 'document_type_code' => 'FT',
+            'created_at' => now(), 'updated_at' => now(),
         ]);
 
-        \Livewire\Livewire::test(\App\Livewire\SuperAdmin\Tenants::class)
-            ->call("abrirApagarDefinitivo", $e->id)
-            ->assertSet("apagarDefinitivoImpedido", fn ($v) => $v !== null);
+        $this->assertNotNull(
+            $this->getJson("/api/v1/plataforma/react/empresas/{$e->id}/apagar")->assertOk()->json('impedido')
+        );
+
+        // E mesmo com o nome certo, quem monte o pedido à mão é recusado.
+        $this->deleteJson("/api/v1/plataforma/react/empresas/{$e->id}", ['confirmacao' => $e->name])
+            ->assertStatus(422);
+
+        $this->assertDatabaseHas('tenants', ['id' => $e->id]);
     }
 }

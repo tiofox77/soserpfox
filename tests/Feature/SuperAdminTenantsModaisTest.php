@@ -2,10 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\SuperAdmin\Tenants as EcraTenants;
 use App\Models\Tenant;
 use App\Models\User;
-use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Tests\TenantTestCase;
 
@@ -62,10 +60,49 @@ class SuperAdminTenantsModaisTest extends TenantTestCase
         return $criados;
     }
 
-    private function ecra()
+    /**
+     * O dono da plataforma — quem abre estes modais.
+     *
+     * Os ensaios chamavam o componente em Livewire directamente, sem passar pela
+     * guarda. A API está atrás do `superadmin`, e é por ela que se passa agora.
+     */
+    private function dono(): static
     {
-        return Livewire::test(EcraTenants::class)
-            ->set('managingTenantId', $this->empresa->id);
+        $dono = User::create([
+            'name' => 'Dono', 'email' => 'dono_' . uniqid() . '@exemplo.ao', 'password' => bcrypt('x'),
+        ]);
+        $dono->forceFill(['is_super_admin' => true])->save();
+
+        return $this->actingAs($dono);
+    }
+
+    private function juntarNova(string $nome, string $email, string $senha, int $papel)
+    {
+        return $this->dono()->postJson("/api/v1/plataforma/react/empresas/{$this->empresa->id}/utilizadores", [
+            'novo' => true, 'nome' => $nome, 'email' => $email, 'senha' => $senha, 'papel' => $papel,
+        ]);
+    }
+
+    private function mudarPapel(User $pessoa, int $papel)
+    {
+        return $this->dono()->putJson("/api/v1/plataforma/react/empresas/{$this->empresa->id}/utilizadores/{$pessoa->id}/papel", ['papel' => $papel]);
+    }
+
+    private function retirar(User $pessoa)
+    {
+        return $this->dono()->deleteJson("/api/v1/plataforma/react/empresas/{$this->empresa->id}/utilizadores/{$pessoa->id}");
+    }
+
+    /** Grava a ficha da empresa como o formulário a manda. */
+    private function gravarFicha(array $troca)
+    {
+        $e = $this->empresa->fresh();
+
+        return $this->dono()->putJson("/api/v1/plataforma/react/empresas/{$e->id}", array_merge([
+            'name' => $e->name, 'slug' => $e->slug, 'email' => $e->email, 'country' => 'AO',
+            'max_users' => (int) $e->max_users, 'max_storage_mb' => max(100, (int) $e->max_storage_mb),
+            'is_active' => true,
+        ], $troca));
     }
 
     public function test_o_limite_de_utilizadores_e_respeitado(): void
@@ -75,13 +112,7 @@ class SuperAdminTenantsModaisTest extends TenantTestCase
         // EMPRESAS do utilizador, que é outra coisa.
         $this->comUtilizadores(2);   // a empresa tem max_users = 2
 
-        $this->ecra()
-            ->set('createNewUser', 1)
-            ->set('newUserName', 'A Mais')
-            ->set('newUserEmail', 'amais' . uniqid() . '@exemplo.ao')
-            ->set('newUserPassword', 'secret123')
-            ->set('selectedRoleId', $this->papel->id)
-            ->call('addUserToTenant');
+        $this->juntarNova('A Mais', 'amais' . uniqid() . '@exemplo.ao', 'secret123', $this->papel->id);
 
         $this->assertSame(
             2,
@@ -96,13 +127,7 @@ class SuperAdminTenantsModaisTest extends TenantTestCase
 
         $email = 'novo' . uniqid() . '@exemplo.ao';
 
-        $this->ecra()
-            ->set('createNewUser', 1)
-            ->set('newUserName', 'Pessoa Nova')
-            ->set('newUserEmail', $email)
-            ->set('newUserPassword', 'secret123')
-            ->set('selectedRoleId', $this->papel->id)
-            ->call('addUserToTenant');
+        $this->juntarNova('Pessoa Nova', $email, 'secret123', $this->papel->id);
 
         $this->assertSame(2, $this->empresa->users()->count());
         $this->assertNotNull(User::where('email', $email)->first());
@@ -129,7 +154,7 @@ class SuperAdminTenantsModaisTest extends TenantTestCase
 
         [$pessoa] = $this->comUtilizadores(1);
 
-        $this->ecra()->call('updateUserRole', $pessoa->id, $papelAlheio->id);
+        $this->mudarPapel($pessoa, $papelAlheio->id);
 
         setPermissionsTeamId($this->empresa->id);
 
@@ -144,7 +169,7 @@ class SuperAdminTenantsModaisTest extends TenantTestCase
     {
         [$pessoa] = $this->comUtilizadores(1);
 
-        $this->ecra()->call('updateUserRole', $pessoa->id, $this->papel->id);
+        $this->mudarPapel($pessoa, $this->papel->id);
 
         setPermissionsTeamId($this->empresa->id);
 
@@ -158,17 +183,13 @@ class SuperAdminTenantsModaisTest extends TenantTestCase
     {
         // O papel é validado ANTES de se criar seja o que for: recusar depois
         // deixava uma conta sem permissões e sem empresa.
-        $antes = User::count();
+        $this->juntarNova('Sem Papel', 'sp' . uniqid() . '@exemplo.ao', 'secret123', 999999)   // não existe
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('papel');
 
-        $this->ecra()
-            ->set('createNewUser', 1)
-            ->set('newUserName', 'Sem Papel')
-            ->set('newUserEmail', 'sp' . uniqid() . '@exemplo.ao')
-            ->set('newUserPassword', 'secret123')
-            ->set('selectedRoleId', 999999)     // não existe
-            ->call('addUserToTenant');
-
-        $this->assertSame($antes, User::count(), 'não pode sobrar uma conta órfã');
+        // Conta-se pela pessoa e não pelo total: o dono que faz o pedido também
+        // é uma conta, criada no próprio ensaio.
+        $this->assertSame(0, User::where('name', 'Sem Papel')->count(), 'não pode sobrar uma conta órfã');
     }
 
     public function test_nao_se_remove_a_ultima_pessoa_da_empresa(): void
@@ -177,7 +198,7 @@ class SuperAdminTenantsModaisTest extends TenantTestCase
         // empresa ficava sem forma de lá entrar.
         [$unica] = $this->comUtilizadores(1);
 
-        $this->ecra()->call('removeUserFromTenant', $unica->id);
+        $this->retirar($unica);
 
         $this->assertSame(
             1,
@@ -190,28 +211,22 @@ class SuperAdminTenantsModaisTest extends TenantTestCase
     {
         [$a, $b] = $this->comUtilizadores(2);
 
-        $this->ecra()->call('removeUserFromTenant', $b->id);
+        $this->retirar($b);
 
         $this->assertSame(1, $this->empresa->users()->count());
         $this->assertNotNull(User::find($b->id), 'sair de uma empresa não apaga a pessoa');
     }
 
-    public function test_a_senha_escrita_nao_fica_no_componente(): void
+    public function test_a_senha_escrita_nao_volta_na_resposta(): void
     {
-        // Uma propriedade pública do Livewire viaja para dentro da página. A
-        // senha de uma conta nova não tem de lá continuar depois de usada.
+        // A senha de uma conta nova segue por email e não volta ao browser: no
+        // Livewire ficava numa propriedade pública, dentro da página.
         $this->comUtilizadores(0);
 
-        $componente = $this->ecra()
-            ->set('createNewUser', 1)
-            ->set('newUserName', 'Pessoa')
-            ->set('newUserEmail', 'x' . uniqid() . '@exemplo.ao')
-            ->set('newUserPassword', 'SenhaSecreta123')
-            ->set('selectedRoleId', $this->papel->id)
-            ->call('addUserToTenant');
+        $resposta = $this->juntarNova('Pessoa', 'x' . uniqid() . '@exemplo.ao', 'SenhaSecreta123', $this->papel->id);
 
-        $this->assertSame('', $componente->get('newUserPassword'));
-        $this->assertStringNotContainsString('SenhaSecreta123', $componente->html());
+        $resposta->assertCreated();
+        $this->assertStringNotContainsString('SenhaSecreta123', $resposta->getContent());
     }
 
     public function test_o_plano_manda_quando_e_maior_que_a_ficha(): void
@@ -242,13 +257,7 @@ class SuperAdminTenantsModaisTest extends TenantTestCase
         $this->empresa->update(['max_users' => 2]);   // ficha desactualizada
         $this->comUtilizadores(2);
 
-        $this->ecra()
-            ->set('createNewUser', 1)
-            ->set('newUserName', 'Terceira Pessoa')
-            ->set('newUserEmail', 'tp' . uniqid() . '@exemplo.ao')
-            ->set('newUserPassword', 'secret123')
-            ->set('selectedRoleId', $this->papel->id)
-            ->call('addUserToTenant');
+        $this->juntarNova('Terceira Pessoa', 'tp' . uniqid() . '@exemplo.ao', 'secret123', $this->papel->id);
 
         $this->assertSame(
             3,
@@ -280,13 +289,7 @@ class SuperAdminTenantsModaisTest extends TenantTestCase
         $this->empresa->update(['max_users' => 5]);   // concedido à parte
         $this->comUtilizadores(2);
 
-        $this->ecra()
-            ->set('createNewUser', 1)
-            ->set('newUserName', 'Mais Uma')
-            ->set('newUserEmail', 'mu' . uniqid() . '@exemplo.ao')
-            ->set('newUserPassword', 'secret123')
-            ->set('selectedRoleId', $this->papel->id)
-            ->call('addUserToTenant');
+        $this->juntarNova('Mais Uma', 'mu' . uniqid() . '@exemplo.ao', 'secret123', $this->papel->id);
 
         $this->assertSame(3, $this->empresa->fresh()->users()->count());
     }
@@ -321,11 +324,7 @@ class SuperAdminTenantsModaisTest extends TenantTestCase
         $this->comPlano(50);
         $this->empresa->update(['max_users' => 10]);
 
-        Livewire::test(EcraTenants::class)
-            ->call('edit', $this->empresa->id)
-            ->set('max_users', 10)
-            ->call('save')
-            ->assertHasNoErrors();
+        $this->gravarFicha(['max_users' => 10])->assertOk();
 
         $this->assertSame(50, (int) $this->empresa->fresh()->max_users);
     }
@@ -337,10 +336,7 @@ class SuperAdminTenantsModaisTest extends TenantTestCase
         $this->comPlano(5);
         $this->empresa->update(['max_users' => 30]);
 
-        Livewire::test(EcraTenants::class)
-            ->call('edit', $this->empresa->id)
-            ->set('max_users', 30)
-            ->call('save');
+        $this->gravarFicha(['max_users' => 30])->assertOk();
 
         $this->assertSame(30, (int) $this->empresa->fresh()->max_users);
     }
@@ -372,13 +368,7 @@ class SuperAdminTenantsModaisTest extends TenantTestCase
         $this->empresa->update(['max_users' => 0]);
         $this->comUtilizadores(3);
 
-        $this->ecra()
-            ->set('createNewUser', 1)
-            ->set('newUserName', 'Mais Um')
-            ->set('newUserEmail', 'mu' . uniqid() . '@exemplo.ao')
-            ->set('newUserPassword', 'secret123')
-            ->set('selectedRoleId', $this->papel->id)
-            ->call('addUserToTenant');
+        $this->juntarNova('Mais Um', 'mu' . uniqid() . '@exemplo.ao', 'secret123', $this->papel->id);
 
         $this->assertSame(4, $this->empresa->users()->count());
     }

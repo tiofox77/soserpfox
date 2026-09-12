@@ -268,7 +268,7 @@ class PlanoAMedida
 
     /**
      * Activa os módulos do plano e desactiva os que já não pertencem.
-     * Mesmo padrão do painel de empresas (SuperAdmin\Tenants::syncPlanModules).
+     * Mesmo padrão do painel de empresas (EmpresaPlanoApiController::sincronizarModulos).
      */
     private function sincronizarModulos(Tenant $empresa, Plan $plano): void
     {
