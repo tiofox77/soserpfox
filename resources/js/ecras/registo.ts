@@ -358,4 +358,9 @@ export const ecras: Record<string, Ecra> = {
         import('./suporte/Pedidos'),
     'suporte/melhorias': () =>
         import('./suporte/Melhorias'),
+
+    // OS DADOS DA EMPRESA — identificação, morada, regime fiscal e logótipo.
+    // Ver e mudar são direitos diferentes, e o ecrã mostra-o.
+    'empresa/dados': () =>
+        import('./empresa/Dados'),
 };

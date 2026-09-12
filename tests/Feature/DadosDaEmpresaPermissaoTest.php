@@ -2,24 +2,25 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Company\CompanyProfile;
 use App\Models\Tenant;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
  * Os dados da empresa são de quem a gere.
  *
- * `/empresa` estava só atrás do `auth`: qualquer utilizador com sessão abria
- * a página e podia GRAVAR — mudar o NIF, o nome e, sobretudo, o REGIME
- * FISCAL, que se propaga aos impostos, às definições de facturação e a todos
- * os produtos. Um caixa punha a empresa inteira no regime errado.
+ * `/empresa` esteve só atrás do `auth`: qualquer utilizador com sessão abria a
+ * página e podia GRAVAR — mudar o NIF, o nome e, sobretudo, o REGIME FISCAL,
+ * que se propaga aos impostos, às definições de facturação e a todos os
+ * produtos. Um caixa punha a empresa inteira no regime errado.
  *
- * Ver e mudar passam a ser direitos diferentes: um contabilista precisa do
- * NIF e não de mexer no regime.
+ * Ver e mudar são direitos diferentes: um contabilista precisa do NIF e não de
+ * mexer no regime. O ecrã é hoje React, e a regra continua a ser verificada em
+ * cada pedido — a guarda da rota abre a página, não autoriza a escrita.
  */
 class DadosDaEmpresaPermissaoTest extends TenantTestCase
 {
+    private const RAIZ = '/api/v1/invoicing/react/empresa';
+
     /** @test */
     public function sem_permissao_nem_a_pagina_abre(): void
     {
@@ -29,13 +30,13 @@ class DadosDaEmpresaPermissaoTest extends TenantTestCase
     }
 
     /** @test */
-    public function sem_permissao_o_componente_recusa_se(): void
+    public function sem_permissao_a_api_recusa_se(): void
     {
         $this->actingAs($this->user);
 
-        // A guarda da rota não chega: o Livewire fala com o seu próprio
-        // endereço e não torna a passar pelo middleware.
-        Livewire::test(CompanyProfile::class)->assertStatus(403);
+        // A guarda da rota da PÁGINA não chega: a API tem o seu próprio
+        // endereço e não torna a passar por ela.
+        $this->getJson(self::RAIZ)->assertForbidden();
     }
 
     /** @test */
@@ -44,7 +45,8 @@ class DadosDaEmpresaPermissaoTest extends TenantTestCase
         $this->comPermissoes('settings.view');
         $this->actingAs($this->user);
 
-        $this->get(route('company.profile'))->assertOk();
+        $this->get(route('company.profile'))->assertOk()->assertSee('empresa/dados', false);
+        $this->getJson(self::RAIZ)->assertOk()->assertJsonPath('permissoes.editar', false);
     }
 
     /**
@@ -59,10 +61,13 @@ class DadosDaEmpresaPermissaoTest extends TenantTestCase
 
         $nomeAntes = $this->tenant->name;
 
-        Livewire::test(CompanyProfile::class)
-            ->set('name', 'Nome Roubado')
-            ->set('regime', Tenant::REGIME_NAO_SUJEICAO)
-            ->call('save');
+        $this->putJson(self::RAIZ, [
+            'name' => 'Nome Roubado',
+            'nif' => $this->tenant->nif,
+            'country' => 'AO',
+            'regime' => Tenant::REGIME_NAO_SUJEICAO,
+            'confirmar_regime' => true,
+        ])->assertForbidden();
 
         $depois = $this->tenant->fresh();
 
@@ -79,7 +84,7 @@ class DadosDaEmpresaPermissaoTest extends TenantTestCase
         $this->comPermissoes('settings.view');
         $this->actingAs($this->user);
 
-        Livewire::test(CompanyProfile::class)->call('removeLogo');
+        $this->deleteJson(self::RAIZ.'/logotipo')->assertForbidden();
 
         $this->assertSame('logos/teste.png', $this->tenant->fresh()->logo);
     }
@@ -90,12 +95,85 @@ class DadosDaEmpresaPermissaoTest extends TenantTestCase
         $this->comPermissoes('settings.view', 'settings.edit');
         $this->actingAs($this->user);
 
-        Livewire::test(CompanyProfile::class)
-            ->set('name', 'Nome Novo Lda')
-            ->call('save')
-            ->assertHasNoErrors();
+        $this->putJson(self::RAIZ, [
+            'name' => 'Nome Novo Lda',
+            'nif' => $this->tenant->nif,
+            'country' => 'AO',
+            'regime' => Tenant::canonicalRegime($this->tenant->regime),
+        ])->assertOk();
 
         $this->assertSame('Nome Novo Lda', $this->tenant->fresh()->name);
+    }
+
+    /**
+     * MUDAR DE REGIME PEDE UM SIM ESCRITO.
+     *
+     * Não é um campo como os outros: ao guardar, o imposto por omissão e o
+     * regime de TODOS os produtos mudam de uma vez. Um pedido que lá ponha o
+     * regime novo sem a confirmação não passa.
+     */
+    public function test_mudar_de_regime_sem_confirmar_nao_passa(): void
+    {
+        $this->comPermissoes('settings.view', 'settings.edit');
+        $this->actingAs($this->user);
+
+        $antes = Tenant::canonicalRegime($this->tenant->regime);
+
+        $this->putJson(self::RAIZ, [
+            'name' => $this->tenant->name,
+            'nif' => $this->tenant->nif,
+            'country' => 'AO',
+            'regime' => Tenant::REGIME_NAO_SUJEICAO,
+        ])->assertStatus(422)->assertJsonValidationErrors('regime');
+
+        $this->assertSame($antes, Tenant::canonicalRegime($this->tenant->fresh()->regime));
+    }
+
+    /** Com a confirmação, muda — e propaga-se. */
+    public function test_com_a_confirmacao_o_regime_muda(): void
+    {
+        $this->comPermissoes('settings.view', 'settings.edit');
+        $this->actingAs($this->user);
+
+        $this->putJson(self::RAIZ, [
+            'name' => $this->tenant->name,
+            'nif' => $this->tenant->nif,
+            'country' => 'AO',
+            'regime' => Tenant::REGIME_NAO_SUJEICAO,
+            'confirmar_regime' => true,
+        ])->assertOk();
+
+        $this->assertSame(
+            Tenant::REGIME_NAO_SUJEICAO,
+            Tenant::canonicalRegime($this->tenant->fresh()->regime),
+        );
+    }
+
+    /**
+     * GUARDAR OS CONTACTOS NÃO REESCREVE O REGIME.
+     *
+     * Empresas antigas têm valores legados («regime_isencao»). Reescrevê-los em
+     * cada gravação era mudar-lhes o regime só por se ter corrigido o telefone.
+     */
+    public function test_guardar_sem_mexer_no_regime_nao_toca_no_valor_legado(): void
+    {
+        $this->comPermissoes('settings.view', 'settings.edit');
+        $this->actingAs($this->user);
+
+        $this->tenant->update(['regime' => 'regime_isencao']);
+
+        $this->putJson(self::RAIZ, [
+            'name' => $this->tenant->name,
+            'nif' => $this->tenant->nif,
+            'phone' => '923000111',
+            'country' => 'AO',
+            // O canónico do legado — não é uma mudança de regime.
+            'regime' => Tenant::REGIME_NAO_SUJEICAO,
+        ])->assertOk();
+
+        $this->assertSame('regime_isencao', $this->tenant->fresh()->regime,
+            'o valor legado foi reescrito sem ninguém o pedir');
+        $this->assertSame('923000111', $this->tenant->fresh()->phone);
     }
 
     /** O menu não oferece o que a página recusa. */

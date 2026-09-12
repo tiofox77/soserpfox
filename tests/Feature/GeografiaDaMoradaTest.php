@@ -2,10 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Company\CompanyProfile;
 use App\Models\Client;
 use App\Support\Geografia;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -126,13 +124,15 @@ class GeografiaDaMoradaTest extends TenantTestCase
         $this->comPermissoes('settings.view', 'settings.edit');
         $this->actingAs($this->user);
 
-        Livewire::test(CompanyProfile::class)
-            ->set('country', 'AO')
-            ->set('province', 'Luanda')
-            ->set('municipality', 'Talatona')
-            ->set('neighbourhood', 'Lar do Patriota')
-            ->call('save')
-            ->assertHasNoErrors();
+        $this->putJson('/api/v1/invoicing/react/empresa', [
+            'name' => $this->tenant->name,
+            'nif' => $this->tenant->nif,
+            'regime' => \App\Models\Tenant::canonicalRegime($this->tenant->regime),
+            'country' => 'AO',
+            'province' => 'Luanda',
+            'municipality' => 'Talatona',
+            'neighbourhood' => 'Lar do Patriota',
+        ])->assertOk();
 
         $t = $this->tenant->fresh();
 
@@ -146,23 +146,52 @@ class GeografiaDaMoradaTest extends TenantTestCase
     }
 
     /**
-     * O ecrã não deixa lá ficar um país escrito por extenso — converte-o.
+     * O PAÍS POR EXTENSO NÃO ENTRA.
      *
-     * O formulário não chega a estar inválido: quem escreva «Portugal» (ou
-     * cole de um registo antigo) vê o campo passar a PT. O que não se
-     * reconhece cai no país da casa, para o campo nunca ficar num estado que
-     * a AGT recusa.
+     * O ecrã é hoje React e o país é uma lista fechada de códigos ISO — não há
+     * como lá escrever «Portugal». Quem tente pela API leva um 422: adivinhar o
+     * país de um documento fiscal é pior do que recusar.
      */
-    public function test_a_empresa_converte_o_pais_escrito_por_extenso(): void
+    public function test_a_empresa_recusa_o_pais_escrito_por_extenso(): void
     {
         $this->comPermissoes('settings.view', 'settings.edit');
         $this->actingAs($this->user);
 
-        Livewire::test(CompanyProfile::class)
-            ->set('country', 'Portugal')
-            ->assertSet('country', 'PT')
-            ->set('country', 'Terra Média')
-            ->assertSet('country', Geografia::PAIS_PADRAO);
+        foreach (['Portugal', 'ANGOLA', 'Terra Média'] as $escrito) {
+            $this->putJson('/api/v1/invoicing/react/empresa', [
+                'name' => $this->tenant->name,
+                'nif' => $this->tenant->nif,
+                'regime' => \App\Models\Tenant::canonicalRegime($this->tenant->regime),
+                'country' => $escrito,
+            ])->assertStatus(422)->assertJsonValidationErrors('country');
+        }
+    }
+
+    /**
+     * E o que estava gravado à mão lê-se convertido.
+     *
+     * Uma empresa gravada com «Portugal» antes da regra existir tem de chegar
+     * ao ecrã como PT, senão o selector não a encontra e a pessoa escolheria
+     * outro país sem dar por isso.
+     */
+    public function test_a_empresa_le_o_pais_antigo_ja_convertido(): void
+    {
+        $this->comPermissoes('settings.view');
+        $this->actingAs($this->user);
+
+        \Illuminate\Support\Facades\DB::table('tenants')
+            ->where('id', $this->tenant->id)->update(['country' => 'Portugal']);
+
+        $this->getJson('/api/v1/invoicing/react/empresa')
+            ->assertOk()->assertJsonPath('data.country', 'PT');
+
+        // O que não se reconhece cai no país da casa — o campo nunca fica num
+        // estado que a AGT recuse.
+        \Illuminate\Support\Facades\DB::table('tenants')
+            ->where('id', $this->tenant->id)->update(['country' => 'Terra Média']);
+
+        $this->getJson('/api/v1/invoicing/react/empresa')
+            ->assertOk()->assertJsonPath('data.country', Geografia::PAIS_PADRAO);
     }
 
     /** E a regra recusa, para quem grave sem passar pelo ecrã. */
@@ -186,32 +215,52 @@ class GeografiaDaMoradaTest extends TenantTestCase
             $validador('Portugal')->errors()->first('country'));
     }
 
-    /** Mudar de país não pode deixar lá a província do país anterior. */
-    public function test_sair_de_angola_limpa_a_provincia_e_o_municipio(): void
+    /**
+     * A CASCATA É A MESMA EM TODOS OS ECRÃS.
+     *
+     * Mudar de país deixa cair a província e o município — uma província
+     * angolana não é um estado brasileiro, e ficava lá calada até ao SAFT.
+     * Mudar de província deixa cair o município, pelo mesmo motivo.
+     *
+     * A cascata vive no ecrã (é lá que se escolhe), e é lá que se verifica:
+     * são os dois ecrãs que a têm, e uma terceira cópia escrita à mão era a
+     * armadilha de sempre.
+     */
+    public function test_os_ecras_limpam_a_divisao_ao_trocar_de_pais_e_de_provincia(): void
     {
-        $this->comPermissoes('settings.view', 'settings.edit');
-        $this->actingAs($this->user);
+        foreach ([
+            'js/ecras/empresa/Dados.tsx',
+            'js/ecras/facturacao/Clientes.tsx',
+        ] as $ecra) {
+            $fonte = file_get_contents(resource_path($ecra));
 
-        Livewire::test(CompanyProfile::class)
-            ->set('country', 'AO')
-            ->set('province', 'Luanda')
-            ->set('municipality', 'Talatona')
-            ->set('country', 'PT')
-            ->assertSet('province', null)
-            ->assertSet('municipality', null);
+            $this->assertStringContainsString('trocaDeMundo', $fonte,
+                "{$ecra}: sair de Angola tem de limpar a divisão administrativa");
+            $this->assertMatchesRegularExpression(
+                '/province: e\.target\.value,\s*\n?\s*municipality: \'\'/',
+                $fonte,
+                "{$ecra}: trocar de província tem de limpar o município",
+            );
+        }
     }
 
-    public function test_mudar_de_provincia_limpa_o_municipio(): void
+    /** E o servidor põe a cidade a acompanhar o município, venha o que vier. */
+    public function test_a_cidade_acompanha_o_municipio_mesmo_que_venha_outra(): void
     {
         $this->comPermissoes('settings.view', 'settings.edit');
         $this->actingAs($this->user);
 
-        Livewire::test(CompanyProfile::class)
-            ->set('country', 'AO')
-            ->set('province', 'Luanda')
-            ->set('municipality', 'Talatona')
-            ->set('province', 'Benguela')
-            ->assertSet('municipality', null);
+        $this->putJson('/api/v1/invoicing/react/empresa', [
+            'name' => $this->tenant->name,
+            'nif' => $this->tenant->nif,
+            'regime' => \App\Models\Tenant::canonicalRegime($this->tenant->regime),
+            'country' => 'AO',
+            'province' => 'Benguela',
+            'municipality' => 'Lobito',
+            'city' => 'Uma cidade que já não é desta morada',
+        ])->assertOk();
+
+        $this->assertSame('Lobito', $this->tenant->fresh()->city);
     }
 
     // ── Os clientes ───────────────────────────────────────────────────

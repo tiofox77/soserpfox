@@ -179,7 +179,7 @@ Route::middleware(['auth'])->group(function () {
     // se propaga aos impostos, às definições de facturação e a todos os
     // produtos. Um caixa punha a empresa inteira no regime errado.
     Route::middleware('permission:settings.view')
-        ->get('/empresa', \App\Livewire\Company\CompanyProfile::class)->name('company.profile');
+        ->get('/empresa', \App\Support\EcraReact::pagina('empresa/dados', 'Dados da Empresa'))->name('company.profile');
 });
 
 // Keep-alive: ping leve para manter a sessão viva enquanto o utilizador
@@ -1330,6 +1330,23 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
          * que está fechado à chave é o escopo — um pedido é de quem o abriu, e
          * uma sugestão de outra empresa não se lê nem se vota.
          */
+        /*
+         * OS DADOS DA EMPRESA.
+         *
+         * VER e MUDAR são direitos diferentes: `settings.view` abre a página,
+         * `settings.edit` é que grava. O regime fiscal é o campo mais perigoso
+         * do sistema — mudá-lo reescreve o imposto por omissão e o regime de
+         * todos os produtos de uma vez.
+         */
+        Route::prefix('empresa')->name('empresa.')->group(function () {
+            $c = \App\Http\Controllers\Api\Empresa\EmpresaApiController::class;
+
+            Route::get('/', [$c, 'mostrar'])->name('mostrar');
+            Route::put('/', [$c, 'guardar'])->name('guardar');
+            Route::post('/logotipo', [$c, 'logotipo'])->name('logotipo');
+            Route::delete('/logotipo', [$c, 'apagarLogotipo'])->name('apagar-logotipo');
+        });
+
         Route::prefix('suporte')->name('suporte.')->group(function () {
             $c = \App\Http\Controllers\Api\Suporte\SuporteApiController::class;
 
