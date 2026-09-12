@@ -1345,6 +1345,46 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
          * facturação são de quem GERE a conta — antes, qualquer utilizador da
          * empresa (um caixa, um vendedor) trocava o plano.
          */
+        /*
+         * A CONTABILIDADE.
+         *
+         * As regras de um lançamento vivem no `Services\Accounting\Lancamentos`
+         * — e metade delas não vivia em lado nenhum: um lançamento todo a zeros
+         * equilibrava, uma linha podia ser débito E crédito, uma conta de
+         * agregação recebia movimento, e um confirmado apagava-se.
+         */
+        Route::prefix('contabilidade')->name('contabilidade.')->group(function () {
+            Route::get('/painel', [\App\Http\Controllers\Api\Contabilidade\PainelApiController::class, 'index'])
+                ->name('painel');
+
+            Route::prefix('contas')->name('contas.')->group(function () {
+                $c = \App\Http\Controllers\Api\Contabilidade\ContasApiController::class;
+
+                Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+                Route::get('/', [$c, 'index'])->name('index');
+                Route::post('/', [$c, 'guardar'])->name('criar');
+                Route::get('/{id}', [$c, 'ficha'])->whereNumber('id')->name('ficha');
+                Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+                Route::delete('/{id}', [$c, 'apagar'])->whereNumber('id')->name('apagar');
+                Route::post('/{id}/estado', [$c, 'alternar'])->whereNumber('id')->name('estado');
+                // A RAZÃO DA CONTA: o extracto dela, com saldo de abertura.
+                Route::get('/{id}/razao', [$c, 'razao'])->whereNumber('id')->name('razao');
+            });
+
+            Route::prefix('lancamentos')->name('lancamentos.')->group(function () {
+                $c = \App\Http\Controllers\Api\Contabilidade\LancamentosApiController::class;
+
+                Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+                Route::get('/referencia/{diario}', [$c, 'referencia'])->whereNumber('diario')->name('referencia');
+                Route::get('/', [$c, 'index'])->name('index');
+                Route::post('/', [$c, 'criar'])->name('criar');
+                Route::get('/{id}', [$c, 'ficha'])->whereNumber('id')->name('ficha');
+                Route::delete('/{id}', [$c, 'apagar'])->whereNumber('id')->name('apagar');
+                Route::post('/{id}/confirmar', [$c, 'confirmar'])->whereNumber('id')->name('confirmar');
+                Route::post('/{id}/estornar', [$c, 'estornar'])->whereNumber('id')->name('estornar');
+            });
+        });
+
         Route::prefix('conta')->name('conta.')->group(function () {
             $c = \App\Http\Controllers\Api\Conta\MinhaContaApiController::class;
 
@@ -2335,15 +2375,15 @@ Route::middleware(['auth', 'tenant.module:rh'])->prefix('hr')->name('hr.')->grou
  */
 Route::middleware(['auth', 'tenant.module:contabilidade'])->prefix('accounting')->name('accounting.')->group(function () {
     Route::middleware('permission:accounting.dashboard.view')
-        ->get('/dashboard', \App\Livewire\Accounting\Dashboard::class)->name('dashboard');
+        ->get('/dashboard', \App\Support\EcraReact::pagina('contabilidade/painel', 'Painel da Contabilidade'))->name('dashboard');
     Route::middleware('permission:accounting.accounts.view')
-        ->get('/accounts', \App\Livewire\Accounting\AccountManagement::class)->name('accounts');
+        ->get('/accounts', \App\Support\EcraReact::pagina('contabilidade/contas', 'Plano de Contas'))->name('accounts');
     Route::middleware('permission:accounting.journals.view')
         ->get('/journals', \App\Livewire\Accounting\JournalManagement::class)->name('journals');
     Route::middleware('permission:accounting.document-types.view')
         ->get('/document-types', \App\Livewire\Accounting\DocumentTypeManagement::class)->name('document-types');
     Route::middleware('permission:accounting.moves.view')
-        ->get('/moves', \App\Livewire\Accounting\MoveManagement::class)->name('moves');
+        ->get('/moves', \App\Support\EcraReact::pagina('contabilidade/lancamentos', 'Lançamentos'))->name('moves');
     Route::middleware('permission:accounting.periods.view')
         ->get('/periods', \App\Livewire\Accounting\PeriodManagement::class)->name('periods');
     Route::middleware('permission:accounting.reports.view')

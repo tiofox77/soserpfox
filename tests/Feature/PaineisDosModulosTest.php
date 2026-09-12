@@ -59,14 +59,24 @@ class PaineisDosModulosTest extends TenantTestCase
                 basename(dirname($v)) . ': usar sosGrafico(), que destroi o anterior');
         }
 
-        // E NENHUM painel com gráficos volta ao DOMContentLoaded, que dispara
-        // uma só vez. Eram nove: os cinco perguntados mais a contabilidade, o
-        // CRM, o inventário e o restaurante, que tinham o mesmo defeito. Vão
-        // baixando à medida que os módulos passam para React — lá os gráficos
-        // são componentes e não há canvas nenhum para o Livewire trocar. Já
-        // saíram desta conta a tesouraria, o RH, a oficina, o hotel, o
-        // restaurante, o salão, os eventos, o CRM, os projetos, as compras e o
-        // inventário: sobra a contabilidade, que é a última.
+        /*
+         * E JÁ NÃO HÁ NENHUM.
+         *
+         * Eram nove painéis em Blade com gráficos — os cinco perguntados mais a
+         * contabilidade, o CRM, o inventário e o restaurante, todos com o mesmo
+         * defeito do DOMContentLoaded. A conta foi baixando à medida que os
+         * módulos passaram para React (lá os gráficos são componentes em SVG e
+         * não há canvas nenhum para o Livewire trocar), e a CONTABILIDADE era o
+         * último. Com ele, a lista fechou.
+         *
+         * O QUE ISTO GUARDA MUDOU DE SINAL, e é de propósito. Era um piso — «o
+         * varrimento tem de encontrar painéis» — para o ensaio não passar por
+         * vazio. Agora é um TRAVÃO: um painel novo em Blade a desenhar gráficos
+         * é um passo para trás na migração, e nasceria com as três armadilhas
+         * que as verificações acima descrevem. O `partials/graficos.blade.php`
+         * ficou sem quem o inclua; as verificações dele ficam porque é a
+         * referência escrita de como se desenha num canvas que o Livewire troca.
+         */
         $comGraficos = array_filter(
             array_merge(
                 glob(resource_path('views/livewire/*/dashboard*.blade.php')),
@@ -75,13 +85,11 @@ class PaineisDosModulosTest extends TenantTestCase
             fn ($v) => str_contains(file_get_contents($v), 'partials.graficos')
         );
 
-        // O número é um PISO que desce com as migrações, e não uma meta: o que
-        // ele guarda é que o varrimento continua a encontrar painéis. A zero,
-        // este ensaio passava por vazio e deixava de dizer o que quer que
-        // fosse.
-        $this->assertGreaterThanOrEqual(1, count($comGraficos),
-            'o varrimento tem de apanhar os painéis todos');
+        $this->assertSame([], array_map('basename', $comGraficos),
+            'nenhum painel em Blade desenha gráficos: os painéis são React');
 
+        // E se algum voltar, tem de o fazer bem: pela barra lateral o
+        // DOMContentLoaded já passou, e o quando-desenhar tem um sítio só.
         foreach ($comGraficos as $vista) {
             $this->assertStringNotContainsString('DOMContentLoaded', file_get_contents($vista),
                 basename(dirname($vista)) . ': o DOMContentLoaded já passou quando se chega por wire:navigate');

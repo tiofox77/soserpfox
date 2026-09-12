@@ -373,4 +373,13 @@ export const ecras: Record<string, Ecra> = {
     // A MINHA CONTA — as empresas, o plano, as facturas, o perfil e a senha.
     'conta/minha-conta': () =>
         import('./conta/MinhaConta'),
+
+    // A CONTABILIDADE — o plano de contas, os lançamentos e o painel. As regras
+    // de um lançamento vivem em `Services\Accounting\Lancamentos`.
+    'contabilidade/painel': () =>
+        import('./contabilidade/Painel'),
+    'contabilidade/contas': () =>
+        import('./contabilidade/Contas'),
+    'contabilidade/lancamentos': () =>
+        import('./contabilidade/Lancamentos'),
 };

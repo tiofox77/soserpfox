@@ -205,6 +205,7 @@ class PrepararBancadaPwa extends Command
         $encomendas = $this->montarAsCompras($tenant, $armazem);
         $papeis = $this->montarOsPapeis($tenant, $caixa);
         $suporte = $this->montarOSuporte($tenant, $utilizador);
+        $contabilidade = $this->montarAContabilidade($tenant, $utilizador);
 
         $this->newLine();
         $this->info('Bancada do PWA montada.');
@@ -225,6 +226,7 @@ class PrepararBancadaPwa extends Command
             ['Encomendas de compra', $encomendas],
             ['Papéis', $papeis],
             ['Suporte', $suporte],
+            ['Lançamentos da contabilidade', $contabilidade],
             ['Cliente',  $cliente->name],
             ['Armazém',  $armazem->name],
         ]);
@@ -1218,6 +1220,173 @@ class PrepararBancadaPwa extends Command
         return \App\Models\Support\Ticket::where('tenant_id', $tenant->id)->count();
     }
 
+    /**
+     * A CONTABILIDADE DA BANCADA: um plano pequeno mas com árvore a sério, um
+     * diário, um período aberto e outro fechado, e lançamentos nos três estados
+     * que os ecrãs precisam de distinguir.
+     *
+     * O QUE AQUI IMPORTA são os casos que o ecrã antigo não sabia mostrar:
+     *
+     *  · uma conta de AGREGAÇÃO (soma as filhas, não recebe movimento) e uma
+     *    BLOQUEADA — as duas desaparecem da lista de contas ao lançar, e sem
+     *    elas ninguém percebe porque é que uma conta não aparece;
+     *  · um RASCUNHO PRESO num período fechado, que já não se pode confirmar e
+     *    que ficava para sempre a parecer trabalho por acabar;
+     *  · e um confirmado com razão de verdade, para o extracto da conta ter
+     *    saldo de abertura e acumulado.
+     *
+     * @return int quantos lançamentos ficaram montados
+     */
+    private function montarAContabilidade(Tenant $tenant, User $autor): int
+    {
+        $conta = function (string $codigo, string $nome, string $tipo, array $extra = []) use ($tenant) {
+            return \App\Models\Accounting\Account::withoutGlobalScopes()->updateOrCreate(
+                ['tenant_id' => $tenant->id, 'code' => $codigo],
+                array_merge([
+                    'name' => $nome,
+                    'type' => $tipo,
+                    'nature' => in_array($tipo, \App\Services\Accounting\Lancamentos::A_DEBITO, true) ? 'debit' : 'credit',
+                    'level' => strlen($codigo) <= 2 ? 1 : 2,
+                    'is_view' => false,
+                    'blocked' => false,
+                ], $extra)
+            );
+        };
+
+        // A ÁRVORE: as de dois dígitos são de agregação e somam as filhas.
+        $disponibilidades = $conta('11', 'Disponibilidades', 'asset', ['is_view' => true, 'level' => 1]);
+        $caixa = $conta('1101', 'Caixa', 'asset', ['parent_id' => $disponibilidades->id]);
+        $banco = $conta('1102', 'Depósitos à ordem', 'asset', ['parent_id' => $disponibilidades->id]);
+
+        $conta('1103', 'Conta encerrada', 'asset', [
+            'parent_id' => $disponibilidades->id,
+            // BLOQUEADA: não aparece ao lançar, e o plano explica porquê.
+            'blocked' => true,
+        ]);
+
+        $clientes = $conta('21', 'Clientes', 'asset', ['is_view' => true, 'level' => 1]);
+        $conta('2101', 'Clientes — conta corrente', 'asset', ['parent_id' => $clientes->id]);
+
+        $fornecedores = $conta('32', 'Fornecedores', 'liability', ['is_view' => true, 'level' => 1]);
+        $fornecedorCC = $conta('3201', 'Fornecedores — conta corrente', 'liability', ['parent_id' => $fornecedores->id]);
+
+        $proveitos = $conta('71', 'Vendas', 'revenue', ['is_view' => true, 'level' => 1]);
+        $vendas = $conta('7101', 'Vendas de mercadorias', 'revenue', ['parent_id' => $proveitos->id]);
+
+        $gastos = $conta('61', 'Custo das mercadorias vendidas', 'expense', ['is_view' => true, 'level' => 1]);
+        $custo = $conta('6101', 'Compras de mercadorias', 'expense', ['parent_id' => $gastos->id]);
+
+        $diario = \App\Models\Accounting\Journal::withoutGlobalScopes()->updateOrCreate(
+            ['tenant_id' => $tenant->id, 'code' => 'DIV'],
+            [
+                'name' => 'Diário de Operações Diversas',
+                'type' => 'general',
+                'sequence_prefix' => 'DIV-',
+                'active' => true,
+            ]
+        );
+
+        $aberto = \App\Models\Accounting\Period::withoutGlobalScopes()->updateOrCreate(
+            ['tenant_id' => $tenant->id, 'code' => now()->format('Y-m')],
+            [
+                'name' => 'Mês corrente '.now()->format('m/Y'),
+                'date_start' => now()->startOfMonth()->format('Y-m-d'),
+                'date_end' => now()->endOfMonth()->format('Y-m-d'),
+                'state' => 'open',
+            ]
+        );
+
+        $fechado = \App\Models\Accounting\Period::withoutGlobalScopes()->updateOrCreate(
+            ['tenant_id' => $tenant->id, 'code' => now()->subMonth()->format('Y-m')],
+            [
+                'name' => 'Mês encerrado '.now()->subMonth()->format('m/Y'),
+                'date_start' => now()->subMonth()->startOfMonth()->format('Y-m-d'),
+                'date_end' => now()->subMonth()->endOfMonth()->format('Y-m-d'),
+                'state' => 'closed',
+            ]
+        );
+
+        $lancamento = function (string $ref, $periodo, string $dia, string $estado, string $nota, array $pares)
+            use ($tenant, $autor, $diario) {
+            $total = collect($pares)->sum(fn ($p) => $p[1]);
+
+            $move = \App\Models\Accounting\Move::withoutGlobalScopes()->updateOrCreate(
+                ['tenant_id' => $tenant->id, 'ref' => $ref],
+                [
+                    'journal_id' => $diario->id,
+                    'period_id' => $periodo->id,
+                    'date' => $dia,
+                    'narration' => $nota,
+                    'state' => $estado,
+                    'total_debit' => $total,
+                    'total_credit' => $total,
+                    'created_by' => $autor->id,
+                    'posted_by' => $estado === 'posted' ? $autor->id : null,
+                    'posted_at' => $estado === 'posted' ? now() : null,
+                ]
+            );
+
+            // Reescrever as linhas: correr o comando outra vez não pode duplicar
+            // a razão das contas.
+            $move->lines()->delete();
+
+            foreach ($pares as [$conta, $valor, $lado]) {
+                \App\Models\Accounting\MoveLine::withoutGlobalScopes()->create([
+                    'tenant_id' => $tenant->id,
+                    'move_id' => $move->id,
+                    'account_id' => $conta->id,
+                    'debit' => $lado === 'D' ? $valor : 0,
+                    'credit' => $lado === 'C' ? $valor : 0,
+                    'balance' => $lado === 'D' ? $valor : -$valor,
+                ]);
+            }
+
+            return $move;
+        };
+
+        // No mês encerrado, para a razão ter saldo de abertura.
+        $lancamento('DIV-00001', $fechado, $fechado->date_start->format('Y-m-d'), 'posted',
+            'Vendas a dinheiro do mês anterior', [
+                [$caixa, 180_000, 'D'],
+                [$vendas, 180_000, 'C'],
+            ]);
+
+        $lancamento('DIV-00002', $aberto, now()->format('Y-m-d'), 'posted',
+            'Vendas a dinheiro do dia', [
+                [$caixa, 45_000, 'D'],
+                [$vendas, 45_000, 'C'],
+            ]);
+
+        $lancamento('DIV-00003', $aberto, now()->format('Y-m-d'), 'posted',
+            'Depósito do caixa no banco', [
+                [$banco, 30_000, 'D'],
+                [$caixa, 30_000, 'C'],
+            ]);
+
+        // UM RASCUNHO POR CONFIRMAR, no período aberto.
+        $lancamento('DIV-00004', $aberto, now()->format('Y-m-d'), 'draft',
+            'Compra de mercadorias por conferir', [
+                [$custo, 22_500, 'D'],
+                [$fornecedorCC, 22_500, 'C'],
+            ]);
+
+        /*
+         * E UM RASCUNHO PRESO no mês encerrado: já não se confirma, e é o caso
+         * que ninguém dava por ele. O ecrã conta-os num aviso próprio.
+         */
+        $lancamento('DIV-00005', $fechado, $fechado->date_end->format('Y-m-d'), 'draft',
+            'Regularização que ficou para trás', [
+                [$custo, 7_800, 'D'],
+                [$caixa, 7_800, 'C'],
+            ]);
+
+        $diario->update([
+            'last_number' => 5,
+        ]);
+
+        return \App\Models\Accounting\Move::withoutGlobalScopes()->where('tenant_id', $tenant->id)->count();
+    }
+
     private function limpar(): int
     {
         $tenant = Tenant::where('slug', self::SLUG)->first();
@@ -1309,6 +1478,9 @@ class PrepararBancadaPwa extends Command
             // As NOTIFICAÇÕES são um módulo como os outros: sem ele, as duas
             // páginas (definições dos canais e modelos) nem abrem.
             'notifications',
+            // A CONTABILIDADE, desde que o painel, o plano de contas e os
+            // lançamentos passaram para React.
+            'contabilidade',
         ] as $slug) {
             $modulo = Module::firstOrCreate(
                 ['slug' => $slug],
