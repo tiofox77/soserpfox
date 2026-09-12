@@ -284,6 +284,33 @@ Route::middleware(['auth', 'superadmin'])->prefix('api/v1/plataforma/react')->na
         Route::post('/{empresa}/plano-a-medida', [$p, 'guardarMedida'])->whereNumber('empresa')->name('medida.guardar');
     });
 
+    Route::prefix('facturacao')->name('facturacao.')->group(function () {
+        $c = \App\Http\Controllers\Api\Plataforma\FacturacaoApiController::class;
+
+        Route::get('/', [$c, 'index'])->name('index');
+        Route::put('/saft', [$c, 'guardarSaft'])->name('saft');
+
+        Route::get('/subscricoes', [$c, 'subscricoes'])->name('subscricoes');
+        Route::post('/subscricoes/resumo', [$c, 'resumo'])->name('subscricoes.resumo');
+        Route::post('/subscricoes', [$c, 'guardarSubscricao'])->name('subscricoes.criar');
+        Route::get('/subscricoes/{id}', [$c, 'fichaDaSubscricao'])->whereNumber('id')->name('subscricoes.ficha');
+        Route::put('/subscricoes/{id}', [$c, 'guardarSubscricao'])->whereNumber('id')->name('subscricoes.guardar');
+        Route::post('/subscricoes/{id}/cancelar', [$c, 'cancelarSubscricao'])->whereNumber('id')->name('subscricoes.cancelar');
+        Route::delete('/subscricoes/{id}', [$c, 'apagarSubscricao'])->whereNumber('id')->name('subscricoes.apagar');
+        Route::get('/empresas/{empresa}/subscricao-activa', [$c, 'subscricaoActivaDe'])->whereNumber('empresa')->name('subscricoes.activa');
+
+        Route::get('/facturas', [$c, 'facturas'])->name('facturas');
+        Route::get('/facturas/nova', [$c, 'novaFactura'])->name('facturas.nova');
+        Route::post('/facturas', [$c, 'guardarFactura'])->name('facturas.criar');
+        Route::get('/facturas/{id}', [$c, 'fichaDaFactura'])->whereNumber('id')->name('facturas.ficha');
+        Route::put('/facturas/{id}', [$c, 'guardarFactura'])->whereNumber('id')->name('facturas.guardar');
+        Route::post('/facturas/{id}/pagar', [$c, 'pagarFactura'])->whereNumber('id')->name('facturas.pagar');
+        Route::delete('/facturas/{id}', [$c, 'apagarFactura'])->whereNumber('id')->name('facturas.apagar');
+
+        Route::post('/pedidos/{id}/aprovar', [$c, 'aprovarPedido'])->whereNumber('id')->name('pedidos.aprovar');
+        Route::post('/pedidos/{id}/recusar', [$c, 'recusarPedido'])->whereNumber('id')->name('pedidos.recusar');
+    });
+
     Route::prefix('modulos')->name('modulos.')->group(function () {
         $c = \App\Http\Controllers\Api\Plataforma\ModulosApiController::class;
 
@@ -304,7 +331,7 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
     Route::get('/restaurant-venue-requests', \App\Livewire\SuperAdmin\RestaurantVenueRequests::class)->name('restaurant-venue-requests');
     Route::get('/modules', \App\Support\EcraReact::plataforma('plataforma/modulos', 'Módulos'))->name('modules');
     Route::get('/plans', \App\Support\EcraReact::plataforma('plataforma/planos', 'Planos'))->name('plans');
-    Route::get('/billing', \App\Livewire\SuperAdmin\Billing::class)->name('billing');
+    Route::get('/billing', \App\Support\EcraReact::plataforma('plataforma/facturacao', 'Facturação da plataforma'))->name('billing');
     Route::get('/licenciamento', \App\Livewire\SuperAdmin\Licenciamento::class)->name('licenciamento');
 
     // Que empresas usam o PWA, em que aparelhos e em que VERSÃO. Existe porque

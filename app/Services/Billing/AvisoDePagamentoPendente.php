@@ -139,7 +139,7 @@ class AvisoDePagamentoPendente
             'SOSERP: %s escolheu o plano %s (%s) - %s Kz. Aguarda pagamento.',
             $this->nomeDaEmpresa($order),
             $order->plan?->name ?? 'sem plano',
-            \App\Livewire\SuperAdmin\Billing::nomeDoCiclo($order->billing_cycle),
+            \App\Support\CicloDeFacturacao::nome($order->billing_cycle),
             number_format((float) $order->amount, 0, ',', '.')
         );
     }

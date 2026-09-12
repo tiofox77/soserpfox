@@ -45,6 +45,7 @@ class ApiDaPlataformaTest extends TenantTestCase
             'planos' => ['/api/v1/plataforma/react/planos'],
             'módulos' => ['/api/v1/plataforma/react/modulos'],
             'empresas' => ['/api/v1/plataforma/react/empresas'],
+            'facturação' => ['/api/v1/plataforma/react/facturacao'],
         ];
     }
 

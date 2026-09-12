@@ -25,6 +25,7 @@ const MORADAS = [
     ['/superadmin/tenants', 'Empresas'],
     ['/superadmin/plans', 'Planos'],
     ['/superadmin/modules', 'Módulos'],
+    ['/superadmin/billing', 'Facturação da plataforma'],
 ];
 
 async function entrarComoDono(page) {
@@ -227,5 +228,42 @@ test.describe('a analítica', () => {
 
         expect((await pedido).status()).toBe(200);
         await expect(page.getByRole('button', { name: '30 dias' })).toHaveAttribute('aria-pressed', 'true');
+    });
+});
+
+test.describe('a facturação', () => {
+    test.beforeEach(async ({ page }) => {
+        await entrarComoDono(page);
+        await abrir(page, '/superadmin/billing', 'Facturação da plataforma');
+    });
+
+    test('os três separadores abrem, e o das subscrições pede a sua lista', async ({ page }) => {
+        const pedido = page.waitForResponse((r) => r.url().includes('/api/v1/plataforma/react/facturacao/subscricoes'));
+
+        await page.getByRole('tab', { name: /^Subscrições/ }).click();
+        expect((await pedido).status()).toBe(200);
+
+        await page.getByRole('tab', { name: /^Facturas/ }).click();
+        await expect(page.getByRole('button', { name: 'Nova factura' })).toBeVisible();
+    });
+
+    test('a factura nova vem numerada e o total soma-se sozinho', async ({ page }) => {
+        await page.getByRole('tab', { name: /^Facturas/ }).click();
+        await page.getByRole('button', { name: 'Nova factura' }).click();
+
+        const janela = page.getByRole('dialog');
+
+        await expect(janela.getByLabel(/^Número/)).not.toHaveValue('', { timeout: 20_000 });
+        await janela.getByLabel(/^Subtotal/).fill('10000');
+        await janela.getByLabel(/^Imposto/).fill('1400');
+        await expect(janela.getByText(/11[^0-9]?400,00/)).toBeVisible();
+    });
+
+    test('a configuração do SAF-T abre e fecha', async ({ page }) => {
+        const botao = page.getByRole('button', { name: /Software certificado/ });
+
+        await botao.click();
+        await expect(botao).toHaveAttribute('aria-expanded', 'true');
+        await expect(page.getByLabel(/^Versão do formato/)).toBeVisible();
     });
 });

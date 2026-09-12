@@ -414,4 +414,6 @@ export const ecras: Record<string, Ecra> = {
         import('./plataforma/Modulos'),
     'plataforma/empresas': () =>
         import('./plataforma/Empresas'),
+    'plataforma/facturacao': () =>
+        import('./plataforma/Facturacao'),
 };
