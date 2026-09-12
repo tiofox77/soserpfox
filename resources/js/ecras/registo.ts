@@ -249,6 +249,20 @@ export const ecras: Record<string, Ecra> = {
     'eventos/relatorios': () =>
         import('./eventos/Relatorios'),
 
+    /*
+     * O CRM. O FUNIL vive dentro das oportunidades, num separador: era outra
+     * morada para o mesmo assunto visto de outra maneira — a lista é o registo,
+     * o funil é o quadro da parede. As duas moradas ficam, cada uma no seu.
+     */
+    'crm/painel': () =>
+        import('./crm/Painel'),
+    'crm/leads': () =>
+        import('./crm/Leads'),
+    'crm/oportunidades': () =>
+        import('./crm/Oportunidades'),
+    'crm/meta': () =>
+        import('./crm/Meta'),
+
     // A TESOURARIA. Os catálogos (bancos, formas, caixas, tipos, categorias,
     // contas) passam pelo ecrã genérico; os movimentos têm o seu.
     'tesouraria/movimentos': () =>

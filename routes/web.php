@@ -1123,6 +1123,59 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::get('/eventos/relatorios/csv', [\App\Http\Controllers\Api\Events\RelatoriosApiController::class, 'csv'])
             ->name('eventos.relatorios.csv');
 
+        /*
+         * O CRM.
+         *
+         * O FUNIL vive dentro das oportunidades (`/oportunidades/funil`) e não
+         * numa morada própria: é o mesmo assunto visto de outra maneira — a
+         * lista é o registo, o funil é o quadro da parede.
+         */
+        Route::get('/crm/painel', [\App\Http\Controllers\Api\CRM\PainelApiController::class, 'index'])
+            ->name('crm.painel');
+
+        Route::prefix('crm/leads')->name('crm.leads.')->group(function () {
+            $c = \App\Http\Controllers\Api\CRM\LeadsApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'guardar'])->name('criar');
+            Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+            Route::post('/{id}/avancar', [$c, 'avancar'])->whereNumber('id')->name('avancar');
+            Route::post('/{id}/converter', [$c, 'converter'])->whereNumber('id')->name('converter');
+            Route::post('/{id}/perder', [$c, 'perder'])->whereNumber('id')->name('perder');
+            Route::post('/{id}/reabrir', [$c, 'reabrir'])->whereNumber('id')->name('reabrir');
+            Route::get('/{id}/conversa', [$c, 'conversa'])->whereNumber('id')->name('conversa');
+            Route::post('/{id}/actividades', [$c, 'actividade'])->whereNumber('id')->name('actividades');
+            Route::post('/{id}/responder', [$c, 'responder'])->whereNumber('id')->name('responder');
+            Route::delete('/{id}', [$c, 'apagar'])->whereNumber('id')->name('apagar');
+        });
+
+        Route::prefix('crm/oportunidades')->name('crm.oportunidades.')->group(function () {
+            $c = \App\Http\Controllers\Api\CRM\OportunidadesApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/funil', [$c, 'funil'])->name('funil');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'guardar'])->name('criar');
+            Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+            Route::post('/{id}/ganhar', [$c, 'ganhar'])->whereNumber('id')->name('ganhar');
+            Route::post('/{id}/perder', [$c, 'perder'])->whereNumber('id')->name('perder');
+            Route::post('/{id}/reabrir', [$c, 'reabrir'])->whereNumber('id')->name('reabrir');
+            Route::post('/{id}/facturar', [$c, 'facturar'])->whereNumber('id')->name('facturar');
+            Route::post('/{id}/mover', [$c, 'mover'])->whereNumber('id')->name('mover');
+            Route::get('/{id}/historico', [$c, 'historico'])->whereNumber('id')->name('historico');
+            Route::post('/{id}/actividades', [$c, 'actividade'])->whereNumber('id')->name('actividades');
+        });
+
+        Route::prefix('crm/meta')->name('crm.meta.')->group(function () {
+            $c = \App\Http\Controllers\Api\CRM\MetaApiController::class;
+
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::put('/', [$c, 'guardar'])->name('guardar');
+            Route::post('/token', [$c, 'novoToken'])->name('token');
+            Route::post('/testar-whatsapp', [$c, 'testarWhatsApp'])->name('testar-whatsapp');
+        });
+
         Route::prefix('oficina/ordens')->name('oficina.ordens.')->group(function () {
             $c = \App\Http\Controllers\Api\Workshop\OrdensApiController::class;
 
@@ -2116,15 +2169,24 @@ Route::middleware(['auth', 'tenant.module:oficina'])->prefix('workshop')->name('
 // rotas prometidas desde o início passam a entregar o que o nome diz.
 Route::middleware(['auth', 'tenant.module:crm'])->prefix('crm')->name('crm.')->group(function () {
     Route::middleware('permission:crm.view')
-        ->get('/dashboard', \App\Livewire\CRM\Dashboard::class)->name('dashboard');
+        ->get('/dashboard', \App\Support\EcraReact::pagina('crm/painel', 'Painel do CRM'))->name('dashboard');
     Route::middleware('permission:crm.leads.view')
-        ->get('/leads', \App\Livewire\CRM\Leads::class)->name('leads');
+        ->get('/leads', \App\Support\EcraReact::pagina('crm/leads', 'Leads'))->name('leads');
+
+    /*
+     * A LISTA E O FUNIL SÃO O MESMO ECRÃ, em separadores.
+     *
+     * Eram duas moradas para o mesmo assunto visto de duas maneiras — e quem
+     * movia um cartão no funil tinha de ir à lista para lhe mexer no valor. As
+     * duas moradas ficam, cada uma a abrir no seu separador.
+     */
     Route::middleware('permission:crm.opportunities.view')
-        ->get('/oportunidades', \App\Livewire\CRM\Oportunidades::class)->name('oportunidades');
+        ->get('/oportunidades', \App\Support\EcraReact::pagina('crm/oportunidades', 'Oportunidades'))->name('oportunidades');
     Route::middleware('permission:crm.opportunities.view')
-        ->get('/funil-vendas', \App\Livewire\CRM\FunilDeVendas::class)->name('funil-vendas');
+        ->get('/funil-vendas', \App\Support\EcraReact::pagina('crm/oportunidades', 'Funil de Vendas', ['separador' => 'funil']))->name('funil-vendas');
+
     Route::middleware('permission:crm.integrations.manage')
-        ->get('/integracoes', \App\Livewire\CRM\IntegracoesMeta::class)->name('integracoes');
+        ->get('/integracoes', \App\Support\EcraReact::pagina('crm/meta', 'Integração Meta'))->name('integracoes');
 });
 
 // Inventário — deixou de ser placeholder. O painel e os movimentos lêem o

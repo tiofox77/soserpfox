@@ -163,15 +163,14 @@ class FacturarOportunidadeTest extends TenantTestCase
         app(FacturarOportunidade::class)->facturar($o->fresh(), $this->tenant->id);
     }
 
-    /** O ecrã factura e diz o número; sem permissão de emitir, não factura. */
+    /** A porta do ecrã factura; sem permissão de emitir, não factura. */
     public function test_o_ecra_gera_a_factura(): void
     {
         $o = $this->oportunidade();
 
-        Livewire::test(Oportunidades::class)
-            ->set('filtroEstado', 'won')
-            ->call('facturar', $o->id)
-            ->assertHasNoErrors();
+        $this->actingAs($this->user)
+            ->postJson("/api/v1/invoicing/react/crm/oportunidades/{$o->id}/facturar")
+            ->assertOk();
 
         $this->assertNotNull($o->fresh()->sales_invoice_id);
     }
@@ -184,10 +183,13 @@ class FacturarOportunidadeTest extends TenantTestCase
 
         app(FacturarOportunidade::class)->facturar($facturada, $this->tenant->id);
 
-        $resumo = Livewire::test(\App\Livewire\CRM\Dashboard::class)->viewData('resumo');
+        $resumo = $this->actingAs($this->user)
+            ->getJson('/api/v1/invoicing/react/crm/painel')->assertOk()->json('resumo');
 
-        $this->assertSame(340000.0, $resumo['ganho_mes'], 'ganho é tudo o que fechou');
-        $this->assertSame(250000.0, $resumo['facturado_mes'], 'facturado é só o que virou documento');
+        // Um número redondo viaja em JSON como inteiro: compara-se o VALOR e
+        // não o tipo, senão o ensaio falha por causa do transporte.
+        $this->assertEqualsWithDelta(340000, $resumo['ganho_mes'], 0.01, 'ganho é tudo o que fechou');
+        $this->assertEqualsWithDelta(250000, $resumo['facturado_mes'], 0.01, 'facturado é só o que virou documento');
         $this->assertSame(1, $resumo['por_facturar_mes']);
     }
 }

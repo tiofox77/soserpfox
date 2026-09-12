@@ -2,16 +2,11 @@
 
 namespace Tests\Feature\CRM;
 
-use App\Livewire\CRM\Dashboard;
-use App\Livewire\CRM\FunilDeVendas;
-use App\Livewire\CRM\Leads;
-use App\Livewire\CRM\Oportunidades;
 use App\Models\Client;
 use App\Models\CRM\Lead;
 use App\Models\CRM\Opportunity;
 use App\Models\CRM\Stage;
 use App\Services\CRM\ConversaoDeLead;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -21,9 +16,16 @@ use Tests\TenantTestCase;
  * o módulo ACTIVO e vendável: quem o comprasse recebia quatro páginas de
  * obras. Estes ensaios prendem o que agora lá está — e sobretudo a COSTURA:
  * o lead convertido vira cliente DA FACTURAÇÃO, não uma segunda lista.
+ *
+ * OS ECRÃS PASSARAM A REACT e estes ensaios foram com eles: em vez de mexer em
+ * propriedades de um componente, batem à porta que o ecrã chama. O que medem é
+ * o mesmo — e agora medem também as PERMISSÕES DE ESCRITA, que o Livewire não
+ * perguntava a ninguém.
  */
 class ModuloCrmTest extends TenantTestCase
 {
+    private const RAIZ = '/api/v1/invoicing/react/crm';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -55,13 +57,11 @@ class ModuloCrmTest extends TenantTestCase
     /** @test */
     public function um_lead_cria_se_com_nome_e_telefone(): void
     {
-        Livewire::actingAs($this->user)->test(Leads::class)
-            ->set('novoNome', 'Dona Ana')
-            ->set('novoTelefone', '923000111')
-            ->set('novaOrigem', 'indicacao')
-            ->call('criar')
-            ->assertHasNoErrors()
-            ->assertSet('novoNome', '');
+        $this->actingAs($this->user)->postJson(self::RAIZ.'/leads', [
+            'name' => 'Dona Ana',
+            'phone' => '923000111',
+            'source' => 'indicacao',
+        ])->assertCreated();
 
         $this->assertDatabaseHas('crm_leads', [
             'tenant_id' => $this->tenant->id,
@@ -76,12 +76,10 @@ class ModuloCrmTest extends TenantTestCase
     {
         $lead = $this->lead();
 
-        Livewire::actingAs($this->user)->test(Leads::class)
-            ->set('paraActividade', $lead->id)
-            ->set('actTipo', 'chamada')
-            ->set('actAssunto', 'Perguntou preços de cimento')
-            ->call('registarActividade')
-            ->assertHasNoErrors();
+        $this->actingAs($this->user)->postJson(self::RAIZ."/leads/{$lead->id}/actividades", [
+            'type' => 'chamada',
+            'subject' => 'Perguntou preços de cimento',
+        ])->assertCreated();
 
         $this->assertSame('contactado', $lead->fresh()->status);
         $this->assertDatabaseHas('crm_activities', ['lead_id' => $lead->id, 'type' => 'chamada']);
@@ -92,11 +90,9 @@ class ModuloCrmTest extends TenantTestCase
     {
         $lead = $this->lead();
 
-        Livewire::actingAs($this->user)->test(Leads::class)
-            ->set('paraPerder', $lead->id)
-            ->set('motivoPerda', '')
-            ->call('perder')
-            ->assertHasErrors(['motivoPerda' => 'required']);
+        $this->actingAs($this->user)->postJson(self::RAIZ."/leads/{$lead->id}/perder", ['motivo' => ''])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('motivo');
 
         $this->assertSame('novo', $lead->fresh()->status);
     }
@@ -193,18 +189,16 @@ class ModuloCrmTest extends TenantTestCase
     /** @test */
     public function uma_oportunidade_cria_se_e_ganha_se(): void
     {
-        $componente = Livewire::actingAs($this->user)->test(Oportunidades::class)
-            ->call('criar')
-            ->set('titulo', 'Fornecimento à obra')
-            ->set('valor', '1.500.000,00')
-            ->call('guardar')
-            ->assertHasNoErrors()
-            ->assertSet('showForm', false);
+        $this->actingAs($this->user)->postJson(self::RAIZ.'/oportunidades', [
+            'title' => 'Fornecimento à obra',
+            'stage_id' => Stage::doTenant($this->tenant->id)->first()->id,
+            'amount' => 1500000,
+        ])->assertCreated();
 
         $o = Opportunity::where('tenant_id', $this->tenant->id)->firstOrFail();
-        $this->assertSame('1500000.00', (string) $o->amount, 'o valor com máscara tem de ser lido certo');
+        $this->assertSame('1500000.00', (string) $o->amount);
 
-        $componente->call('ganhar', $o->id)->assertHasNoErrors();
+        $this->actingAs($this->user)->postJson(self::RAIZ."/oportunidades/{$o->id}/ganhar")->assertOk();
 
         $o->refresh();
         $this->assertSame('won', $o->status);
@@ -217,11 +211,9 @@ class ModuloCrmTest extends TenantTestCase
     {
         $o = $this->oportunidade();
 
-        Livewire::actingAs($this->user)->test(Oportunidades::class)
-            ->set('paraPerder', $o->id)
-            ->set('motivoPerda', 'preço do concorrente')
-            ->call('perder')
-            ->assertHasNoErrors();
+        $this->actingAs($this->user)->postJson(self::RAIZ."/oportunidades/{$o->id}/perder", [
+            'motivo' => 'preço do concorrente',
+        ])->assertOk();
 
         $o->refresh();
         $this->assertSame('lost', $o->status);
@@ -242,19 +234,20 @@ class ModuloCrmTest extends TenantTestCase
         $etapas = Stage::doTenant($this->tenant->id);
         $this->assertSame((int) $etapas[0]->probability, (int) $o->probability);
 
-        Livewire::actingAs($this->user)->test(FunilDeVendas::class)
-            ->call('mover', $o->id, 'frente')
-            ->assertHasNoErrors();
+        $this->actingAs($this->user)->postJson(self::RAIZ."/oportunidades/{$o->id}/mover", [
+            'direccao' => 'frente',
+        ])->assertOk();
 
         $o->refresh();
         $this->assertSame($etapas[1]->id, $o->stage_id);
         $this->assertSame((int) $etapas[1]->probability, (int) $o->probability);
 
-        // E da primeira etapa não se recua para lado nenhum.
-        Livewire::actingAs($this->user)->test(FunilDeVendas::class)
-            ->call('mover', $o->id, 'tras')
-            ->call('mover', $o->id, 'tras')
-            ->assertHasNoErrors();
+        // E da primeira etapa não se recua para lado nenhum: a porta diz que
+        // não, em vez de não fazer nada em silêncio.
+        $this->actingAs($this->user)->postJson(self::RAIZ."/oportunidades/{$o->id}/mover", ['direccao' => 'tras'])
+            ->assertOk();
+        $this->actingAs($this->user)->postJson(self::RAIZ."/oportunidades/{$o->id}/mover", ['direccao' => 'tras'])
+            ->assertStatus(422);
 
         $this->assertSame($etapas[0]->id, $o->fresh()->stage_id);
     }
@@ -272,7 +265,7 @@ class ModuloCrmTest extends TenantTestCase
         $perdida = $this->oportunidade(['amount' => 30000]);
         $perdida->update(['status' => 'lost', 'closed_at' => now()]);
 
-        $resumo = Livewire::actingAs($this->user)->test(Dashboard::class)->viewData('resumo');
+        $resumo = $this->actingAs($this->user)->getJson(self::RAIZ.'/painel')->assertOk()->json('resumo');
 
         $this->assertEqualsWithDelta(100000, $resumo['funil_valor'], 0.01, 'só as abertas contam para o funil');
         $this->assertEqualsWithDelta(50000, $resumo['ganho_mes'], 0.01);
@@ -281,15 +274,88 @@ class ModuloCrmTest extends TenantTestCase
         $this->assertEquals(50, $resumo['taxa']);
     }
 
-    /** Os quatro ecrãs abrem — o erro 500 é a avaria mais cara deste projecto. */
-    public function test_os_quatro_ecras_abrem(): void
+    /**
+     * OS ECRÃS ABREM — o erro 500 é a avaria mais cara deste projecto.
+     *
+     * São QUATRO MORADAS PARA TRÊS ECRÃS: a lista e o funil são o mesmo, visto
+     * de duas maneiras, e cada morada abre no seu separador.
+     */
+    public function test_os_ecras_abrem_e_montam_o_react(): void
     {
         $this->lead();
         $this->oportunidade();
 
-        foreach (['/crm/dashboard', '/crm/leads', '/crm/oportunidades', '/crm/funil-vendas'] as $rota) {
-            $this->actingAs($this->user)->get($rota)->assertOk();
+        foreach ([
+            '/crm/dashboard' => 'crm/painel',
+            '/crm/leads' => 'crm/leads',
+            '/crm/oportunidades' => 'crm/oportunidades',
+            '/crm/funil-vendas' => 'crm/oportunidades',
+        ] as $rota => $ecra) {
+            $this->actingAs($this->user)->get($rota)->assertOk()->assertSee($ecra, false);
         }
+    }
+
+    /**
+     * VER NÃO É MEXER — e não era.
+     *
+     * O componente em Livewire nunca perguntou por "crm.leads.manage" nem por
+     * "crm.opportunities.manage": quem abrisse a página convertia leads em
+     * clientes, dava negócios por perdidos e respondia por WhatsApp em nome da
+     * empresa. As permissões existiam na base de dados e não serviam para nada.
+     */
+    public function test_ver_nao_e_mexer(): void
+    {
+        $outro = \App\Models\User::factory()->create(['tenant_id' => $this->tenant->id]);
+        $outro->tenants()->attach($this->tenant->id);
+        $outro->givePermissionTo(['crm.view', 'crm.leads.view', 'crm.opportunities.view']);
+
+        $lead = $this->lead();
+        $o = $this->oportunidade();
+
+        $this->actingAs($outro)->getJson(self::RAIZ.'/leads')->assertOk();
+        $this->actingAs($outro)->getJson(self::RAIZ.'/oportunidades')->assertOk();
+
+        $this->actingAs($outro)->postJson(self::RAIZ.'/leads', [
+            'name' => 'Tentativa', 'source' => 'telefone',
+        ])->assertForbidden();
+        $this->actingAs($outro)->postJson(self::RAIZ."/leads/{$lead->id}/converter", [
+            'title' => 'Tentativa',
+        ])->assertForbidden();
+        $this->actingAs($outro)->postJson(self::RAIZ."/leads/{$lead->id}/responder", [
+            'texto' => 'olá',
+        ])->assertForbidden();
+        $this->actingAs($outro)->postJson(self::RAIZ."/oportunidades/{$o->id}/ganhar")->assertForbidden();
+        $this->actingAs($outro)->postJson(self::RAIZ."/oportunidades/{$o->id}/mover", [
+            'direccao' => 'frente',
+        ])->assertForbidden();
+    }
+
+    /**
+     * UM NEGÓCIO JÁ FACTURADO NÃO SE REABRE.
+     *
+     * Havia uma factura emitida a apontar para ele: reabri-lo punha-o de volta
+     * no funil a contar como dinheiro por fechar, ao mesmo tempo que o
+     * documento já estava na rua. O mesmo negócio contado duas vezes.
+     */
+    public function test_uma_oportunidade_ja_facturada_nao_se_reabre(): void
+    {
+        $o = $this->oportunidade();
+        $o->update(['status' => 'won', 'closed_at' => now(), 'sales_invoice_id' => 999999]);
+
+        $this->actingAs($this->user)->postJson(self::RAIZ."/oportunidades/{$o->id}/reabrir")
+            ->assertStatus(422);
+
+        $this->assertSame('won', $o->fresh()->status);
+    }
+
+    /** E um lead já convertido não se apaga: é o princípio do historial. */
+    public function test_um_lead_convertido_nao_se_apaga(): void
+    {
+        $lead = $this->lead(['status' => 'convertido']);
+
+        $this->actingAs($this->user)->deleteJson(self::RAIZ."/leads/{$lead->id}")->assertStatus(422);
+
+        $this->assertNotNull(Lead::withoutGlobalScopes()->find($lead->id));
     }
 
     /** Sem permissão, nenhum ecrã abre. */

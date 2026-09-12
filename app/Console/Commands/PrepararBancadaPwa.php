@@ -183,6 +183,7 @@ class PrepararBancadaPwa extends Command
         $ordens = $this->montarAOficina($tenant);
         $quartos = $this->montarOHotel($tenant);
         $eventos = $this->montarOsEventos($tenant);
+        $negocios = $this->montarOCrm($tenant);
 
         $this->newLine();
         $this->info('Bancada do PWA montada.');
@@ -198,6 +199,7 @@ class PrepararBancadaPwa extends Command
             ['Ordens da oficina', $ordens],
             ['Quartos do hotel', $quartos],
             ['Eventos', $eventos],
+            ['Negócios do CRM', $negocios],
             ['Cliente',  $cliente->name],
             ['Armazém',  $armazem->name],
         ]);
@@ -918,6 +920,39 @@ class PrepararBancadaPwa extends Command
         return \App\Models\Events\Event::where('tenant_id', $tenant->id)->count();
     }
 
+    /**
+     * O CRM: um lead na fila e um negócio no funil.
+     *
+     * As ETAPAS nascem sozinhas à primeira pergunta — é o padrão da casa, e
+     * este montador limita-se a fazer essa pergunta.
+     *
+     * @return int quantos negócios ficaram no funil
+     */
+    private function montarOCrm(Tenant $tenant): int
+    {
+        \App\Models\CRM\Lead::firstOrCreate(
+            ['tenant_id' => $tenant->id, 'name' => 'Lead da Bancada'],
+            [
+                'phone' => '923000003', 'company' => 'Obras da Bancada, Lda.',
+                'source' => 'telefone', 'status' => 'novo',
+            ],
+        );
+
+        $etapa = \App\Models\CRM\Stage::doTenant($tenant->id)->first();
+
+        \App\Models\CRM\Opportunity::firstOrCreate(
+            ['tenant_id' => $tenant->id, 'title' => 'Negócio da Bancada'],
+            [
+                'stage_id' => $etapa?->id,
+                'amount' => 1200000,
+                'probability' => (int) ($etapa?->probability ?? 10),
+                'status' => 'open',
+            ],
+        );
+
+        return \App\Models\CRM\Opportunity::where('tenant_id', $tenant->id)->count();
+    }
+
     private function limpar(): int
     {
         $tenant = Tenant::where('slug', self::SLUG)->first();
@@ -977,7 +1012,7 @@ class PrepararBancadaPwa extends Command
         // desde que as viaturas, os mecânicos e os serviços passaram para o
         // mesmo ecrã genérico. E os EVENTOS, que passaram a React inteiros: a
         // agenda, os equipamentos, os locais, os tipos e os técnicos.
-        foreach (['invoicing', 'treasury', 'restaurant', 'rh', 'oficina', 'eventos'] as $slug) {
+        foreach (['invoicing', 'treasury', 'restaurant', 'rh', 'oficina', 'eventos', 'crm'] as $slug) {
             $modulo = Module::firstOrCreate(
                 ['slug' => $slug],
                 ['name' => ucfirst($slug), 'is_active' => true]

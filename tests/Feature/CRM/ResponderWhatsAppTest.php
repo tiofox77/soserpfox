@@ -2,13 +2,11 @@
 
 namespace Tests\Feature\CRM;
 
-use App\Livewire\CRM\Leads;
 use App\Models\CRM\Activity;
 use App\Models\CRM\Lead;
 use App\Models\CRM\MetaContact;
 use App\Models\CRM\MetaIntegration;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -20,6 +18,8 @@ use Tests\TenantTestCase;
  */
 class ResponderWhatsAppTest extends TenantTestCase
 {
+    private const RAIZ = '/api/v1/invoicing/react/crm/leads';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -64,12 +64,9 @@ class ResponderWhatsAppTest extends TenantTestCase
             'graph.facebook.com/*' => Http::response(['messages' => [['id' => 'wamid.enviado']]], 200),
         ]);
 
-        Livewire::actingAs($this->user)->test(Leads::class)
-            ->call('verConversa', $lead->id)
-            ->set('respostaTexto', 'Boa tarde, o produto está disponível.')
-            ->call('responder')
-            ->assertHasNoErrors()
-            ->assertSet('respostaTexto', '');
+        $this->actingAs($this->user)->postJson(self::RAIZ."/{$lead->id}/responder", [
+            'texto' => 'Boa tarde, o produto está disponível.',
+        ])->assertOk();
 
         // Foi mesmo ao Meta, para o número certo.
         Http::assertSent(fn ($req) => str_contains($req->url(), '/999/messages')
@@ -103,13 +100,12 @@ class ResponderWhatsAppTest extends TenantTestCase
             ], 400),
         ]);
 
-        $comp = Livewire::actingAs($this->user)->test(Leads::class)
-            ->call('verConversa', $lead->id)
-            ->set('respostaTexto', 'Olá?')
-            ->call('responder');
+        $r = $this->actingAs($this->user)->postJson(self::RAIZ."/{$lead->id}/responder", ['texto' => 'Olá?'])
+            ->assertStatus(422);
 
-        $this->assertNotEmpty($comp->get('erroResposta'));
-        $this->assertStringContainsString('24 hours', $comp->get('erroResposta'));
+        // O ERRO DO META CHEGA INTEIRO a quem está a escrever: «passaram mais
+        // de 24 horas» diz-lhe o que fazer; «não foi possível enviar» não.
+        $this->assertStringContainsString('24 hours', json_encode($r->json()));
 
         $this->assertSame(0, Activity::where('lead_id', $lead->id)->where('direction', 'out')->count());
     }
@@ -123,12 +119,9 @@ class ResponderWhatsAppTest extends TenantTestCase
 
         Http::fake();
 
-        $comp = Livewire::actingAs($this->user)->test(Leads::class)
-            ->call('verConversa', $lead->id)
-            ->set('respostaTexto', 'teste')
-            ->call('responder');
+        $this->actingAs($this->user)->postJson(self::RAIZ."/{$lead->id}/responder", ['texto' => 'teste'])
+            ->assertStatus(422);
 
-        $this->assertNotEmpty($comp->get('erroResposta'));
         Http::assertNothingSent();
     }
 
@@ -140,11 +133,10 @@ class ResponderWhatsAppTest extends TenantTestCase
 
         Activity::create(['tenant_id' => $this->tenant->id, 'lead_id' => $lead->id, 'type' => 'whatsapp', 'direction' => 'in', 'subject' => 'Mensagem WhatsApp', 'notes' => 'Tens em stock?', 'done' => true]);
 
-        $conversa = Livewire::actingAs($this->user)->test(Leads::class)
-            ->call('verConversa', $lead->id)
-            ->get('conversa');
+        $conversa = $this->actingAs($this->user)->getJson(self::RAIZ."/{$lead->id}/conversa")
+            ->assertOk()->json();
 
-        $this->assertTrue($conversa['podeWhatsapp']);
+        $this->assertTrue($conversa['pode_whatsapp']);
         $this->assertSame('244911222333', $conversa['numero']);
         $this->assertCount(1, $conversa['actividades']);
     }
