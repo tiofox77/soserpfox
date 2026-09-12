@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Livewire\MensagensDaPlataforma;
-use App\Livewire\SuperAdmin\MensagensPlataforma;
 use App\Models\Plan;
 use App\Models\PlatformMessage;
 use App\Models\PlatformMessageRead;
@@ -182,49 +181,44 @@ class MensagensDaPlataformaTest extends TenantTestCase
 
     // ==================== o ecrã de quem escreve ====================
 
+    private function publicar(array $troca = [])
+    {
+        return $this->postJson('/api/v1/plataforma/react/avisos', array_merge([
+            'title' => 'Preços novos a partir de Setembro',
+            'body' => 'Os planos multi-empresa passam a ter novo preço.',
+            'level' => 'info',
+            'display' => 'barra',
+            'audience' => 'todas',
+        ], $troca));
+    }
+
     public function test_publicar_uma_mensagem(): void
     {
-        Livewire::test(MensagensPlataforma::class)
-            ->call('nova')
-            ->set('title', 'Preços novos a partir de Setembro')
-            ->set('body', 'Os planos multi-empresa passam a ter novo preço.')
-            ->set('level', 'info')
-            ->set('display', 'barra')
-            ->set('audience', 'todas')
-            ->call('guardar')
-            ->assertHasNoErrors()
-            ->assertSet('showModal', false);
+        $this->publicar()->assertOk();
 
         $this->assertDatabaseHas('platform_messages', [
             'title' => 'Preços novos a partir de Setembro',
+            'created_by' => $this->user->id,
         ]);
     }
 
     /** Escolher "empresas escolhidas" sem escolher nenhuma manda para ninguém. */
     public function test_publico_por_empresas_sem_empresas_e_recusado(): void
     {
-        Livewire::test(MensagensPlataforma::class)
-            ->call('nova')
-            ->set('title', 'Aviso')
-            ->set('body', 'Um aviso qualquer.')
-            ->set('audience', 'empresas')
-            ->set('tenant_ids', [])
-            ->call('guardar')
-            ->assertHasErrors('tenant_ids');
+        $this->publicar(['title' => 'Aviso', 'body' => 'Um aviso qualquer.', 'audience' => 'empresas', 'tenant_ids' => []])
+            ->assertStatus(422)->assertJsonValidationErrors('tenant_ids');
 
         $this->assertDatabaseMissing('platform_messages', ['title' => 'Aviso']);
     }
 
     public function test_o_fim_nao_pode_ser_antes_do_inicio(): void
     {
-        Livewire::test(MensagensPlataforma::class)
-            ->call('nova')
-            ->set('title', 'Aviso')
-            ->set('body', 'Um aviso qualquer.')
-            ->set('starts_at', now()->addDays(3)->format('Y-m-d\TH:i'))
-            ->set('ends_at', now()->addDay()->format('Y-m-d\TH:i'))
-            ->call('guardar')
-            ->assertHasErrors('ends_at');
+        $this->publicar([
+            'title' => 'Aviso',
+            'body' => 'Um aviso qualquer.',
+            'starts_at' => now()->addDays(3)->format('Y-m-d\TH:i'),
+            'ends_at' => now()->addDay()->format('Y-m-d\TH:i'),
+        ])->assertStatus(422)->assertJsonValidationErrors('ends_at');
     }
 
     /** Publicar tem de aparecer já, e não daí a um minuto. */
@@ -233,21 +227,29 @@ class MensagensDaPlataformaTest extends TenantTestCase
         // Aquecer a cache com "não há nada".
         Livewire::test(MensagensDaPlataforma::class)->assertDontSee('Urgente');
 
-        Livewire::test(MensagensPlataforma::class)
-            ->call('nova')
-            ->set('title', 'Urgente: paragem agora')
-            ->set('body', 'Vamos parar em cinco minutos.')
-            ->set('level', 'urgente')
-            ->call('guardar');
+        $this->publicar(['title' => 'Urgente: paragem agora', 'body' => 'Vamos parar em cinco minutos.', 'level' => 'urgente'])->assertOk();
 
         Livewire::test(MensagensDaPlataforma::class)->assertSee('Urgente: paragem agora');
+    }
+
+    /** Retirar também tem de valer já. */
+    public function test_retirar_limpa_a_cache(): void
+    {
+        $this->publicar(['title' => 'Paragem hoje', 'body' => 'Vamos parar às 22h.'])->assertOk();
+        Livewire::test(MensagensDaPlataforma::class)->assertSee('Paragem hoje');
+
+        $id = PlatformMessage::where('title', 'Paragem hoje')->value('id');
+        $this->postJson("/api/v1/plataforma/react/avisos/{$id}/alternar")->assertOk();
+
+        Livewire::test(MensagensDaPlataforma::class)->assertDontSee('Paragem hoje');
     }
 
     public function test_quem_nao_e_dono_da_plataforma_nao_entra(): void
     {
         $this->user->update(['is_super_admin' => false]);
 
-        Livewire::test(MensagensPlataforma::class)->assertForbidden();
+        $this->getJson('/api/v1/plataforma/react/avisos')->assertForbidden();
+        $this->publicar()->assertForbidden();
     }
 
     /** Quantas empresas isto alcança — para se saber antes de publicar. */

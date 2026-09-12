@@ -218,3 +218,35 @@ export function dataHora(iso: string | null | undefined): string {
             hour: '2-digit', minute: '2-digit',
         });
 }
+
+/**
+ * HÁ QUANTO TEMPO — o `diffForHumans` do Blade, na língua de quem olha.
+ *
+ * Para o que interessa pela distância e não pela data: «visto há 3 dias» diz
+ * logo que um aparelho adormeceu; «09/09/2026 14:02» obriga a fazer a conta.
+ */
+export function haQuanto(iso: string | null | undefined, agora: Date = new Date()): string {
+    if (!iso) {
+        return '—';
+    }
+
+    const d = new Date(iso);
+
+    if (Number.isNaN(d.getTime())) {
+        return '—';
+    }
+
+    const segundos = Math.round((d.getTime() - agora.getTime()) / 1000);
+    const passos: Array<[Intl.RelativeTimeFormatUnit, number]> = [
+        ['year', 31_536_000], ['month', 2_592_000], ['week', 604_800], ['day', 86_400], ['hour', 3_600], ['minute', 60],
+    ];
+    const formato = new Intl.RelativeTimeFormat(etiquetaIntl(), { numeric: 'auto' });
+
+    for (const [unidade, tamanho] of passos) {
+        if (Math.abs(segundos) >= tamanho) {
+            return formato.format(Math.round(segundos / tamanho), unidade);
+        }
+    }
+
+    return formato.format(segundos, 'second');
+}

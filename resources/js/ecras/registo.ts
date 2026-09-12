@@ -428,4 +428,18 @@ export const ecras: Record<string, Ecra> = {
         import('./plataforma/Sistema'),
     'plataforma/software': () =>
         import('./plataforma/Software'),
+    'plataforma/contactos': () =>
+        import('./plataforma/Contactos'),
+    'plataforma/estabelecimentos': () =>
+        import('./plataforma/Estabelecimentos'),
+    'plataforma/registo-de-emails': () =>
+        import('./plataforma/RegistoDeEmails'),
+    'plataforma/aparelhos-pwa': () =>
+        import('./plataforma/AparelhosPwa'),
+    'plataforma/modelos-de-email': () =>
+        import('./plataforma/ModelosDeEmail'),
+    'plataforma/avisos': () =>
+        import('./plataforma/Avisos'),
+    'plataforma/sms-empresas': () =>
+        import('./plataforma/SmsParaEmpresas'),
 };

@@ -3,9 +3,7 @@
 namespace Tests\Feature\Pwa;
 
 use App\Http\Controllers\PwaController;
-use App\Livewire\SuperAdmin\AparelhosPwa;
 use App\Models\PwaDevice;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -21,6 +19,8 @@ use Tests\TenantTestCase;
  */
 class AparelhosPwaTest extends TenantTestCase
 {
+    private const API = '/api/v1/plataforma/react/aparelhos-pwa';
+
     private function aparelho(array $dados = []): PwaDevice
     {
         return PwaDevice::create(array_merge([
@@ -114,15 +114,11 @@ class AparelhosPwaTest extends TenantTestCase
         $atrasado = $this->aparelho(['app_version' => 'versao-de-antes']);
         $mudo = $this->aparelho(['app_version' => null]);
 
-        $componente = Livewire::test(AparelhosPwa::class);
-
         // Dois atrasados: o que corre versão antiga E o que não diz nada. Não
         // saber o que um aparelho corre é o mesmo problema com outro nome.
-        $this->assertSame(2, $componente->viewData('resumo')['atrasados']);
+        $this->assertSame(2, $this->getJson(self::API)->assertOk()->json('resumo.atrasados'));
 
-        $componente->set('filtro', 'atrasados');
-
-        $ids = collect($componente->viewData('aparelhos')->items())->pluck('id');
+        $ids = collect($this->getJson(self::API . '?filtro=atrasados')->json('aparelhos'))->pluck('id');
 
         $this->assertTrue($ids->contains($atrasado->id));
         $this->assertTrue($ids->contains($mudo->id));
@@ -138,13 +134,32 @@ class AparelhosPwaTest extends TenantTestCase
         $this->aparelho(['standalone' => false]);
         $this->aparelho(['standalone' => false]);
 
-        $componente = Livewire::test(AparelhosPwa::class)->set('filtro', 'instalados');
+        $r = $this->getJson(self::API . '?filtro=instalados')->assertOk();
 
         // Um resumo que encolhe com o filtro faz o problema parecer menor do
         // que é — quem lê fica com o número errado na cabeça.
-        $this->assertSame(3, $componente->viewData('resumo')['aparelhos']);
-        $this->assertSame(1, $componente->viewData('resumo')['instalados']);
-        $this->assertCount(1, $componente->viewData('aparelhos')->items());
+        $this->assertSame(3, $r->json('resumo.aparelhos'));
+        $this->assertSame(1, $r->json('resumo.instalados'));
+        $this->assertCount(1, $r->json('aparelhos'));
+    }
+
+    /**
+     * A procura não pode furar o filtro. O componente juntava-a com `orWhere`
+     * soltos: procurar uma versão com «instalados» trazia os não instalados.
+     *
+     * @test
+     */
+    public function procurar_nao_fura_o_filtro(): void
+    {
+        $this->comoSuperAdmin();
+
+        $this->aparelho(['standalone' => true, 'app_version' => 'v-procurada']);
+        $browser = $this->aparelho(['standalone' => false, 'app_version' => 'v-procurada']);
+
+        $ids = collect($this->getJson(self::API . '?filtro=instalados&procura=v-procurada')->json('aparelhos'))->pluck('id');
+
+        $this->assertCount(1, $ids);
+        $this->assertFalse($ids->contains($browser->id));
     }
 
     /** @test */
@@ -155,15 +170,11 @@ class AparelhosPwaTest extends TenantTestCase
         $this->aparelho(['last_seen_at' => now()->subDay()]);
         $adormecido = $this->aparelho(['last_seen_at' => now()->subDays(40)]);
 
-        $componente = Livewire::test(AparelhosPwa::class);
-
-        $this->assertSame(1, $componente->viewData('resumo')['adormecidos']);
-
-        $componente->set('filtro', 'adormecidos');
+        $this->assertSame(1, $this->getJson(self::API)->json('resumo.adormecidos'));
 
         $this->assertSame(
             [$adormecido->id],
-            collect($componente->viewData('aparelhos')->items())->pluck('id')->all()
+            collect($this->getJson(self::API . '?filtro=adormecidos')->json('aparelhos'))->pluck('id')->all()
         );
     }
 
@@ -172,6 +183,7 @@ class AparelhosPwaTest extends TenantTestCase
     {
         // O utilizador normal do TenantTestCase não é super admin.
         $this->get('/superadmin/aparelhos-pwa')->assertForbidden();
+        $this->getJson(self::API)->assertForbidden();
     }
 
     /** Dá ao utilizador do ensaio o acesso de super admin da plataforma. */

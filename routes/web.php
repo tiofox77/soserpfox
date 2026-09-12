@@ -386,6 +386,67 @@ Route::middleware(['auth', 'superadmin'])->prefix('api/v1/plataforma/react')->na
         Route::post('/{id}/alternar', [$c, 'alternar'])->whereNumber('id')->name('alternar');
         Route::delete('/{id}', [$c, 'apagar'])->whereNumber('id')->name('apagar');
     });
+
+    Route::prefix('contactos')->name('contactos.')->group(function () {
+        $c = \App\Http\Controllers\Api\Plataforma\ContactosApiController::class;
+
+        Route::get('/', [$c, 'index'])->name('index');
+        Route::post('/{id}/marcar', [$c, 'marcar'])->whereNumber('id')->name('marcar');
+        Route::delete('/{id}', [$c, 'apagar'])->whereNumber('id')->name('apagar');
+    });
+
+    Route::prefix('pedidos-de-estabelecimentos')->name('estabelecimentos.')->group(function () {
+        $c = \App\Http\Controllers\Api\Plataforma\PedidosDeEstabelecimentosApiController::class;
+
+        Route::get('/', [$c, 'index'])->name('index');
+        Route::post('/{id}/aprovar', [$c, 'aprovar'])->whereNumber('id')->name('aprovar');
+        Route::post('/{id}/recusar', [$c, 'recusar'])->whereNumber('id')->name('recusar');
+    });
+
+    Route::prefix('registo-de-emails')->name('emails.')->group(function () {
+        $c = \App\Http\Controllers\Api\Plataforma\RegistoDeEmailsApiController::class;
+
+        Route::get('/', [$c, 'index'])->name('index');
+        Route::post('/limpar-antigos', [$c, 'limparAntigos'])->name('limpar');
+        Route::get('/{id}', [$c, 'ver'])->whereNumber('id')->name('ver');
+        Route::delete('/{id}', [$c, 'apagar'])->whereNumber('id')->name('apagar');
+    });
+
+    Route::get('/aparelhos-pwa', [\App\Http\Controllers\Api\Plataforma\AparelhosPwaApiController::class, 'index'])->name('aparelhos-pwa');
+
+    Route::prefix('modelos-de-email')->name('modelos-de-email.')->group(function () {
+        $c = \App\Http\Controllers\Api\Plataforma\ModelosDeEmailApiController::class;
+
+        Route::get('/', [$c, 'index'])->name('index');
+        Route::post('/', [$c, 'guardar'])->name('criar');
+        Route::get('/{id}', [$c, 'ficha'])->whereNumber('id')->name('ficha');
+        Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+        Route::post('/{id}/alternar', [$c, 'alternar'])->whereNumber('id')->name('alternar');
+        Route::get('/{id}/previsualizar', [$c, 'previsualizar'])->whereNumber('id')->name('previsualizar');
+        Route::post('/{id}/enviar-teste', [$c, 'enviarTeste'])->whereNumber('id')->name('enviar-teste');
+        Route::delete('/{id}', [$c, 'apagar'])->whereNumber('id')->name('apagar');
+    });
+
+    Route::prefix('avisos')->name('avisos.')->group(function () {
+        $c = \App\Http\Controllers\Api\Plataforma\AvisosApiController::class;
+
+        Route::get('/', [$c, 'index'])->name('index');
+        Route::post('/', [$c, 'guardar'])->name('criar');
+        Route::post('/alcance', [$c, 'alcance'])->name('alcance');
+        Route::get('/{id}', [$c, 'ficha'])->whereNumber('id')->name('ficha');
+        Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+        Route::post('/{id}/alternar', [$c, 'alternar'])->whereNumber('id')->name('alternar');
+        Route::get('/{id}/leituras', [$c, 'leituras'])->whereNumber('id')->name('leituras');
+        Route::delete('/{id}', [$c, 'apagar'])->whereNumber('id')->name('apagar');
+    });
+
+    Route::prefix('sms-empresas')->name('sms-empresas.')->group(function () {
+        $c = \App\Http\Controllers\Api\Plataforma\SmsParaEmpresasApiController::class;
+
+        Route::get('/', [$c, 'index'])->name('index');
+        Route::post('/rever', [$c, 'rever'])->name('rever');
+        Route::post('/enviar', [$c, 'enviar'])->name('enviar');
+    });
 });
 
 // Super Admin Routes
@@ -393,7 +454,7 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
     Route::get('/dashboard', \App\Support\EcraReact::plataforma('plataforma/painel', 'Painel da Plataforma'))->name('dashboard');
     Route::get('/analytics', \App\Support\EcraReact::plataforma('plataforma/analitica', 'Analítica e visitantes'))->name('analytics');
     Route::get('/tenants', \App\Support\EcraReact::plataforma('plataforma/empresas', 'Empresas'))->name('tenants');
-    Route::get('/restaurant-venue-requests', \App\Livewire\SuperAdmin\RestaurantVenueRequests::class)->name('restaurant-venue-requests');
+    Route::get('/restaurant-venue-requests', \App\Support\EcraReact::plataforma('plataforma/estabelecimentos', 'Pedidos de estabelecimentos'))->name('restaurant-venue-requests');
     Route::get('/modules', \App\Support\EcraReact::plataforma('plataforma/modulos', 'Módulos'))->name('modules');
     Route::get('/plans', \App\Support\EcraReact::plataforma('plataforma/planos', 'Planos'))->name('plans');
     Route::get('/billing', \App\Support\EcraReact::plataforma('plataforma/facturacao', 'Facturação da plataforma'))->name('billing');
@@ -401,26 +462,26 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
 
     // Que empresas usam o PWA, em que aparelhos e em que VERSÃO. Existe porque
     // um deploy do motor podia não chegar aos aparelhos e não havia como saber.
-    Route::get('/aparelhos-pwa', \App\Livewire\SuperAdmin\AparelhosPwa::class)->name('aparelhos-pwa');
+    Route::get('/aparelhos-pwa', \App\Support\EcraReact::plataforma('plataforma/aparelhos-pwa', 'Aparelhos PWA'))->name('aparelhos-pwa');
     Route::get('/system-updates', \App\Livewire\SuperAdmin\SystemUpdates::class)->name('system-updates');
     Route::get('/system-commands', \App\Livewire\SuperAdmin\SystemCommands::class)->name('system-commands');
     Route::get('/script-runner', \App\Livewire\SuperAdmin\ScriptRunner::class)->name('script-runner');
     Route::get('/system-settings', \App\Support\EcraReact::plataforma('plataforma/sistema', 'Definições do sistema'))->name('system-settings');
     Route::get('/software-settings', \App\Support\EcraReact::plataforma('plataforma/software', 'Definições do software'))->name('software-settings');
     Route::get('/system-optimization', \App\Livewire\SuperAdmin\SystemOptimization::class)->name('system-optimization');
-    Route::get('/email-templates', \App\Livewire\SuperAdmin\EmailTemplates::class)->name('email-templates');
+    Route::get('/email-templates', \App\Support\EcraReact::plataforma('plataforma/modelos-de-email', 'Modelos de email'))->name('email-templates');
     Route::get('/smtp-settings', \App\Support\EcraReact::plataforma('plataforma/correio', 'Servidores de correio'))->name('smtp-settings');
-    Route::get('/email-logs', \App\Livewire\SuperAdmin\EmailLogs::class)->name('email-logs');
+    Route::get('/email-logs', \App\Support\EcraReact::plataforma('plataforma/registo-de-emails', 'Registo de emails'))->name('email-logs');
     // Avisos e mensagens do dono da plataforma para as empresas.
-    Route::get('/mensagens', \App\Livewire\SuperAdmin\MensagensPlataforma::class)->name('mensagens');
+    Route::get('/mensagens', \App\Support\EcraReact::plataforma('plataforma/avisos', 'Mensagens às empresas'))->name('mensagens');
     Route::get('/sms-settings', \App\Support\EcraReact::plataforma('plataforma/sms', 'SMS'))->name('sms-settings');
     // Enviar um SMS às empresas — a todas, ou só às escolhidas.
-    Route::get('/sms-empresas', \App\Livewire\SuperAdmin\SmsParaEmpresas::class)->name('sms-empresas');
+    Route::get('/sms-empresas', \App\Support\EcraReact::plataforma('plataforma/sms-empresas', 'SMS às empresas'))->name('sms-empresas');
     Route::get('/whatsapp-notifications', \App\Support\EcraReact::plataforma('plataforma/whatsapp', 'WhatsApp'))->name('whatsapp-notifications');
     Route::get('/saft-configuration', \App\Support\EcraReact::plataforma('plataforma/chaves-saft', 'Chaves do SAF-T'))->name('saft');
     // A descarga das chaves: é um ficheiro, e por isso uma rota de página.
     Route::get('/saft-configuration/descarregar/{qual}/{formato}', [\App\Http\Controllers\Api\Plataforma\ChavesSaftApiController::class, 'descarregar'])->name('saft.descarregar');
-    Route::get('/contact-messages', \App\Livewire\SuperAdmin\ContactMessages::class)->name('contact-messages');
+    Route::get('/contact-messages', \App\Support\EcraReact::plataforma('plataforma/contactos', 'Mensagens de contacto'))->name('contact-messages');
 });
 
 // PWA Offline — Faturação (rotas standalone com auth por sessão)

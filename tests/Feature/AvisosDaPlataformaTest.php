@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Livewire\AvisosDaPlataforma;
 use App\Livewire\MensagensDaPlataforma;
-use App\Livewire\SuperAdmin\MensagensPlataforma;
 use App\Models\PlatformMessage;
 use App\Models\PlatformMessageRead;
 use Livewire\Livewire;
@@ -109,14 +108,14 @@ class AvisosDaPlataformaTest extends TenantTestCase
     {
         $this->comoDonoDaPlataforma();
 
-        Livewire::test(MensagensPlataforma::class)
-            ->set('title', 'Suporte')
-            ->set('body', 'Contactar 942705533.')
-            ->set('level', 'info')
-            ->set('display', 'barra')
-            ->set('audience', 'todas')
-            ->set('starts_at', '2026-08-14T10:20')
-            ->call('guardar');
+        $this->postJson('/api/v1/plataforma/react/avisos', [
+            'title' => 'Suporte',
+            'body' => 'Contactar 942705533.',
+            'level' => 'info',
+            'display' => 'barra',
+            'audience' => 'todas',
+            'starts_at' => '2026-08-14T10:20',
+        ])->assertOk();
 
         $m = PlatformMessage::where('title', 'Suporte')->firstOrFail();
 

@@ -32,6 +32,13 @@ const MORADAS = [
     ['/superadmin/saft-configuration', 'Chaves do SAF-T'],
     ['/superadmin/system-settings', 'Definições do sistema'],
     ['/superadmin/software-settings', 'Definições do software'],
+    ['/superadmin/contact-messages', 'Mensagens de Contacto'],
+    ['/superadmin/restaurant-venue-requests', 'Pedidos de estabelecimentos'],
+    ['/superadmin/email-logs', 'Logs de Email'],
+    ['/superadmin/aparelhos-pwa', 'Aparelhos com PWA'],
+    ['/superadmin/email-templates', 'Email Templates'],
+    ['/superadmin/mensagens', 'Mensagens às empresas'],
+    ['/superadmin/sms-empresas', 'SMS às empresas'],
 ];
 
 async function entrarComoDono(page) {
@@ -331,5 +338,71 @@ test.describe('as definições', () => {
         await expect(page.getByText(/nada é submetido/)).toBeVisible();
         await page.getByRole('radio', { name: 'Produção' }).click();
         await expect(page.getByRole('button', { name: 'Guardar para produção' })).toBeVisible();
+    });
+});
+
+test.describe("as ferramentas da plataforma", () => {
+    test.beforeEach(async ({ page }) => {
+        await entrarComoDono(page);
+    });
+
+    test("uma variável carregada entra no conteúdo do modelo de email", async ({ page }) => {
+        await abrir(page, "/superadmin/email-templates", "Email Templates");
+
+        await page.getByRole("button", { name: "Novo Template" }).click();
+
+        const janela = page.getByRole("dialog");
+
+        await janela.getByRole("button", { name: "{tenant_name}" }).click();
+        await expect(janela.getByLabel(/Conteúdo HTML/)).toHaveValue("{tenant_name}");
+        await janela.getByRole("button", { name: "Cancelar" }).click();
+        await expect(janela).toBeHidden();
+    });
+
+    test("a mensagem às empresas diz a quantas chega antes de publicar", async ({ page }) => {
+        await abrir(page, "/superadmin/mensagens", "Mensagens às empresas");
+
+        await page.locator("header").getByRole("button", { name: "Escrever mensagem" }).click();
+
+        const janela = page.getByRole("dialog");
+
+        await expect(janela.getByText(/Chega a \d+ empresa/)).toBeVisible();
+
+        const alcance = page.waitForResponse((r) => r.url().includes("/api/v1/plataforma/react/avisos/alcance"));
+
+        await janela.getByLabel("Para quem").selectOption("empresas");
+        expect((await alcance).status()).toBe(200);
+        await expect(janela.getByText(/Chega a 0 empresa/)).toBeVisible();
+        await janela.getByRole("button", { name: "Cancelar" }).click();
+    });
+
+    test("um acento no SMS multiplica as partes", async ({ page }) => {
+        await abrir(page, "/superadmin/sms-empresas", "SMS às empresas");
+
+        const caixa = page.getByLabel(/^Mensagem/);
+
+        await caixa.fill("a".repeat(150));
+        await expect(page.getByText("1 parte(s) por destinatário")).toBeVisible();
+        await caixa.fill("a".repeat(149) + "ã");
+        await expect(page.getByText("3 parte(s) por destinatário")).toBeVisible();
+    });
+
+    test("um filtro dos aparelhos pede a lista filtrada", async ({ page }) => {
+        await abrir(page, "/superadmin/aparelhos-pwa", "Aparelhos com PWA");
+
+        const pedido = page.waitForResponse((r) => r.url().includes("/api/v1/plataforma/react/aparelhos-pwa") && r.url().includes("filtro=atrasados"));
+
+        await page.getByRole("group", { name: "Filtro" }).getByRole("button", { name: "Atrasados" }).click();
+        expect((await pedido).status()).toBe(200);
+    });
+
+    test("o registo de emails filtra por data", async ({ page }) => {
+        await abrir(page, "/superadmin/email-logs", "Logs de Email");
+
+        const pedido = page.waitForResponse((r) => r.url().includes("/api/v1/plataforma/react/registo-de-emails") && r.url().includes("de=2026-01-01"));
+
+        await page.getByLabel("Data de").fill("2026-01-01");
+        expect((await pedido).status()).toBe(200);
+        await expect(page.getByRole("button", { name: "Limpar filtros" })).toBeVisible();
     });
 });

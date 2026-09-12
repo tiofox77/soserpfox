@@ -5,6 +5,10 @@ namespace Tests\Feature;
 use App\Models\Restaurant\VenueLimitRequest;
 use Tests\TenantTestCase;
 
+/**
+ * O dono da plataforma abre os pedidos de estabelecimentos. O ecrã passou a
+ * React: a página monta o ecrã e a API entrega os pedidos de todas as empresas.
+ */
 class SuperAdminRestaurantVenueRequestsTest extends TenantTestCase
 {
     public function test_super_admin_abre_lista_de_pedidos(): void
@@ -17,7 +21,10 @@ class SuperAdminRestaurantVenueRequestsTest extends TenantTestCase
 
         $this->get(route('superadmin.restaurant-venue-requests'))
             ->assertOk()
-            ->assertSee('Pedidos de estabelecimentos')
-            ->assertSee($this->tenant->name);
+            ->assertSee('data-ecra="plataforma/estabelecimentos"', false);
+
+        $this->getJson('/api/v1/plataforma/react/pedidos-de-estabelecimentos')
+            ->assertOk()
+            ->assertJsonFragment(['empresa' => $this->tenant->company_name ?: $this->tenant->name]);
     }
 }

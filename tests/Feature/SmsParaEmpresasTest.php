@@ -2,11 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\SuperAdmin\SmsParaEmpresas;
 use App\Models\SmsSetting;
 use App\Models\Tenant;
 use App\Models\User;
-use Livewire\Livewire;
+use App\Support\PartesDeSms;
+use Illuminate\Support\Facades\Http;
 use Tests\TenantTestCase;
 
 /**
@@ -14,14 +14,18 @@ use Tests\TenantTestCase;
  *
  * O SMS custa por mensagem e um engano aqui multiplica-se por todas as
  * empresas, por isso o que se guarda aqui e sobretudo o que TRAVA: nao enviar
- * sem confirmar, nao contar como destinatario quem nao tem telefone, e nao
- * deixar uma falha levar as restantes atras.
+ * sem rever, nao contar como destinatario quem nao tem telefone, e nao deixar
+ * uma falha levar as restantes atras.
+ *
+ * O ecrã passou a React e fala com `/api/v1/plataforma/react/sms-empresas`.
  */
 class SmsParaEmpresasTest extends TenantTestCase
 {
+    private const API = '/api/v1/plataforma/react/sms-empresas';
+
     private function comoDonoDaPlataforma(): User
     {
-        $this->user->update(['is_super_admin' => true]);
+        $this->user->forceFill(['is_super_admin' => true])->save();
         $this->actingAs($this->user->fresh());
 
         return $this->user;
@@ -29,13 +33,19 @@ class SmsParaEmpresasTest extends TenantTestCase
 
     private function comConfiguracaoDeSms(): void
     {
+        // A TelcoSMS e não a D7: a D7 envia por cURL cru, que o Http::fake não
+        // apanha, e um ensaio que mande um SMS a sério é um ensaio que custa.
+        SmsSetting::where('tenant_id', $this->tenant->id)->delete();
         SmsSetting::updateOrCreate(['tenant_id' => null], [
-            'provider'  => 'd7networks',
-            'api_url'   => 'https://api.d7networks.com/messages/v1/send',
+            'provider'  => 'telcosms',
+            'api_url'   => 'https://www.telcosms.co.ao/api/v2/send_message',
             'api_token' => 'token-de-teste',
-            'sender_id' => 'SOS ERP',
+            'sender_id' => 'SOSERP',
+            'config'    => ['telco_application' => 'soserp_prd', 'sender' => 'SOSERP'],
             'is_active' => true,
         ]);
+        Http::fake(['www.telcosms.co.ao/*' => Http::response('', 200)]);
+        Http::preventStrayRequests();
     }
 
     private function empresa(string $nome, ?string $telefone): Tenant
@@ -48,68 +58,61 @@ class SmsParaEmpresasTest extends TenantTestCase
         ]);
     }
 
+    private function pedido(array $troca = []): array
+    {
+        return array_merge(['mensagem' => 'Aviso importante', 'publico' => 'todas', 'empresa_ids' => [], 'plano_ids' => []], $troca);
+    }
+
     // ---- o custo, que e o que se paga ------------------------------------
 
     /** Uma mensagem curta sem acentos e uma parte. */
     public function test_uma_mensagem_curta_e_uma_parte(): void
     {
-        $this->comoDonoDaPlataforma();
-
-        Livewire::test(SmsParaEmpresas::class)
-            ->set('mensagem', 'Manutencao no sabado as 22h.')
-            ->assertReturned(fn () => true);
-
-        $componente = Livewire::test(SmsParaEmpresas::class)->set('mensagem', 'Curta');
-
-        $this->assertSame(1, $componente->instance()->partes());
+        $this->assertSame(1, PartesDeSms::contar('Manutencao no sabado as 22h.'));
     }
 
     /**
-     * Um unico acento leva a mensagem para UCS-2, onde cada parte encolhe de
-     * 160 para 70. Contar caracteres escondia isto: 160 letras sao uma parte,
-     * e as mesmas com um "a" com til sao tres.
+     * Um acento leva a mensagem a UCS-2: a mesma mensagem com 'ã' custa tres
+     * partes em vez de uma. E a diferenca que o ecra tem de mostrar.
      */
     public function test_um_acento_encolhe_a_parte_e_multiplica_o_custo(): void
     {
-        $this->comoDonoDaPlataforma();
+        $semAcento = str_repeat('a', 150);
+        $comAcento = str_repeat('a', 149) . 'ã';
 
-        $semAcento = str_repeat('a', 160);
-        $comAcento = str_repeat('a', 159) . 'ã';
-
-        $um = Livewire::test(SmsParaEmpresas::class)->set('mensagem', $semAcento)->instance()->partes();
-        $tres = Livewire::test(SmsParaEmpresas::class)->set('mensagem', $comAcento)->instance()->partes();
-
-        $this->assertSame(1, $um);
-        $this->assertGreaterThan($um, $tres, 'o acento tinha de aumentar as partes');
+        $this->assertSame(1, PartesDeSms::contar($semAcento));
+        $this->assertSame(3, PartesDeSms::contar($comAcento));
     }
 
     public function test_sem_mensagem_nao_ha_partes(): void
     {
-        $this->comoDonoDaPlataforma();
+        $this->assertSame(0, PartesDeSms::contar(''));
+    }
 
-        $this->assertSame(0, Livewire::test(SmsParaEmpresas::class)->set('mensagem', '')->instance()->partes());
+    /** O ecrã faz a mesma conta enquanto se escreve — com os mesmos limites. */
+    public function test_o_ecra_conta_as_partes_com_os_mesmos_limites(): void
+    {
+        $ecra = file_get_contents(resource_path('js/ecras/plataforma/SmsParaEmpresas.tsx'));
+
+        $this->assertStringContainsString('[70, 67]', $ecra);
+        $this->assertStringContainsString('[160, 153]', $ecra);
     }
 
     // ---- quem recebe -----------------------------------------------------
 
-    /** Quem nao tem telefone nao conta como destinatario. */
+    /** Quem nao tem telefone nao conta como destinatario — e diz-se quem e. */
     public function test_quem_nao_tem_telefone_nao_conta(): void
     {
         $this->comoDonoDaPlataforma();
         $this->comConfiguracaoDeSms();
 
         Tenant::query()->update(['is_active' => false]);
-        $com = $this->empresa('Com Telefone', '923000001');
+        $this->empresa('Com Telefone', '923000001');
         $this->empresa('Sem Telefone', null);
 
-        $componente = Livewire::test(SmsParaEmpresas::class)->set('publico', 'todas');
-
-        // Pelos métodos e não por ->get(): quantasAlvo e quantasPodem são
-        // variáveis da vista, e o ->get() só chega às propriedades públicas —
-        // devolvia null e o teste passava a comparar null com null.
-        $this->assertSame(2, $componente->instance()->alvo()->count());
-        $this->assertSame(1, $componente->instance()->comTelefone()->count());
-        $this->assertSame([$com->id], $componente->instance()->comTelefone()->pluck('id')->all());
+        $this->postJson(self::API . '/rever', $this->pedido())
+            ->assertOk()
+            ->assertJson(['alvo' => 2, 'com_telefone' => 1, 'sem_telefone' => ['Sem Telefone'], 'partes' => 1, 'total_de_partes' => 1]);
     }
 
     /**
@@ -119,15 +122,14 @@ class SmsParaEmpresasTest extends TenantTestCase
     public function test_a_lista_marca_quem_nao_tem_telefone(): void
     {
         $this->comoDonoDaPlataforma();
-        $this->comConfiguracaoDeSms();
 
         Tenant::query()->update(['is_active' => false]);
-        $this->empresa('Empresa Sem Numero', null);
+        $sem = $this->empresa('Empresa Sem Numero', null);
 
-        Livewire::test(SmsParaEmpresas::class)
-            ->set('publico', 'empresas')
-            ->assertSee('Empresa Sem Numero')
-            ->assertSee('sem telefone');
+        $linha = collect($this->getJson(self::API)->assertOk()->json('empresas'))->firstWhere('id', $sem->id);
+
+        $this->assertNull($linha['telefone']);
+        $this->assertStringContainsString("t('sem telefone')", file_get_contents(resource_path('js/ecras/plataforma/SmsParaEmpresas.tsx')));
     }
 
     /** Escolher algumas manda so a essas. */
@@ -137,15 +139,17 @@ class SmsParaEmpresasTest extends TenantTestCase
         $this->comConfiguracaoDeSms();
 
         Tenant::query()->update(['is_active' => false]);
-        $uma   = $this->empresa('Uma', '923000001');
-        $outra = $this->empresa('Outra', '923000002');
+        $uma = $this->empresa('Uma', '923000001');
+        $this->empresa('Outra', '923000002');
 
-        $componente = Livewire::test(SmsParaEmpresas::class)
-            ->set('publico', 'empresas')
-            ->set('empresa_ids', [$uma->id]);
+        $assinatura = $this->postJson(self::API . '/rever', $this->pedido(['publico' => 'empresas', 'empresa_ids' => [$uma->id]]))
+            ->assertOk()->assertJson(['com_telefone' => 1])->json('assinatura');
 
-        $this->assertSame([$uma->id], $componente->instance()->comTelefone()->pluck('id')->all());
-        $this->assertNotContains($outra->id, $componente->instance()->comTelefone()->pluck('id')->all());
+        $this->postJson(self::API . '/enviar', $this->pedido(['publico' => 'empresas', 'empresa_ids' => [$uma->id], 'assinatura' => $assinatura]))
+            ->assertOk()->assertJsonPath('resultado.enviados', 1);
+
+        $this->assertDatabaseHas('sms_logs', ['tenant_id' => $uma->id, 'type' => 'aviso_plataforma']);
+        $this->assertDatabaseMissing('sms_logs', ['recipient' => '+244923000002']);
     }
 
     /** Escolher "empresas" sem escolher nenhuma nao manda a todas. */
@@ -155,41 +159,52 @@ class SmsParaEmpresasTest extends TenantTestCase
         $this->comConfiguracaoDeSms();
         $this->empresa('Alguma', '923000001');
 
-        $componente = Livewire::test(SmsParaEmpresas::class)
-            ->set('publico', 'empresas')
-            ->set('empresa_ids', []);
-
-        $this->assertCount(0, $componente->instance()->comTelefone());
+        $this->postJson(self::API . '/rever', $this->pedido(['publico' => 'empresas', 'empresa_ids' => []]))
+            ->assertStatus(422)->assertJsonValidationErrors('empresa_ids');
     }
 
     // ---- os travoes ------------------------------------------------------
 
-    /** Nao se envia sem passar pela confirmacao. */
+    /** Nao se envia sem passar pela revisao. */
     public function test_nao_envia_sem_confirmar(): void
     {
         $this->comoDonoDaPlataforma();
         $this->comConfiguracaoDeSms();
         $this->empresa('Alguma', '923000001');
 
-        Livewire::test(SmsParaEmpresas::class)
-            ->set('mensagem', 'Aviso importante')
-            ->call('enviar')
-            ->assertSet('resultado', []);
+        $this->postJson(self::API . '/enviar', $this->pedido())
+            ->assertStatus(422)->assertJsonValidationErrors('assinatura');
+
+        $this->assertDatabaseMissing('sms_logs', ['type' => 'aviso_plataforma']);
     }
 
-    /** Mudar o publico depois de rever desfaz a confirmacao. */
+    /**
+     * Mudar o publico depois de rever desfaz a confirmacao: a confirmacao e
+     * sobre AQUELES destinatarios e AQUELE texto. Trocar uma empresa por outra
+     * — o mesmo numero de destinatarios — tambem tem de ser recusado.
+     */
     public function test_mudar_o_publico_desfaz_a_confirmacao(): void
     {
         $this->comoDonoDaPlataforma();
         $this->comConfiguracaoDeSms();
-        $this->empresa('Alguma', '923000001');
 
-        Livewire::test(SmsParaEmpresas::class)
-            ->set('mensagem', 'Aviso importante')
-            ->call('rever')
-            ->assertSet('porConfirmar', true)
-            ->set('publico', 'empresas')
-            ->assertSet('porConfirmar', false);
+        Tenant::query()->update(['is_active' => false]);
+        $uma = $this->empresa('Uma', '923000001');
+        $this->empresa('Outra', '923000002');
+
+        $outra = Tenant::where('name', 'Outra')->firstOrFail();
+        $assinatura = $this->postJson(self::API . '/rever', $this->pedido(['publico' => 'empresas', 'empresa_ids' => [$uma->id]]))->json('assinatura');
+
+        $this->postJson(self::API . '/enviar', $this->pedido(['publico' => 'todas', 'assinatura' => $assinatura]))
+            ->assertStatus(422)->assertJsonValidationErrors('assinatura');
+
+        $this->postJson(self::API . '/enviar', $this->pedido(['publico' => 'empresas', 'empresa_ids' => [$outra->id], 'assinatura' => $assinatura]))
+            ->assertStatus(422)->assertJsonValidationErrors('assinatura');
+
+        $this->postJson(self::API . '/enviar', $this->pedido(['publico' => 'empresas', 'empresa_ids' => [$uma->id], 'mensagem' => 'Outro texto', 'assinatura' => $assinatura]))
+            ->assertStatus(422)->assertJsonValidationErrors('assinatura');
+
+        $this->assertDatabaseMissing('sms_logs', ['type' => 'aviso_plataforma']);
     }
 
     /** Sem ninguem com telefone nao se chega sequer a confirmar. */
@@ -201,11 +216,8 @@ class SmsParaEmpresasTest extends TenantTestCase
         Tenant::query()->update(['is_active' => false, 'phone' => null]);
         $this->empresa('Sem Telefone', null);
 
-        Livewire::test(SmsParaEmpresas::class)
-            ->set('mensagem', 'Aviso importante')
-            ->call('rever')
-            ->assertHasErrors('mensagem')
-            ->assertSet('porConfirmar', false);
+        $this->postJson(self::API . '/rever', $this->pedido())
+            ->assertStatus(422)->assertJsonValidationErrors('mensagem');
     }
 
     /** Uma mensagem vazia nao passa. */
@@ -213,45 +225,63 @@ class SmsParaEmpresasTest extends TenantTestCase
     {
         $this->comoDonoDaPlataforma();
 
-        Livewire::test(SmsParaEmpresas::class)
-            ->set('mensagem', '')
-            ->call('rever')
-            ->assertHasErrors('mensagem');
+        $this->postJson(self::API . '/rever', $this->pedido(['mensagem' => '']))
+            ->assertStatus(422)->assertJsonValidationErrors('mensagem');
+    }
+
+    /**
+     * O que sai e o que esta escrito, com as variaveis trocadas por empresa.
+     * Escolher um modelo e corrigir o texto na caixa mandava o modelo intacto.
+     */
+    public function test_o_texto_escrito_e_o_que_sai_com_as_variaveis_trocadas(): void
+    {
+        $this->comoDonoDaPlataforma();
+        $this->comConfiguracaoDeSms();
+
+        Tenant::query()->update(['is_active' => false]);
+        $uma = $this->empresa('Padaria Kianda', '923000001');
+
+        $pedido = $this->pedido(['mensagem' => 'Ola {{tenant_name}}, paragem as 22h.', 'publico' => 'empresas', 'empresa_ids' => [$uma->id]]);
+        $assinatura = $this->postJson(self::API . '/rever', $pedido)->assertOk()->json('assinatura');
+
+        $this->postJson(self::API . '/enviar', $pedido + ['assinatura' => $assinatura])
+            ->assertOk()->assertJsonPath('resultado.enviados', 1);
+
+        $this->assertDatabaseHas('sms_logs', ['tenant_id' => $uma->id, 'message' => 'Ola Padaria Kianda, paragem as 22h.']);
     }
 
     /** Quem nao e dono da plataforma nao entra. */
     public function test_quem_nao_e_dono_da_plataforma_nao_entra(): void
     {
-        $this->user->update(['is_super_admin' => false]);
+        $this->user->forceFill(['is_super_admin' => false])->save();
         $this->actingAs($this->user->fresh());
 
-        Livewire::test(SmsParaEmpresas::class)->assertForbidden();
+        $this->getJson(self::API)->assertForbidden();
+        $this->postJson(self::API . '/enviar', $this->pedido(['assinatura' => str_repeat('a', 64)]))->assertForbidden();
     }
 
     /**
      * A pagina abre mesmo.
      *
-     * Faltava este: os outros testes exercitavam o COMPONENTE pelo Livewire::test,
-     * que nao passa pelo layout. A rota rebentava com 500 por o layout nao estar
-     * declarado, e nenhum teste dava por isso.
+     * Faltava este quando era Livewire: os testes exercitavam o componente sem
+     * passar pelo layout, e a rota rebentava com 500 sem nenhum teste dar por
+     * isso.
      */
     public function test_a_pagina_abre(): void
     {
         $this->comoDonoDaPlataforma();
 
-        $this->get("/superadmin/sms-empresas")
+        $this->get('/superadmin/sms-empresas')
             ->assertOk()
-            ->assertSee("SMS");
+            ->assertSee('data-ecra="plataforma/sms-empresas"', false);
     }
 
     /** E quem nao e dono da plataforma nao entra por la. */
     public function test_a_rota_recusa_quem_nao_e_dono_da_plataforma(): void
     {
-        $this->user->update(["is_super_admin" => false]);
+        $this->user->forceFill(['is_super_admin' => false])->save();
         $this->actingAs($this->user->fresh());
 
-        $resposta = $this->get("/superadmin/sms-empresas");
-
-        $this->assertNotEquals(200, $resposta->getStatusCode());
+        $this->assertNotEquals(200, $this->get('/superadmin/sms-empresas')->getStatusCode());
     }
 }

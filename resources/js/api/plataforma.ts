@@ -619,3 +619,143 @@ export const plataforma = {
         apagar: (id: number) => apiDaPlataforma.apagar<Recado>(`/modulos/${id}`),
     },
 };
+
+// ---- as ferramentas e os registos da plataforma ----------------------------
+
+type Filtros = Record<string, string | number | undefined>;
+
+export type MensagemDeContacto = {
+    id: number; nome: string; email: string; telefone: string | null; empresa: string | null;
+    mensagem: string; estado: 'new' | 'read' | 'replied'; ip: string | null; recebida_em: string | null;
+};
+
+export type PedidoDeEstabelecimentos = {
+    id: number; empresa: string | null; quota_actual_da_empresa: number | null;
+    pedido_por: string | null; pedido_em: string | null; quota: number; pedido: number;
+    motivo: string | null; estado: 'pending' | 'approved' | 'rejected';
+    nota: string | null; analisado_por: string | null; analisado_em: string | null;
+};
+
+export type RegistoDeEmail = {
+    id: number; para: string; nome: string | null; assunto: string; modelo: string | null;
+    estado: 'sent' | 'failed' | 'pending'; criado_em: string | null;
+};
+
+export type DetalheDoEmail = {
+    id: number; estado: string; enviado_em: string | null; falhou_em: string | null; erro: string | null;
+    para: string; para_nome: string | null; de: string | null; de_nome: string | null;
+    modelo: string | null; modelo_nome: string | null; criado_em: string | null;
+    assunto: string; previa: string | null; dados: Record<string, unknown> | null;
+    empresa: string | null; utilizador: string | null; servidor: string | null; identificador: string | null;
+};
+
+export type AparelhoPwa = {
+    id: number; empresa: string | null; aparelho: string; versao: string | null; atrasado: boolean;
+    instalado: boolean; plataforma: string | null; utilizador: string | null; email: string | null;
+    visto_em: string | null; adormecido: boolean; sincronizacoes: number;
+};
+
+export type ModeloDeEmail = {
+    id: number; slug: string; nome: string; assunto: string; descricao: string | null; activo: boolean;
+    actualizado_em: string | null; envios: number; ultimo_envio: string | null;
+};
+
+export type FichaDoModeloDeEmail = {
+    id?: number; slug: string; name: string; subject: string; body_html: string;
+    body_text: string; description: string; is_active: boolean;
+};
+
+export type AvisoDaPlataforma = {
+    id: number; titulo: string; corpo: string; nivel: string; forma: string; publico: string;
+    alcance: number; vistas: number; dispensadas: number; dispensavel: boolean; activa: boolean;
+    situacao: 'retirada' | 'terminada' | 'agendada' | 'no_ar';
+    comeca: string | null; termina: string | null; ligacao: string | null; texto_da_ligacao: string | null;
+    autor: string | null;
+};
+
+export type FichaDoAviso = {
+    id?: number; title: string; body: string; level: string; display: string; audience: string;
+    tenant_ids: number[]; plan_ids: number[]; starts_at: string; ends_at: string;
+    dismissible: boolean; link_url: string; link_label: string; is_active: boolean;
+};
+
+export type Nomeado = { id: number; nome: string };
+
+export const ferramentas = {
+    contactos: {
+        ler: (f: Filtros) => apiDaPlataforma.ler<{
+            mensagens: MensagemDeContacto[]; paginacao: Paginacao;
+            numeros: { total: number; novas: number; lidas: number; respondidas: number };
+        }>('/contactos', f),
+        marcar: (id: number, estado: 'read' | 'replied') => apiDaPlataforma.criar<Recado>(`/contactos/${id}/marcar`, { estado }),
+        apagar: (id: number) => apiDaPlataforma.apagar<Recado>(`/contactos/${id}`),
+    },
+    estabelecimentos: {
+        ler: (f: Filtros) => apiDaPlataforma.ler<{
+            pedidos: PedidoDeEstabelecimentos[]; paginacao: Paginacao;
+            contagens: Record<'pending' | 'approved' | 'rejected', number>;
+        }>('/pedidos-de-estabelecimentos', f),
+        aprovar: (id: number, limite: number, nota: string) =>
+            apiDaPlataforma.criar<Recado>(`/pedidos-de-estabelecimentos/${id}/aprovar`, { limite, nota }),
+        recusar: (id: number, nota: string) =>
+            apiDaPlataforma.criar<Recado>(`/pedidos-de-estabelecimentos/${id}/recusar`, { nota }),
+    },
+    emails: {
+        ler: (f: Filtros) => apiDaPlataforma.ler<{
+            registos: RegistoDeEmail[]; paginacao: Paginacao; modelos: string[];
+            numeros: { total: number; enviados: number; falhados: number; pendentes: number };
+        }>('/registo-de-emails', f),
+        ver: (id: number) => apiDaPlataforma.ler<{ registo: DetalheDoEmail }>(`/registo-de-emails/${id}`),
+        apagar: (id: number) => apiDaPlataforma.apagar<Recado>(`/registo-de-emails/${id}`),
+        limparAntigos: () => apiDaPlataforma.criar<Recado & { apagados: number }>('/registo-de-emails/limpar-antigos', {}),
+    },
+    aparelhos: {
+        ler: (f: Filtros) => apiDaPlataforma.ler<{
+            versao_actual: string; dias_ate_adormecer: number;
+            resumo: { aparelhos: number; empresas: number; instalados: number; atrasados: number; adormecidos: number };
+            aparelhos: AparelhoPwa[]; com_modulo_sem_aparelho: Nomeado[]; paginacao: Paginacao;
+        }>('/aparelhos-pwa', f),
+    },
+    modelosDeEmail: {
+        ler: (f: Filtros) => apiDaPlataforma.ler<{
+            modelos: ModeloDeEmail[]; variaveis: string[]; o_meu_email: string | null; paginacao: Paginacao;
+        }>('/modelos-de-email', f),
+        ficha: (id: number) => apiDaPlataforma.ler<{ ficha: FichaDoModeloDeEmail }>(`/modelos-de-email/${id}`),
+        guardar: (id: number | null, dados: Record<string, unknown>) =>
+            id ? apiDaPlataforma.guardar<Recado>(`/modelos-de-email/${id}`, dados) : apiDaPlataforma.criar<Recado>('/modelos-de-email', dados),
+        alternar: (id: number) => apiDaPlataforma.criar<Recado>(`/modelos-de-email/${id}/alternar`, {}),
+        previsualizar: (id: number) =>
+            apiDaPlataforma.ler<{ assunto: string; html: string; texto: string | null }>(`/modelos-de-email/${id}/previsualizar`),
+        enviarTeste: (id: number, email: string) => apiDaPlataforma.criar<Recado>(`/modelos-de-email/${id}/enviar-teste`, { email }),
+        apagar: (id: number) => apiDaPlataforma.apagar<Recado>(`/modelos-de-email/${id}`),
+    },
+    avisos: {
+        ler: (pagina: number) => apiDaPlataforma.ler<{
+            mensagens: AvisoDaPlataforma[]; paginacao: Paginacao;
+            opcoes: { niveis: Escolha[]; formas: Escolha[]; publicos: Escolha[]; empresas: Nomeado[]; planos: Nomeado[] };
+        }>('/avisos', { pagina }),
+        ficha: (id: number) => apiDaPlataforma.ler<{ ficha: FichaDoAviso }>(`/avisos/${id}`),
+        guardar: (id: number | null, dados: Record<string, unknown>) =>
+            id ? apiDaPlataforma.guardar<Recado>(`/avisos/${id}`, dados) : apiDaPlataforma.criar<Recado>('/avisos', dados),
+        alcance: (dados: { audience: string; tenant_ids: number[]; plan_ids: number[] }) =>
+            apiDaPlataforma.criar<{ empresas: number }>('/avisos/alcance', dados),
+        alternar: (id: number) => apiDaPlataforma.criar<Recado>(`/avisos/${id}/alternar`, {}),
+        leituras: (id: number) => apiDaPlataforma.ler<{
+            leituras: Array<{ id: number; nome: string | null; email: string | null; vista_em: string | null; dispensada_em: string | null }>;
+        }>(`/avisos/${id}/leituras`),
+        apagar: (id: number) => apiDaPlataforma.apagar<Recado>(`/avisos/${id}`),
+    },
+    smsEmpresas: {
+        ler: () => apiDaPlataforma.ler<{
+            configurado: boolean; gateway: string | null;
+            empresas: Array<Nomeado & { telefone: string | null }>; planos: Nomeado[];
+            modelos: Array<Nomeado & { conteudo: string }>; variaveis: string[];
+        }>('/sms-empresas'),
+        rever: (dados: Record<string, unknown>) => apiDaPlataforma.criar<{
+            alvo: number; com_telefone: number; sem_telefone: string[]; partes: number; total_de_partes: number; assinatura: string;
+        }>('/sms-empresas/rever', dados),
+        enviar: (dados: Record<string, unknown>) => apiDaPlataforma.criar<Recado & {
+            resultado: { enviados: number; falhados: string[]; partes: number };
+        }>('/sms-empresas/enviar', dados),
+    },
+};

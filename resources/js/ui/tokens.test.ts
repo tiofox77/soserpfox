@@ -119,3 +119,21 @@ describe('data()', () => {
         expect(data('não é data nenhuma')).toBe('—');
     });
 });
+
+describe('haQuanto', () => {
+    const agora = new Date('2026-09-12T12:00:00Z');
+
+    it('diz a distância na unidade maior que cabe', async () => {
+        const { haQuanto } = await import('./tokens');
+
+        expect(haQuanto('2026-09-09T12:00:00Z', agora)).toBe('há 3 dias');
+        expect(haQuanto('2026-09-12T10:00:00Z', agora)).toBe('há 2 horas');
+    });
+
+    it('sem data não inventa uma', async () => {
+        const { haQuanto } = await import('./tokens');
+
+        expect(haQuanto(null, agora)).toBe('—');
+        expect(haQuanto('isto não é data', agora)).toBe('—');
+    });
+});

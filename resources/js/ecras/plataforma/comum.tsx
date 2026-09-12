@@ -2,7 +2,9 @@ import type { ReactNode } from 'react';
 
 import { ErroDaApi } from '@/api/cliente';
 import { t } from '@/i18n';
+import { AvisoDeErro } from '@/ui/AvisoDeErro';
 import { Botao } from '@/ui/Botao';
+import { Modal } from '@/ui/Modal';
 import { FOCO, RAIO, TRANSICAO, cls } from '@/ui/tokens';
 
 /**
@@ -119,5 +121,77 @@ export function SegredoGuardado({ guardado }: { guardado: boolean }) {
         <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700">
             <i className="fas fa-triangle-exclamation" aria-hidden="true" />{t('Ainda não configurado')}
         </span>
+    );
+}
+
+/**
+ * «TEM A CERTEZA?» — a pergunta antes de apagar ou de fazer o que não se
+ * desfaz. O `wire:confirm` do Livewire era a caixa cinzenta do browser; aqui é
+ * um modal da casa, com o erro do servidor à vista quando a acção é recusada.
+ */
+export function Confirmar({
+    aberto, titulo, subtitulo, children, rotulo, icone = 'fa-trash', cor = 'perigo', aTrabalhar = false, erro, aoConfirmar, aoFechar,
+}: {
+    aberto: boolean;
+    titulo: string;
+    subtitulo?: string;
+    children: ReactNode;
+    rotulo: string;
+    icone?: string;
+    cor?: 'perigo' | 'aviso' | 'bom' | 'primaria';
+    aTrabalhar?: boolean;
+    erro?: unknown;
+    aoConfirmar: () => void;
+    aoFechar: () => void;
+}) {
+    return (
+        <Modal
+            aberto={aberto}
+            aoFechar={aoFechar}
+            titulo={titulo}
+            subtitulo={subtitulo}
+            icone={icone}
+            cor={cor}
+            largura="sm"
+            rodape={
+                <div className="flex justify-end gap-2">
+                    <Botao cor="neutra" onClick={aoFechar}>{t('Cancelar')}</Botao>
+                    <Botao cor={cor} tom="solida" icone={icone} aTrabalhar={aTrabalhar} onClick={aoConfirmar}>{rotulo}</Botao>
+                </div>
+            }
+        >
+            <div className="space-y-3 text-sm text-slate-700">
+                {children}
+                <AvisoDeErro erro={erro} />
+            </div>
+        </Modal>
+    );
+}
+
+/** Um botão só com ícone, para as acções de uma linha de tabela. O rótulo vai no `title` e para os leitores de ecrã. */
+export function BotaoDeIcone({ icone, rotulo, cor, onClick, desligado = false }: {
+    icone: string; rotulo: string; cor: string; onClick: () => void; desligado?: boolean;
+}) {
+    return (
+        <button
+            type="button"
+            title={rotulo}
+            onClick={onClick}
+            disabled={desligado}
+            className={cls('grid h-8 w-8 place-items-center hover:scale-110 disabled:cursor-not-allowed disabled:opacity-40', RAIO, TRANSICAO, FOCO, cor)}
+        >
+            <i className={`fas ${icone}`} aria-hidden="true" />
+            <span className="sr-only">{rotulo}</span>
+        </button>
+    );
+}
+
+/** Um par rótulo/valor dentro de um `<dl>` — o que as janelas de «ver» mostram. */
+export function Dado({ rotulo, children, className }: { rotulo: string; children: ReactNode; className?: string }) {
+    return (
+        <div className={className}>
+            <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">{rotulo}</dt>
+            <dd className="mt-0.5 break-words font-medium text-slate-800">{children}</dd>
+        </div>
     );
 }
