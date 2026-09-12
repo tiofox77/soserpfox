@@ -1335,6 +1335,9 @@ class PrepararBancadaPwa extends Command
                     'tenant_id' => $tenant->id,
                     'move_id' => $move->id,
                     'account_id' => $conta->id,
+                    // O `name` da linha é o que a reconciliação bancária compara
+                    // com a descrição do extracto.
+                    'name' => $nota,
                     'debit' => $lado === 'D' ? $valor : 0,
                     'credit' => $lado === 'C' ? $valor : 0,
                     'balance' => $lado === 'D' ? $valor : -$valor,
@@ -1524,6 +1527,58 @@ class PrepararBancadaPwa extends Command
                 'serial_number' => 'AHTFR22G30-BANCADA',
             ]
         );
+
+        /*
+         * UMA RECONCILIAÇÃO BANCÁRIA com duas linhas: uma que CASA com o
+         * depósito lançado acima, e outra que não — uma despesa bancária que
+         * ninguém lançou.
+         *
+         * Importar um extracto nunca funcionou (a relação que o serviço procurava
+         * não existia no `MoveLine`) e o botão «Ver» da lista não tinha clique
+         * nenhum, pelo que as linhas não se viam nem se casavam. Aqui ficam as
+         * duas: a casada e a que precisa de escolha à mão.
+         */
+        $conciliacao = \App\Models\Accounting\BankReconciliation::withoutGlobalScopes()->updateOrCreate(
+            [
+                'tenant_id' => $tenant->id,
+                'account_id' => $banco->id,
+                'statement_date' => now()->format('Y-m-d'),
+            ],
+            [
+                'statement_balance' => 28_500,
+                'book_balance' => 30_000,
+                'difference' => 0,
+                'status' => 'draft',
+                'file_type' => 'csv',
+            ]
+        );
+
+        $conciliacao->items()->delete();
+
+        foreach ([
+            /*
+             * ENTRADA no extracto: casa com o DÉBITO do depósito na conta do
+             * banco. A referência é a descrição do lançamento, e é isso que leva
+             * a confiança de 80 (valor + data) aos 100 do casamento automático.
+             */
+            ['credit', 30_000, 'Depósito do caixa', 'Depósito do caixa no banco'],
+            // E uma despesa bancária que não está lançada em lado nenhum.
+            ['debit', 1_500, 'DESP-BANCO', 'Despesas de manutenção de conta'],
+        ] as [$tipo, $valor, $referencia, $descricao]) {
+            \App\Models\Accounting\BankReconciliationItem::create([
+                'reconciliation_id' => $conciliacao->id,
+                'transaction_date' => now()->format('Y-m-d'),
+                'reference' => $referencia,
+                'description' => $descricao,
+                'amount' => $valor,
+                'type' => $tipo,
+                'status' => 'unmatched',
+            ]);
+        }
+
+        $servico = app(\App\Services\Accounting\BankReconciliationService::class);
+        $servico->autoMatch($conciliacao);
+        $servico->recalcular($conciliacao);
 
         return \App\Models\Accounting\Move::withoutGlobalScopes()->where('tenant_id', $tenant->id)->count();
     }

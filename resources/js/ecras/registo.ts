@@ -392,4 +392,10 @@ export const ecras: Record<string, Ecra> = {
         import('./contabilidade/Orcamentos'),
     'contabilidade/imobilizado': () =>
         import('./contabilidade/Imobilizado'),
+    'contabilidade/reconciliacao': () =>
+        import('./contabilidade/Reconciliacao'),
+    'contabilidade/relatorios': () =>
+        import('./contabilidade/Relatorios'),
+    'contabilidade/definicoes': () =>
+        import('./contabilidade/Definicoes'),
 };

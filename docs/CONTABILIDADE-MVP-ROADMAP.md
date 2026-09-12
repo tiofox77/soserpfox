@@ -154,6 +154,20 @@ Criar módulo de Contabilidade completo para ERP SaaS multi-tenant, com foco em 
   - [x] manualMatch() - Match manual pelo usuário
   - [x] recalculateDifference() - Recalcula saldos
 
+> **CORRIGIDO EM 2026-09-12.** Isto estava «100% completo» e **importar um
+> extracto falhava sempre**: o `findMatchingSuggestions()` chama
+> `whereDoesntHave('bankReconciliationItem')` e essa relação não existia no
+> `MoveLine` — o auto-match corre no fim da importação, o Eloquent atirava «Call
+> to undefined relationship», e o ecrã mostrava-o como «Erro ao importar». O
+> «Match manual» e as «Sugestões automáticas» estavam escritos e **sem ecrã que
+> os chamasse**: o botão «Ver» da lista era um `<button>` sem clique. Mais: a
+> janela de sugestões procurava lançamentos pela data em que a LINHA FOI
+> INSERIDA e não pela data do lançamento; uma referência vazia dava sempre os 20
+> pontos da descrição (`stripos($x, '')` devolve `0`, que não é `false`) e
+> conciliava sozinho a linha errada; o leitor de OFX tinha o corpo comentado
+> («// Parse transactions...») e não extraía transacção nenhuma; e uma
+> importação sem linhas dava-se por «reconciliada».
+
 **Semanas 9-10: Imobilizado & SAF-T** - ✅ COMPLETO
 - [x] ✅ Gestão de imobilizado completa
   - [x] Migration: fixed_assets + fixed_asset_categories + fixed_asset_depreciations
@@ -162,16 +176,26 @@ Criar módulo de Contabilidade completo para ERP SaaS multi-tenant, com foco em 
   - [x] FixedAssetDepreciation Model
   - [x] Campos: code, name, acquisition_value, residual_value, useful_life, book_value
   - [x] Status: active/fully_depreciated/sold/scrapped
-- [x] ✅ Depreciações automáticas (3 métodos)
-  - [x] DepreciationService completo
-  - [x] Método Linear (quotas constantes)
-  - [x] Método Declining Balance (quotas decrescentes)
-  - [x] Método Units of Production (por unidades)
-  - [x] calculateMonthlyDepreciation() - Calcula todas depreciações do mês
-  - [x] calculateAssetDepreciation() - Calcula por ativo
-  - [x] recordDepreciation() - Regista depreciação
-  - [x] postDepreciation() - Gera lançamento contabilístico
-  - [x] batchProcessDepreciations() - Processa em lote
+
+> **CORRIGIDO EM 2026-09-12.** As três linhas de «Model» acima estavam marcadas
+> como feitas e **os modelos não existiam**: as tabelas eram de 2025 e nunca
+> receberam uma linha, porque o ecrã em Livewire tinha um `save()` que só
+> flashava «Funcionalidade completa será implementada em breve». Os modelos, o
+> registo em React e o cálculo existem agora — ver `Services\Accounting\Amortizacoes`.
+
+- [x] ✅ Depreciações automáticas (3 métodos) — `Services\Accounting\Amortizacoes`
+  - [x] Quotas constantes (linear)
+  - [x] Quotas degressivas (declining balance)
+  - [ ] Por unidades produzidas: o sistema não guarda a produção em lado nenhum.
+        Trata-se como linear e o ecrã diz-o, em vez de devolver zero em silêncio.
+  - [x] `calcular()` — as amortizações em falta de um bem, mês a mês, idempotente
+  - [x] `lancar()` — o lançamento pela porta única dos lançamentos
+  - [x] `actualizarOBem()` — o acumulado e o líquido saem SEMPRE das linhas
+
+> O `DepreciationService` que esta lista dizia «completo» foi **apagado**: nada o
+> chamava, os modelos que importava não existiam, o `book_value` saía do valor
+> amortizável em vez do de aquisição (um bem com residual acabava a valer zero),
+> e chamá-lo duas vezes amortizava a dobrar.
 - [x] ✅ Lançamentos contabilísticos automáticos
   - [x] Débito: Gasto Depreciação
   - [x] Crédito: Depreciação Acumulada

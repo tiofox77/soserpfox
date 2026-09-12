@@ -50,4 +50,22 @@ class MoveLine extends Model
     {
         return $this->belongsTo(Tax::class);
     }
+
+    /**
+     * A LINHA DO EXTRACTO que já foi conciliada com esta.
+     *
+     * ESTA RELAÇÃO NÃO EXISTIA, e o serviço da reconciliação bancária
+     * procurava-a: `whereDoesntHave('bankReconciliationItem')` no
+     * `findMatchingSuggestions()`. Sem ela, o Eloquent atira «Call to undefined
+     * relationship» — e como o `importStatementFile()` chama o auto-match no fim,
+     * IMPORTAR UM EXTRACTO FALHAVA SEMPRE, desde o primeiro dia. O ecrã
+     * apanhava a excepção e mostrava-a como «Erro ao importar».
+     *
+     * É por ela que uma linha de lançamento já conciliada deixa de aparecer nas
+     * sugestões: cada uma casa com uma linha do extracto, não com duas.
+     */
+    public function bankReconciliationItem(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(BankReconciliationItem::class, 'move_line_id');
+    }
 }

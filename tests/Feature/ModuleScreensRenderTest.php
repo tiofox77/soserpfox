@@ -16,61 +16,73 @@ use Tests\TenantTestCase;
 class ModuleScreensRenderTest extends TenantTestCase
 {
     /**
-     * Componentes sem parâmetros: têm de montar e renderizar tal e qual.
+     * NENHUM MÓDULO DE NEGÓCIO TEM LIVEWIRE — e é isso que aqui se guarda.
      *
-     * Sem app_path(): os data providers do PHPUnit correm ANTES de a aplicação
-     * arrancar, e qualquer helper do Laravel rebenta com
-     * "Call to undefined method Container::path()".
+     * Este ensaio montava, um a um, todos os componentes Livewire dos módulos de
+     * negócio: era a rede que apanhava o erro 500 ao abrir a página, a classe de
+     * defeito mais comum e mais cara deste projeto. Apanhou uma classe de
+     * categoria que não existia, um `@php(...)` de uma linha que rebentava a
+     * compilação do Blade, e vistas a usar variáveis que o componente nunca
+     * passava.
+     *
+     * A LISTA ENCOLHEU ATÉ ZERO, e o seu próprio comentário já o antecipava. A
+     * oficina, o salão, o hotel e o restaurante passaram a React; depois os
+     * eventos, o CRM, os projetos, as compras e o inventário; e a CONTABILIDADE
+     * foi a última, em 2026-09-12. Cada ecrã que passou levou o seu ensaio de
+     * fumo próprio, morada a morada (`EcrasD…EmReactTest`), e um ensaio que
+     * passa por não ter dados nenhuns não diz nada — o PHPUnit recusa-o à cara,
+     * e bem.
+     *
+     * O QUE ISTO GUARDA MUDOU DE SINAL: era uma rede, é um TRAVÃO. Um componente
+     * novo num módulo de negócio é um passo para trás na migração, e este ensaio
+     * fá-lo notar no minuto em que nascer — se voltar a haver, volta a haver
+     * lista, e a rede monta-se outra vez.
+     *
+     * Fica de fora o que NÃO é ecrã de módulo de negócio e continua em Livewire
+     * de propósito: a barra do topo (avisos, mensagens, notificações, relógio da
+     * subscrição, troca de empresa), o portal do cliente (que corre no guarda
+     * `client`), o assistente de registo, o de instalação, e o painel da
+     * plataforma.
      */
-    public static function ecrasSimples(): array
+    public function test_nenhum_modulo_de_negocio_tem_livewire(): void
     {
         $raiz = dirname(__DIR__, 2);
-        $classes = [];
 
-        /*
-         * A LISTA SEGUE A MIGRAÇÃO.
-         *
-         * Eram a oficina, o salão, o hotel e o restaurante: passaram todos a
-         * React e, com eles, o provider ficou vazio — um ensaio que passa por
-         * não ter dados nenhuns deixa de dizer o que quer que seja, e o
-         * PHPUnit recusa-o à cara. A lista é agora a dos módulos de negócio
-         * que AINDA têm Livewire, e vai encolhendo pelo mesmo caminho. Os
-         * ecrãs que já são React têm o seu próprio ensaio de fumo, morada a
-         * morada (`EcrasDo…EmReactTest`).
-         */
-        foreach (['Events', 'CRM', 'Projetos', 'Compras', 'Inventario', 'Accounting'] as $modulo) {
+        $sobras = [];
+
+        foreach ([
+            'Accounting', 'CRM', 'Compras', 'Events', 'Hotel', 'Inventario',
+            'Invoicing', 'POS', 'Projetos', 'Rh', 'Treasury', 'Users', 'Workshop',
+        ] as $modulo) {
             foreach (glob("{$raiz}/app/Livewire/{$modulo}/*.php") as $ficheiro) {
-                $classe = "App\\Livewire\\{$modulo}\\" . basename($ficheiro, '.php');
-
-                if (!class_exists($classe)) {
-                    continue;
-                }
-
-                // Os que exigem parâmetro de rota têm teste próprio abaixo.
-                $mount = method_exists($classe, 'mount')
-                    ? new \ReflectionMethod($classe, 'mount')
-                    : null;
-
-                $exigeParametro = $mount && collect($mount->getParameters())
-                    ->contains(fn ($p) => !$p->isOptional());
-
-                if ($exigeParametro) {
-                    continue;
-                }
-
-                $classes[class_basename($classe)] = [$classe];
+                $sobras[] = $modulo.'/'.basename($ficheiro);
             }
         }
 
-        return $classes;
-    }
+        $this->assertSame([], $sobras,
+            'um ecrã de módulo de negócio em Livewire é um passo para trás: os ecrãs são React');
 
-    #[\PHPUnit\Framework\Attributes\DataProvider("ecrasSimples")]
-    public function test_ecra_renderiza(string $classe): void
-    {
-        $html = Livewire::test($classe)->html();
+        /*
+         * E SE ALGUM VOLTAR, monta-se — que é o que esta rede fazia. O laço fica
+         * porque é ele que apanha o 500 ao abrir, e não a contagem.
+         */
+        foreach ($sobras as $sobra) {
+            [$modulo, $ficheiro] = explode('/', $sobra);
+            $classe = "App\\Livewire\\{$modulo}\\".basename($ficheiro, '.php');
 
-        $this->assertNotEmpty($html);
+            if (! class_exists($classe)) {
+                continue;
+            }
+
+            $mount = method_exists($classe, 'mount') ? new \ReflectionMethod($classe, 'mount') : null;
+
+            // Os que exigem parâmetro de rota têm teste próprio abaixo.
+            if ($mount && collect($mount->getParameters())->contains(fn ($p) => ! $p->isOptional())) {
+                continue;
+            }
+
+            $this->assertNotEmpty(Livewire::test($classe)->html(), $sobra.': não renderiza');
+        }
     }
 
     /**

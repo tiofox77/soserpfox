@@ -1413,6 +1413,53 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
              * inteiro de um orçamento: gravavam-se doze números e mostravam-se
              * outra vez.
              */
+            /*
+             * A RECONCILIAÇÃO BANCÁRIA. Importar um extracto NUNCA funcionou — o
+             * serviço procurava uma relação que não existia no `MoveLine` — e o
+             * botão «Ver» da lista não tinha `wire:click` nenhum, pelo que as
+             * linhas do extracto não se viam nem se casavam.
+             */
+            /*
+             * OS RELATÓRIOS. O `render()` do ecrã antigo calculava o BALANCETE
+             * INTEIRO em todas as visitas, qualquer que fosse o mapa escolhido —
+             * e com as somas feitas em PHP sobre todas as contas da empresa.
+             */
+            Route::prefix('relatorios')->name('relatorios.')->group(function () {
+                $c = \App\Http\Controllers\Api\Contabilidade\RelatoriosApiController::class;
+
+                Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+                Route::get('/', [$c, 'mostrar'])->name('mostrar');
+            });
+
+            /*
+             * AS DEFINIÇÕES. A página abria com `settings.view` e TODAS as
+             * escritas eram livres: correr os seeders, ligar a integração
+             * automática (que decide se cada factura gera lançamentos) e
+             * reescrever os mapeamentos das contas.
+             */
+            Route::prefix('definicoes')->name('definicoes.')->group(function () {
+                $c = \App\Http\Controllers\Api\Contabilidade\DefinicoesApiController::class;
+
+                Route::get('/', [$c, 'index'])->name('index');
+                Route::post('/sincronizar', [$c, 'sincronizar'])->name('sincronizar');
+                Route::post('/integracao', [$c, 'integracao'])->name('integracao');
+                Route::post('/mapeamento', [$c, 'mapeamento'])->name('mapeamento');
+                Route::delete('/tudo', [$c, 'apagarTudo'])->name('apagar-tudo');
+            });
+
+            Route::prefix('reconciliacao')->name('reconciliacao.')->group(function () {
+                $c = \App\Http\Controllers\Api\Contabilidade\ReconciliacaoApiController::class;
+
+                Route::get('/', [$c, 'index'])->name('index');
+                Route::post('/importar', [$c, 'importar'])->name('importar');
+                Route::get('/{id}', [$c, 'ficha'])->whereNumber('id')->name('ficha');
+                Route::delete('/{id}', [$c, 'apagar'])->whereNumber('id')->name('apagar');
+                Route::post('/{id}/automatico', [$c, 'automatico'])->whereNumber('id')->name('automatico');
+                Route::post('/{id}/aprovar', [$c, 'aprovar'])->whereNumber('id')->name('aprovar');
+                Route::post('/linhas/{id}/casar', [$c, 'casar'])->whereNumber('id')->name('linhas.casar');
+                Route::post('/linhas/{id}/desfazer', [$c, 'desfazer'])->whereNumber('id')->name('linhas.desfazer');
+            });
+
             Route::prefix('orcamentos')->name('orcamentos.')->group(function () {
                 $c = \App\Http\Controllers\Api\Contabilidade\OrcamentosApiController::class;
 
@@ -2473,11 +2520,18 @@ Route::middleware(['auth', 'tenant.module:contabilidade'])->prefix('accounting')
     Route::middleware('permission:accounting.periods.view')
         ->get('/periods', \App\Support\EcraReact::pagina('contabilidade/periodos', 'Períodos Contabilísticos'))->name('periods');
     Route::middleware('permission:accounting.reports.view')
-        ->get('/reports', \App\Livewire\Accounting\ReportsManagement::class)->name('reports');
+        ->get('/reports', \App\Support\EcraReact::pagina('contabilidade/relatorios', 'Relatórios da Contabilidade'))->name('reports');
+    /*
+     * DESCARREGAR UM MAPA devolve um FICHEIRO, e por isso vive aqui e não no
+     * prefixo da API: o ecrã abre-o numa janela nova e o browser guarda-o.
+     */
+    Route::middleware('permission:accounting.reports.view')
+        ->get('/reports/descarregar', [\App\Http\Controllers\Api\Contabilidade\RelatoriosApiController::class, 'descarregar'])
+        ->name('reports.descarregar');
 
     // R1 & R2 Routes
     Route::middleware('permission:accounting.reconciliation.view')
-        ->get('/reconciliation', \App\Livewire\Accounting\BankReconciliationManagement::class)->name('reconciliation');
+        ->get('/reconciliation', \App\Support\EcraReact::pagina('contabilidade/reconciliacao', 'Reconciliação Bancária'))->name('reconciliation');
     Route::middleware('permission:accounting.fixed-assets.view')
         ->get('/fixed-assets', \App\Support\EcraReact::pagina('contabilidade/imobilizado', 'Imobilizado'))->name('fixed-assets');
     // AS FAMÍLIAS existiam em tabela desde 2025 e não tinham ecrã: o campo
@@ -2493,7 +2547,7 @@ Route::middleware(['auth', 'tenant.module:contabilidade'])->prefix('accounting')
     Route::middleware('permission:accounting.budgets.view')
         ->get('/budgets', \App\Support\EcraReact::pagina('contabilidade/orcamentos', 'Orçamentos'))->name('budgets');
     Route::middleware('permission:accounting.settings.view')
-        ->get('/settings', \App\Livewire\Accounting\SettingsManagement::class)->name('settings');
+        ->get('/settings', \App\Support\EcraReact::pagina('contabilidade/definicoes', 'Definições da Contabilidade'))->name('settings');
 });
 
 /*

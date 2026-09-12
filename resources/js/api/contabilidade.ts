@@ -370,6 +370,114 @@ export type OpcoesDoImobilizado = {
     permissoes: { gerir: boolean; lancar: boolean };
 };
 
+/* ─── A reconciliação bancária ────────────────────────────────────────── */
+
+export type Reconciliacao = {
+    id: number;
+    conta_id: number | null;
+    conta: string | null;
+    dia: string;
+    saldo_do_extracto: number;
+    saldo_contabilistico: number;
+    diferenca: number;
+    estado: string;
+    estado_rotulo: string;
+    linhas: number;
+    casadas: number;
+    por_casar: number;
+    formato: string | null;
+    conciliado_em: string | null;
+};
+
+export type SugestaoDeCasamento = {
+    linha_id: number;
+    confianca: number;
+    lancamento: string | null;
+    dia: string | null;
+    nota: string | null;
+    debito: number;
+    credito: number;
+};
+
+export type LinhaDoExtracto = {
+    id: number;
+    dia: string;
+    referencia: string | null;
+    descricao: string | null;
+    valor: number;
+    tipo: string;
+    tipo_rotulo: string;
+    estado: string;
+    confianca: number | null;
+    lancamento: string | null;
+    lancamento_dia: string | null;
+    /** Só nas que faltam: são uma consulta por linha. */
+    sugestoes: SugestaoDeCasamento[];
+};
+
+export type FichaDaReconciliacao = Reconciliacao & {
+    linhas_do_extracto: LinhaDoExtracto[];
+};
+
+/* ─── Os relatórios ───────────────────────────────────────────────────── */
+
+export type Mapa = {
+    valor: string;
+    rotulo: string;
+    icone: string;
+    descricao: string;
+};
+
+export type OpcoesDosRelatorios = {
+    mapas: Mapa[];
+    contas: Escolha[];
+    diarios: Escolha[];
+    /** Que mapas descarregam, e em que formato. */
+    exportacoes: { pdf: string[]; excel: string[] };
+};
+
+/**
+ * O CONTEÚDO DE UM MAPA.
+ *
+ * Cada um tem a sua forma — o balancete é uma tabela de contas, o balanço é uma
+ * árvore de rubricas, o mapa de IVA são duas listas. O ecrã desenha-os um a um,
+ * e por isso o tipo é o do JSON tal como vem.
+ */
+export type RelatorioDaContabilidade = {
+    mapa: string;
+    periodo: { de: string; ate: string };
+    data: Record<string, unknown>;
+};
+
+/* ─── As definições ───────────────────────────────────────────────────── */
+
+export type EventoDaIntegracao = {
+    evento: string;
+    rotulo: string;
+    configurado: boolean;
+    activo: boolean;
+    /** O lançamento nasce confirmado em vez de ficar em rascunho. */
+    confirma_sozinho: boolean;
+    diario_id: number | null;
+    debito_id: number | null;
+    credito_id: number | null;
+    imposto_id: number | null;
+};
+
+export type DefinicoesDaContabilidade = {
+    montagem: {
+        contas: number; diarios: number; periodos: number; periodos_do_ano: number;
+        tipos_de_documento: number; impostos: number; centros_de_custo: number; lancamentos: number;
+    };
+    ano: number;
+    integracao: { ligada: boolean; mapeamentos_activos: number };
+    eventos: EventoDaIntegracao[];
+    contas: Escolha[];
+    diarios: Escolha[];
+    /** Ver e mexer são direitos diferentes — e era isso que faltava. */
+    permissoes: { editar: boolean };
+};
+
 const C = '/contabilidade';
 
 export const contabilidade = {
@@ -392,6 +500,49 @@ export const contabilidade = {
         estado: (id: number) => api.criar<Recado & { bloqueada: boolean }>(`${C}/contas/${id}/estado`, {}),
         razao: (id: number, f: { de?: string; ate?: string }) =>
             api.ler<RazaoDaConta>(`${C}/contas/${id}/razao`, f),
+    },
+
+    relatorios: {
+        opcoes: () => api.ler<OpcoesDosRelatorios>(`${C}/relatorios/opcoes`),
+        mostrar: (f: { mapa: string; de?: string; ate?: string; conta?: number | ''; diario?: number | '' }) =>
+            api.ler<RelatorioDaContabilidade>(`${C}/relatorios`, f),
+        /**
+         * A DESCARGA É UMA MORADA, não um pedido: devolve um ficheiro, e o ecrã
+         * abre-a numa janela nova para o browser o guardar.
+         */
+        morada: (f: { mapa: string; formato: 'pdf' | 'excel'; de: string; ate: string }) =>
+            `/accounting/reports/descarregar?${new URLSearchParams(f).toString()}`,
+    },
+
+    definicoes: {
+        ler: () => api.ler<DefinicoesDaContabilidade>(`${C}/definicoes`),
+        sincronizar: (peca: string, ano?: number) =>
+            api.criar<Recado>(`${C}/definicoes/sincronizar`, { peca, ano }),
+        integracao: (ligada: boolean) =>
+            api.criar<Recado & { aviso?: boolean }>(`${C}/definicoes/integracao`, { ligada }),
+        mapeamento: (dados: Record<string, unknown>) => api.criar<Recado>(`${C}/definicoes/mapeamento`, dados),
+        apagarTudo: () => api.apagar<Recado>(`${C}/definicoes/tudo`),
+    },
+
+    reconciliacao: {
+        listar: (f: { conta?: number | ''; estado?: string; por_pagina?: number; page?: number }) =>
+            api.ler<{
+                data: Reconciliacao[]; meta: Meta;
+                resumo: { total: number; por_conciliar: number; conciliadas: number; com_diferenca: number };
+                contas: Escolha[];
+                formatos: Escolha[];
+                estados: Escolha[];
+                permissoes: { gerir: boolean };
+            }>(`${C}/reconciliacao`, f),
+        ficha: (id: number) => api.ler<{ data: FichaDaReconciliacao }>(`${C}/reconciliacao/${id}`),
+        /** O extracto vai como ficheiro: multipart, não JSON. */
+        importar: (corpo: FormData) => api.enviar<Recado & { id: number }>(`${C}/reconciliacao/importar`, corpo),
+        apagar: (id: number) => api.apagar<Recado>(`${C}/reconciliacao/${id}`),
+        automatico: (id: number) => api.criar<Recado>(`${C}/reconciliacao/${id}/automatico`, {}),
+        aprovar: (id: number) => api.criar<Recado>(`${C}/reconciliacao/${id}/aprovar`, {}),
+        casar: (linha: number, linhaDoLancamento: number) =>
+            api.criar<Recado>(`${C}/reconciliacao/linhas/${linha}/casar`, { linha_id: linhaDoLancamento }),
+        desfazer: (linha: number) => api.criar<Recado>(`${C}/reconciliacao/linhas/${linha}/desfazer`, {}),
     },
 
     orcamentos: {
