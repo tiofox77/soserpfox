@@ -184,6 +184,7 @@ class PrepararBancadaPwa extends Command
         $quartos = $this->montarOHotel($tenant);
         $eventos = $this->montarOsEventos($tenant);
         $negocios = $this->montarOCrm($tenant);
+        $obras = $this->montarOsProjetos($tenant);
 
         $this->newLine();
         $this->info('Bancada do PWA montada.');
@@ -200,6 +201,7 @@ class PrepararBancadaPwa extends Command
             ['Quartos do hotel', $quartos],
             ['Eventos', $eventos],
             ['Negócios do CRM', $negocios],
+            ['Projetos', $obras],
             ['Cliente',  $cliente->name],
             ['Armazém',  $armazem->name],
         ]);
@@ -953,6 +955,62 @@ class PrepararBancadaPwa extends Command
         return \App\Models\CRM\Opportunity::where('tenant_id', $tenant->id)->count();
     }
 
+    /**
+     * Os projetos: um projeto activo, uma tarefa e horas lançadas.
+     *
+     * COM HORAS POR FACTURAR, de propósito: é o número que o painel existe
+     * para dar, e um painel a zeros não distingue «não há» de «não conta».
+     *
+     * @return int quantos projetos ficaram montados
+     */
+    private function montarOsProjetos(Tenant $tenant): int
+    {
+        $cliente = Client::where('tenant_id', $tenant->id)->first();
+
+        $projeto = \App\Models\Projetos\Projeto::firstOrCreate(
+            ['tenant_id' => $tenant->id, 'nome' => 'Obra da Bancada'],
+            [
+                'client_id' => $cliente?->id,
+                'estado' => 'activo',
+                'data_inicio' => now()->subMonth()->toDateString(),
+                'data_fim_prevista' => now()->addMonths(2)->toDateString(),
+                'orcamento' => 800000,
+                'valor_hora' => 6000,
+                'descricao' => 'O projeto de ensaio da bancada.',
+                // `created_by` é NOT NULL sem valor por omissão, aqui e na tarefa.
+                'created_by' => User::where('email', self::EMAIL)->value('id'),
+            ],
+        );
+
+        $tarefa = \App\Models\Projetos\Tarefa::firstOrCreate(
+            ['tenant_id' => $tenant->id, 'projeto_id' => $projeto->id, 'titulo' => 'Levantamento na bancada'],
+            [
+                'estado' => 'em_curso', 'prioridade' => 'alta',
+                'prazo' => now()->addWeek()->toDateString(), 'ordem' => 1,
+                // `created_by` é NOT NULL sem valor por omissão.
+                'created_by' => User::where('email', self::EMAIL)->value('id'),
+            ],
+        );
+
+        \App\Models\Projetos\HoraLancada::firstOrCreate(
+            [
+                'tenant_id' => $tenant->id,
+                'projeto_id' => $projeto->id,
+                'user_id' => User::where('email', self::EMAIL)->value('id'),
+                'data' => today()->toDateString(),
+            ],
+            [
+                'tarefa_id' => $tarefa->id,
+                'horas' => 6,
+                'descricao' => 'Trabalho de ensaio',
+                'facturavel' => true,
+                'valor_hora' => 6000,
+            ],
+        );
+
+        return \App\Models\Projetos\Projeto::where('tenant_id', $tenant->id)->count();
+    }
+
     private function limpar(): int
     {
         $tenant = Tenant::where('slug', self::SLUG)->first();
@@ -1012,7 +1070,7 @@ class PrepararBancadaPwa extends Command
         // desde que as viaturas, os mecânicos e os serviços passaram para o
         // mesmo ecrã genérico. E os EVENTOS, que passaram a React inteiros: a
         // agenda, os equipamentos, os locais, os tipos e os técnicos.
-        foreach (['invoicing', 'treasury', 'restaurant', 'rh', 'oficina', 'eventos', 'crm'] as $slug) {
+        foreach (['invoicing', 'treasury', 'restaurant', 'rh', 'oficina', 'eventos', 'crm', 'projetos'] as $slug) {
             $modulo = Module::firstOrCreate(
                 ['slug' => $slug],
                 ['name' => ucfirst($slug), 'is_active' => true]

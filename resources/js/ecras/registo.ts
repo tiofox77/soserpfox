@@ -263,6 +263,17 @@ export const ecras: Record<string, Ecra> = {
     'crm/meta': () =>
         import('./crm/Meta'),
 
+    // OS PROJETOS. A folha de horas é de quem a abre — o ecrã só mostra as
+    // SUAS, e quem tem `projetos.horas.gerir` corrige as de todos.
+    'projetos/painel': () =>
+        import('./projetos/Painel'),
+    'projetos/lista': () =>
+        import('./projetos/Lista'),
+    'projetos/tarefas': () =>
+        import('./projetos/Tarefas'),
+    'projetos/horas': () =>
+        import('./projetos/Horas'),
+
     // A TESOURARIA. Os catálogos (bancos, formas, caixas, tipos, categorias,
     // contas) passam pelo ecrã genérico; os movimentos têm o seu.
     'tesouraria/movimentos': () =>

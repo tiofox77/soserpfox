@@ -1176,6 +1176,50 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::post('/testar-whatsapp', [$c, 'testarWhatsApp'])->name('testar-whatsapp');
         });
 
+        /*
+         * OS PROJETOS.
+         *
+         * A FOLHA DE HORAS é de quem a abre: as portas de `/horas` devolvem e
+         * aceitam SÓ as linhas do próprio, a menos que quem chama tenha
+         * `projetos.horas.gerir`. E FACTURAR pede permissão própria — emite um
+         * documento a um cliente, que é outra autoridade.
+         */
+        Route::get('/projetos/painel', [\App\Http\Controllers\Api\Projetos\PainelApiController::class, 'index'])
+            ->name('projetos.painel');
+
+        Route::prefix('projetos/lista')->name('projetos.lista.')->group(function () {
+            $c = \App\Http\Controllers\Api\Projetos\ProjetosApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'guardar'])->name('criar');
+            Route::get('/{id}', [$c, 'ficha'])->whereNumber('id')->name('ficha');
+            Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+            Route::post('/{id}/estado', [$c, 'estado'])->whereNumber('id')->name('estado');
+            Route::post('/{id}/facturar', [$c, 'facturar'])->whereNumber('id')->name('facturar');
+        });
+
+        Route::prefix('projetos/tarefas')->name('projetos.tarefas.')->group(function () {
+            $c = \App\Http\Controllers\Api\Projetos\TarefasApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'guardar'])->name('criar');
+            Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+            Route::post('/{id}/estado', [$c, 'estado'])->whereNumber('id')->name('estado');
+        });
+
+        Route::prefix('projetos/horas')->name('projetos.horas.')->group(function () {
+            $c = \App\Http\Controllers\Api\Projetos\HorasApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/tarefas/{projeto}', [$c, 'tarefas'])->whereNumber('projeto')->name('tarefas');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'guardar'])->name('criar');
+            Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+            Route::delete('/{id}', [$c, 'apagar'])->whereNumber('id')->name('apagar');
+        });
+
         Route::prefix('oficina/ordens')->name('oficina.ordens.')->group(function () {
             $c = \App\Http\Controllers\Api\Workshop\OrdensApiController::class;
 
@@ -2226,13 +2270,13 @@ Route::middleware(['auth', 'tenant.module:compras'])->prefix('compras')->name('c
 // horas é toda a gente que trabalha, mas o ecrã só mostra as SUAS.
 Route::middleware(['auth', 'tenant.module:projetos'])->prefix('projetos')->name('projetos.')->group(function () {
     Route::middleware('permission:projetos.view')
-        ->get('/dashboard', \App\Livewire\Projetos\Dashboard::class)->name('dashboard');
+        ->get('/dashboard', \App\Support\EcraReact::pagina('projetos/painel', 'Painel dos Projetos'))->name('dashboard');
     Route::middleware('permission:projetos.view')
-        ->get('/lista', \App\Livewire\Projetos\Projetos::class)->name('lista');
+        ->get('/lista', \App\Support\EcraReact::pagina('projetos/lista', 'Projetos'))->name('lista');
     Route::middleware('permission:projetos.tarefas.view')
-        ->get('/tarefas', \App\Livewire\Projetos\Tarefas::class)->name('tarefas');
+        ->get('/tarefas', \App\Support\EcraReact::pagina('projetos/tarefas', 'Tarefas de Projeto'))->name('tarefas');
     Route::middleware('permission:projetos.horas.registar')
-        ->get('/timesheet', \App\Livewire\Projetos\Timesheet::class)->name('timesheet');
+        ->get('/timesheet', \App\Support\EcraReact::pagina('projetos/horas', 'Folha de Horas'))->name('timesheet');
 });
 
 /*
