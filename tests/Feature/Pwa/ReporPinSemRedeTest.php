@@ -275,7 +275,7 @@ class ReporPinSemRedeTest extends TenantTestCase
     public function test_os_pin_obvios_tem_uma_lista_so(): void
     {
         foreach ([
-            app_path('Livewire/Users/UserManagement.php'),
+            app_path('Http/Controllers/Api/Utilizadores/UtilizadoresApiController.php'),
             app_path('Services/POS/DefinicaoDePin.php'),
             app_path('Http/Controllers/Api/Invoicing/OfflineApiController.php'),
             app_path('Console/Commands/DefinirPinPos.php'),

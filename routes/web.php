@@ -196,11 +196,22 @@ Route::get(
     \App\Http\Controllers\Setup\SeedMedicalConnectController::class
 )->name('setup.seed.medical-connect');
 
-// User Management Routes (Admin do tenant ou Super Admin)
-Route::middleware(['auth', 'permission:users.manage'])->prefix('users')->name('users.')->group(function () {
-    Route::get('/', \App\Livewire\Users\UserManagement::class)->name('index');
-    Route::get('/roles-permissions', \App\Livewire\Users\RolesAndPermissions::class)->name('roles-permissions');
-    Route::get('/invitations', \App\Livewire\Users\InviteUser::class)->name('invitations');
+/*
+ * OS UTILIZADORES, OS PAPÉIS E OS CONVITES.
+ *
+ * As três páginas estavam TODAS atrás de `users.manage` — a permissão mais
+ * larga que existe — enquanto oito permissões mais finas estavam declaradas e
+ * ninguém as pedia. Agora cada porta pede a sua, com o `users.manage` a valer
+ * como guarda-chuva: quem já o tem não perde nada, e quem só precisa de VER a
+ * lista pode passar a tê-lo sem levar junto o poder de apagar contas.
+ */
+Route::middleware(['auth'])->prefix('users')->name('users.')->group(function () {
+    Route::middleware('permission:users.view|users.manage')
+        ->get('/', \App\Support\EcraReact::pagina('utilizadores/lista', 'Gestão de Utilizadores'))->name('index');
+    Route::middleware('permission:users.roles.manage|users.permissions|users.manage')
+        ->get('/roles-permissions', \App\Support\EcraReact::pagina('utilizadores/papeis', 'Papéis e Permissões'))->name('roles-permissions');
+    Route::middleware('permission:users.invite|users.manage')
+        ->get('/invitations', \App\Support\EcraReact::pagina('utilizadores/convites', 'Convites'))->name('invitations');
 });
 
 // Super Admin Routes
@@ -1285,6 +1296,45 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::post('/{id}/fechar', [$c, 'fechar'])->whereNumber('id')->name('fechar');
             Route::post('/{id}/cancelar', [$c, 'cancelar'])->whereNumber('id')->name('cancelar');
             Route::get('/{id}/diferencas', [$c, 'diferencas'])->whereNumber('id')->name('diferencas');
+        });
+
+        /*
+         * OS UTILIZADORES, OS PAPÉIS E OS CONVITES.
+         *
+         * A permissão é verificada acto a acto lá dentro — ver, criar, editar,
+         * eliminar e convidar são cinco portas diferentes, e o `users.manage`
+         * abre-as todas para não fechar a porta a quem já cá está.
+         */
+        Route::prefix('utilizadores')->name('utilizadores.')->group(function () {
+            $c = \App\Http\Controllers\Api\Utilizadores\UtilizadoresApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/convites', [$c, 'convites'])->name('convites');
+            Route::post('/convites', [$c, 'convidar'])->name('convidar');
+            Route::post('/convites/{id}/reenviar', [$c, 'reenviar'])->whereNumber('id')->name('reenviar');
+            Route::delete('/convites/{id}', [$c, 'cancelarConvite'])->whereNumber('id')->name('cancelar-convite');
+
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'guardar'])->name('criar');
+            Route::get('/{id}', [$c, 'ficha'])->whereNumber('id')->name('ficha');
+            Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+            Route::delete('/{id}', [$c, 'apagar'])->whereNumber('id')->name('apagar');
+            Route::post('/{id}/estado', [$c, 'alternar'])->whereNumber('id')->name('estado');
+            Route::post('/{id}/pin', [$c, 'pin'])->whereNumber('id')->name('pin');
+        });
+
+        Route::prefix('papeis')->name('papeis.')->group(function () {
+            $c = \App\Http\Controllers\Api\Utilizadores\PapeisApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/utilizadores', [$c, 'utilizadores'])->name('utilizadores');
+            Route::post('/utilizadores/{id}', [$c, 'atribuir'])->whereNumber('id')->name('atribuir');
+
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'guardar'])->name('criar');
+            Route::get('/{id}', [$c, 'ficha'])->whereNumber('id')->name('ficha');
+            Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+            Route::delete('/{id}', [$c, 'apagar'])->whereNumber('id')->name('apagar');
         });
 
         Route::prefix('oficina/ordens')->name('oficina.ordens.')->group(function () {

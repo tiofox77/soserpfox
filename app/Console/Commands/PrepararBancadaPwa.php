@@ -186,6 +186,7 @@ class PrepararBancadaPwa extends Command
         $negocios = $this->montarOCrm($tenant);
         $obras = $this->montarOsProjetos($tenant);
         $encomendas = $this->montarAsCompras($tenant, $armazem);
+        $papeis = $this->montarOsPapeis($tenant, $caixa);
 
         $this->newLine();
         $this->info('Bancada do PWA montada.');
@@ -204,6 +205,7 @@ class PrepararBancadaPwa extends Command
             ['Negócios do CRM', $negocios],
             ['Projetos', $obras],
             ['Encomendas de compra', $encomendas],
+            ['Papéis', $papeis],
             ['Cliente',  $cliente->name],
             ['Armazém',  $armazem->name],
         ]);
@@ -1076,6 +1078,54 @@ class PrepararBancadaPwa extends Command
         }
 
         return \App\Models\Compras\Encomenda::where('tenant_id', $tenant->id)->count();
+    }
+
+    /**
+     * OS PAPÉIS DA BANCADA.
+     *
+     * Sem papéis, o ecrã de utilizadores não tem nada para pôr na coluna do
+     * papel, o convite não tem o que escolher, e o separador de atribuir abre
+     * vazio — um ensaio que corre sobre listas vazias não mede nada.
+     *
+     * São três, e de propósito: um com gente (não se apaga), um sem ninguém (é
+     * o que se pode apagar), e um só de consulta.
+     *
+     * @return int quantos papéis ficaram montados
+     */
+    private function montarOsPapeis(Tenant $tenant, User $caixa): int
+    {
+        setPermissionsTeamId($tenant->id);
+
+        $papel = function (string $nome, array $permissoes) use ($tenant) {
+            $p = \Spatie\Permission\Models\Role::firstOrCreate(
+                ['name' => $nome, 'guard_name' => 'web', 'tenant_id' => $tenant->id],
+                ['description' => 'Papel da bancada']
+            );
+
+            $existentes = \Spatie\Permission\Models\Permission::whereIn('name', $permissoes)->get();
+
+            if ($existentes->isNotEmpty()) {
+                $p->syncPermissions($existentes);
+            }
+
+            return $p;
+        };
+
+        $balcao = $papel('Balcão da Bancada', [
+            'invoicing.sales.invoices.view', 'invoicing.sales.invoices.create',
+            'invoicing.pos.sell', 'customers.view',
+        ]);
+
+        $papel('Só Consulta', ['invoicing.sales.invoices.view', 'customers.view']);
+        $papel('Papel Vazio', []);
+
+        // O caixa leva o papel do balcão: é ele que dá corpo à contagem de
+        // «utilizadores» do papel — e é por ela que o botão de apagar fecha.
+        $caixa->assignRole($balcao);
+
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+
+        return \Spatie\Permission\Models\Role::where('tenant_id', $tenant->id)->count();
     }
 
     private function limpar(): int

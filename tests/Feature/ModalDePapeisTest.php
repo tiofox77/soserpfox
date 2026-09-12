@@ -2,10 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Users\RolesAndPermissions;
 use App\Models\Module;
 use App\Support\CatalogoDePermissoes;
-use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TenantTestCase;
@@ -17,9 +15,15 @@ use Tests\TenantTestCase;
  * «Selecionar Todas» a marcar módulos que a empresa nem tinha. Agora:
  * núcleo + módulos activos, rótulo em português, contagens por módulo, e
  * atalhos («todo o módulo», «só consulta», «copiar de outro papel»).
+ *
+ * O ecrã passou a React; o catálogo que o alimenta veio para a API e é isso que
+ * estes ensaios seguram — os atalhos são contas sobre a mesma lista, e a lista
+ * é o que não pode mudar.
  */
 class ModalDePapeisTest extends TenantTestCase
 {
+    private const RAIZ = '/api/v1/invoicing/react/papeis';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -41,9 +45,12 @@ class ModalDePapeisTest extends TenantTestCase
         $this->tenant->modules()->syncWithoutDetaching([$modulo->id => ['is_active' => true]]);
     }
 
-    private function ecra()
+    /** @return array<string, array<string, mixed>> slug => grupo */
+    private function grupos(): array
     {
-        return Livewire::test(RolesAndPermissions::class)->call('openRoleModal');
+        $resposta = $this->actingAs($this->user)->getJson(self::RAIZ.'/opcoes')->assertOk();
+
+        return collect($resposta->json('grupos'))->keyBy('slug')->all();
     }
 
     /** @test */
@@ -51,7 +58,7 @@ class ModalDePapeisTest extends TenantTestCase
     {
         $this->activar('invoicing');
 
-        $grupos = $this->ecra()->instance()->grupos;
+        $grupos = $this->grupos();
 
         $this->assertArrayHasKey('invoicing', $grupos);
         $this->assertArrayHasKey('users', $grupos);
@@ -63,10 +70,17 @@ class ModalDePapeisTest extends TenantTestCase
     {
         $this->activar('invoicing');
 
-        $this->ecra()
-            ->call('escolherModulo', 'invoicing')
-            ->assertSee('Ver Faturas de Venda')
-            ->assertSee('Faturação');
+        $grupo = $this->grupos()['invoicing'];
+
+        $this->assertSame('Faturação', $grupo['nome']);
+
+        $entidades = collect($grupo['entidades']);
+
+        $this->assertContains('Faturas de Venda', $entidades->pluck('nome')->all());
+        $this->assertContains(
+            'Ver Faturas de Venda',
+            $entidades->flatMap(fn ($e) => $e['linhas'])->pluck('rotulo')->all(),
+        );
     }
 
     /** «Tudo» marca o que a empresa vê — não o sistema inteiro. */
@@ -74,13 +88,36 @@ class ModalDePapeisTest extends TenantTestCase
     {
         $this->activar('invoicing');
 
-        $ids = $this->ecra()->call('selectAllPermissions')->get('selectedPermissions');
+        $ids = collect($this->grupos())->pluck('ids')->flatten()->map(fn ($i) => (int) $i)->all();
 
-        $hotel = Permission::where('name', 'hotel.rooms.view')->value('id');
-        $facturas = Permission::where('name', 'invoicing.sales.invoices.view')->value('id');
+        $hotel = (int) Permission::where('name', 'hotel.rooms.view')->value('id');
+        $facturas = (int) Permission::where('name', 'invoicing.sales.invoices.view')->value('id');
 
-        $this->assertContains((int) $facturas, array_map('intval', $ids));
-        $this->assertNotContains((int) $hotel, array_map('intval', $ids));
+        $this->assertContains($facturas, $ids);
+        $this->assertNotContains($hotel, $ids, 'o hotel não está activo e não pode estar na lista');
+    }
+
+    /**
+     * E não é só o ecrã que não as mostra: gravar um id de um módulo que a
+     * empresa não tem é RECUSADO no servidor. Sem isso, um pedido escrito à mão
+     * dava ao papel as permissões de um módulo que ninguém comprou.
+     */
+    public function test_guardar_ignora_permissoes_de_um_modulo_que_a_empresa_nao_tem(): void
+    {
+        $this->activar('invoicing');
+
+        $hotel = (int) Permission::where('name', 'hotel.rooms.view')->value('id');
+        $factura = (int) Permission::where('name', 'invoicing.sales.invoices.view')->value('id');
+
+        $this->actingAs($this->user)->postJson(self::RAIZ, [
+            'name' => 'Intruso '.uniqid(),
+            'permissoes' => [$hotel, $factura],
+        ])->assertCreated();
+
+        $papel = Role::where('tenant_id', $this->tenant->id)->where('name', 'like', 'Intruso %')->firstOrFail();
+
+        $this->assertTrue($papel->hasPermissionTo('invoicing.sales.invoices.view'));
+        $this->assertFalse($papel->hasPermissionTo('hotel.rooms.view'));
     }
 
     /** «Só consulta» deixa o ver e tira o resto. */
@@ -88,16 +125,14 @@ class ModalDePapeisTest extends TenantTestCase
     {
         $this->activar('invoicing');
 
-        $ids = $this->ecra()
-            ->call('toggleModulo', 'invoicing')
-            ->call('soLeituraDoModulo', 'invoicing')
-            ->get('selectedPermissions');
+        $leitura = collect($this->grupos()['invoicing']['entidades'])
+            ->flatMap(fn ($e) => $e['linhas'])
+            ->filter(fn ($l) => $l['leitura'])
+            ->pluck('nome')->all();
 
-        $nomes = Permission::whereIn('id', $ids)->pluck('name')->all();
-
-        $this->assertContains('invoicing.sales.invoices.view', $nomes);
-        $this->assertNotContains('invoicing.sales.invoices.delete', $nomes);
-        $this->assertNotContains('invoicing.sales.invoices.create', $nomes);
+        $this->assertContains('invoicing.sales.invoices.view', $leitura);
+        $this->assertNotContains('invoicing.sales.invoices.delete', $leitura);
+        $this->assertNotContains('invoicing.sales.invoices.create', $leitura);
     }
 
     /** Copiar de outro papel traz-lhe as permissões. */
@@ -109,14 +144,13 @@ class ModalDePapeisTest extends TenantTestCase
         $origem = Role::create(['name' => 'Origem '.uniqid(), 'guard_name' => 'web', 'tenant_id' => $this->tenant->id]);
         $origem->givePermissionTo(['invoicing.sales.invoices.view', 'customers.view']);
 
-        $ids = $this->ecra()
-            ->set('copiarDe', $origem->id)
-            ->call('copiarDePapel')
-            ->get('selectedPermissions');
+        // «Começar a partir de» é a ficha do papel de origem: é ela que traz a
+        // lista já marcada para o formulário.
+        $ficha = $this->actingAs($this->user)->getJson(self::RAIZ.'/'.$origem->id)->assertOk();
 
         $this->assertEqualsCanonicalizing(
             $origem->permissions->pluck('id')->map(fn ($i) => (int) $i)->all(),
-            array_map('intval', $ids)
+            array_map('intval', $ficha->json('data.permissoes')),
         );
     }
 
@@ -126,12 +160,11 @@ class ModalDePapeisTest extends TenantTestCase
         $this->activar('invoicing');
         $ver = Permission::where('name', 'invoicing.sales.invoices.view')->first();
 
-        $this->ecra()
-            ->set('roleName', 'Balcão '.uniqid())
-            ->set('selectedPermissions', [(string) $ver->id])
-            ->call('saveRole')
-            ->assertHasNoErrors()
-            ->assertSet('showRoleModal', false);
+        $this->actingAs($this->user)->postJson(self::RAIZ, [
+            'name' => 'Balcão '.uniqid(),
+            'description' => 'Quem está ao balcão',
+            'permissoes' => [(int) $ver->id],
+        ])->assertCreated();
 
         $papel = Role::where('tenant_id', $this->tenant->id)->where('name', 'like', 'Balcão %')->first();
 

@@ -342,4 +342,13 @@ export const ecras: Record<string, Ecra> = {
         import('./hotel/Tarifas'),
     'hotel/reservas': () =>
         import('./hotel/Reservas'),
+
+    // OS UTILIZADORES, OS PAPÉIS E OS CONVITES — o que decide quem entra e o
+    // que cada um pode fazer, em cada empresa.
+    'utilizadores/lista': () =>
+        import('./utilizadores/Lista'),
+    'utilizadores/papeis': () =>
+        import('./utilizadores/Papeis'),
+    'utilizadores/convites': () =>
+        import('./utilizadores/Convites'),
 };

@@ -2,9 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Users\UserManagement;
 use App\Models\User;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -25,19 +23,23 @@ class AdminDefinePinTest extends TenantTestCase
             'password' => bcrypt('x'), 'tenant_id' => $this->tenant->id, 'is_active' => true,
         ]);
         $u->tenants()->syncWithoutDetaching([$this->tenant->id]);
+
         return $u;
+    }
+
+    private function definir(User $u, string $pin)
+    {
+        return $this->actingAs($this->user)->postJson(
+            "/api/v1/invoicing/react/utilizadores/{$u->id}/pin",
+            ['pin' => $pin, 'pin_confirmation' => $pin],
+        );
     }
 
     public function test_o_admin_define_o_pin_de_um_funcionario(): void
     {
         $u = $this->funcionario();
 
-        Livewire::actingAs($this->user)->test(UserManagement::class)
-            ->call('openPinModal', $u->id)
-            ->set('posPin', '4827')
-            ->set('posPinConfirmation', '4827')
-            ->call('savePin')
-            ->assertHasNoErrors();
+        $this->definir($u, '4827')->assertOk();
 
         $this->assertTrue($u->fresh()->temPinPos());
         $this->assertTrue(\Illuminate\Support\Facades\Hash::check('4827', $u->fresh()->pos_pin_hash));
@@ -47,12 +49,7 @@ class AdminDefinePinTest extends TenantTestCase
     {
         $u = $this->funcionario();
 
-        Livewire::actingAs($this->user)->test(UserManagement::class)
-            ->call('openPinModal', $u->id)
-            ->set('posPin', '12')
-            ->set('posPinConfirmation', '12')
-            ->call('savePin')
-            ->assertHasErrors('posPin');
+        $this->definir($u, '12')->assertStatus(422)->assertJsonValidationErrors('pin');
 
         $this->assertFalse($u->fresh()->temPinPos());
     }
@@ -61,14 +58,17 @@ class AdminDefinePinTest extends TenantTestCase
     {
         $u = $this->funcionario();
 
-        Livewire::actingAs($this->user)->test(UserManagement::class)
-            ->call('openPinModal', $u->id)
-            ->set('posPin', '1234')
-            ->set('posPinConfirmation', '1234')
-            ->call('savePin')
-            ->assertHasErrors('posPin');
+        $this->definir($u, '1234')->assertStatus(422)->assertJsonValidationErrors('pin');
+
+        $this->assertFalse($u->fresh()->temPinPos());
     }
 
+    /**
+     * NUNCA SE CONFIA NO ID DO BROWSER.
+     *
+     * Sem a verificação de empresa, um número escrito à mão punha um PIN na
+     * conta de alguém de outra casa — e esse PIN abre turno no POS.
+     */
     public function test_nao_define_pin_de_funcionario_de_outra_empresa(): void
     {
         $intruso = User::create([
@@ -76,10 +76,8 @@ class AdminDefinePinTest extends TenantTestCase
             'password' => bcrypt('x'), 'is_active' => true,
         ]);
 
-        Livewire::actingAs($this->user)->test(UserManagement::class)
-            ->call('openPinModal', $intruso->id);
+        $this->definir($intruso, '7391')->assertNotFound();
 
-        // Não abre o modal para quem não é da empresa.
         $this->assertFalse($intruso->fresh()->temPinPos());
     }
 }
