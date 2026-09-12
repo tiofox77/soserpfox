@@ -2,44 +2,44 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\POS\POSSystem;
 use App\Models\Product;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
  * Leitura de código de barras no POS.
  *
  * O leitor escreve o código no campo de procura. Até aqui isso só filtrava a
- * grelha — e a grelha esconde o que está sem stock, por isso ler um artigo
- * esgotado devolvia um ecrã vazio, indistinguível de "este código não existe".
+ * grelha — e a grelha esconde o que está sem stock (1415 de 5729 artigos numa
+ * das farmácias), por isso ler um artigo esgotado devolvia um ecrã vazio,
+ * indistinguível de «este código não existe». O operador concluía que a leitura
+ * não funcionava, com o produto na mão.
+ *
+ * O BALCÃO É HOJE REACT e a regra tinha-se perdido outra vez: a procura filtrava
+ * a grelha e mais nada. O ensaio que a guardava apontava para um componente
+ * Livewire que já nenhuma rota serve.
+ *
+ * Agora há uma porta que pergunta ao CATÁLOGO INTEIRO e diz qual dos casos é.
  */
 class PosBarcodeTest extends TenantTestCase
 {
+    private const RAIZ = '/api/v1/invoicing/react/pos';
+
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->comPermissoes('invoicing.pos.access', 'invoicing.pos.view')
-             ->comModulo('invoicing');
+            ->comModulo('invoicing');
 
-        // Sem turno aberto o POS redirecciona no mount e o componente nem chega
-        // a existir — o teste morria com "array offset on null".
         \App\Models\Invoicing\PosShift::create([
-            'tenant_id'    => $this->tenant->id,
-            'user_id'      => $this->user->id,
-            'shift_number' => 'T' . strtoupper(substr(uniqid(), -8)),
-            'opened_at'    => now(),
-            'status'       => 'open',
+            'tenant_id' => $this->tenant->id,
+            'user_id' => $this->user->id,
+            'shift_number' => 'T'.strtoupper(substr(uniqid(), -8)),
+            'opened_at' => now(),
+            'status' => 'open',
         ]);
 
         \Illuminate\Support\Facades\Cache::flush();
-        \Darryldecode\Cart\Facades\CartFacade::session($this->user->id)->clear();
-    }
-
-    private function carrinho()
-    {
-        return \Darryldecode\Cart\Facades\CartFacade::session($this->user->id)->getContent();
     }
 
     private function comCodigo(string $codigo, float $stock = 10): Product
@@ -50,63 +50,33 @@ class PosBarcodeTest extends TenantTestCase
         return $p->fresh();
     }
 
-    /** A mesma chave do componente: o carrinho e por utilizador E empresa. */
-    private function chaveDoCarrinho(): string
+    private function ler(string $codigo)
     {
-        return auth()->id() . "_t" . (activeTenantId() ?: 0);
+        return $this->actingAs($this->user)
+            ->getJson(self::RAIZ.'/por-codigo?codigo='.urlencode($codigo))->assertOk();
     }
 
-    public function test_ler_um_codigo_poe_o_artigo_no_carrinho(): void
+    public function test_ler_um_codigo_encontra_o_artigo(): void
     {
         $p = $this->comCodigo('5601234567890', 10);
 
-        Livewire::test(POSSystem::class)
-            ->set('search', '5601234567890')
-            ->assertSet('search', '', 'o campo limpa-se para a leitura seguinte');
-
-        $carrinho = \Darryldecode\Cart\Facades\CartFacade::session($this->chaveDoCarrinho())->getContent();
-
-        $this->assertTrue(
-            $carrinho->contains(fn ($i) => (int) $i->id === $p->id),
-            'o artigo lido tinha de entrar no carrinho'
-        );
+        $this->ler('5601234567890')
+            ->assertJsonPath('estado', 'encontrado')
+            ->assertJsonPath('artigo.id', $p->id);
     }
 
-    public function test_carrinho_antigo_sincroniza_preco_e_iva_atuais_do_produto(): void
-    {
-        $p = $this->comCodigo('5607777777777', 10);
-        $p->update(['price' => 1800, 'tax_type' => 'iva', 'tax_rate_id' => null]);
-        $key = $this->chaveDoCarrinho();
-        $cart = \Darryldecode\Cart\Facades\CartFacade::session($key);
-        $cart->add([
-            'id' => $p->id, 'name' => $p->name, 'price' => 1799.98, 'quantity' => 2,
-            'attributes' => ['tax_rate' => 0, 'tax_type' => 'isento', 'discount_percent' => 0],
-        ]);
-
-        $component = Livewire::test(POSSystem::class);
-        $line = $cart->get($p->id);
-        $expectedTax = \App\Services\Invoicing\TaxResolver::forProduct($p->fresh(), $this->tenant->id);
-
-        $this->assertSame(1800.0, (float) $line->price);
-        $this->assertSame((float) $expectedTax['rate'], (float) $line->attributes->tax_rate);
-        $this->assertSame(3600.0, (float) $component->get('cartSubtotal'));
-        $this->assertSame(3600.0 + round(3600 * ((float) $expectedTax['rate'] / 100), 2), (float) $component->get('cartTotal'));
-    }
-
+    /**
+     * ESTE É O CASO QUE FAZIA PARECER QUE A LEITURA NÃO FUNCIONAVA.
+     *
+     * A grelha esconde o que não tem stock, e o operador via um ecrã vazio.
+     */
     public function test_um_artigo_esgotado_diz_porque_nao_entra(): void
     {
-        // É este o caso que fazia parecer que a leitura não funcionava: a grelha
-        // esconde o que não tem stock e o operador via um ecrã vazio.
         $this->comCodigo('5609999999999', 0);
 
-        Livewire::test(POSSystem::class)
-            ->set('search', '5609999999999')
-            ->assertDispatched('notify', function (string $evento, array $dados) {
-                $carga = $dados[0] ?? $dados;
+        $r = $this->ler('5609999999999')->assertJsonPath('estado', 'sem_stock');
 
-                return ($carga['type'] ?? null) === 'error'
-                    && str_contains($carga['message'] ?? '', 'sem stock');
-            });
+        $this->assertStringContainsString('sem stock', (string) $r->json('message'));
     }
 
     public function test_um_artigo_inactivo_nao_se_vende(): void
@@ -114,102 +84,105 @@ class PosBarcodeTest extends TenantTestCase
         $p = $this->comCodigo('5608888888888', 10);
         $p->update(['is_active' => false]);
 
-        Livewire::test(POSSystem::class)
-            ->set('search', '5608888888888')
-            ->assertDispatched('notify', function (string $evento, array $dados) {
-                $carga = $dados[0] ?? $dados;
+        $r = $this->ler('5608888888888')->assertJsonPath('estado', 'inactivo');
 
-                return str_contains($carga['message'] ?? '', 'inactivo');
-            });
-
-        $carrinho = \Darryldecode\Cart\Facades\CartFacade::session($this->chaveDoCarrinho())->getContent();
-
-        $this->assertCount(0, $carrinho);
+        $this->assertStringContainsString('inactivo', (string) $r->json('message'));
     }
 
-    public function test_escrever_o_nome_de_um_artigo_nao_o_atira_para_o_carrinho(): void
+    /** E um artigo de módulo também se diz pelo nome, em vez de ficar mudo. */
+    public function test_um_artigo_de_modulo_diz_onde_se_vende(): void
     {
-        // A leitura só dispara com correspondência EXACTA do código: quem procura
-        // à mão pelo nome não pode ver artigos a saltar para o carrinho.
-        $p = $this->comCodigo('5607777777777', 10);
+        $p = $this->comCodigo('5604444444444', 10);
+        $p->module = 'salon';
+        $p->save();
 
-        Livewire::test(POSSystem::class)
-            ->set('search', mb_substr($p->name, 0, 10))
-            ->assertSet('search', mb_substr($p->name, 0, 10));
+        $r = $this->ler('5604444444444')->assertJsonPath('estado', 'de_modulo');
 
-        $carrinho = \Darryldecode\Cart\Facades\CartFacade::session($this->chaveDoCarrinho())->getContent();
-
-        $this->assertCount(0, $carrinho);
+        $this->assertStringContainsString('salon', (string) $r->json('message'));
     }
 
+    /** Um código curto nem chega a ser uma leitura: é alguém a escrever. */
     public function test_um_codigo_parcial_nao_dispara(): void
     {
         $this->comCodigo('5606666666666', 10);
 
-        Livewire::test(POSSystem::class)
-            ->set('search', '560666')
-            ->assertSet('search', '560666');
-
-        $this->assertCount(0, \Darryldecode\Cart\Facades\CartFacade::session($this->chaveDoCarrinho())->getContent());
+        $this->ler('560')->assertJsonPath('estado', 'curto');
     }
 
+    public function test_um_codigo_desconhecido_diz_se_desconhecido(): void
+    {
+        $this->ler('1234567890123')->assertJsonPath('estado', 'desconhecido');
+    }
+
+    /** O código de outra empresa não existe nesta. */
     public function test_o_codigo_de_outra_empresa_nao_entra(): void
     {
         $outra = \App\Models\Tenant::create([
-            'name' => 'Alheia', 'slug' => 'alheia-' . uniqid(),
+            'name' => 'Alheia', 'slug' => 'alheia-'.uniqid(),
             'nif' => (string) random_int(700000000, 799999999),
-            'email' => 'a' . uniqid() . '@x.ao', 'is_active' => true,
+            'email' => 'a'.uniqid().'@x.ao', 'is_active' => true,
         ]);
 
         Product::create([
-            'tenant_id' => $outra->id, 'name' => 'Alheio ' . uniqid(),
-            'code' => 'AL' . strtoupper(substr(uniqid(), -6)), 'barcode' => '5605555555555',
+            'tenant_id' => $outra->id, 'name' => 'Alheio '.uniqid(),
+            'code' => 'AL'.strtoupper(substr(uniqid(), -6)), 'barcode' => '5605555555555',
             'type' => 'produto', 'price' => 100, 'cost' => 50, 'unit' => 'UN',
             'manage_stock' => true, 'is_active' => true, 'stock_quantity' => 99,
         ]);
 
-        Livewire::test(POSSystem::class)->set('search', '5605555555555');
-
-        $this->assertCount(0, \Darryldecode\Cart\Facades\CartFacade::session($this->chaveDoCarrinho())->getContent());
+        $this->ler('5605555555555')->assertJsonPath('estado', 'desconhecido');
     }
 
+    /**
+     * O ENVELOPE GS1 E O EAN-13 SÃO O MESMO ARTIGO.
+     *
+     * O catálogo pode ter vindo de um sistema que guardava a linha completa do
+     * leitor; o leitor da loja manda só o EAN-13 de dentro — e ao contrário.
+     */
     public function test_le_o_ean13_e_encontra_o_artigo_guardado_com_o_envelope_gs1(): void
     {
-        // O catálogo veio de um sistema que guardava a linha completa do
-        // leitor; o leitor da loja manda só o EAN-13 de dentro.
         $p = $this->comCodigo('0108902292003269');
 
-        Livewire::test(POSSystem::class)
-            ->set('search', '8902292003269');
-
-        $this->assertTrue(
-            \Darryldecode\Cart\Facades\CartFacade::session($this->chaveDoCarrinho())->getContent()->contains(fn ($i) => (int) $i->id === $p->id),
-            'ler o EAN-13 tinha de encontrar o artigo guardado com o envelope'
-        );
+        $this->ler('8902292003269')
+            ->assertJsonPath('estado', 'encontrado')
+            ->assertJsonPath('artigo.id', $p->id);
     }
 
     public function test_le_o_envelope_gs1_e_encontra_o_artigo_guardado_como_ean13(): void
     {
         $p = $this->comCodigo('8902292003269');
 
-        Livewire::test(POSSystem::class)
-            ->set('search', '0108902292003269');
-
-        $this->assertTrue(
-            \Darryldecode\Cart\Facades\CartFacade::session($this->chaveDoCarrinho())->getContent()->contains(fn ($i) => (int) $i->id === $p->id),
-            'ler a linha GS1 tinha de encontrar o artigo guardado como EAN-13'
-        );
+        $this->ler('0108902292003269')
+            ->assertJsonPath('estado', 'encontrado')
+            ->assertJsonPath('artigo.id', $p->id);
     }
 
     public function test_um_codigo_interno_com_zeros_a_frente_continua_a_encontrar_se(): void
     {
-        // Os zeros à frente são do código interno da farmácia, não são
-        // envelope nenhum: têm de continuar a dar correspondência exacta.
+        // Os zeros à frente são do código interno da farmácia, não são envelope
+        // nenhum: têm de continuar a dar correspondência exacta.
         $p = $this->comCodigo('0000548');
 
-        Livewire::test(POSSystem::class)
-            ->set('search', '0000548');
+        $this->ler('0000548')
+            ->assertJsonPath('estado', 'encontrado')
+            ->assertJsonPath('artigo.id', $p->id);
+    }
 
-        $this->assertTrue(\Darryldecode\Cart\Facades\CartFacade::session($this->chaveDoCarrinho())->getContent()->contains(fn ($i) => (int) $i->id === $p->id));
+    /**
+     * E O ECRÃ PERGUNTA ANTES DE DIZER QUE NÃO EXISTE.
+     *
+     * Um ecrã que se limitasse a dizer «nada encontrado» punha o defeito de
+     * volta, com a porta do servidor já feita.
+     */
+    public function test_o_ecra_pergunta_ao_catalogo_antes_de_dizer_que_nao_existe(): void
+    {
+        $fonte = file_get_contents(resource_path('js/ecras/facturacao/pos/PontoDeVenda.tsx'));
+
+        $this->assertStringContainsString('pos.porCodigo(procura)', $fonte);
+        $this->assertMatchesRegularExpression(
+            "/porCodigo\(procura\)[\s\S]{0,800}Nada encontrado para/",
+            $fonte,
+            'o aviso genérico tem de vir DEPOIS de se perguntar ao catálogo',
+        );
     }
 }

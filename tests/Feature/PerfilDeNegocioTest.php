@@ -167,13 +167,21 @@ class PerfilDeNegocioTest extends TenantTestCase
     {
         $this->ligarPerfis(false, false);
         $this->abrirTurno();
+        $this->comPermissoes('invoicing.pos.access');
 
         $p = $this->produtoComStock(10);
         $p->update(['is_controlled' => true]);
 
-        Livewire::test(POSSystem::class)
-            ->call('addToCart', $p->id)
-            ->assertDispatched('pos-confirmar-controlado');
+        // O balcão é React: o servidor diz que o artigo é controlado, e é isso
+        // que faz o ecrã perguntar antes de ele entrar no carrinho.
+        $linha = collect(
+            $this->actingAs($this->user)
+                ->getJson('/api/v1/invoicing/react/pos/artigos')->assertOk()->json('data')
+        )->firstWhere('id', $p->id);
+
+        $this->assertNotNull($linha);
+        $this->assertTrue($linha['controlado'],
+            'desligar o perfil de visualização não pode desligar a pergunta do psicotrópico');
     }
 
     /** O mesmo para a receita médica: avisa na mesma, perfil ou não. */
@@ -181,17 +189,19 @@ class PerfilDeNegocioTest extends TenantTestCase
     {
         $this->ligarPerfis(false, false);
         $this->abrirTurno();
+        $this->comPermissoes('invoicing.pos.access');
 
         $p = $this->produtoComStock(10);
         $p->update(['requires_prescription' => true]);
 
-        Livewire::test(POSSystem::class)
-            ->call('addToCart', $p->id)
-            ->assertDispatched('notify', function (string $evento, array $dados) {
-                $carga = $dados[0] ?? $dados;
+        $linha = collect(
+            $this->actingAs($this->user)
+                ->getJson('/api/v1/invoicing/react/pos/artigos')->assertOk()->json('data')
+        )->firstWhere('id', $p->id);
 
-                return str_contains($carga['message'] ?? '', 'RECEITA MÉDICA');
-            });
+        $this->assertNotNull($linha);
+        $this->assertTrue($linha['receita'],
+            'desligar o perfil de visualização não pode calar o aviso da receita');
     }
 
     // ========= a linha que não se cruza (2): dados já gravados =========

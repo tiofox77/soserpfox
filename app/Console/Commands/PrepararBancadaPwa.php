@@ -150,17 +150,27 @@ class PrepararBancadaPwa extends Command
             ['name' => 'Cliente da Bancada', 'type' => 'pessoa_juridica', 'is_active' => true]
         );
 
+        /*
+         * DOIS DELES SÃO MEDICAMENTOS, e de propósito.
+         *
+         * O balcão tem duas regras que só se vêem com um artigo assim à frente:
+         * a RECEITA avisa e não trava, e o CONTROLADO pergunta antes de entrar
+         * no carrinho. Sem um de cada na bancada, o ensaio do browser corre
+         * sobre uma grelha de água e pão e não mede nenhuma das duas.
+         */
         $artigos = 0;
         foreach ([
-            ['BANC-A', 'Água 1,5L', 500],
-            ['BANC-B', 'Pão de forma', 850],
-            ['BANC-C', 'Leite meio-gordo 1L', 1200],
-            ['BANC-D', 'Arroz agulha 1kg', 2300],
-            ['BANC-E', 'Óleo alimentar 900ml', 3100],
-        ] as [$codigo, $nome, $preco]) {
+            ['BANC-A', 'Água 1,5L', 500, []],
+            ['BANC-B', 'Pão de forma', 850, []],
+            ['BANC-C', 'Leite meio-gordo 1L', 1200, []],
+            ['BANC-D', 'Arroz agulha 1kg', 2300, []],
+            ['BANC-E', 'Óleo alimentar 900ml', 3100, []],
+            ['BANC-R', 'Amoxicilina 500mg', 2800, ['requires_prescription' => true]],
+            ['BANC-C1', 'Diazepam 5mg', 1900, ['is_controlled' => true, 'requires_prescription' => true]],
+        ] as [$codigo, $nome, $preco, $extra]) {
             $artigo = Product::firstOrCreate(
                 ['tenant_id' => $tenant->id, 'code' => $codigo],
-                [
+                array_merge([
                     'name'         => $nome,
                     'price'        => $preco,
                     'cost'         => round($preco * 0.7),
@@ -168,8 +178,14 @@ class PrepararBancadaPwa extends Command
                     'tax_rate'     => 14,
                     'is_active'    => true,
                     'manage_stock' => true,
-                ]
+                ], $extra)
             );
+
+            // Um artigo que já existisse de uma montagem anterior também passa
+            // a ter as marcas: a bancada repete-se e não se apaga.
+            if ($extra) {
+                $artigo->forceFill($extra)->save();
+            }
 
             Stock::updateOrCreate(
                 ['tenant_id' => $tenant->id, 'product_id' => $artigo->id, 'warehouse_id' => $armazem->id],

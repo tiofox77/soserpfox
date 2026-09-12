@@ -165,3 +165,94 @@ test('nenhum erro na consola', async ({ page }) => {
 
     expect(reais, reais.join('\n')).toHaveLength(0);
 });
+
+/**
+ * O QUE O BALCÃO TEM DE SABER ANTES DE FECHAR A VENDA.
+ *
+ * Duas regras que a migração para React tinha perdido em silêncio — e que os
+ * ensaios que as guardavam não apanharam, porque apontavam para o componente
+ * Livewire que já nenhuma rota serve.
+ *
+ * Depois de emitida a factura, o medicamento já saiu da farmácia: um aviso que
+ * só aparece no fim não serve para nada.
+ */
+test('um psicotrópico pergunta antes de entrar no carrinho', async ({ page }) => {
+    await page.goto(ECRA);
+
+    if (!(await balcaoPronto(page))) test.skip(true, 'sem turno aberto na bancada');
+
+    await page.getByPlaceholder(/código de barras/).fill('Diazepam');
+
+    const cartao = page.getByRole('button', { name: /Diazepam/ });
+
+    await expect(cartao).toBeVisible({ timeout: 15_000 });
+
+    // A MARCA VÊ-SE ANTES DO CLIQUE: um aviso depois de o artigo entrar chega
+    // tarde para quem já estava a empacotar.
+    await expect(cartao).toHaveAccessibleName(/venda controlada/);
+
+    await cartao.click();
+
+    const modal = page.getByRole('dialog');
+
+    await expect(modal).toBeVisible({ timeout: 15_000 });
+    await expect(modal.getByRole('heading', { name: 'Substância controlada' })).toBeVisible();
+    await expect(modal.getByText(/Confirme a identificação de quem o leva/)).toBeVisible();
+
+    // «NÃO VENDER» não põe nada no carrinho.
+    await modal.getByRole('button', { name: 'Não vender' }).click();
+
+    await expect(modal).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Finalizar Venda' })).toBeDisabled();
+});
+
+/** A receita AVISA e não trava: o operador pode ter a receita na mão. */
+test('um artigo com receita entra no carrinho e deixa o aviso', async ({ page }) => {
+    await page.goto(ECRA);
+
+    if (!(await balcaoPronto(page))) test.skip(true, 'sem turno aberto na bancada');
+
+    await page.getByPlaceholder(/código de barras/).fill('Amoxicilina');
+
+    const cartao = page.getByRole('button', { name: /Amoxicilina/ });
+
+    await expect(cartao).toBeVisible({ timeout: 15_000 });
+    await expect(cartao).toHaveAccessibleName(/exige receita médica/);
+
+    await cartao.click();
+
+    // Entrou — e o aviso está lá.
+    await expect(page.getByText(/exige RECEITA MÉDICA/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Finalizar Venda' })).toBeEnabled();
+});
+
+/**
+ * NADA NA GRELHA NÃO QUER DIZER «NÃO EXISTE».
+ *
+ * A grelha esconde o que está sem stock. Passar o leitor por um artigo esgotado
+ * devolvia «nada encontrado» — indistinguível de um código desconhecido — e o
+ * operador concluía que a leitura não funcionava, com o produto na mão.
+ */
+test('um codigo desconhecido diz-se desconhecido', async ({ page }) => {
+    await page.goto(ECRA);
+
+    if (!(await balcaoPronto(page))) test.skip(true, 'sem turno aberto na bancada');
+
+    const procura = page.getByPlaceholder(/código de barras/);
+
+    await procura.fill('9999999999999');
+
+    /*
+     * ESPERAR QUE A GRELHA RESPONDA ANTES DE CARREGAR EM ENTER.
+     *
+     * A procura é atrasada de propósito (não se consulta por tecla). Carregar em
+     * Enter de imediato decide sobre a lista ANTERIOR — e o leitor, que escreve
+     * e carrega em Enter de seguida, cai no mesmo. É a mesma espera que o
+     * operador faz sem pensar.
+     */
+    await expect(page.getByRole('button', { name: /Água 1,5L/ })).toHaveCount(0, { timeout: 15_000 });
+
+    await procura.press('Enter');
+
+    await expect(page.getByText(/Nada encontrado para/)).toBeVisible({ timeout: 15_000 });
+});

@@ -51,11 +51,21 @@ export type LinhaDoCarrinho = {
     stock: number | null;
 };
 
-/** A chave do espelho do carrinho, por empresa e por operador. */
-function chaveDoCarrinho(): string {
-    const empresa = document.querySelector('meta[name="tenant-id"]')?.getAttribute('content') ?? '0';
-
-    return `pos_carrinho_${empresa}`;
+/**
+ * A CHAVE DO ESPELHO DO CARRINHO — por empresa E por operador.
+ *
+ * Lia a empresa de uma `<meta name="tenant-id">` que NÃO EXISTE em lado nenhum
+ * do layout: a chave saía sempre `pos_carrinho_0`, igual para todas as empresas
+ * e para todos os operadores. Quem tem mais do que uma casa trocava de empresa
+ * e levava o carrinho atrás — artigos escolhidos numa ficavam lá para serem
+ * facturados na outra — e num balcão partilhado o turno seguinte apanhava o
+ * carrinho que o anterior deixou a meio.
+ *
+ * Agora vem do servidor, nas opções, que é quem sabe a empresa activa e quem
+ * está a vender.
+ */
+function chaveDoCarrinho(dono: { empresa: number; operador: number }): string {
+    return `pos_carrinho_t${dono.empresa}_u${dono.operador}`;
 }
 
 export default function PontoDeVenda() {
@@ -128,6 +138,8 @@ function Balcao({ o }: { o: Opcoes }) {
     const [pagar, porPagar] = useState(false);
     const [escolherCliente, porEscolherCliente] = useState(false);
     const [aPerguntarPreco, porAPerguntarPreco] = useState<ArtigoDoPos | null>(null);
+    /** O psicotrópico à espera de alguém responder. */
+    const [aConfirmarControlado, porAConfirmarControlado] = useState<ArtigoDoPos | null>(null);
     const [vendida, porVendida] = useState<VendaFechada | null>(null);
     const [confirmarLimpeza, porConfirmarLimpeza] = useState(false);
 
@@ -172,7 +184,7 @@ function Balcao({ o }: { o: Opcoes }) {
      */
     useEffect(() => {
         try {
-            const guardado = localStorage.getItem(chaveDoCarrinho());
+            const guardado = localStorage.getItem(chaveDoCarrinho(o.dono_do_carrinho));
 
             if (guardado) {
                 const { itens } = JSON.parse(guardado) as { itens?: LinhaDoCarrinho[] };
@@ -190,9 +202,9 @@ function Balcao({ o }: { o: Opcoes }) {
     useEffect(() => {
         try {
             if (linhas.length > 0) {
-                localStorage.setItem(chaveDoCarrinho(), JSON.stringify({ ts: Date.now(), itens: linhas }));
+                localStorage.setItem(chaveDoCarrinho(o.dono_do_carrinho), JSON.stringify({ ts: Date.now(), itens: linhas }));
             } else {
-                localStorage.removeItem(chaveDoCarrinho());
+                localStorage.removeItem(chaveDoCarrinho(o.dono_do_carrinho));
             }
         } catch {
             /* idem */
@@ -252,6 +264,18 @@ function Balcao({ o }: { o: Opcoes }) {
 
             somDoBalcao('juntar');
 
+            /*
+             * A RECEITA AVISA, NÃO TRAVA.
+             *
+             * O operador pode ter a receita na mão — e o aviso tem de aparecer
+             * AGORA, quando o artigo entra no carrinho. Depois de emitida a
+             * factura o medicamento já saiu da farmácia, e um aviso no fim não
+             * serve para nada.
+             */
+            if (a.receita) {
+                porAviso(t(':artigo exige RECEITA MÉDICA. Confirme que a tem antes de entregar.', { artigo: a.nome }));
+            }
+
             return [
                 ...ls,
                 {
@@ -267,9 +291,29 @@ function Balcao({ o }: { o: Opcoes }) {
         });
     }, []);
 
-    /** Clicar num artigo: o que pergunta o preço abre o modal antes de entrar. */
+    /**
+     * Clicar num artigo.
+     *
+     * Três caminhos: o CONTROLADO pergunta antes de entrar, o que PERGUNTA O
+     * PREÇO abre o modal do preço, e o resto entra directo.
+     */
     const escolher = useCallback(
         (a: ArtigoDoPos) => {
+            /*
+             * UM PSICOTRÓPICO NÃO ENTRA SEM RESPOSTA HUMANA.
+             *
+             * É uma substância cuja venda tem registo legal: ninguém a despacha
+             * com um clique distraído no meio de uma grelha de artigos.
+             *
+             * Mas o stock manda primeiro: um controlado esgotado nem chega a
+             * perguntar, que não há o que vender.
+             */
+            if (a.controlado && !(a.stock !== null && a.stock < 1)) {
+                porAConfirmarControlado(a);
+
+                return;
+            }
+
             if (a.pergunta_preco) {
                 porAPerguntarPreco(a);
 
@@ -380,7 +424,7 @@ function Balcao({ o }: { o: Opcoes }) {
      * que é o que o operador faria a seguir, e é a diferença entre passar
      * trinta artigos por minuto e passar dez.
      */
-    function aoSubmeterProcura(e: React.FormEvent) {
+    async function aoSubmeterProcura(e: React.FormEvent) {
         e.preventDefault();
 
         if (lista.length === 1) {
@@ -392,10 +436,41 @@ function Balcao({ o }: { o: Opcoes }) {
             return;
         }
 
-        if (lista.length === 0) {
-            porAviso(t('Nada encontrado para «:procura».', { procura }));
-            somDoBalcao('erro');
+        if (lista.length !== 0) return;
+
+        /*
+         * NADA NA GRELHA NÃO QUER DIZER «NÃO EXISTE».
+         *
+         * A grelha esconde o que está sem stock — numa das farmácias, 1415 de
+         * 5729 artigos. Passar o leitor por um esgotado devolvia «nada
+         * encontrado», indistinguível de um código desconhecido, e o operador
+         * concluía que a leitura não funcionava. Com o produto na mão.
+         *
+         * Antes de dizer que não existe, pergunta-se ao catálogo INTEIRO.
+         */
+        try {
+            const r = await pos.porCodigo(procura);
+
+            if (r.estado === 'encontrado') {
+                escolher(r.artigo);
+                porProcura('');
+
+                return;
+            }
+
+            if (r.estado === 'sem_stock' || r.estado === 'inactivo' || r.estado === 'de_modulo') {
+                porAviso(r.message);
+                somDoBalcao('erro');
+                porProcura('');
+
+                return;
+            }
+        } catch {
+            /* Sem rede: fica o aviso genérico, que é melhor do que nada. */
         }
+
+        porAviso(t('Nada encontrado para «:procura».', { procura }));
+        somDoBalcao('erro');
     }
 
     /* ─── Fechar a venda ──────────────────────────────────────────────── */
@@ -480,6 +555,51 @@ function Balcao({ o }: { o: Opcoes }) {
                     porAPerguntarPreco(null);
                 }}
             />
+
+            {/*
+              * UM PSICOTRÓPICO NÃO ENTRA SEM RESPOSTA HUMANA.
+              *
+              * A venda de uma substância controlada tem registo legal. O modal
+              * não é um obstáculo: é o momento em que alguém assume a venda,
+              * antes de o artigo sair da farmácia.
+              */}
+            <Modal
+                aberto={aConfirmarControlado !== null}
+                aoFechar={() => porAConfirmarControlado(null)}
+                titulo={t('Substância controlada')}
+                subtitulo={aConfirmarControlado?.nome}
+                icone="fa-triangle-exclamation"
+                cor="aviso"
+                largura="sm"
+                rodape={
+                    <>
+                        <Botao onClick={() => porAConfirmarControlado(null)}>{t('Não vender')}</Botao>
+                        <Botao
+                            cor="aviso"
+                            tom="solida"
+                            icone="fa-check"
+                            onClick={() => {
+                                const a = aConfirmarControlado;
+
+                                porAConfirmarControlado(null);
+
+                                if (!a) return;
+
+                                // O preço perguntado ao balcão vem depois: um
+                                // artigo pode ser as duas coisas.
+                                if (a.pergunta_preco) porAPerguntarPreco(a);
+                                else juntar(a);
+                            }}
+                        >
+                            {t('Confirmo a venda')}
+                        </Botao>
+                    </>
+                }
+            >
+                <p className="text-sm text-slate-600">
+                    {t('Este artigo é de venda controlada e fica registado. Confirme a identificação de quem o leva e a receita, se for exigida, antes de continuar.')}
+                </p>
+            </Modal>
 
             <ModalDeCliente
                 aberto={escolherCliente}
@@ -792,11 +912,15 @@ function CartaoDeArtigo({
              * balcão há quem trabalhe com o ecrã por trás — o nome dito em voz
              * alta é o que confirma o artigo antes de ele entrar na factura.
              */
-            aria-label={
+            aria-label={cls(
                 a.pergunta_preco
                     ? t('Juntar :artigo — preço perguntado ao balcão', { artigo: a.nome })
-                    : t('Juntar :artigo, :preco', { artigo: a.nome, preco: kz(a.preco) })
-            }
+                    : t('Juntar :artigo, :preco', { artigo: a.nome, preco: kz(a.preco) }),
+                // O que o operador tem de saber antes de carregar — e quem usa
+                // leitor de ecrã ouve junto com o nome, não depois.
+                a.controlado ? `· ${t('venda controlada')}` : '',
+                a.receita ? `· ${t('exige receita médica')}` : '',
+            )}
             style={{ '--i': i } as React.CSSProperties}
             className={cls(
                 'entra group relative flex flex-col overflow-hidden border bg-white p-2 text-left',
@@ -817,6 +941,30 @@ function CartaoDeArtigo({
                     aria-label={t(':n no carrinho', { n: noCarrinho })}
                 >
                     {noCarrinho}
+                </span>
+            )}
+
+            {/* AS MARCAS DO MEDICAMENTO, à vista antes do clique.
+                Um aviso que só aparece depois de o artigo entrar no carrinho
+                chega tarde para quem já estava a empacotar. */}
+            {(a.controlado || a.receita) && (
+                <span className="absolute left-1.5 top-1.5 z-10 flex gap-1">
+                    {a.controlado && (
+                        <span
+                            title={t('Venda controlada — pergunta antes de entrar')}
+                            className="grid h-6 w-6 place-items-center rounded-full bg-red-600 text-[10px] font-bold text-white shadow ring-2 ring-white"
+                        >
+                            <i className="fas fa-triangle-exclamation" aria-hidden="true" />
+                        </span>
+                    )}
+                    {a.receita && (
+                        <span
+                            title={t('Exige receita médica')}
+                            className="grid h-6 w-6 place-items-center rounded-full bg-amber-500 text-[10px] font-bold text-white shadow ring-2 ring-white"
+                        >
+                            <i className="fas fa-file-prescription" aria-hidden="true" />
+                        </span>
+                    )}
                 </span>
             )}
 

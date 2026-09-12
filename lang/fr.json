@@ -7592,5 +7592,13 @@
     "Senha alterada.": "Mot de passe changé.",
     "Subscrição": "Abonnement",
     "Só o dono da empresa a pode remover.": "Seul le propriétaire de l'entreprise peut la retirer.",
-    "Só o dono da empresa pode alterar os dados dela.": "Seul le propriétaire de l'entreprise peut modifier ses données."
+    "Só o dono da empresa pode alterar os dados dela.": "Seul le propriétaire de l'entreprise peut modifier ses données.",
+    ":artigo exige RECEITA MÉDICA. Confirme que a tem antes de entregar.": ":artigo exige une ORDONNANCE MÉDICALE. Assurez-vous de l'avoir avant de la remettre.",
+    "Confirmo a venda": "Je confirme la vente",
+    "Este artigo é de venda controlada e fica registado. Confirme a identificação de quem o leva e a receita, se for exigida, antes de continuar.": "Cet article est à vente contrôlée et son enregistrement est conservé. Vérifiez l'identification de l'acheteur et l'ordonnance, si elle est exigée, avant de continuer.",
+    "Não vender": "Ne pas vendre",
+    "Substância controlada": "Substance contrôlée",
+    "Venda controlada — pergunta antes de entrar": "Vente contrôlée — demande avant d'entrer",
+    "exige receita médica": "exige une ordonnance médicale",
+    "venda controlada": "vente contrôlée"
 }

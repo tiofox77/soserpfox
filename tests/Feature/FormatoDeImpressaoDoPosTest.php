@@ -117,33 +117,49 @@ class FormatoDeImpressaoDoPosTest extends TenantTestCase
      */
     public function o_modal_abre_no_papel_da_casa_e_deixa_trocar(): void
     {
-        $trait = file_get_contents(app_path('Livewire/Concerns/FormatoDeImpressao.php'));
+        $modal = file_get_contents(resource_path('js/ecras/facturacao/pos/ModalDoTalao.tsx'));
 
-        $this->assertStringContainsString('public $formatoImpressao', $trait);
-        $this->assertStringContainsString('pos_formato_impressao', $trait,
+        // Abre no papel que a empresa configurou, que vem na venda fechada.
+        $this->assertStringContainsString('porPapel(venda.formato)', $modal,
             'o modal abre no papel que a empresa configurou');
-        $this->assertStringContainsString('public function trocarFormatoImpressao', $trait);
 
-        // Trocar no momento não muda a configuração da empresa.
-        $troca = substr($trait, strpos($trait, 'function trocarFormatoImpressao'), 300);
-        $this->assertStringNotContainsString('InvoicingSettings', $troca,
+        // E deixa trocar, com os dois papéis à vista.
+        $this->assertStringContainsString("'talao'", $modal);
+        $this->assertStringContainsString("'a4'", $modal);
+        $this->assertStringContainsString("t('configurado')", $modal,
+            'qual dos dois é o da casa tem de se ver');
+
+        /*
+         * TROCAR NO MOMENTO NÃO MUDA A CONFIGURAÇÃO DA EMPRESA.
+         *
+         * Há sempre a venda que precisa do outro papel. O papel escolhido é
+         * estado do modal e mais nada — nenhuma chamada ao servidor a gravar.
+         */
+        $this->assertStringNotContainsString('definicoes', $modal,
             'trocar no balcão é para esta venda, não para sempre');
     }
 
     /**
-     * QUEM INCLUI O MODAL TEM DE TER O QUE ELE PEDE.
+     * O MODAL EM BLADE FOI-SE, E COM ELE O 500 QUE O PERSEGUIA.
      *
-     * O partial é partilhado por três ecrãs. Quando o selector do papel
-     * entrou, entrou só no POS — e /invoicing/pos/reports passou a dar 500
-     * («Undefined variable $formatoImpressao») a quem abrisse o talão de uma
-     * venda. O trait é a fonte única; este teste é o que garante que ninguém
-     * volta a incluir o modal sem ele.
+     * O partial `pos.partials.print-modal` era partilhado por três ecrãs, e
+     * quando o selector do papel entrou, entrou só no POS: /invoicing/pos/reports
+     * passou a dar 500 («Undefined variable $formatoImpressao») a quem abrisse o
+     * talão de uma venda. A fonte única era um trait, e o ensaio guardava que
+     * nenhum ecrã voltasse a incluir o modal sem ele.
+     *
+     * Em React o problema não se põe: o papel vem no `meta.formato` da própria
+     * consulta e a linha traz as duas moradas. Não há variável para faltar. O
+     * que este ensaio prende agora é que o partial não volta.
      *
      * @test
      */
-    public function todos_os_ecras_que_incluem_o_modal_sabem_o_papel(): void
+    public function o_modal_em_blade_nao_volta(): void
     {
-        $consumidores = [];
+        $this->assertFileDoesNotExist(
+            resource_path('views/livewire/pos/partials/print-modal.blade.php'),
+            'o modal do talão vive em React (ModalDoTalao.tsx); um segundo em Blade divergiria à primeira alteração',
+        );
 
         $it = new \RecursiveIteratorIterator(
             new \RecursiveDirectoryIterator(resource_path('views'))
@@ -154,44 +170,11 @@ class FormatoDeImpressaoDoPosTest extends TenantTestCase
                 continue;
             }
 
-            if (str_contains(file_get_contents($ficheiro->getPathname()), 'pos.partials.print-modal')) {
-                $consumidores[] = $ficheiro->getPathname();
-            }
-        }
-
-        // O próprio partial e o comentário nos scripts não contam.
-        $consumidores = array_values(array_filter(
-            $consumidores,
-            fn ($c) => ! str_contains($c, 'print-modal.blade.php') && ! str_contains($c, 'scripts.blade.php')
-        ));
-
-        $this->assertNotEmpty($consumidores, 'o modal deixou de ser incluído em lado nenhum?');
-
-        /*
-         * Os componentes por trás dessas vistas.
-         *
-         * SAÍRAM DOIS DESTA LISTA, e pela mesma razão: o relatório de vendas e
-         * o balcão do salão passaram a React, onde o papel vem no
-         * `meta.formato` da própria consulta — não há componente Livewire a
-         * quem dar o trait. Ver `RelatorioDoPos.tsx`, e `/salon/pos`, que hoje
-         * monta o POS da facturação.
-         */
-        $componentes = [
-            \App\Livewire\POS\POSSystem::class,
-        ];
-
-        $this->assertCount(count($componentes), $consumidores,
-            'apareceu um ecrã novo a incluir o modal: junte o componente a esta lista e dê-lhe o trait');
-
-        foreach ($componentes as $classe) {
-            $reflexao = new \ReflectionClass($classe);
-
-            $this->assertTrue($reflexao->hasProperty('formatoImpressao'),
-                "{$classe} inclui o modal e não sabe em que papel imprime");
-            $this->assertTrue($reflexao->hasMethod('trocarFormatoImpressao'),
-                "{$classe} não deixa trocar de papel");
-            $this->assertTrue($reflexao->hasMethod('closePrintModal'),
-                "{$classe} não fecha o talão");
+            $this->assertStringNotContainsString(
+                'pos.partials.print-modal',
+                file_get_contents($ficheiro->getPathname()),
+                $ficheiro->getFilename().' voltou a incluir o modal do talão em Blade',
+            );
         }
     }
 
@@ -236,35 +219,41 @@ class FormatoDeImpressaoDoPosTest extends TenantTestCase
         $this->get($linha['papeis']['a4'])->assertOk();
     }
 
-    /** @test */
-    public function o_a4_e_a_pre_visualizacao_do_servidor(): void
+    /**
+     * OS DOIS PAPÉIS SÃO DO SERVIDOR.
+     *
+     * Nem o talão nem o A4 se desenham no ecrã: são as duas moradas que o
+     * servidor gera, as mesmas dos Documentos. Duas versões do mesmo papel
+     * divergem à primeira alteração — e no talão, que é uma factura-recibo, a
+     * divergência é um documento que a AGT não reconhece.
+     *
+     * E é por serem do servidor que o talão NÃO SE TRADUZ: é um documento fiscal
+     * angolano, em português por lei. Se fosse desenhado em React, cada frase
+     * dele passaria por `t()` e sairia em inglês a quem tem a interface em
+     * inglês.
+     *
+     * @test
+     */
+    public function os_dois_papeis_sao_a_pre_visualizacao_do_servidor(): void
     {
-        $modal = file_get_contents(resource_path('views/livewire/pos/partials/print-modal.blade.php'));
+        $modal = file_get_contents(resource_path('js/ecras/facturacao/pos/ModalDoTalao.tsx'));
 
-        $this->assertStringContainsString("route('invoicing.sales.invoices.preview', \$lastInvoice->id)", $modal,
-            'o A4 é o MESMO papel dos Documentos, não um segundo desenho');
-
-        $this->assertStringContainsString('trocarFormatoImpressao', $modal, 'faltam os dois botões');
-        $this->assertStringContainsString('imprimirA4()', $modal);
-        $this->assertStringContainsString('printTicket()', $modal, 'o talão continua onde estava');
+        // O papel à frente é a morada que o servidor mandou, dentro de um iframe.
+        $this->assertStringContainsString('venda.papeis[papel]', $modal,
+            'o papel é o do servidor, não um segundo desenho');
+        $this->assertStringContainsString('<iframe', $modal);
 
         // O botão imprime o que está à frente, não sempre o talão.
-        $this->assertStringContainsString("\$formatoImpressao === 'a4' ? 'imprimirA4()' : 'printTicket()'", $modal);
-    }
+        $this->assertStringContainsString('function imprimir()', $modal);
 
-    /** @test */
-    public function o_talao_continua_a_nao_ser_traduzido(): void
-    {
-        $modal = file_get_contents(resource_path('views/livewire/pos/partials/print-modal.blade.php'));
-
-        $ini = strpos($modal, 'id="ticket-print"');
-        $fim = strpos($modal, '{{-- Botões --}}');
-
-        $this->assertNotFalse($ini);
-
-        // O talão é uma factura-recibo: documento fiscal angolano, em
-        // português por lei. Traduzir uma menção legal é entregar ao cliente um
-        // documento que a AGT não reconhece.
-        $this->assertStringNotContainsString('__(', substr($modal, $ini, $fim - $ini));
+        /*
+         * E NADA DO DOCUMENTO PASSA POR `t()`.
+         *
+         * O que se traduz no modal são os BOTÕES e os avisos — «Imprimir»,
+         * «Nova venda». O corpo do documento vem do servidor e não tem uma
+         * única cadeia traduzível.
+         */
+        $this->assertStringNotContainsString('id="ticket-print"', $modal,
+            'o talão voltou a ser desenhado no ecrã: em React isso passaria as menções legais por t()');
     }
 }

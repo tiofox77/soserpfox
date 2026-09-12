@@ -74,9 +74,9 @@ class EmissorFiscal
     /**
      * À AGT — mas NUNCA durante a venda.
      *
-     * O submitToAGT() faz a chamada de rede na hora. No POS isso é o operador
-     * a esperar pela AGT com o cliente à frente, e uma AGT lenta ou em baixo
-     * transforma-se em vendas que parecem encravadas.
+     * Enviar o documento à AGT é uma chamada de rede. Feita na hora, no POS, é
+     * o operador a esperar pela AGT com o cliente à frente — e uma AGT lenta ou
+     * em baixo transforma-se em vendas que parecem encravadas.
      *
      * O que se faz aqui é DEIXAR EM FILA: cria-se a submissão pendente e o
      * DespacharAgtPendentes trata dela em `terminate`, depois de a resposta já
@@ -86,52 +86,18 @@ class EmissorFiscal
      */
     public function comunicar(Model $documento, int $tenantId): void
     {
-        try {
-            $definicoes = InvoicingSettings::forTenant($tenantId);
-
-            if (empty($definicoes->agt_auto_submit)) {
-                return;
-            }
-
-            $actual = $documento->fresh();
-
-            if (!$actual) {
-                return;
-            }
-
-            // Já em fila ou já tratada: não se duplica.
-            $jaExiste = \App\Models\AGT\AGTSubmission::where('tenant_id', $tenantId)
-                ->where('document_type', $actual::class)
-                ->where('document_id', $actual->getKey())
-                ->exists();
-
-            if ($jaExiste) {
-                return;
-            }
-
-            \App\Models\AGT\AGTSubmission::create([
-                'tenant_id'       => $tenantId,
-                'document_type'   => $actual::class,
-                'document_id'     => $actual->getKey(),
-                'document_number' => $actual->invoice_number
-                    ?? $actual->receipt_number
-                    ?? $actual->credit_note_number
-                    ?? (string) $actual->getKey(),
-                // O código do tipo é obrigatório: é ele que diz à AGT que
-                // documento é. Vem do próprio documento quando existe.
-                'document_type_code' => $actual->invoice_type
-                    ?? $actual->document_type
-                    ?? 'FT',
-                'agt_environment' => \App\Services\AGT\AGTKeyStore::ambiente($tenantId),
-                'status'          => \App\Models\AGT\AGTSubmission::STATUS_PENDING,
-                'retry_count'     => 0,
-            ]);
-        } catch (\Throwable $e) {
-            Log::error('EmissorFiscal: erro ao pôr em fila para a AGT', [
-                'documento' => $documento->getKey(),
-                'tipo'      => $documento::class,
-                'error'     => $e->getMessage(),
-            ]);
-        }
+        /*
+         * UMA PORTA SÓ PARA A FILA DA AGT.
+         *
+         * Isto era uma SEGUNDA implementação do enfileiramento, ao lado do
+         * `AutoSubmissao::enfileirar()` que o resto da facturação usa — e as
+         * duas já não diziam o mesmo: esta olhava para a EXISTÊNCIA de uma
+         * submissão, e uma submissão REJEITADA bloqueava o reenvio para sempre;
+         * a outra olha para o ESTADO, e uma rejeitada volta à fila.
+         *
+         * É a armadilha de sempre: duas cópias da mesma regra acabam
+         * diferentes, e a que está errada é a que ninguém está a olhar.
+         */
+        \App\Services\AGT\AutoSubmissao::enfileirar($documento, $tenantId);
     }
 }

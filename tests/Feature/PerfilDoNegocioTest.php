@@ -197,9 +197,15 @@ class PerfilDoNegocioTest extends TenantTestCase
      */
     public function test_o_pos_nao_le_o_perfil_em_lado_nenhum(): void
     {
+        /*
+         * O balcão é hoje React: a porta é o `PosApiController`, o ecrã é o
+         * `PontoDeVenda.tsx`, e o balcão sem rede continua no Blade do PWA. Os
+         * dois primeiros substituem o `POSSystem` em Livewire, que deixou de
+         * existir.
+         */
         $ficheiros = [
-            app_path('Livewire/POS/POSSystem.php'),
-            resource_path('views/livewire/pos/possystem.blade.php'),
+            app_path('Http/Controllers/Api/Invoicing/PosApiController.php'),
+            resource_path('js/ecras/facturacao/pos/PontoDeVenda.tsx'),
             resource_path('views/invoicing/offline/pos.blade.php'),
         ];
 

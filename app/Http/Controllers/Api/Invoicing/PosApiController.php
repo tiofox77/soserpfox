@@ -174,6 +174,24 @@ class PosApiController extends Controller
                 'mascara_de_preco' => (bool) ($definicoes->price_mask_enabled ?? false),
             ],
 
+            /*
+             * DE QUEM É O CARRINHO.
+             *
+             * O espelho do carrinho vive no `localStorage`, e a chave dele TEM
+             * de dizer a empresa e o operador. Sem a empresa, quem tem mais do
+             * que uma casa — e há quem tenha — trocava de empresa e levava o
+             * carrinho atrás: artigos escolhidos numa ficavam lá para serem
+             * facturados na outra. Sem o operador, um balcão partilhado dava ao
+             * turno seguinte o carrinho que o anterior deixou a meio.
+             *
+             * Vem do SERVIDOR de propósito: o ecrã lia-o de uma `<meta>` que
+             * não existe em lado nenhum, e a chave saía sempre igual.
+             */
+            'dono_do_carrinho' => [
+                'empresa' => $tenantId,
+                'operador' => (int) ($request->user()?->id ?? 0),
+            ],
+
             'permissoes' => [
                 'pode_vender' => (bool) $request->user()?->can('invoicing.sales.invoices.create'),
                 'pode_criar_cliente' => (bool) $request->user()?->can('invoicing.clients.create'),
@@ -224,6 +242,15 @@ class PosApiController extends Controller
 
         $q = Product::where('invoicing_products.tenant_id', $tenantId)
             ->where('invoicing_products.is_active', true)
+            /*
+             * ARTIGOS DE UM MÓDULO DE NEGÓCIO NÃO SE VENDEM AQUI.
+             *
+             * Um «Corte de Cabelo» existe em `invoicing_products` só para a
+             * linha da factura ter artigo de catálogo — quem o marca e cobra é o
+             * POS do salão, que sabe do profissional, da duração e da marcação.
+             * Ao balcão da facturação era um artigo solto, sem nada disso.
+             */
+            ->whereNull('invoicing_products.module')
             ->selectRaw("invoicing_products.*, {$stock} AS stock_no_armazem", $armazemId ? [$tenantId] : []);
 
         if (! empty($definicoes->pos_hide_out_of_stock ?? true)) {
@@ -277,8 +304,124 @@ class PosApiController extends Controller
                         ? null
                         : round((float) $p->stock_no_armazem, 3),
                     'categoria_id' => $p->category_id ? (int) $p->category_id : null,
+
+                    /*
+                     * O QUE O BALCÃO TEM DE SABER ANTES DE FECHAR A VENDA.
+                     *
+                     * Depois de emitida a factura, o artigo já saiu da farmácia:
+                     * um aviso que só aparece no fim não serve para nada.
+                     *
+                     * A RECEITA avisa e não trava — o operador pode ter a
+                     * receita na mão. O CONTROLADO (psicotrópico) pergunta, e
+                     * só entra no carrinho depois de alguém responder: é uma
+                     * substância cuja venda tem registo legal, e ninguém a
+                     * despacha com um clique distraído.
+                     */
+                    'receita' => (bool) $p->requires_prescription,
+                    'controlado' => (bool) $p->is_controlled,
                 ];
             })->values(),
+        ]);
+    }
+
+    /**
+     * O QUE ESTE CÓDIGO DE BARRAS É.
+     *
+     * A grelha esconde o que está sem stock — numa das farmácias, 1415 de 5729
+     * artigos. Passar o leitor por um artigo esgotado devolvia um ecrã vazio,
+     * indistinguível de «este código não existe», e o operador concluía que a
+     * leitura não funcionava. Com o produto na mão.
+     *
+     * Aqui a pergunta é feita ao CATÁLOGO INTEIRO, e a resposta diz qual dos
+     * quatro casos é: vende-se, está sem stock, está inactivo, ou não existe.
+     *
+     * E procura-se por todas as FORMAS EQUIVALENTES do código: o mesmo artigo
+     * pode estar guardado com o envelope GS1 à frente ou só com o EAN-13 de
+     * dentro, conforme o sistema de onde veio o catálogo — e o leitor tanto
+     * manda um como o outro.
+     */
+    public function porCodigo(Request $request): JsonResponse
+    {
+        $tenantId = (int) activeTenantId();
+
+        abort_unless($tenantId, 403, __('Sem empresa activa.'));
+
+        $lido = trim((string) $request->query('codigo', ''));
+
+        if (mb_strlen($lido) < 6) {
+            return response()->json(['estado' => 'curto']);
+        }
+
+        $formas = \App\Support\CodigoDeBarras::formas($lido);
+
+        $encontrados = Product::where('tenant_id', $tenantId)
+            ->where(fn ($q) => $q->whereIn('barcode', $formas)->orWhereIn('sku', $formas))
+            ->get();
+
+        // Correspondência exacta manda; a equivalência é o plano B.
+        $p = $encontrados->firstWhere('barcode', $lido)
+            ?? $encontrados->firstWhere('sku', $lido)
+            ?? $encontrados->first();
+
+        if (! $p) {
+            return response()->json(['estado' => 'desconhecido']);
+        }
+
+        if (! $p->is_active) {
+            return response()->json([
+                'estado' => 'inactivo',
+                'nome' => $p->name,
+                'message' => __(':artigo está inactivo e não pode ser vendido.', ['artigo' => $p->name]),
+            ]);
+        }
+
+        // ARTIGO DE MÓDULO: a mesma regra da grelha e da venda.
+        if (filled($p->module)) {
+            return response()->json([
+                'estado' => 'de_modulo',
+                'nome' => $p->name,
+                'message' => __(':artigo vende-se no POS do módulo :modulo.', [
+                    'artigo' => $p->name, 'modulo' => $p->module,
+                ]),
+            ]);
+        }
+
+        $armazemId = $this->armazem($tenantId)['id'];
+        $controlaStock = $p->type !== 'servico' && $p->manage_stock;
+
+        $disponivel = $controlaStock
+            ? (float) DB::table('invoicing_stocks')
+                ->where('tenant_id', $tenantId)
+                ->where('product_id', $p->id)
+                ->when($armazemId, fn ($q) => $q->where('warehouse_id', $armazemId))
+                ->sum('quantity')
+            : null;
+
+        if ($controlaStock && $disponivel <= 0) {
+            return response()->json([
+                'estado' => 'sem_stock',
+                'nome' => $p->name,
+                'message' => __(':artigo está sem stock neste armazém.', ['artigo' => $p->name]),
+            ]);
+        }
+
+        return response()->json([
+            'estado' => 'encontrado',
+            'artigo' => [
+                'id' => (int) $p->id,
+                'nome' => $p->name,
+                'codigo' => $p->sku,
+                'codigo_de_barras' => $p->barcode,
+                'unidade' => $p->unit,
+                'servico' => $p->type === 'servico',
+                'preco' => round((float) $p->price, 2),
+                'pergunta_preco' => (bool) $p->preco_no_pos,
+                'imagem' => $p->featured_image,
+                'stock' => $disponivel === null ? null : round($disponivel, 3),
+                'categoria_id' => $p->category_id ? (int) $p->category_id : null,
+                'receita' => (bool) $p->requires_prescription,
+                'controlado' => (bool) $p->is_controlled,
+            ],
         ]);
     }
 
@@ -363,6 +506,29 @@ class PosApiController extends Controller
             'items.*.is_service' => ['nullable', 'boolean'],
             'items.*.unit' => ['nullable', 'string', 'max:10'],
         ]);
+
+        /*
+         * A GRELHA FILTRA, NÃO PROTEGE.
+         *
+         * Os ids das linhas vêm do browser. Um artigo de um módulo de negócio
+         * (hoje o salão) vende-se no POS desse módulo, que sabe do profissional,
+         * da duração e da marcação — ao balcão da facturação era um serviço
+         * solto, sem nada disso.
+         */
+        $deModulo = Product::where('tenant_id', $tenantId)
+            ->whereIn('id', collect($dados['items'])->pluck('product_id')->filter()->all())
+            ->whereNotNull('module')
+            ->get(['name', 'module']);
+
+        if ($deModulo->isNotEmpty()) {
+            $primeiro = $deModulo->first();
+
+            return response()->json([
+                'message' => __(':artigo vende-se no POS do módulo :modulo.', [
+                    'artigo' => $primeiro->name, 'modulo' => $primeiro->module,
+                ]),
+            ], 422);
+        }
 
         try {
             $factura = $servico->createFromPayload($dados, $tenantId, (int) auth()->id());

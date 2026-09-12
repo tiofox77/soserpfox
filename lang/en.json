@@ -7592,5 +7592,13 @@
     "Senha alterada.": "Password changed.",
     "Subscrição": "Subscription",
     "Só o dono da empresa a pode remover.": "Only the company owner can remove it.",
-    "Só o dono da empresa pode alterar os dados dela.": "Only the company owner can change its details."
+    "Só o dono da empresa pode alterar os dados dela.": "Only the company owner can change its details.",
+    ":artigo exige RECEITA MÉDICA. Confirme que a tem antes de entregar.": ":artigo requires a MEDICAL PRESCRIPTION. Make sure you have it before handing it over.",
+    "Confirmo a venda": "I confirm the sale",
+    "Este artigo é de venda controlada e fica registado. Confirme a identificação de quem o leva e a receita, se for exigida, antes de continuar.": "This item is a controlled sale and is recorded. Check the buyer's identification and the prescription, if one is required, before continuing.",
+    "Não vender": "Do not sell",
+    "Substância controlada": "Controlled substance",
+    "Venda controlada — pergunta antes de entrar": "Controlled sale — it asks before entering",
+    "exige receita médica": "requires a medical prescription",
+    "venda controlada": "controlled sale"
 }

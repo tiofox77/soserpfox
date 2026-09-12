@@ -21,6 +21,16 @@ export type ArtigoDoPos = {
     /** Nulo em serviços e em artigos sem gestão de stock: esses vendem-se sempre. */
     stock: number | null;
     categoria_id: number | null;
+
+    /**
+     * O QUE O BALCÃO TEM DE SABER ANTES DE FECHAR A VENDA.
+     *
+     * Depois de emitida a factura, o artigo já saiu da farmácia. A RECEITA
+     * avisa e não trava — o operador pode tê-la na mão. O CONTROLADO
+     * (psicotrópico) PERGUNTA, e só entra depois de alguém responder.
+     */
+    receita: boolean;
+    controlado: boolean;
 };
 
 export type CategoriaDoPos = { id: number; nome: string; artigos: number };
@@ -46,6 +56,14 @@ export type OpcoesDoPos = {
         taxa_irt: number;
         mascara_de_preco: boolean;
     };
+    /**
+     * De quem é o carrinho: a empresa e o operador.
+     *
+     * Vem do servidor porque a chave do espelho em `localStorage` tem de dizer
+     * as duas coisas — sem a empresa, trocar de empresa levava o carrinho
+     * atrás; sem o operador, um balcão partilhado passava-o ao turno seguinte.
+     */
+    dono_do_carrinho: { empresa: number; operador: number };
     permissoes: { pode_vender: boolean; pode_criar_cliente: boolean; pode_mudar_preco: boolean };
 };
 
@@ -72,8 +90,23 @@ export type VendaFechada = {
     message: string;
 };
 
+/**
+ * O QUE UM CÓDIGO DE BARRAS É.
+ *
+ * A grelha esconde o que está sem stock: ler um artigo esgotado dava um ecrã
+ * vazio, indistinguível de «este código não existe». A pergunta vai ao catálogo
+ * inteiro e a resposta diz qual dos casos é.
+ */
+export type LeituraDeCodigo =
+    | { estado: 'curto' }
+    | { estado: 'desconhecido' }
+    | { estado: 'inactivo' | 'sem_stock' | 'de_modulo'; nome: string; message: string }
+    | { estado: 'encontrado'; artigo: ArtigoDoPos };
+
 export const pos = {
     opcoes: () => api.ler<OpcoesDoPos>('/pos/opcoes'),
+
+    porCodigo: (codigo: string) => api.ler<LeituraDeCodigo>('/pos/por-codigo', { codigo }),
 
     artigos: (filtros: { procura?: string; categoria?: number | null; armazem?: number | null }) =>
         api.ler<{ data: ArtigoDoPos[] }>('/pos/artigos', filtros),

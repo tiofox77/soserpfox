@@ -143,27 +143,24 @@ class FuncoesPorSectorTest extends TenantTestCase
             'name' => 'Diazepam 5mg', 'is_controlled' => true,
         ]));
 
-        $pos = Livewire::test(POSSystem::class)
-            ->call('addToCart', $controlado->id);
+        // O balcão é React: é o servidor que marca o artigo como controlado, e
+        // é essa marca que faz o ecrã perguntar ANTES de ele entrar no carrinho.
+        $linha = $this->linhaDoPos($controlado);
 
-        $pos->assertDispatched('pos-confirmar-controlado');
-
-        // E NÃO entrou no carrinho enquanto ninguém confirmou.
-        $this->assertSame(0, \Cart::session($pos->get('cartKey') ?? 'x')->getContent()->count()
-            + (int) collect($pos->get('cartItems') ?? [])->count());
+        $this->assertNotNull($linha);
+        $this->assertTrue($linha['controlado']);
     }
 
-    /** Confirmado pelo operador, aí sim entra. */
+    /** Confirmado pelo operador, aí sim entra — e é o ecrã que o faz. */
     public function test_farmacia_psicotropico_entra_depois_de_confirmado(): void
     {
-        $this->abrirTurno();
-        $controlado = $this->comStock($this->artigo([
-            'name' => 'Diazepam 5mg', 'is_controlled' => true,
-        ]));
+        $fonte = file_get_contents(resource_path('js/ecras/facturacao/pos/PontoDeVenda.tsx'));
 
-        Livewire::test(POSSystem::class)
-            ->call('addToCart', $controlado->id, true)
-            ->assertNotDispatched('pos-confirmar-controlado');
+        // A pergunta é uma porta: o «Confirmo a venda» é que chama o `juntar`.
+        $this->assertStringContainsString('porAConfirmarControlado(a)', $fonte);
+        $this->assertStringContainsString("t('Confirmo a venda')", $fonte);
+        $this->assertStringContainsString("t('Não vender')", $fonte,
+            'a pergunta tem de ter as duas respostas');
     }
 
     /** Um artigo normal nunca pergunta nada — senão o aviso perde o efeito. */
@@ -172,9 +169,24 @@ class FuncoesPorSectorTest extends TenantTestCase
         $this->abrirTurno();
         $normal = $this->comStock($this->artigo(['name' => 'Adesivo']));
 
-        Livewire::test(POSSystem::class)
-            ->call('addToCart', $normal->id)
-            ->assertNotDispatched('pos-confirmar-controlado');
+        $linha = $this->linhaDoPos($normal);
+
+        $this->assertNotNull($linha);
+        $this->assertFalse($linha['controlado']);
+        $this->assertFalse($linha['receita']);
+    }
+
+    /** A linha de um artigo na grelha do balcão, tal como o ecrã a recebe. */
+    private function linhaDoPos(Product $p, string $procura = ''): ?array
+    {
+        $this->comPermissoes('invoicing.pos.access');
+
+        $q = $procura === '' ? '' : '?procura='.urlencode($procura);
+
+        return collect(
+            $this->actingAs($this->user)
+                ->getJson('/api/v1/invoicing/react/pos/artigos'.$q)->assertOk()->json('data')
+        )->firstWhere('id', $p->id);
     }
 
     /** "Procura pela substância activa — paracetamol, não Ben-u-ron" */
@@ -207,10 +219,14 @@ class FuncoesPorSectorTest extends TenantTestCase
         $this->comStock($this->artigo(['name' => 'Ben-u-ron 500mg', 'active_ingredient' => 'Paracetamol']));
         $this->comStock($this->artigo(['name' => 'Brufen 400mg', 'active_ingredient' => 'Ibuprofeno']));
 
-        Livewire::test(POSSystem::class)
-            ->set('search', 'Paracetamol')
-            ->assertSee('Ben-u-ron')
-            ->assertDontSee('Brufen');
+        $nomes = collect(
+            $this->comPermissoes('invoicing.pos.access')->actingAs($this->user)
+                ->getJson('/api/v1/invoicing/react/pos/artigos?procura=Paracetamol')
+                ->assertOk()->json('data')
+        )->pluck('nome');
+
+        $this->assertTrue($nomes->contains(fn ($n) => str_contains($n, 'Ben-u-ron')));
+        $this->assertFalse($nomes->contains(fn ($n) => str_contains($n, 'Brufen')));
     }
 
     /** "Lotes com saída FIFO pela validade — sai primeiro o que expira antes" */
@@ -309,10 +325,14 @@ class FuncoesPorSectorTest extends TenantTestCase
         $this->comStock($this->artigo(['name' => 'Camisa de linho', 'size' => 'XL']));
         $this->comStock($this->artigo(['name' => 'Calças de ganga', 'size' => 'S']));
 
-        Livewire::test(POSSystem::class)
-            ->set('search', 'XL')
-            ->assertSee('Camisa de linho')
-            ->assertDontSee('Calças de ganga');
+        $nomes = collect(
+            $this->comPermissoes('invoicing.pos.access')->actingAs($this->user)
+                ->getJson('/api/v1/invoicing/react/pos/artigos?procura=XL')
+                ->assertOk()->json('data')
+        )->pluck('nome');
+
+        $this->assertTrue($nomes->contains('Camisa de linho'));
+        $this->assertFalse($nomes->contains('Calças de ganga'));
     }
 
     // ═══ COSMÉTICA ══════════════════════════════════════════════════════
@@ -473,9 +493,11 @@ class FuncoesPorSectorTest extends TenantTestCase
         $this->abrirTurno();
         $controlado = $this->comStock($this->artigo(['name' => 'Metadona', 'is_controlled' => true]));
 
-        Livewire::test(POSSystem::class)
-            ->call('addToCart', $controlado->id)
-            ->assertDispatched('pos-confirmar-controlado');
+        $linha = $this->linhaDoPos($controlado);
+
+        $this->assertNotNull($linha);
+        $this->assertTrue($linha['controlado'],
+            'desligar o perfil de visualização não pode desligar a pergunta do psicotrópico');
     }
 
     // ── Auxiliares ───────────────────────────────────────────────────────

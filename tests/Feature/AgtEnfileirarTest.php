@@ -182,7 +182,19 @@ class AgtEnfileirarTest extends TenantTestCase
         $emissores = [
             'app/Services/Invoicing/EmissorDeFacturas.php',
             'app/Services/Invoicing/EmissorDeNotas.php',
-            'app/Livewire/POS/POSSystem.php',
+            /*
+             * O BALCÃO SELA PELO `EmissorFiscal`.
+             *
+             * Era o `POSSystem` em Livewire que estava nesta lista, e deixou de
+             * existir — o balcão é React e emite pelo `PosSaleService`, que
+             * chama o `EmissorFiscal::selar()`. É esse que tem de enfileirar.
+             *
+             * E tem de enfileirar PELA MESMA PORTA: o `comunicar()` tinha uma
+             * segunda implementação do enfileiramento que olhava para a
+             * EXISTÊNCIA de uma submissão em vez do ESTADO — uma rejeitada
+             * ficava bloqueada para sempre.
+             */
+            'app/Services/Invoicing/EmissorFiscal.php',
             'app/Services/Invoicing/ModuleInvoiceService.php',
         ];
 

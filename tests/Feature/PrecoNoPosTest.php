@@ -112,19 +112,25 @@ class PrecoNoPosTest extends TenantTestCase
      */
     public function o_pos_pergunta_o_preco_e_so_depois_das_outras_validacoes(): void
     {
-        $pos = file_get_contents(app_path('Livewire/POS/POSSystem.php'));
+        $ecra = file_get_contents(resource_path('js/ecras/facturacao/pos/PontoDeVenda.tsx'));
 
-        $controlado = strpos($pos, "\$product->is_controlled && !\$controladoConfirmado");
-        $pergunta = strpos($pos, "\$product->preco_no_pos && \$precoEscrito === null");
+        $controlado = strpos($ecra, 'porAConfirmarControlado(a)');
+        $pergunta = strpos($ecra, 'porAPerguntarPreco(a)');
 
-        $this->assertNotFalse($controlado);
+        $this->assertNotFalse($controlado, 'falta a confirmação do psicotrópico');
         $this->assertNotFalse($pergunta, 'falta a pergunta do preço no POS');
         $this->assertLessThan($pergunta, $controlado, 'a confirmação do psicotrópico vem primeiro');
 
+        // E confirmado o psicotrópico, a pergunta do preço ainda acontece: um
+        // artigo pode ser as duas coisas.
+        $this->assertStringContainsString('if (a.pergunta_preco) porAPerguntarPreco(a);', $ecra,
+            'a confirmação do psicotrópico não pode atropelar a pergunta do preço');
+
         // O preço escrito é o que entra na linha, não o da ficha.
-        $this->assertStringContainsString("'price' => \$precoDaLinha", $pos);
-        $this->assertStringContainsString('max(0, (float) str_replace', $pos,
-            'o valor vem do browser: negativo não passa');
+        $modal = file_get_contents(resource_path('js/ecras/facturacao/pos/ModalDePreco.tsx'));
+
+        $this->assertStringContainsString('const valido = Number.isFinite(numero) && numero > 0;', $modal,
+            'o valor vem do browser: zero e negativo não passam');
     }
 
     /**
@@ -138,37 +144,51 @@ class PrecoNoPosTest extends TenantTestCase
      */
     public function a_pergunta_e_um_modal_do_pos(): void
     {
-        $modal = resource_path('views/livewire/pos/partials/preco-modal.blade.php');
+        $modal = resource_path('js/ecras/facturacao/pos/ModalDePreco.tsx');
         $this->assertFileExists($modal);
 
         $html = file_get_contents($modal);
-        $this->assertStringContainsString('$showPrecoModal', $html);
-        $this->assertStringContainsString('x-moeda-input', $html, 'o preço usa a máscara de dinheiro da casa');
-        $this->assertStringContainsString('confirmarPrecoNoPos', $html);
-        $this->assertStringContainsString('fecharPrecoModal', $html, 'cancelar é a forma de desistir');
-        $this->assertStringContainsString('$precoModalNome', $html, 'o artigo aparece por inteiro: os nomes são longos');
 
-        $ecra = file_get_contents(resource_path('views/livewire/pos/possystem.blade.php'));
-        $this->assertStringContainsString("livewire.pos.partials.preco-modal", $ecra, 'o modal tem de estar no ecrã');
+        $this->assertStringContainsString("titulo={t('Preço desta venda')}", $html);
+        $this->assertStringContainsString('subtitulo={artigo?.nome}', $html,
+            'o artigo aparece por inteiro: os nomes são longos');
+        $this->assertStringContainsString("t('Juntar ao carrinho')", $html);
+        $this->assertStringContainsString("t('Cancelar')", $html, 'cancelar é a forma de desistir');
+        // O preço de catálogo entra escrito como proposta, e o campo abre
+        // seleccionado: quem só quer confirmar carrega em Enter.
+        $this->assertStringContainsString('porValor(String(artigo.preco))', $html);
+        $this->assertStringContainsString('onFocus={(e) => e.target.select()}', $html);
 
-        // A caixa do navegador saiu de vez.
-        $js = file_get_contents(resource_path('views/livewire/pos/partials/scripts.blade.php'));
-        $this->assertStringNotContainsString('pos-perguntar-preco', $js);
+        // A CAIXA DO NAVEGADOR SAIU DE VEZ.
+        $ecra = file_get_contents(resource_path('js/ecras/facturacao/pos/PontoDeVenda.tsx'));
+
+        $this->assertStringContainsString('<ModalDePreco', $ecra, 'o modal tem de estar no ecrã');
+        $this->assertStringNotContainsString('window.prompt', $ecra);
     }
 
     /** @test */
     public function o_modal_devolve_o_preco_sem_perder_a_confirmacao_do_psicotropico(): void
     {
-        $pos = file_get_contents(app_path('Livewire/POS/POSSystem.php'));
+        $ecra = file_get_contents(resource_path('js/ecras/facturacao/pos/PontoDeVenda.tsx'));
 
-        $this->assertStringContainsString('public function confirmarPrecoNoPos', $pos);
-        $this->assertStringContainsString('MoneyHelper::parse(', $pos,
-            'o valor escrito passa pelo mesmo leitor de dinheiro do resto do sistema');
-        $this->assertStringContainsString('public function confirmarPrecoNoPos($escrito = null)', $pos,
-            'o valor viaja COM o submeter: em viagem própria chegava depois de o artigo já ter entrado');
-        $this->assertStringContainsString('$this->addToCart($id, $controlado, $valor)', $pos,
-            'a confirmação do psicotrópico volta com o preço');
-        $this->assertStringContainsString("addError('precoModalValor'", $pos, 'negativo não passa');
+        // O preço escrito volta e entra na linha — não o da ficha.
+        $this->assertStringContainsString('if (aPerguntarPreco) juntar(aPerguntarPreco, preco);', $ecra);
+        $this->assertStringContainsString('const preco = precoEscrito ?? a.preco;', $ecra,
+            'o preço escrito manda; o de catálogo é o plano B');
+
+        /*
+         * E A CONFIRMAÇÃO DO PSICOTRÓPICO SOBREVIVE À PERGUNTA DO PREÇO.
+         *
+         * Um artigo pode ser as duas coisas: confirma-se a venda controlada e o
+         * preço é perguntado a seguir — não ao contrário, e nenhum dos dois se
+         * come ao outro.
+         */
+        $confirmacao = strpos($ecra, "t('Confirmo a venda')");
+        $this->assertNotFalse($confirmacao);
+
+        $bloco = substr($ecra, max(0, $confirmacao - 900), 900);
+        $this->assertStringContainsString('if (a.pergunta_preco) porAPerguntarPreco(a);', $bloco);
+        $this->assertStringContainsString('else juntar(a);', $bloco);
     }
 
     /**
@@ -189,19 +209,31 @@ class PrecoNoPosTest extends TenantTestCase
      */
     public function a_sincronizacao_do_carrinho_respeita_o_preco_escrito(): void
     {
-        $pos = file_get_contents(app_path('Livewire/POS/POSSystem.php'));
+        /*
+         * EM REACT O PROBLEMA DEIXOU DE EXISTIR — e é isso que se prende aqui.
+         *
+         * O carrinho em Livewire vivia na sessão e era SINCRONIZADO com a ficha
+         * a cada desenho, para uma sessão de ontem não sobreviver com o preço de
+         * ontem. Num artigo de preço perguntado, a ficha diz zero por definição,
+         * e o valor escrito ao balcão era apagado no instante a seguir: escrevia-se
+         * 17.500 e a linha aparecia a 0,00.
+         *
+         * O carrinho é hoje estado do ecrã, e o preço da linha só muda quando
+         * alguém o muda. Se voltar a haver uma sincronização com a ficha, este
+         * ensaio avisa.
+         */
+        $ecra = file_get_contents(resource_path('js/ecras/facturacao/pos/PontoDeVenda.tsx'));
 
-        $this->assertStringContainsString('$precoVemDaFicha = ! $product->preco_no_pos;', $pos,
-            'a sincronização tem de saber quais preços não lhe pertencem');
+        // O preço vive na linha do carrinho, e é ele que viaja para a venda.
+        $this->assertStringContainsString('preco: number;', $ecra,
+            'o preço é da linha do carrinho, não da ficha do artigo');
+        $this->assertStringContainsString('unit_price: l.preco', $ecra,
+            'o que se factura é o preço da linha');
 
-        $sincronizacao = substr($pos, strpos($pos, '$precoVemDaFicha'), 600);
-
-        $this->assertStringContainsString('round((float) $item->price, 2)', $sincronizacao,
-            'num artigo de preço perguntado, o preço canónico é o que está na linha');
-
-        // O imposto não fica de fora da sincronização.
-        $this->assertStringContainsString('tax_rate', $sincronizacao);
-        $this->assertStringContainsString('tax_type', $sincronizacao);
+        // E nada volta a ir buscar o preço à ficha depois de a linha existir.
+        $this->assertStringNotContainsString('sincronizarCarrinho', $ecra);
+        $this->assertStringNotContainsString('preco: a.preco }', $ecra,
+            'uma sincronização com a ficha apagava o preço escrito ao balcão');
     }
 
     /** @test */

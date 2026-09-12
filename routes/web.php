@@ -1625,6 +1625,15 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::get('/pos/opcoes', [\App\Http\Controllers\Api\Invoicing\PosApiController::class, 'opcoes'])->name('pos.opcoes');
         Route::get('/pos/artigos', [\App\Http\Controllers\Api\Invoicing\PosApiController::class, 'artigos'])->name('pos.artigos');
         Route::get('/pos/clientes', [\App\Http\Controllers\Api\Invoicing\PosApiController::class, 'clientes'])->name('pos.clientes');
+        /*
+         * O QUE ESTE CÓDIGO DE BARRAS É.
+         *
+         * A grelha esconde o que está sem stock; passar o leitor por um artigo
+         * esgotado dava um ecrã vazio, indistinguível de «este código não
+         * existe». Esta porta pergunta ao catálogo inteiro e diz qual dos casos
+         * é — vende-se, sem stock, inactivo, de outro módulo, ou desconhecido.
+         */
+        Route::get('/pos/por-codigo', [\App\Http\Controllers\Api\Invoicing\PosApiController::class, 'porCodigo'])->name('pos.por-codigo');
         Route::post('/pos/vender', [\App\Http\Controllers\Api\Invoicing\PosApiController::class, 'vender'])->name('pos.vender');
         Route::get('/pos/relatorio', [\App\Http\Controllers\Api\Invoicing\PosApiController::class, 'relatorio'])->name('pos.relatorio');
 
