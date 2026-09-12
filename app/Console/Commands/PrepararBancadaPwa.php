@@ -1263,6 +1263,9 @@ class PrepararBancadaPwa extends Command
         foreach ([
             'invoicing', 'treasury', 'restaurant', 'rh', 'oficina',
             'eventos', 'crm', 'projetos', 'compras', 'inventario',
+            // As NOTIFICAÇÕES são um módulo como os outros: sem ele, as duas
+            // páginas (definições dos canais e modelos) nem abrem.
+            'notifications',
         ] as $slug) {
             $modulo = Module::firstOrCreate(
                 ['slug' => $slug],

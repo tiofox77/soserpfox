@@ -2,10 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Settings\ManageNotificationTemplates;
 use App\Models\NotificationTemplate;
 use App\Services\Notifications\ModelosPadrao;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -123,13 +121,16 @@ class ModelosPadraoNotificacaoTest extends TenantTestCase
         $this->assertStringContainsString('status_changed', $razao);
     }
 
+    private const LISTA = '/api/v1/invoicing/react/notificacoes/modelos';
+
     public function test_o_ecra_cria_os_modelos_na_primeira_visita(): void
     {
         $this->comModulo('notifications');
+        $this->comPermissoes('notifications.view');
 
-        $componente = Livewire::test(ManageNotificationTemplates::class);
+        $resposta = $this->actingAs($this->user)->getJson(self::LISTA)->assertOk();
 
-        $this->assertGreaterThan(0, $componente->get('criadosAgora'));
+        $this->assertGreaterThan(0, $resposta->json('criados_agora'));
         $this->assertSame(
             count(ModelosPadrao::catalogo()),
             NotificationTemplate::where('tenant_id', $this->tenant->id)->count()
@@ -139,18 +140,31 @@ class ModelosPadraoNotificacaoTest extends TenantTestCase
     public function test_a_segunda_visita_nao_anuncia_nada(): void
     {
         $this->comModulo('notifications');
+        $this->comPermissoes('notifications.view');
 
-        Livewire::test(ManageNotificationTemplates::class);
+        $this->actingAs($this->user)->getJson(self::LISTA)->assertOk();
 
-        Livewire::test(ManageNotificationTemplates::class)->assertSet('criadosAgora', 0);
+        $this->actingAs($this->user)->getJson(self::LISTA)
+            ->assertOk()->assertJsonPath('criados_agora', 0);
     }
 
+    /**
+     * O ECRÃ AVISA QUAIS É QUE AINDA NÃO DISPARAM.
+     *
+     * Um modelo activo que nunca vai disparar é pior do que um desligado:
+     * parece que está a funcionar.
+     */
     public function test_o_ecra_avisa_quais_ainda_nao_disparam(): void
     {
         $this->comModulo('notifications');
+        $this->comPermissoes('notifications.view');
 
-        Livewire::test(ManageNotificationTemplates::class)
-            ->assertSee('Ainda não dispara');
+        $linhas = collect($this->actingAs($this->user)->getJson(self::LISTA)->assertOk()->json('data'));
+
+        $mudos = $linhas->where('dispara', false);
+
+        $this->assertNotEmpty($mudos, 'o catálogo tem modelos que ainda não disparam e o ecrã tem de o dizer');
+        $this->assertNotNull($mudos->first()['porque_nao_dispara'], 'e tem de dizer PORQUÊ');
     }
 
     public function test_os_modelos_de_uma_empresa_nao_se_veem_de_outra(): void

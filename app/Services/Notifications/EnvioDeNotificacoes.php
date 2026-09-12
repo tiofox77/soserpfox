@@ -70,12 +70,7 @@ class EnvioDeNotificacoes
         }
 
         try {
-            $enviou = match ($canal) {
-                'email'    => $this->porEmail($modelo, $destinatario, $variaveis),
-                'sms'      => $this->porSms($modelo, $destinatario, $variaveis),
-                'whatsapp' => $this->porWhatsApp($modelo, $destinatario, $variaveis),
-                default    => false,
-            };
+            $enviou = $this->porCanal($modelo, $canal, $destinatario, $variaveis);
 
             if (!$enviou) {
                 $this->marcarFalha($modelo, $canal, $destinatario, $registoId, 'canal não configurado');
@@ -102,6 +97,37 @@ class EnvioDeNotificacoes
     }
 
     // ── canais ───────────────────────────────────────────────────────────────
+
+    /**
+     * ENVIA POR UM CANAL, SEM A MEMÓRIA DO QUE JÁ SAIU.
+     *
+     * É o que o ECRÃ DE MODELOS chama para o «enviar um teste». O teste tem de
+     * passar exactamente pelo mesmo caminho do envio a sério — senão não testa
+     * nada: o ecrã antigo reimplementava os três canais por dentro e o SMS era
+     * um `TODO` que escrevia no log e dizia «enviado com sucesso».
+     *
+     * O que aqui NÃO entra é o travão do uma-vez-por-dia: um teste repete-se
+     * tantas vezes quantas forem precisas, que é a razão de ser de um teste.
+     */
+    public function porCanal(
+        NotificationTemplate $modelo,
+        string $canal,
+        string $destinatario,
+        array $variaveis
+    ): bool {
+        return match ($canal) {
+            'email' => $this->porEmail($modelo, $destinatario, $variaveis),
+            'sms' => $this->porSms($modelo, $destinatario, $variaveis),
+            'whatsapp' => $this->porWhatsApp($modelo, $destinatario, $variaveis),
+            default => false,
+        };
+    }
+
+    /** O texto de um canal com as variáveis já substituídas — para a pré-visualização. */
+    public function preencher(string $texto, array $variaveis): string
+    {
+        return $this->substituir($texto, $variaveis);
+    }
 
     /**
      * Email pelo SMTP DA EMPRESA.
@@ -260,7 +286,15 @@ class EnvioDeNotificacoes
         }
     }
 
-    /** Substitui {{ variavel }} pelo valor. */
+    /**
+     * Substitui {{ variavel }} pelo valor.
+     *
+     * O ESPAÇO A MAIS CONTAVA. Isto trocava `{{var}}` e `{{ var }}` por
+     * substituição literal — mas um modelo escrito com `{{  var  }}` (dois
+     * espaços, ou uma quebra de linha entre as chavetas, que é o que acontece
+     * quando se cola de um documento) saía com a chaveta à vista no e-mail do
+     * cliente. Uma expressão que engole o espaço resolve os três casos.
+     */
     private function substituir(string $texto, array $variaveis): string
     {
         foreach ($variaveis as $chave => $valor) {
@@ -268,11 +302,13 @@ class EnvioDeNotificacoes
                 continue;
             }
 
-            $texto = str_replace(
-                ['{{' . $chave . '}}', '{{ ' . $chave . ' }}'],
-                (string) $valor,
-                $texto
-            );
+            $texto = preg_replace(
+                '/\{\{\s*'.preg_quote((string) $chave, '/').'\s*\}\}/u',
+                // O valor vai para dentro de uma substituição: um `$1` escrito
+                // por um utilizador não pode passar a referência de captura.
+                str_replace(['\\', '$'], ['\\\\', '\\$'], (string) $valor),
+                $texto,
+            ) ?? $texto;
         }
 
         return $texto;

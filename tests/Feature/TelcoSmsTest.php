@@ -2,12 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Settings\NotificationSettings;
 use App\Models\TenantNotificationSetting;
 use App\Services\TelcoSmsService;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 class TelcoSmsTest extends TenantTestCase
@@ -97,15 +95,17 @@ class TelcoSmsTest extends TenantTestCase
 
     public function test_tenant_guarda_chave_telcosms_cifrada_sem_a_devolver_ao_browser(): void
     {
-        Livewire::actingAs($this->user)->test(NotificationSettings::class)
-            ->set('email_enabled', false)
-            ->set('sms_enabled', true)
-            ->set('sms_provider', 'telcosms')
-            ->set('sms_api_token', 'prd-segredo-telco')
-            ->call('save')
-            ->assertHasNoErrors()
-            ->assertSet('sms_api_token', '')
-            ->assertSet('segredosGuardados.sms_api_token', true);
+        $this->comModulo('notifications')->comPermissoes('notifications.view', 'notifications.manage');
+
+        $this->actingAs($this->user)
+            ->putJson('/api/v1/invoicing/react/notificacoes/definicoes', [
+                'email' => ['enabled' => false],
+                'sms' => ['enabled' => true, 'provider' => 'telcosms', 'api_token' => 'prd-segredo-telco'],
+                'whatsapp' => ['enabled' => false],
+            ])
+            ->assertOk()
+            // O ecrã volta a mostrar o campo vazio — a dizer que há um guardado.
+            ->assertJsonPath('segredos.sms_api_token', true);
 
         $setting = TenantNotificationSetting::where('tenant_id', $this->tenant->id)->firstOrFail();
         $this->assertSame('telcosms', $setting->sms_provider);

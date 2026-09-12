@@ -363,4 +363,10 @@ export const ecras: Record<string, Ecra> = {
     // Ver e mudar são direitos diferentes, e o ecrã mostra-o.
     'empresa/dados': () =>
         import('./empresa/Dados'),
+
+    // AS NOTIFICAÇÕES — por onde a empresa avisa, e o que é que diz.
+    'notificacoes/definicoes': () =>
+        import('./notificacoes/Definicoes'),
+    'notificacoes/modelos': () =>
+        import('./notificacoes/Modelos'),
 };

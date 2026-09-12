@@ -1347,6 +1347,40 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::delete('/logotipo', [$c, 'apagarLogotipo'])->name('apagar-logotipo');
         });
 
+        /*
+         * AS NOTIFICAÇÕES: as definições dos canais e os modelos.
+         *
+         * VER NÃO É CONFIGURAR. As duas páginas estavam atrás de
+         * `notifications.view` — a mais fraca das três permissões do módulo — e
+         * quem as abrisse mudava o servidor de saída da empresa e apagava
+         * modelos. `notifications.manage` («Gerir Configurações de
+         * Notificações») estava declarada há muito e nunca ninguém a pediu.
+         */
+        Route::prefix('notificacoes')->name('notificacoes.')->group(function () {
+            $d = \App\Http\Controllers\Api\Notificacoes\DefinicoesApiController::class;
+
+            Route::get('/definicoes', [$d, 'mostrar'])->name('definicoes');
+            Route::put('/definicoes', [$d, 'guardar'])->name('definicoes.guardar');
+            Route::post('/definicoes/testar-email', [$d, 'testarEmail'])->name('testar-email');
+            Route::post('/definicoes/testar-sms', [$d, 'testarSms'])->name('testar-sms');
+            Route::post('/definicoes/modelos-whatsapp', [$d, 'modelosDeWhatsApp'])->name('modelos-whatsapp');
+
+            $m = \App\Http\Controllers\Api\Notificacoes\ModelosApiController::class;
+
+            Route::get('/modelos/opcoes', [$m, 'opcoes'])->name('modelos.opcoes');
+            Route::get('/modelos/variaveis/{modulo}', [$m, 'variaveis'])
+                ->where('modulo', '[a-z_]+')->name('modelos.variaveis');
+            Route::get('/modelos', [$m, 'index'])->name('modelos');
+            Route::post('/modelos', [$m, 'guardar'])->name('modelos.criar');
+            Route::get('/modelos/{id}', [$m, 'ficha'])->whereNumber('id')->name('modelos.ficha');
+            Route::put('/modelos/{id}', [$m, 'guardar'])->whereNumber('id')->name('modelos.guardar');
+            Route::delete('/modelos/{id}', [$m, 'apagar'])->whereNumber('id')->name('modelos.apagar');
+            Route::post('/modelos/{id}/estado', [$m, 'alternar'])->whereNumber('id')->name('modelos.estado');
+            Route::get('/modelos/{id}/teste', [$m, 'preparar'])->whereNumber('id')->name('modelos.preparar');
+            Route::post('/modelos/{id}/previsao', [$m, 'previsualizar'])->whereNumber('id')->name('modelos.previsao');
+            Route::post('/modelos/{id}/testar', [$m, 'testar'])->whereNumber('id')->name('modelos.testar');
+        });
+
         Route::prefix('suporte')->name('suporte.')->group(function () {
             $c = \App\Http\Controllers\Api\Suporte\SuporteApiController::class;
 
@@ -2294,10 +2328,20 @@ Route::middleware(['auth', 'tenant.module:contabilidade'])->prefix('accounting')
         ->get('/settings', \App\Livewire\Accounting\SettingsManagement::class)->name('settings');
 });
 
-// Notifications Module Routes
+/*
+ * AS NOTIFICAÇÕES.
+ *
+ * As páginas abrem-se com `notifications.view`, como sempre. O que mudou é que
+ * MEXER nelas passou a pedir `notifications.manage` — a permissão que se chama
+ * «Gerir Configurações de Notificações», que está declarada desde o princípio e
+ * que nenhuma linha de código pedia. Até aqui, quem podia ver mudava o servidor
+ * de saída da empresa e apagava modelos.
+ */
 Route::middleware(['auth', 'tenant.module:notifications'])->prefix('notifications')->name('notifications.')->group(function () {
-    Route::get('/settings', \App\Livewire\Settings\NotificationSettings::class)->middleware('permission:notifications.view')->name('settings');
-    Route::get('/templates', \App\Livewire\Settings\ManageNotificationTemplates::class)->middleware('permission:notifications.view')->name('templates');
+    Route::middleware('permission:notifications.view')
+        ->get('/settings', \App\Support\EcraReact::pagina('notificacoes/definicoes', 'Notificações'))->name('settings');
+    Route::middleware('permission:notifications.view')
+        ->get('/templates', \App\Support\EcraReact::pagina('notificacoes/modelos', 'Modelos de Notificação'))->name('templates');
 });
 
 /*
