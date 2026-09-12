@@ -207,6 +207,25 @@ export const ecras: Record<string, Ecra> = {
     'restaurant/aparencia-da-carta': () =>
         import('./restaurant/Aparencia'),
 
+    /*
+     * O SALÃO. Os PRODUTOS e o BALCÃO são os da facturação — o ecrã completo
+     * em vez da cópia reduzida que o salão tinha. Estes são só dele.
+     */
+    'salao/painel': () =>
+        import('./salao/Painel'),
+    'salao/marcacoes': () =>
+        import('./salao/Marcacoes'),
+    'salao/servicos': () =>
+        import('./salao/Servicos'),
+    'salao/profissionais': () =>
+        import('./salao/Profissionais'),
+    'salao/clientes': () =>
+        import('./salao/Clientes'),
+    'salao/tempos': () =>
+        import('./salao/Tempos'),
+    'salao/definicoes': () =>
+        import('./salao/Definicoes'),
+
     // A TESOURARIA. Os catálogos (bancos, formas, caixas, tipos, categorias,
     // contas) passam pelo ecrã genérico; os movimentos têm o seu.
     'tesouraria/movimentos': () =>

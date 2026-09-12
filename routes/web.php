@@ -948,6 +948,85 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::delete('/destaques/{id}', [$c, 'retirarDestaque'])->whereNumber('id')->name('destaques.tirar');
         });
 
+        /*
+         * ─── O SALÃO ──────────────────────────────────────────────────
+         *
+         * As MARCAÇÕES têm duas vistas (lista e calendário) e uma porta só,
+         * para não haver duas contagens. Os SERVIÇOS trazem as categorias
+         * consigo: a ordem delas é a ordem por que os serviços aparecem, e
+         * decide-se a olhar para eles.
+         */
+        Route::get('/salao/painel', [\App\Http\Controllers\Api\Salon\PainelApiController::class, 'index'])
+            ->name('salao.painel');
+
+        Route::prefix('salao/marcacoes')->name('salao.marcacoes.')->group(function () {
+            $c = \App\Http\Controllers\Api\Salon\MarcacoesApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/calendario', [$c, 'calendario'])->name('calendario');
+            Route::get('/clientes', [$c, 'clientes'])->name('clientes');
+            Route::post('/clientes', [$c, 'clienteRapido'])->name('clientes.criar');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'guardar'])->name('criar');
+            Route::get('/{id}', [$c, 'ficha'])->whereNumber('id')->name('ficha');
+            Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+            Route::post('/{id}/estado', [$c, 'estado'])->whereNumber('id')->name('estado');
+        });
+
+        Route::prefix('salao/servicos')->name('salao.servicos.')->group(function () {
+            $c = \App\Http\Controllers\Api\Salon\ServicosApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'guardar'])->name('criar');
+            Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+            Route::post('/{id}/alternar', [$c, 'alternar'])->whereNumber('id')->name('alternar');
+            Route::delete('/{id}', [$c, 'apagar'])->whereNumber('id')->name('apagar');
+            Route::post('/categorias', [$c, 'guardarCategoria'])->name('categorias.criar');
+            Route::put('/categorias/{id}', [$c, 'guardarCategoria'])->whereNumber('id')->name('categorias.guardar');
+            Route::post('/categorias/{id}/mover', [$c, 'moverCategoria'])->whereNumber('id')->name('categorias.mover');
+            Route::delete('/categorias/{id}', [$c, 'apagarCategoria'])->whereNumber('id')->name('categorias.apagar');
+        });
+
+        Route::prefix('salao/profissionais')->name('salao.profissionais.')->group(function () {
+            $c = \App\Http\Controllers\Api\Salon\ProfissionaisApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/do-rh', [$c, 'doRh'])->name('do-rh');
+            Route::post('/do-rh', [$c, 'importarDoRh'])->name('do-rh.importar');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'guardar'])->name('criar');
+            Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+            Route::post('/{id}/alternar', [$c, 'alternar'])->whereNumber('id')->name('alternar');
+            Route::delete('/{id}', [$c, 'apagar'])->whereNumber('id')->name('apagar');
+        });
+
+        Route::prefix('salao/clientes')->name('salao.clientes.')->group(function () {
+            $c = \App\Http\Controllers\Api\Salon\ClientesApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'guardar'])->name('criar');
+            Route::get('/{id}', [$c, 'ficha'])->whereNumber('id')->name('ficha');
+            Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+            Route::post('/{id}/vip', [$c, 'alternarVip'])->whereNumber('id')->name('vip');
+            Route::delete('/{id}', [$c, 'apagar'])->whereNumber('id')->name('apagar');
+        });
+
+        Route::get('/salao/tempos', [\App\Http\Controllers\Api\Salon\TemposApiController::class, 'index'])
+            ->name('salao.tempos');
+
+        Route::prefix('salao/definicoes')->name('salao.definicoes.')->group(function () {
+            $c = \App\Http\Controllers\Api\Salon\DefinicoesApiController::class;
+
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::put('/', [$c, 'guardar'])->name('guardar');
+            Route::put('/pagina', [$c, 'guardarPagina'])->name('pagina');
+            Route::post('/imagem', [$c, 'imagem'])->name('imagem');
+            Route::delete('/imagem', [$c, 'removerImagem'])->name('imagem.remover');
+            Route::post('/endereco', [$c, 'novoEndereco'])->name('endereco');
+        });
+
         Route::prefix('oficina/ordens')->name('oficina.ordens.')->group(function () {
             $c = \App\Http\Controllers\Api\Workshop\OrdensApiController::class;
 
@@ -2184,25 +2263,25 @@ Route::prefix('api/publico/hotel/{slug}')->name('hotel.publico.')
  */
 Route::middleware(['auth', 'tenant.module:salon'])->prefix('salon')->name('salon.')->group(function () {
     Route::middleware('permission:salon.dashboard.view')
-        ->get('/dashboard', \App\Livewire\Salon\Dashboard::class)->name('dashboard');
+        ->get('/dashboard', \App\Support\EcraReact::pagina('salao/painel', 'Painel do Salão'))->name('dashboard');
     Route::middleware('permission:salon.appointments.view')
-        ->get('/appointments', \App\Livewire\Salon\AppointmentManagement::class)->name('appointments');
+        ->get('/appointments', \App\Support\EcraReact::pagina('salao/marcacoes', 'Marcações'))->name('appointments');
     Route::middleware('permission:salon.services.view')
-        ->get('/services', \App\Livewire\Salon\ServiceManagement::class)->name('services');
+        ->get('/services', \App\Support\EcraReact::pagina('salao/servicos', 'Serviços'))->name('services');
     Route::middleware('permission:salon.categories.view')
-        ->get('/services/categories', \App\Livewire\Salon\ServiceCategoryManagement::class)->name('services.categories');
+        ->get('/services/categories', \App\Support\EcraReact::pagina('salao/servicos', 'Categorias de Serviços', ['separador' => 'categorias']))->name('services.categories');
     Route::middleware('permission:salon.professionals.view')
-        ->get('/professionals', \App\Livewire\Salon\ProfessionalManagement::class)->name('professionals');
+        ->get('/professionals', \App\Support\EcraReact::pagina('salao/profissionais', 'Profissionais'))->name('professionals');
     Route::middleware('permission:salon.clients.view')
-        ->get('/clients', \App\Livewire\Salon\ClientManagement::class)->name('clients');
+        ->get('/clients', \App\Support\EcraReact::pagina('salao/clientes', 'Clientes do Salão'))->name('clients');
     Route::middleware('permission:salon.products.view')
-        ->get('/products', \App\Livewire\Salon\ProductManagement::class)->name('products');
+        ->get('/products', \App\Support\EcraReact::pagina('facturacao/produtos', 'Produtos do Salão'))->name('products');
     Route::middleware('permission:salon.pos.access')
-        ->get('/pos', \App\Livewire\Salon\SalonPOS::class)->name('pos');
+        ->get('/pos', \App\Support\EcraReact::pagina('facturacao/pos', 'POS - Salão de Beleza'))->name('pos');
     Route::middleware('permission:salon.reports.view')
-        ->get('/reports/time', \App\Livewire\Salon\TimeReport::class)->name('reports.time');
+        ->get('/reports/time', \App\Support\EcraReact::pagina('salao/tempos', 'Relatório de Tempos'))->name('reports.time');
     Route::middleware('permission:salon.settings.view')
-        ->get('/settings', \App\Livewire\Salon\SalonSettingsManagement::class)->name('settings');
+        ->get('/settings', \App\Support\EcraReact::pagina('salao/definicoes', 'Definições do Salão'))->name('settings');
 });
 
 // Salon Booking Online (Public) - Landing Page Customizada

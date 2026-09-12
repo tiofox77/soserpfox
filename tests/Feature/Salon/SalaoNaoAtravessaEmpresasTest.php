@@ -7,7 +7,6 @@ use App\Models\Salon\Professional;
 use App\Models\Salon\SalonSettings;
 use App\Models\Salon\ServiceCategory;
 use App\Models\Tenant;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -90,14 +89,19 @@ class SalaoNaoAtravessaEmpresasTest extends TenantTestCase
      * O CASO QUE JÁ ERA CONHECIDO — e que agora fica fechado no modelo.
      *
      * `quickComplete($id)` recebia o id do browser e dava por concluída e paga
-     * a marcação de outra empresa.
+     * a marcação de outra empresa. O componente Livewire já não existe, mas o
+     * botão do painel continua lá: em React manda o id para a porta do estado,
+     * e é essa que aqui se prende.
      */
     public function test_as_accoes_rapidas_do_painel_nao_tocam_noutra_empresa(): void
     {
         $alheia = $this->marcacaoAlheia();
 
-        $painel = new \App\Livewire\Salon\Dashboard();
-        $painel->quickComplete($alheia->id);
+        $this->comPermissoes('salon.dashboard.view', 'salon.appointments.edit');
+
+        $this->postJson("/api/v1/invoicing/react/salao/marcacoes/{$alheia->id}/estado", [
+            'estado' => 'completed',
+        ])->assertNotFound();
 
         $this->assertSame('scheduled', $alheia->fresh()->status, 'a marcação é de outra empresa: não se toca');
     }
@@ -112,24 +116,26 @@ class SalaoNaoAtravessaEmpresasTest extends TenantTestCase
     }
 
     /**
-     * A PROPRIEDADE PÚBLICA DO LIVEWIRE, outra vez.
+     * O ID VEM DO BROWSER — e vinha já no Livewire.
      *
-     * `editingId` vem do browser: sem escopo, `save()` reescrevia a ficha de um
-     * profissional de outro salão sem passar pelo `edit()` que filtra.
+     * `editingId` era propriedade pública: sem escopo, `save()` reescrevia a
+     * ficha de um profissional de outro salão sem passar pelo `edit()` que
+     * filtra. Em React o id viaja na morada, o que não muda nada: continua a
+     * ser um número que quem está do outro lado escolhe. A porta procura por
+     * `forTenant()` e o profissional alheio não existe para ela.
      */
     public function test_gravar_um_profissional_com_o_id_de_outra_empresa_nao_lhe_toca(): void
     {
         $alheio = $this->alheio(Professional::class, ['name' => 'Profissional do Lado']);
 
-        $componente = Livewire::test(\App\Livewire\Salon\ProfessionalManagement::class)
-            ->set('editingId', $alheio->id)
-            ->set('name', 'Roubado');
+        $this->comPermissoes('salon.professionals.view', 'salon.professionals.edit');
 
-        try {
-            $componente->call('save');
-        } catch (\Throwable $e) {
-            // Um erro é aceitável; escrever na casa do vizinho não é.
-        }
+        $this->putJson("/api/v1/invoicing/react/salao/profissionais/{$alheio->id}", [
+            'name' => 'Roubado',
+            'working_days' => [1, 2, 3],
+            'work_start' => '09:00',
+            'work_end' => '18:00',
+        ])->assertNotFound();
 
         $this->assertSame('Profissional do Lado', $alheio->fresh()->name);
     }
@@ -208,16 +214,16 @@ class SalaoNaoAtravessaEmpresasTest extends TenantTestCase
 
         $this->comPermissoes(...array_values($rotas));
 
+        /*
+         * O POS DO SALÃO DEIXOU DE REDIRECCIONAR.
+         *
+         * Era um componente Livewire que mandava para a página dos turnos
+         * antes de desenhar fosse o que fosse; hoje a morada monta o POS da
+         * facturação, que trata do turno DENTRO do ecrã — quem chega sem turno
+         * vê o convite a abrir um, sem sair da página e sem perder o que já
+         * tinha escolhido. Todas as dez respondem 200.
+         */
         foreach (array_keys($rotas) as $rota) {
-            // O POS do salão manda abrir turno antes de vender — é o
-            // comportamento de sempre, e não a guarda a recusar. O que aqui se
-            // mede é que a permissão deixou passar.
-            if ($rota === 'salon.pos') {
-                $this->get(route($rota))->assertRedirect(route('invoicing.pos.shifts'));
-
-                continue;
-            }
-
             $this->get(route($rota))->assertOk();
         }
     }

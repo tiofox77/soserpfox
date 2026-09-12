@@ -27,7 +27,18 @@ class ModuleScreensRenderTest extends TenantTestCase
         $raiz = dirname(__DIR__, 2);
         $classes = [];
 
-        foreach (['Workshop', 'Salon', 'Hotel', 'Restaurant'] as $modulo) {
+        /*
+         * A LISTA SEGUE A MIGRAÇÃO.
+         *
+         * Eram a oficina, o salão, o hotel e o restaurante: passaram todos a
+         * React e, com eles, o provider ficou vazio — um ensaio que passa por
+         * não ter dados nenhuns deixa de dizer o que quer que seja, e o
+         * PHPUnit recusa-o à cara. A lista é agora a dos módulos de negócio
+         * que AINDA têm Livewire, e vai encolhendo pelo mesmo caminho. Os
+         * ecrãs que já são React têm o seu próprio ensaio de fumo, morada a
+         * morada (`EcrasDo…EmReactTest`).
+         */
+        foreach (['Events', 'CRM', 'Projetos', 'Compras', 'Inventario', 'Accounting'] as $modulo) {
             foreach (glob("{$raiz}/app/Livewire/{$modulo}/*.php") as $ficheiro) {
                 $classe = "App\\Livewire\\{$modulo}\\" . basename($ficheiro, '.php');
 

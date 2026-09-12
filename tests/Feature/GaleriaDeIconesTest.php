@@ -95,8 +95,13 @@ class GaleriaDeIconesTest extends TestCase
      */
     public function nenhum_formulario_pede_o_codigo_do_icone_escrito(): void
     {
+        /*
+         * O DO SALÃO SAIU DESTA LISTA: o ecrã das categorias de serviços passou
+         * a React, e lá o ícone escolhe-se pelo `EscolherIcone`, que é o mesmo
+         * selector com a mesma galeria — ver o ensaio dos ecrãs em React, mais
+         * abaixo.
+         */
         foreach ([
-            'resources/views/livewire/salon/service-categories/partials/form-modal.blade.php',
             'resources/views/livewire/super-admin/modules/partials/form-modal.blade.php',
         ] as $caminho) {
             $blade = file_get_contents(base_path($caminho));
@@ -112,5 +117,29 @@ class GaleriaDeIconesTest extends TestCase
 
         $this->assertStringNotContainsString("campo('icon', 'Ícone', 'texto'", $esquemas,
             'um campo de ícone em texto é uma caixa onde se escreve um código');
+    }
+
+    /**
+     * E NOS ECRÃS EM REACT, o ícone também se escolhe da galeria.
+     *
+     * O `EscolherIcone` é o mesmo selector, alimentado pela mesma
+     * `GaleriaDeIcones` do servidor. Um ecrã que peça o código escrito à mão
+     * volta a dar quadrados vazios descobertos só depois de gravados.
+     *
+     * @test
+     */
+    public function os_ecras_em_react_escolhem_o_icone_da_galeria(): void
+    {
+        foreach ([
+            'js/ecras/salao/Servicos.tsx',
+            'js/ecras/restaurant/Carta.tsx',
+        ] as $caminho) {
+            $ecra = file_get_contents(resource_path($caminho));
+
+            $this->assertStringContainsString('EscolherIcone', $ecra,
+                basename($caminho) . ': o ícone escolhe-se da galeria');
+            $this->assertStringContainsString('galeria_de_icones', $ecra,
+                basename($caminho) . ': a galeria vem do servidor, não de uma lista escrita no ecrã');
+        }
     }
 }

@@ -2,15 +2,12 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Salon\ClientManagement;
-use App\Livewire\Salon\ServiceCategoryManagement;
 use App\Models\Salon\Appointment;
 use App\Models\Salon\AppointmentService;
 use App\Models\Salon\Client as ClienteDeSalao;
 use App\Models\Salon\Professional;
 use App\Models\Salon\Service;
 use App\Models\Salon\ServiceCategory;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -155,12 +152,11 @@ class ModuloDoSalaoTest extends TenantTestCase
      */
     public function criar_um_cliente_pelo_ecra_do_salao(): void
     {
-        Livewire::test(ClientManagement::class)
-            ->call('openModal')
-            ->set('name', 'Dona Maria')
-            ->set('phone', '923000000')
-            ->call('save')
-            ->assertHasNoErrors();
+        $this->comPermissoes('salon.clients.view', 'salon.clients.create');
+
+        $this->postJson('/api/v1/invoicing/react/salao/clientes', [
+            'name' => 'Dona Maria', 'phone' => '923000000',
+        ])->assertCreated();
 
         $c = ClienteDeSalao::where('tenant_id', $this->tenant->id)
             ->where('name', 'Dona Maria')
@@ -196,9 +192,10 @@ class ModuloDoSalaoTest extends TenantTestCase
             'filtrar por categoria tem de devolver os serviços dela');
 
         // E o travão de apagar tem de morder.
-        Livewire::test(ServiceCategoryManagement::class)
-            ->call('openDeleteModal', $categoria->id)
-            ->call('confirmDelete');
+        $this->comPermissoes('salon.services.view', 'salon.categories.view', 'salon.categories.edit');
+
+        $this->deleteJson("/api/v1/invoicing/react/salao/servicos/categorias/{$categoria->id}")
+            ->assertStatus(422);
 
         $this->assertNotNull(ServiceCategory::find($categoria->id),
             'uma categoria com serviços não se apaga — senão ficam órfãos');
@@ -217,9 +214,12 @@ class ModuloDoSalaoTest extends TenantTestCase
         $this->marcacao(['status' => 'completed', 'date' => today()]);
         $this->marcacao(['status' => 'completed', 'date' => today()->subYear()]);
 
-        $painel = Livewire::test(\App\Livewire\Salon\AppointmentManagement::class);
+        $this->comPermissoes('salon.appointments.view');
 
-        $this->assertSame(1, $painel->get('totalCompletedMonth'),
+        $resumo = $this->getJson('/api/v1/invoicing/react/salao/marcacoes')
+            ->assertOk()->json('resumo');
+
+        $this->assertSame(1, $resumo['concluidas_no_mes'],
             'a marcação do ano passado não é deste mês');
     }
 

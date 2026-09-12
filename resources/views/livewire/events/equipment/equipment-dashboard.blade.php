@@ -195,7 +195,9 @@
 </div>
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{{-- O Chart.js É DA CASA: a versão on-premise corre sem internet, e quando o
+     CDN falha o painel fica um quadrado branco sem aviso nenhum. --}}
+<script src="{{ asset('vendor/js/chart.min.js') }}"></script>
 <script>
 // Gráfico de Uso por Categoria
 const categoryData = @json($chartData['usage_by_category']);

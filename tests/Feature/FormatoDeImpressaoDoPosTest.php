@@ -170,13 +170,14 @@ class FormatoDeImpressaoDoPosTest extends TenantTestCase
         /*
          * Os componentes por trás dessas vistas.
          *
-         * O RELATÓRIO DE VENDAS SAIU DESTA LISTA: passou a React, e lá o papel
-         * vem no `meta.formato` da própria consulta — não há componente
-         * Livewire para lhe dar o trait. Ver `RelatorioDoPos.tsx`.
+         * SAÍRAM DOIS DESTA LISTA, e pela mesma razão: o relatório de vendas e
+         * o balcão do salão passaram a React, onde o papel vem no
+         * `meta.formato` da própria consulta — não há componente Livewire a
+         * quem dar o trait. Ver `RelatorioDoPos.tsx`, e `/salon/pos`, que hoje
+         * monta o POS da facturação.
          */
         $componentes = [
             \App\Livewire\POS\POSSystem::class,
-            \App\Livewire\Salon\SalonPOS::class,
         ];
 
         $this->assertCount(count($componentes), $consumidores,

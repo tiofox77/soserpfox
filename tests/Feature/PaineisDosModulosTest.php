@@ -64,8 +64,8 @@ class PaineisDosModulosTest extends TenantTestCase
         // CRM, o inventário e o restaurante, que tinham o mesmo defeito. Vão
         // baixando à medida que os módulos passam para React — lá os gráficos
         // são componentes e não há canvas nenhum para o Livewire trocar: a
-        // tesouraria, o RH, a oficina, o hotel e o restaurante já saíram desta
-        // conta.
+        // tesouraria, o RH, a oficina, o hotel, o restaurante e o salão já
+        // saíram desta conta.
         $comGraficos = array_filter(
             array_merge(
                 glob(resource_path('views/livewire/*/dashboard*.blade.php')),
@@ -78,7 +78,7 @@ class PaineisDosModulosTest extends TenantTestCase
         // ele guarda é que o varrimento continua a encontrar painéis. A zero,
         // este ensaio passava por vazio e deixava de dizer o que quer que
         // fosse.
-        $this->assertGreaterThanOrEqual(4, count($comGraficos),
+        $this->assertGreaterThanOrEqual(3, count($comGraficos),
             'o varrimento tem de apanhar os painéis todos');
 
         foreach ($comGraficos as $vista) {
@@ -96,19 +96,31 @@ class PaineisDosModulosTest extends TenantTestCase
      * sem internet, e quando o CDN falha o painel fica com um quadrado branco
      * sem aviso nenhum.
      *
-     * A TESOURARIA, O RH, A OFICINA E O HOTEL SAÍRAM DA LISTA por já não
-     * terem Blade nenhum: os painéis são React e desenham os gráficos com
-     * componentes próprios, sem Chart.js e sem ir buscar nada a lado nenhum.
+     * A LISTA FIXA DESAPARECEU, e de propósito. Era a enumeração dos painéis
+     * que ainda tinham Blade, e cada módulo que passava a React obrigava a
+     * apagar lá um nome — até ao dia em que ficou vazia e o ensaio passou a
+     * não medir nada. Agora varre-se o que existe: o que interessa não é
+     * quais os painéis, é que NENHUM deles vá buscar um script à internet.
+     *
+     * O varrimento apanhou logo um que a lista não tinha: o painel dos
+     * equipamentos dos eventos.
      *
      * @test
      */
     public function nenhum_painel_vai_buscar_o_chart_js_a_um_cdn(): void
     {
-        foreach (['salon'] as $painel) {
+        $paineis = array_merge(
+            glob(resource_path('views/livewire/*/dashboard*.blade.php')),
+            glob(resource_path('views/livewire/*/*/*dashboard*.blade.php')),
+        );
+
+        $this->assertNotEmpty($paineis, 'o varrimento tem de encontrar painéis');
+
+        foreach ($paineis as $vista) {
             $this->assertStringNotContainsString(
                 'cdn.jsdelivr.net',
-                file_get_contents(resource_path("views/livewire/{$painel}/dashboard.blade.php")),
-                "{$painel}: o Chart.js tem de ser o local"
+                file_get_contents($vista),
+                basename(dirname($vista)).'/'.basename($vista).': o Chart.js tem de ser o local'
             );
         }
     }
@@ -120,6 +132,11 @@ class PaineisDosModulosTest extends TenantTestCase
      * o id vindo do browser — e os modelos do salão não têm escopo global de
      * empresa. Bastava chamar `quickComplete` com o id de outra empresa para
      * dar por concluída e paga a marcação de um concorrente.
+     *
+     * O PAINEL É AGORA REACT e o componente Livewire desapareceu, mas o botão
+     * continua a existir: o ecrã manda o id para a porta do estado. É essa que
+     * se prende aqui — e ela procura por `forTenant()`, pelo que a marcação
+     * alheia nem existe.
      *
      * @test
      */
@@ -154,8 +171,12 @@ class PaineisDosModulosTest extends TenantTestCase
             'total'      => 5000,
         ]);
 
-        $painel = new \App\Livewire\Salon\Dashboard();
-        $painel->quickComplete($alheia->id);
+        $this->comModulo('salon');
+        $this->comPermissoes('salon.dashboard.view', 'salon.appointments.edit');
+
+        $this->postJson("/api/v1/invoicing/react/salao/marcacoes/{$alheia->id}/estado", [
+            'estado' => 'completed',
+        ])->assertNotFound();
 
         $this->assertSame('scheduled', $alheia->fresh()->status,
             'a marcação é de outra empresa: não se toca');
