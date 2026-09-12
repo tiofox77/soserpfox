@@ -2,13 +2,9 @@
 
 namespace Tests\Feature\Compras;
 
-use App\Livewire\Compras\Dashboard;
-use App\Livewire\Compras\Encomendas;
-use App\Livewire\Compras\Requisicoes;
 use App\Models\Compras\Requisicao;
 use App\Models\Supplier;
 use App\Services\Compras\FluxoDaRequisicao;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -17,6 +13,8 @@ use Tests\TenantTestCase;
  */
 class EcransDeComprasTest extends TenantTestCase
 {
+    private const RAIZ = '/api/v1/invoicing/react/compras';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -70,13 +68,14 @@ class EcransDeComprasTest extends TenantTestCase
         $this->comPermissoes('compras.requisicoes.view', 'compras.requisicoes.manage');
         $produto = $this->produtoComStock(0);
 
-        Livewire::actingAs($this->user)->test(Requisicoes::class)
-            ->call('novaRequisicao')
-            ->call('adicionarDoCatalogo', $produto->id)
-            ->set('linhas.0.quantidade', 6)
-            ->set('justificacao', 'Acabou na bancada')
-            ->call('guardar')
-            ->assertSet('showForm', false);
+        $this->postJson(self::RAIZ.'/requisicoes', [
+            'justificacao' => 'Acabou na bancada',
+            'linhas' => [[
+                'product_id' => $produto->id,
+                'descricao' => $produto->name,
+                'quantidade' => 6,
+            ]],
+        ])->assertCreated();
 
         $req = Requisicao::where('tenant_id', $this->tenant->id)->latest()->first();
 
@@ -100,8 +99,7 @@ class EcransDeComprasTest extends TenantTestCase
         $this->comPermissoes('compras.requisicoes.view', 'compras.requisicoes.manage');
         $req = $this->requisicaoSubmetida();
 
-        Livewire::actingAs($this->user)->test(Requisicoes::class)
-            ->call('aprovar', $req->id);
+        $this->postJson(self::RAIZ."/requisicoes/{$req->id}/aprovar")->assertForbidden();
 
         $this->assertSame('submetida', $req->fresh()->estado);
     }
@@ -112,8 +110,7 @@ class EcransDeComprasTest extends TenantTestCase
         $this->comPermissoes('compras.requisicoes.view', 'compras.requisicoes.decidir');
         $req = $this->requisicaoSubmetida();
 
-        Livewire::actingAs($this->user)->test(Requisicoes::class)
-            ->call('aprovar', $req->id);
+        $this->postJson(self::RAIZ."/requisicoes/{$req->id}/aprovar")->assertOk();
 
         $this->assertSame('aprovada', $req->fresh()->estado);
         $this->assertSame($this->user->id, $req->fresh()->decidida_por);
@@ -125,13 +122,15 @@ class EcransDeComprasTest extends TenantTestCase
         $this->comPermissoes('compras.requisicoes.view', 'compras.requisicoes.decidir');
         $req = $this->requisicaoSubmetida();
 
-        Livewire::actingAs($this->user)->test(Requisicoes::class)
-            ->call('abrirRecusa', $req->id)
-            ->assertSet('showRejeitar', true)
-            ->assertSet('verId', $req->id)
-            ->set('motivoRecusa', 'Há de sobra no armazém 2')
-            ->call('rejeitar')
-            ->assertSet('showRejeitar', false);
+        // O MOTIVO É OBRIGATÓRIO: sem ele, quem pediu não sabe porquê e volta
+        // a pedir o mesmo na semana seguinte.
+        $this->postJson(self::RAIZ."/requisicoes/{$req->id}/rejeitar", ['motivo' => ''])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('motivo');
+
+        $this->postJson(self::RAIZ."/requisicoes/{$req->id}/rejeitar", [
+            'motivo' => 'Há de sobra no armazém 2',
+        ])->assertOk();
 
         $this->assertSame('rejeitada', $req->fresh()->estado);
         $this->assertSame('Há de sobra no armazém 2', $req->fresh()->motivo_recusa);
@@ -155,10 +154,9 @@ class EcransDeComprasTest extends TenantTestCase
         );
         app(\App\Services\Compras\FluxoDaEncomenda::class)->enviar($enc, $this->tenant->id);
 
-        Livewire::actingAs($this->user)->test(Encomendas::class)
-            ->set('receberId', $enc->id)
-            ->set('recebido', [$enc->itens->first()->id => 9])
-            ->call('receber');
+        $this->postJson(self::RAIZ."/encomendas/{$enc->id}/receber", [
+            'quantidades' => [$enc->itens->first()->id => 9],
+        ])->assertForbidden();
 
         $this->assertSame(3.0, (float) \App\Models\Invoicing\Stock::where('tenant_id', $this->tenant->id)
             ->where('product_id', $produto->id)->value('quantity'));
@@ -171,8 +169,8 @@ class EcransDeComprasTest extends TenantTestCase
         $this->comPermissoes('compras.view');
         $this->requisicaoSubmetida();
 
-        Livewire::actingAs($this->user)->test(Dashboard::class)
-            ->assertOk()
-            ->assertViewHas('resumo', fn ($r) => $r['por_decidir'] === 1);
+        $r = $this->getJson(self::RAIZ.'/painel')->assertOk()->json('resumo');
+
+        $this->assertSame(1, $r['por_decidir']);
     }
 }

@@ -2,14 +2,11 @@
 
 namespace Tests\Feature\Inventario;
 
-use App\Livewire\Inventario\Contagem;
-use App\Livewire\Inventario\Dashboard;
 use App\Models\Invoicing\Stock;
 use App\Models\Invoicing\StockMovement;
 use App\Models\Product;
 use App\Services\Invoicing\ContagemFisica;
 use InvalidArgumentException;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -27,6 +24,8 @@ class ContagemFisicaTest extends TenantTestCase
     private Product $agua;
 
     private Product $vinho;
+
+    private const RAIZ = '/api/v1/invoicing/react/inventario';
 
     protected function setUp(): void
     {
@@ -172,34 +171,81 @@ class ContagemFisicaTest extends TenantTestCase
         $this->servico()->fechar($contagem, $this->tenant->id, $this->user->id);
     }
 
-    /** O ecrã da contagem faz o ciclo inteiro. */
+    /** O ciclo inteiro pela porta: abrir, contar, ver o resumo, fechar. */
     public function test_o_ecra_abre_conta_e_fecha(): void
     {
-        Livewire::actingAs($this->user)->test(Contagem::class)
-            ->set('armazemId', $this->armazem->id)
-            ->call('abrir')
-            ->assertHasNoErrors()
-            ->call('contar', $this->agua->id, '48')
-            ->call('fechar')
-            ->assertHasNoErrors()
-            ->assertSet('contagemId', null);
+        $id = (int) $this->actingAs($this->user)->postJson(self::RAIZ.'/contagem', [
+            'warehouse_id' => $this->armazem->id,
+        ])->assertCreated()->json('data.id');
+
+        // UMA CONTAGEM ABERTA RETOMA-SE SOZINHA: quem volta ao ecrã encontra-a.
+        $this->actingAs($this->user)->getJson(self::RAIZ.'/contagem')
+            ->assertOk()
+            ->assertJsonPath('aberta.id', $id);
+
+        $this->actingAs($this->user)->postJson(self::RAIZ."/contagem/{$id}/contar", [
+            'product_id' => $this->agua->id,
+            'contado' => 48,
+        ])->assertOk()->assertJsonPath('diferenca', -2);
+
+        // O RESUMO ANTES DO BOTÃO: quantos acertos e quanto custam.
+        $resumo = $this->actingAs($this->user)->getJson(self::RAIZ."/contagem/{$id}/resumo")
+            ->assertOk()->json();
+
+        $this->assertSame(1, $resumo['contados']);
+        $this->assertSame(1, $resumo['acertos']);
+        $this->assertEqualsWithDelta(400, $resumo['custo'], 0.01, '2 águas × 200 Kz');
+
+        $this->actingAs($this->user)->postJson(self::RAIZ."/contagem/{$id}/fechar")->assertOk();
 
         $this->assertEqualsWithDelta(48, (float) Stock::where('tenant_id', $this->tenant->id)
             ->where('product_id', $this->agua->id)->value('quantity'), 0.001);
+
+        // E o ecrã volta ao modo «sem contagem aberta».
+        $this->actingAs($this->user)->getJson(self::RAIZ.'/contagem')
+            ->assertOk()->assertJsonPath('aberta', null);
     }
 
-    /** Os três ecrãs do módulo abrem. */
+    /**
+     * NULO É «AINDA NÃO CONTEI», e não «contei zero».
+     *
+     * São coisas diferentes: a primeira não gera acerto nenhum; a segunda apaga
+     * o stock do artigo. Escrever e apagar a caixa tem de voltar ao primeiro.
+     */
+    public function test_apagar_o_contado_nao_e_contar_zero(): void
+    {
+        $id = (int) $this->actingAs($this->user)->postJson(self::RAIZ.'/contagem', [
+            'warehouse_id' => $this->armazem->id,
+        ])->assertCreated()->json('data.id');
+
+        $this->actingAs($this->user)->postJson(self::RAIZ."/contagem/{$id}/contar", [
+            'product_id' => $this->agua->id, 'contado' => 0,
+        ])->assertOk()->assertJsonPath('contado', 0);
+
+        $this->actingAs($this->user)->postJson(self::RAIZ."/contagem/{$id}/contar", [
+            'product_id' => $this->agua->id, 'contado' => null,
+        ])->assertOk()->assertJsonPath('contado', null);
+
+        $this->assertSame(0, $this->actingAs($this->user)
+            ->getJson(self::RAIZ."/contagem/{$id}/resumo")->assertOk()->json('contados'));
+    }
+
+    /** Os três ecrãs do módulo abrem e montam o React. */
     public function test_os_ecras_do_inventario_abrem(): void
     {
-        foreach (['/inventario/dashboard', '/inventario/movimentos', '/inventario/contagem'] as $rota) {
-            $this->actingAs($this->user)->get($rota)->assertOk();
+        foreach ([
+            '/inventario/dashboard' => 'inventario/painel',
+            '/inventario/movimentos' => 'inventario/movimentos',
+            '/inventario/contagem' => 'inventario/contagem',
+        ] as $rota => $ecra) {
+            $this->actingAs($this->user)->get($rota)->assertOk()->assertSee($ecra, false);
         }
     }
 
     /** O painel soma o valor e conta os negativos. */
     public function test_o_painel_conta_o_que_importa(): void
     {
-        $resumo = Livewire::actingAs($this->user)->test(Dashboard::class)->viewData('resumo');
+        $resumo = $this->actingAs($this->user)->getJson(self::RAIZ.'/painel')->assertOk()->json('resumo');
 
         // 50 águas × 200 + 10 vinhos × 3500 = 45.000
         $this->assertEqualsWithDelta(45000, $resumo['valor'], 0.01);

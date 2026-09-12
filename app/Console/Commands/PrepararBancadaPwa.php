@@ -185,6 +185,7 @@ class PrepararBancadaPwa extends Command
         $eventos = $this->montarOsEventos($tenant);
         $negocios = $this->montarOCrm($tenant);
         $obras = $this->montarOsProjetos($tenant);
+        $encomendas = $this->montarAsCompras($tenant, $armazem);
 
         $this->newLine();
         $this->info('Bancada do PWA montada.');
@@ -202,6 +203,7 @@ class PrepararBancadaPwa extends Command
             ['Eventos', $eventos],
             ['Negócios do CRM', $negocios],
             ['Projetos', $obras],
+            ['Encomendas de compra', $encomendas],
             ['Cliente',  $cliente->name],
             ['Armazém',  $armazem->name],
         ]);
@@ -1011,6 +1013,71 @@ class PrepararBancadaPwa extends Command
         return \App\Models\Projetos\Projeto::where('tenant_id', $tenant->id)->count();
     }
 
+    /**
+     * As compras: uma requisição submetida e uma encomenda por receber.
+     *
+     * A REQUISIÇÃO FICA SUBMETIDA, de propósito: é o estado em que o painel a
+     * conta como «à espera de decisão», e é o botão que o ensaio procura.
+     *
+     * @return int quantas encomendas ficaram montadas
+     */
+    private function montarAsCompras(Tenant $tenant, Warehouse $armazem): int
+    {
+        $artigo = Product::where('tenant_id', $tenant->id)->orderBy('id')->first();
+
+        if (! $artigo) {
+            return 0;
+        }
+
+        $fornecedor = \App\Models\Supplier::firstOrCreate(
+            ['tenant_id' => $tenant->id, 'name' => 'Fornecedor da Bancada'],
+            ['nif' => '5000000097', 'phone' => '923000004', 'is_active' => true],
+        );
+
+        $fluxoReq = app(\App\Services\Compras\FluxoDaRequisicao::class);
+        $autor = User::where('email', self::EMAIL)->value('id');
+
+        if (\App\Models\Compras\Requisicao::where('tenant_id', $tenant->id)->count() === 0) {
+            $req = $fluxoReq->criar($tenant->id, $autor, [
+                'warehouse_id' => $armazem->id,
+                'necessaria_em' => now()->addWeek()->toDateString(),
+                'justificacao' => 'Acabou na bancada',
+            ], [[
+                'product_id' => $artigo->id,
+                'descricao' => $artigo->name,
+                'quantidade' => 20,
+                'custo_estimado' => (float) $artigo->cost,
+                'unidade' => $artigo->unit,
+            ]]);
+
+            $fluxoReq->submeter($req, $tenant->id);
+        }
+
+        $fluxoEnc = app(\App\Services\Compras\FluxoDaEncomenda::class);
+
+        if (\App\Models\Compras\Encomenda::where('tenant_id', $tenant->id)->count() === 0) {
+            $enc = $fluxoEnc->criar($tenant->id, $autor, [
+                'supplier_id' => $fornecedor->id,
+                'warehouse_id' => $armazem->id,
+                'data_encomenda' => today()->toDateString(),
+                'entrega_prevista' => today()->addDays(3)->toDateString(),
+            ], [[
+                'product_id' => $artigo->id,
+                'descricao' => $artigo->name,
+                'quantidade' => 30,
+                'preco_unitario' => (float) ($artigo->cost ?: 100),
+                'desconto_percent' => 0,
+                'unidade' => $artigo->unit,
+            ]]);
+
+            // ENVIADA e por receber: é neste estado que o botão de receber
+            // aparece, e é ele que o ensaio do browser abre.
+            $fluxoEnc->enviar($enc, $tenant->id);
+        }
+
+        return \App\Models\Compras\Encomenda::where('tenant_id', $tenant->id)->count();
+    }
+
     private function limpar(): int
     {
         $tenant = Tenant::where('slug', self::SLUG)->first();
@@ -1070,7 +1137,10 @@ class PrepararBancadaPwa extends Command
         // desde que as viaturas, os mecânicos e os serviços passaram para o
         // mesmo ecrã genérico. E os EVENTOS, que passaram a React inteiros: a
         // agenda, os equipamentos, os locais, os tipos e os técnicos.
-        foreach (['invoicing', 'treasury', 'restaurant', 'rh', 'oficina', 'eventos', 'crm', 'projetos'] as $slug) {
+        foreach ([
+            'invoicing', 'treasury', 'restaurant', 'rh', 'oficina',
+            'eventos', 'crm', 'projetos', 'compras', 'inventario',
+        ] as $slug) {
             $modulo = Module::firstOrCreate(
                 ['slug' => $slug],
                 ['name' => ucfirst($slug), 'is_active' => true]

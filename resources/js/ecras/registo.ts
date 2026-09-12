@@ -274,6 +274,23 @@ export const ecras: Record<string, Ecra> = {
     'projetos/horas': () =>
         import('./projetos/Horas'),
 
+    /*
+     * AS COMPRAS e o INVENTÁRIO. Os FORNECEDORES e os ARMAZÉNS são os ecrãs de
+     * sempre da Facturação — um ecrã só em dois sítios do menu.
+     */
+    'compras/painel': () =>
+        import('./compras/Painel'),
+    'compras/requisicoes': () =>
+        import('./compras/Requisicoes'),
+    'compras/encomendas': () =>
+        import('./compras/Encomendas'),
+    'inventario/painel': () =>
+        import('./inventario/Painel'),
+    'inventario/movimentos': () =>
+        import('./inventario/Movimentos'),
+    'inventario/contagem': () =>
+        import('./inventario/Contagem'),
+
     // A TESOURARIA. Os catálogos (bancos, formas, caixas, tipos, categorias,
     // contas) passam pelo ecrã genérico; os movimentos têm o seu.
     'tesouraria/movimentos': () =>

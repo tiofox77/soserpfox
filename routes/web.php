@@ -1220,6 +1220,73 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::delete('/{id}', [$c, 'apagar'])->whereNumber('id')->name('apagar');
         });
 
+        /*
+         * AS COMPRAS.
+         *
+         * QUEM PEDE NÃO É QUEM APROVA: `requisicoes.manage` e
+         * `requisicoes.decidir` são duas permissões, e a porta pede a que
+         * corresponde ao acto. RECEBER é a entrada de stock e tem a sua.
+         */
+        Route::get('/compras/painel', [\App\Http\Controllers\Api\Compras\PainelApiController::class, 'index'])
+            ->name('compras.painel');
+
+        Route::prefix('compras/requisicoes')->name('compras.requisicoes.')->group(function () {
+            $c = \App\Http\Controllers\Api\Compras\RequisicoesApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/artigos', [$c, 'artigos'])->name('artigos');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'guardar'])->name('criar');
+            Route::get('/{id}', [$c, 'ficha'])->whereNumber('id')->name('ficha');
+            Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+            Route::post('/{id}/submeter', [$c, 'submeter'])->whereNumber('id')->name('submeter');
+            Route::post('/{id}/aprovar', [$c, 'aprovar'])->whereNumber('id')->name('aprovar');
+            Route::post('/{id}/rejeitar', [$c, 'rejeitar'])->whereNumber('id')->name('rejeitar');
+            Route::post('/{id}/cancelar', [$c, 'cancelar'])->whereNumber('id')->name('cancelar');
+        });
+
+        Route::prefix('compras/encomendas')->name('compras.encomendas.')->group(function () {
+            $c = \App\Http\Controllers\Api\Compras\EncomendasApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::post('/da-requisicao', [$c, 'daRequisicao'])->name('da-requisicao');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'guardar'])->name('criar');
+            Route::get('/{id}', [$c, 'ficha'])->whereNumber('id')->name('ficha');
+            Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+            Route::post('/{id}/enviar', [$c, 'enviar'])->whereNumber('id')->name('enviar');
+            Route::post('/{id}/confirmar', [$c, 'confirmar'])->whereNumber('id')->name('confirmar');
+            Route::get('/{id}/recepcao', [$c, 'recepcao'])->whereNumber('id')->name('recepcao');
+            Route::post('/{id}/receber', [$c, 'receber'])->whereNumber('id')->name('receber');
+            Route::post('/{id}/facturar', [$c, 'facturar'])->whereNumber('id')->name('facturar');
+            Route::post('/{id}/cancelar', [$c, 'cancelar'])->whereNumber('id')->name('cancelar');
+        });
+
+        /*
+         * O INVENTÁRIO.
+         *
+         * Os MOVIMENTOS só lêem — tudo o que mexe no stock passa por eles, e é
+         * onde essa história se consulta. A CONTAGEM tem permissão própria: é
+         * ela que acerta o stock contra a prateleira.
+         */
+        Route::get('/inventario/painel', [\App\Http\Controllers\Api\Inventario\PainelApiController::class, 'index'])
+            ->name('inventario.painel');
+        Route::get('/inventario/movimentos', [\App\Http\Controllers\Api\Inventario\MovimentosApiController::class, 'index'])
+            ->name('inventario.movimentos');
+
+        Route::prefix('inventario/contagem')->name('inventario.contagem.')->group(function () {
+            $c = \App\Http\Controllers\Api\Inventario\ContagemApiController::class;
+
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'abrir'])->name('abrir');
+            Route::get('/{id}/linhas', [$c, 'linhas'])->whereNumber('id')->name('linhas');
+            Route::post('/{id}/contar', [$c, 'contar'])->whereNumber('id')->name('contar');
+            Route::get('/{id}/resumo', [$c, 'resumoDoFecho'])->whereNumber('id')->name('resumo');
+            Route::post('/{id}/fechar', [$c, 'fechar'])->whereNumber('id')->name('fechar');
+            Route::post('/{id}/cancelar', [$c, 'cancelar'])->whereNumber('id')->name('cancelar');
+            Route::get('/{id}/diferencas', [$c, 'diferencas'])->whereNumber('id')->name('diferencas');
+        });
+
         Route::prefix('oficina/ordens')->name('oficina.ordens.')->group(function () {
             $c = \App\Http\Controllers\Api\Workshop\OrdensApiController::class;
 
@@ -2238,13 +2305,13 @@ Route::middleware(['auth', 'tenant.module:crm'])->prefix('crm')->name('crm.')->g
 // ecrã só, dois sítios no menu); a contagem física é a peça nova.
 Route::middleware(['auth', 'tenant.module:inventario'])->prefix('inventario')->name('inventario.')->group(function () {
     Route::middleware('permission:inventario.view')
-        ->get('/dashboard', \App\Livewire\Inventario\Dashboard::class)->name('dashboard');
+        ->get('/dashboard', \App\Support\EcraReact::pagina('inventario/painel', 'Painel do Inventário'))->name('dashboard');
     Route::middleware('permission:inventario.view')
         ->get('/armazens', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Armazéns', ['tipo' => 'armazens',]))->name('armazens');
     Route::middleware('permission:inventario.view')
-        ->get('/movimentos', \App\Livewire\Inventario\Movimentos::class)->name('movimentos');
+        ->get('/movimentos', \App\Support\EcraReact::pagina('inventario/movimentos', 'Movimentos de Stock'))->name('movimentos');
     Route::middleware('permission:inventario.contagem.manage')
-        ->get('/contagem', \App\Livewire\Inventario\Contagem::class)->name('contagem');
+        ->get('/contagem', \App\Support\EcraReact::pagina('inventario/contagem', 'Contagem Física'))->name('contagem');
 });
 
 // Compras — deixou de ser placeholder. O circuito que faltava antes da
@@ -2253,13 +2320,13 @@ Route::middleware(['auth', 'tenant.module:inventario'])->prefix('inventario')->n
 // da Facturação, um ecrã só em dois sítios do menu — como os armazéns.
 Route::middleware(['auth', 'tenant.module:compras'])->prefix('compras')->name('compras.')->group(function () {
     Route::middleware('permission:compras.view')
-        ->get('/dashboard', \App\Livewire\Compras\Dashboard::class)->name('dashboard');
+        ->get('/dashboard', \App\Support\EcraReact::pagina('compras/painel', 'Painel das Compras'))->name('dashboard');
     Route::middleware('permission:compras.view')
         ->get('/fornecedores', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Fornecedores', ['tipo' => 'fornecedores',]))->name('fornecedores');
     Route::middleware('permission:compras.requisicoes.view')
-        ->get('/requisicoes', \App\Livewire\Compras\Requisicoes::class)->name('requisicoes');
+        ->get('/requisicoes', \App\Support\EcraReact::pagina('compras/requisicoes', 'Requisições de Compra'))->name('requisicoes');
     Route::middleware('permission:compras.encomendas.view')
-        ->get('/encomendas', \App\Livewire\Compras\Encomendas::class)->name('encomendas');
+        ->get('/encomendas', \App\Support\EcraReact::pagina('compras/encomendas', 'Encomendas de Compra'))->name('encomendas');
 });
 
 // Projetos — deixou de ser placeholder. O projeto tem orçamento, as tarefas
