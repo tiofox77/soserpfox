@@ -1408,6 +1408,40 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
                 Route::delete('/etiquetas/{id}', [$c, 'apagarEtiqueta'])->whereNumber('id')->name('etiquetas.apagar');
             });
 
+            /*
+             * OS ORÇAMENTOS. Faltava a comparação com o REAL, que é o ponto
+             * inteiro de um orçamento: gravavam-se doze números e mostravam-se
+             * outra vez.
+             */
+            Route::prefix('orcamentos')->name('orcamentos.')->group(function () {
+                $c = \App\Http\Controllers\Api\Contabilidade\OrcamentosApiController::class;
+
+                Route::get('/', [$c, 'index'])->name('index');
+                Route::post('/', [$c, 'guardar'])->name('criar');
+                Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+                Route::post('/{id}/estado', [$c, 'estado'])->whereNumber('id')->name('estado');
+                Route::delete('/{id}', [$c, 'apagar'])->whereNumber('id')->name('apagar');
+            });
+
+            /*
+             * O IMOBILIZADO. O ecrã antigo era uma FACHADA: o `save()` flashava
+             * «será implementada em breve» e não gravava nada, a lista era um
+             * paginador vazio e os totais eram zeros literais. As três tabelas
+             * existiam desde 2025 e nunca receberam uma linha.
+             */
+            Route::prefix('imobilizado')->name('imobilizado.')->group(function () {
+                $c = \App\Http\Controllers\Api\Contabilidade\ImobilizadoApiController::class;
+
+                Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+                Route::get('/', [$c, 'index'])->name('index');
+                Route::post('/', [$c, 'guardar'])->name('criar');
+                Route::post('/calcular', [$c, 'calcular'])->name('calcular');
+                Route::get('/{id}', [$c, 'ficha'])->whereNumber('id')->name('ficha');
+                Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+                Route::delete('/{id}', [$c, 'apagar'])->whereNumber('id')->name('apagar');
+                Route::post('/amortizacoes/{id}/lancar', [$c, 'lancar'])->whereNumber('id')->name('amortizacoes.lancar');
+            });
+
             Route::prefix('periodos')->name('periodos.')->group(function () {
                 $c = \App\Http\Controllers\Api\Contabilidade\PeriodosApiController::class;
 
@@ -2445,7 +2479,11 @@ Route::middleware(['auth', 'tenant.module:contabilidade'])->prefix('accounting')
     Route::middleware('permission:accounting.reconciliation.view')
         ->get('/reconciliation', \App\Livewire\Accounting\BankReconciliationManagement::class)->name('reconciliation');
     Route::middleware('permission:accounting.fixed-assets.view')
-        ->get('/fixed-assets', \App\Livewire\Accounting\FixedAssetManagement::class)->name('fixed-assets');
+        ->get('/fixed-assets', \App\Support\EcraReact::pagina('contabilidade/imobilizado', 'Imobilizado'))->name('fixed-assets');
+    // AS FAMÍLIAS existiam em tabela desde 2025 e não tinham ecrã: o campo
+    // «Categoria» do imobilizado apontava para uma lista que ninguém preenchia.
+    Route::middleware('permission:accounting.fixed-assets.view')
+        ->get('/fixed-asset-categories', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Famílias do Imobilizado', ['tipo' => 'familias-do-imobilizado']))->name('fixed-asset-categories');
     Route::middleware('permission:accounting.currencies.view')
         ->get('/currencies', \App\Support\EcraReact::pagina('contabilidade/moedas', 'Moedas e Câmbios'))->name('currencies');
     Route::middleware('permission:accounting.cost-centers.view')
@@ -2453,7 +2491,7 @@ Route::middleware(['auth', 'tenant.module:contabilidade'])->prefix('accounting')
     Route::middleware('permission:accounting.analytics.view')
         ->get('/analytics', \App\Support\EcraReact::pagina('contabilidade/analitica', 'Contabilidade Analítica'))->name('analytics');
     Route::middleware('permission:accounting.budgets.view')
-        ->get('/budgets', \App\Livewire\Accounting\BudgetManagement::class)->name('budgets');
+        ->get('/budgets', \App\Support\EcraReact::pagina('contabilidade/orcamentos', 'Orçamentos'))->name('budgets');
     Route::middleware('permission:accounting.settings.view')
         ->get('/settings', \App\Livewire\Accounting\SettingsManagement::class)->name('settings');
 });

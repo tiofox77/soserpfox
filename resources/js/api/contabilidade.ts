@@ -269,6 +269,107 @@ export type Analitica = {
     permissoes: { gerir: boolean };
 };
 
+/* ─── Os orçamentos ───────────────────────────────────────────────────── */
+
+export type MesDoOrcamento = {
+    mes: number;
+    chave: string;
+    previsto: number;
+    realizado: number;
+    desvio: number;
+};
+
+export type Orcamento = {
+    id: number;
+    nome: string;
+    ano: number;
+    conta_id: number | null;
+    conta: string | null;
+    centro_de_custo_id: number | null;
+    centro_de_custo: string | null;
+    estado: string;
+    estado_rotulo: string;
+    previsto: number;
+    /** A soma dos lançamentos confirmados da conta, no ano. */
+    realizado: number;
+    desvio: number;
+    /** Sem previsto não há percentagem — e zero não é «100%». */
+    execucao: number | null;
+    meses: MesDoOrcamento[];
+    valores: Record<string, number>;
+};
+
+export type OrcamentosDoAno = {
+    ano: number;
+    anos: number[];
+    data: Orcamento[];
+    resumo: { orcamentos: number; rascunhos: number; aprovados: number; previsto: number };
+    estados: Escolha[];
+    contas: Escolha[];
+    centros_de_custo: Escolha[];
+    permissoes: { gerir: boolean };
+};
+
+/* ─── O imobilizado ───────────────────────────────────────────────────── */
+
+export type Bem = {
+    id: number;
+    codigo: string;
+    nome: string;
+    categoria: string | null;
+    categoria_id: number | null;
+    conta: string | null;
+    aquisicao: string | null;
+    valor: number;
+    residual: number;
+    vida_util: number;
+    metodo: string;
+    metodo_rotulo: string;
+    taxa: number | null;
+    amortizado: number;
+    liquido: number;
+    por_amortizar: number;
+    estado: string;
+    estado_rotulo: string;
+    localizacao: string | null;
+    serie: string | null;
+    amortizacoes: number;
+    amortizacoes_lancadas: number;
+};
+
+export type LinhaDeAmortizacao = {
+    id: number;
+    dia: string | null;
+    periodo: string | null;
+    valor: number;
+    acumulado: number;
+    liquido: number;
+    estado: string;
+    lancamento: string | null;
+    pode_lancar: boolean;
+};
+
+export type FichaDoBem = Bem & {
+    descricao: string | null;
+    conta_id: number | null;
+    conta_de_gasto_id: number | null;
+    conta_de_gasto: string | null;
+    conta_acumulada_id: number | null;
+    conta_acumulada: string | null;
+    abate: string | null;
+    valor_do_abate: number | null;
+    linhas: LinhaDeAmortizacao[];
+};
+
+export type OpcoesDoImobilizado = {
+    contas: Array<Escolha & { tipo: string }>;
+    /** As omissões da família, para o formulário as herdar. */
+    categorias: Array<Escolha & { vida_util: number; metodo: string; taxa: number | null }>;
+    metodos: Escolha[];
+    estados: Escolha[];
+    permissoes: { gerir: boolean; lancar: boolean };
+};
+
 const C = '/contabilidade';
 
 export const contabilidade = {
@@ -291,6 +392,36 @@ export const contabilidade = {
         estado: (id: number) => api.criar<Recado & { bloqueada: boolean }>(`${C}/contas/${id}/estado`, {}),
         razao: (id: number, f: { de?: string; ate?: string }) =>
             api.ler<RazaoDaConta>(`${C}/contas/${id}/razao`, f),
+    },
+
+    orcamentos: {
+        listar: (f: { ano?: number; procura?: string; estado?: string }) =>
+            api.ler<OrcamentosDoAno>(`${C}/orcamentos`, f),
+        guardar: (id: number | null, dados: Record<string, unknown>) =>
+            id ? api.guardar<Recado>(`${C}/orcamentos/${id}`, dados) : api.criar<Recado>(`${C}/orcamentos`, dados),
+        estado: (id: number, estado: string) => api.criar<Recado>(`${C}/orcamentos/${id}/estado`, { estado }),
+        apagar: (id: number) => api.apagar<Recado>(`${C}/orcamentos/${id}`),
+    },
+
+    imobilizado: {
+        opcoes: () => api.ler<OpcoesDoImobilizado>(`${C}/imobilizado/opcoes`),
+        listar: (f: { procura?: string; estado?: string; categoria?: number | ''; por_pagina?: number; page?: number }) =>
+            api.ler<{
+                data: Bem[]; meta: Meta;
+                resumo: { bens: number; aquisicao: number; amortizado: number; liquido: number; por_lancar: number };
+                estados: Escolha[];
+                permissoes: { gerir: boolean; lancar: boolean };
+            }>(`${C}/imobilizado`, f),
+        ficha: (id: number) => api.ler<{ data: FichaDoBem }>(`${C}/imobilizado/${id}`),
+        guardar: (id: number | null, dados: Record<string, unknown>) =>
+            id ? api.guardar<Recado & { id: number }>(`${C}/imobilizado/${id}`, dados)
+               : api.criar<Recado & { id: number }>(`${C}/imobilizado`, dados),
+        apagar: (id: number) => api.apagar<Recado>(`${C}/imobilizado/${id}`),
+        /** Calcular não é lançar: as linhas nascem em rascunho. */
+        calcular: (dados: { ate?: string; bem?: number }) =>
+            api.criar<Recado & { criadas: number }>(`${C}/imobilizado/calcular`, dados),
+        lancar: (id: number) =>
+            api.criar<Recado & { lancamento: string | null }>(`${C}/imobilizado/amortizacoes/${id}/lancar`, {}),
     },
 
     moedas: {

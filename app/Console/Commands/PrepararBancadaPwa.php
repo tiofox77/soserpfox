@@ -1467,6 +1467,64 @@ class PrepararBancadaPwa extends Command
             );
         }
 
+        /*
+         * UM ORÇAMENTO da conta de compras, com o mês corrente já orçamentado:
+         * é assim que se vê a comparação com o real, que é o ponto inteiro do
+         * ecrã e o que o Livewire não fazia.
+         */
+        \App\Models\Accounting\Budget::withoutGlobalScopes()->updateOrCreate(
+            ['tenant_id' => $tenant->id, 'year' => (int) now()->year, 'account_id' => $custo->id],
+            array_merge(
+                ['name' => 'Compras de mercadorias '.now()->year, 'status' => 'approved', 'total' => 240_000],
+                array_fill_keys([
+                    'january', 'february', 'march', 'april', 'may', 'june',
+                    'july', 'august', 'september', 'october', 'november', 'december',
+                ], 20_000),
+            )
+        );
+
+        /*
+         * O IMOBILIZADO: uma família e uma viatura comprada no início do ano.
+         *
+         * O ecrã antigo não gravava nada — a tabela existia desde 2025 e nunca
+         * recebeu uma linha. Uma viatura de 1.200.000 em 5 anos dá 20.000 por
+         * mês, e as amortizações ficam por CALCULAR de propósito: é o botão que
+         * antes só flashava uma promessa.
+         */
+        $familia = \App\Models\Accounting\FixedAssetCategory::withoutGlobalScopes()->updateOrCreate(
+            ['tenant_id' => $tenant->id, 'name' => 'Viaturas'],
+            ['default_useful_life' => 5, 'default_depreciation_method' => 'linear', 'default_depreciation_rate' => null]
+        );
+
+        $viaturas = $conta('42', 'Imobilizado corpóreo', 'asset', ['is_view' => true, 'level' => 1]);
+        $contaDaViatura = $conta('4203', 'Equipamento de transporte', 'asset', ['parent_id' => $viaturas->id]);
+        $gastoDaAmortizacao = $conta('6603', 'Amortizações do exercício', 'expense', ['parent_id' => $gastos->id]);
+        $amortizacoesAcumuladas = $conta('4283', 'Amortizações acumuladas', 'asset', [
+            'parent_id' => $viaturas->id, 'nature' => 'credit',
+        ]);
+
+        \App\Models\Accounting\FixedAsset::withoutGlobalScopes()->updateOrCreate(
+            ['tenant_id' => $tenant->id, 'code' => 'IMO-0001'],
+            [
+                'name' => 'Toyota Hilux da Bancada',
+                'description' => 'Viatura de distribuição.',
+                'category_id' => $familia->id,
+                'account_id' => $contaDaViatura->id,
+                'depreciation_account_id' => $gastoDaAmortizacao->id,
+                'accumulated_depreciation_account_id' => $amortizacoesAcumuladas->id,
+                'acquisition_date' => now()->startOfYear()->format('Y-m-d'),
+                'acquisition_value' => 1_200_000,
+                'residual_value' => 0,
+                'useful_life_years' => 5,
+                'depreciation_method' => 'linear',
+                'accumulated_depreciation' => 0,
+                'book_value' => 1_200_000,
+                'status' => 'active',
+                'location' => 'Armazém da Bancada',
+                'serial_number' => 'AHTFR22G30-BANCADA',
+            ]
+        );
+
         return \App\Models\Accounting\Move::withoutGlobalScopes()->where('tenant_id', $tenant->id)->count();
     }
 

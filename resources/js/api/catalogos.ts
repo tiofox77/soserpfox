@@ -63,7 +63,9 @@ export type Coluna = {
     chave: string;
     rotulo: string;
     formato: 'texto' | 'escolha' | 'booleano' | 'numero' | 'percentagem' | 'cor' | 'icone' | 'padrao' | 'dinheiro'
-        | 'hora' | 'dias' | 'data' | 'validade' | 'multi' | 'etiquetas';
+        // `referencia` mostra o NOME que vem no `rotulos`, e não o id: faltava
+        // aqui e na célula, e a coluna «Banco» das contas bancárias escrevia «7».
+        | 'referencia' | 'hora' | 'dias' | 'data' | 'validade' | 'multi' | 'etiquetas';
     alinhar?: 'direita';
     /** Só nas colunas `multi`: os rótulos das chaves gravadas. */
     opcoes?: Escolha[];

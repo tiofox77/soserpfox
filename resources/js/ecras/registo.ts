@@ -388,4 +388,8 @@ export const ecras: Record<string, Ecra> = {
         import('./contabilidade/Moedas'),
     'contabilidade/analitica': () =>
         import('./contabilidade/Analitica'),
+    'contabilidade/orcamentos': () =>
+        import('./contabilidade/Orcamentos'),
+    'contabilidade/imobilizado': () =>
+        import('./contabilidade/Imobilizado'),
 };

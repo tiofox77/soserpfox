@@ -132,6 +132,7 @@ final class Catalogos
             'diarios' => self::diarios(),
             'tipos-de-documento' => self::tiposDeDocumento(),
             'centros-de-custo' => self::centrosDeCusto(),
+            'familias-do-imobilizado' => self::familiasDoImobilizado(),
         ];
     }
 
@@ -2966,6 +2967,74 @@ final class Catalogos
                     ->map(fn ($c) => ['valor' => (string) $c->id, 'rotulo' => $c->code.' · '.$c->name])->all(),
             ],
             'accoes' => ['activar' => true, 'padrao' => false, 'logotipo' => false, 'apagar' => true],
+        ];
+    }
+
+    /**
+     * AS FAMÍLIAS DO IMOBILIZADO — «Viaturas», «Equipamento informático».
+     *
+     * O que elas guardam são as OMISSÕES da família: quantos anos dura, por que
+     * método se amortiza e a que taxa. Um bem novo herda-as, em vez de obrigar
+     * quem o registou a saber a vida útil de cor.
+     *
+     * A tabela existia desde 2025 e não tinha ecrã nenhum: o campo «Categoria» do
+     * imobilizado apontava para uma lista que ninguém podia preencher.
+     */
+    private static function familiasDoImobilizado(): array
+    {
+        $metodos = [
+            ['valor' => 'linear', 'rotulo' => 'Quotas constantes'],
+            ['valor' => 'declining_balance', 'rotulo' => 'Quotas degressivas'],
+        ];
+
+        return [
+            'modelo' => \App\Models\Accounting\FixedAssetCategory::class,
+            'titulo' => 'Famílias do Imobilizado',
+            'singular' => 'Família',
+            'icone' => 'fa-layer-group',
+            'cor' => 'roxo',
+            'descricao' => 'As omissões de cada família de bens',
+            'novo' => 'Nova Família',
+            'rota' => '/accounting/fixed-asset-categories',
+            'permissoes' => [
+                'ver' => 'accounting.fixed-assets.view', 'criar' => 'accounting.fixed-assets.manage',
+                'editar' => 'accounting.fixed-assets.manage', 'apagar' => 'accounting.fixed-assets.manage',
+            ],
+            'pesquisa' => ['name'],
+            'pesquisa_ajuda' => 'Nome da família',
+            'ordem' => [['name', 'asc']],
+            'colunas' => [
+                ['chave' => 'name', 'rotulo' => 'Nome', 'formato' => 'texto'],
+                ['chave' => 'default_useful_life', 'rotulo' => 'Vida útil (anos)', 'formato' => 'numero'],
+                ['chave' => 'default_depreciation_method', 'rotulo' => 'Método', 'formato' => 'escolha'],
+                ['chave' => 'default_depreciation_rate', 'rotulo' => 'Taxa', 'formato' => 'percentagem'],
+            ],
+            'filtros' => [
+                ['chave' => 'default_depreciation_method', 'rotulo' => 'Método', 'opcoes' => $metodos],
+            ],
+            'campos' => [
+                self::campo('name', 'Nome', 'texto', obrigatorio: true, ajuda: 'Ex.: Viaturas, Equipamento informático'),
+                self::campo('default_useful_life', 'Vida útil por omissão (anos)', 'numero', obrigatorio: true, omissao: 5, min: 1, max: 100),
+                self::campo('default_depreciation_method', 'Método por omissão', 'escolha', obrigatorio: true, omissao: 'linear', opcoes: $metodos),
+                self::campo('default_depreciation_rate', 'Taxa anual (%)', 'percentagem', min: 0, max: 100,
+                    ajuda: 'Só as quotas degressivas a usam. Vazio usa o dobro da quota linear.'),
+            ],
+            'regras' => [
+                'name' => 'required|string|max:255',
+                'default_useful_life' => 'required|integer|min:1|max:100',
+                'default_depreciation_method' => 'required|in:linear,declining_balance',
+                'default_depreciation_rate' => 'nullable|numeric|min:0|max:100',
+            ],
+            'validar' => self::codigoUnico(
+                \App\Models\Accounting\FixedAssetCategory::class,
+                'Já existe uma família com esse nome.',
+                'name',
+            ),
+            // Uma família com bens não desaparece: os bens ficariam sem as
+            // omissões que herdaram e sem nome de família nenhum.
+            'pode_apagar' => fn (Model $m) => ! \App\Models\Accounting\FixedAsset::where('category_id', $m->id)->exists(),
+            'porque_nao_apaga' => 'Há bens nesta família.',
+            'accoes' => ['activar' => false, 'padrao' => false, 'logotipo' => false, 'apagar' => true],
         ];
     }
 
