@@ -369,4 +369,8 @@ export const ecras: Record<string, Ecra> = {
         import('./notificacoes/Definicoes'),
     'notificacoes/modelos': () =>
         import('./notificacoes/Modelos'),
+
+    // A MINHA CONTA — as empresas, o plano, as facturas, o perfil e a senha.
+    'conta/minha-conta': () =>
+        import('./conta/MinhaConta'),
 };

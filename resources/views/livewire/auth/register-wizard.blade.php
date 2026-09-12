@@ -553,18 +553,26 @@
                                         Dados para Transferência
                                     </h4>
                                     
+                                    {{-- A CONTA VEM DE UM SÍTIO SÓ.
+                                         Estava escrita à mão aqui e no ecrã da
+                                         Minha Conta, e as duas cópias já não
+                                         diziam o mesmo IBAN — o que está errado
+                                         num IBAN é dinheiro de um cliente que
+                                         não chega a lado nenhum.
+                                         Ver App\Support\ContaDaPlataforma. --}}
+                                    @php $conta = \App\Support\ContaDaPlataforma::dados(); @endphp
                                     <div class="space-y-3 text-sm">
                                         <div class="flex justify-between py-2 border-b border-blue-200">
                                             <span class="text-gray-600">Banco:</span>
-                                            <span class="font-semibold text-gray-900">BAI - Banco Angolano de Investimentos</span>
+                                            <span class="font-semibold text-gray-900">{{ $conta['banco'] }}</span>
                                         </div>
                                         <div class="flex justify-between py-2 border-b border-blue-200">
                                             <span class="text-gray-600">Titular:</span>
-                                            <span class="font-semibold text-gray-900">SOSERP Sistemas Lda</span>
+                                            <span class="font-semibold text-gray-900">{{ $conta['titular'] }}</span>
                                         </div>
                                         <div class="flex justify-between py-2 border-b border-blue-200">
                                             <span class="text-gray-600">IBAN:</span>
-                                            <span class="font-semibold text-gray-900">AO06 0000 0000 1234 5678 9012 3</span>
+                                            <span class="font-semibold text-gray-900">{{ $conta['iban'] }}</span>
                                         </div>
                                         <div class="flex justify-between py-2">
                                             <span class="text-gray-600">Valor:</span>

@@ -91,31 +91,54 @@ class NifDeEmpresaTest extends TenantTestCase
      */
     public function test_o_ecra_de_nova_empresa_recusa_o_numero_do_bi(): void
     {
-        \Livewire\Livewire::test(\App\Livewire\MyAccount::class)
-            // O limite de empresas e verificado ANTES da validacao, com um
-            // return a meio: sem o levantar, o metodo nunca chegava as regras
-            // e os dois testes passavam sem exercitar nada.
-            ->set('maxAllowed', 99)
-            ->set('newCompanyName', 'Farmácia Teste')
-            ->set('newCompanyNif', '004512345LA041')
-            ->set('newCompanyRegime', array_key_first(\App\Models\Tenant::REGIMES))
-            ->call('createCompany')
-            ->assertHasErrors('newCompanyNif');
+        $this->comoDono();
+
+        $this->actingAs($this->user)
+            ->postJson('/api/v1/invoicing/react/conta/empresas', [
+                'name' => 'Farmácia Teste',
+                'nif' => '004512345LA041',
+                'regime' => array_key_first(\App\Models\Tenant::REGIMES),
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('nif');
     }
 
     /** E com um NIF de empresa a validacao do NIF ja nao se queixa. */
     public function test_o_ecra_de_nova_empresa_aceita_um_nif_de_empresa(): void
     {
-        \Livewire\Livewire::test(\App\Livewire\MyAccount::class)
-            // O limite de empresas e verificado ANTES da validacao, com um
-            // return a meio: sem o levantar, o metodo nunca chegava as regras
-            // e os dois testes passavam sem exercitar nada.
-            ->set('maxAllowed', 99)
-            ->set('newCompanyName', 'Farmácia Teste')
-            ->set('newCompanyNif', '5000123456')
-            ->set('newCompanyRegime', array_key_first(\App\Models\Tenant::REGIMES))
-            ->call('createCompany')
-            ->assertHasNoErrors('newCompanyNif');
+        $this->comoDono();
+
+        $this->actingAs($this->user)
+            ->postJson('/api/v1/invoicing/react/conta/empresas', [
+                'name' => 'Farmácia Teste',
+                'nif' => '5000123456',
+                'regime' => array_key_first(\App\Models\Tenant::REGIMES),
+            ])
+            ->assertCreated();
+    }
+
+    /**
+     * Quem cria empresas é quem gere a conta.
+     *
+     * Sem o papel, o pedido é travado por falta de permissão e os dois ensaios
+     * acima passariam pela razão errada — a ver um 403 e não o NIF.
+     */
+    private function comoDono(): void
+    {
+        $papel = \Spatie\Permission\Models\Role::firstOrCreate([
+            'name' => 'Super Admin', 'guard_name' => 'web', 'tenant_id' => $this->tenant->id,
+        ]);
+
+        setPermissionsTeamId($this->tenant->id);
+        $this->user->assignRole($papel);
+
+        // O TECTO DE EMPRESAS é verificado antes da validação: sem o levantar,
+        // o pedido nunca chegava às regras do NIF e os dois ensaios passavam
+        // sem exercitar nada.
+        \App\Models\Plan::whereIn(
+            'id',
+            $this->tenant->subscriptions()->pluck('plan_id'),
+        )->update(['max_companies' => 99]);
     }
 
     /** A mesma regra pelo nome, que e como o ecra do super admin a usa. */

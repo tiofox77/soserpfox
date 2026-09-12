@@ -26,41 +26,32 @@ class CheckSubscription
             return $next($request);
         }
         
-        // Rotas que devem ser sempre acessíveis
+        /*
+         * AS PORTAS QUE NUNCA FECHAM.
+         *
+         * A área de conta é onde se PAGA. Fechá-la a quem deixou de ter
+         * subscrição era trancar o cliente do lado de fora com a chave lá
+         * dentro: a página abria e nenhum dos pedidos que a alimentam passava.
+         *
+         * `api/v1/invoicing/react/conta` é a API dessa página — tem de estar
+         * aqui pela mesma razão que a morada dela.
+         */
         $allowedRoutes = [
             'logout',
             'my-account',
+            'api/v1/invoicing/react/conta',
             'register',
             'login',
             'subscription-expired',
             'offline',
         ];
-        
+
         foreach ($allowedRoutes as $route) {
-            if ($request->is($route) || $request->is($route . '/*')) {
+            if ($request->is($route) || $request->is($route.'/*')) {
                 return $next($request);
             }
         }
-        
-        // Permitir requisições Livewire do componente MyAccount (para renovação de planos)
-        if ($request->is('livewire/*')) {
-            $referer = $request->headers->get('referer');
-            
-            if ($referer && (str_contains($referer, '/my-account') || str_contains($referer, '/subscription-expired'))) {
-                return $next($request);
-            }
-            
-            if ($request->has('components')) {
-                $components = $request->input('components', []);
-                foreach ($components as $component) {
-                    if (isset($component['snapshot']['memo']['name']) && 
-                        $component['snapshot']['memo']['name'] === 'App\Livewire\MyAccount') {
-                        return $next($request);
-                    }
-                }
-            }
-        }
-        
+
         // Verificar tenant ativo
         $tenant = $user->activeTenant();
         

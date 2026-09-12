@@ -135,7 +135,7 @@ Route::get('/offline', function () {
 
 // My Account Route
 Route::middleware(['auth'])->group(function () {
-    Route::get('/my-account', \App\Livewire\MyAccount::class)->name('my-account');
+    Route::get('/my-account', \App\Support\EcraReact::pagina('conta/minha-conta', 'A Minha Conta'))->name('my-account');
 
     /*
      * A CASCA EM REACT, em ensaio. Não é uma página: é um interruptor de
@@ -1338,6 +1338,35 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
          * do sistema — mudá-lo reescreve o imposto por omissão e o regime de
          * todos os produtos de uma vez.
          */
+        /*
+         * A MINHA CONTA: as empresas, o plano, as facturas, o perfil e a senha.
+         *
+         * O perfil e a senha são de cada um. As empresas, o plano e a
+         * facturação são de quem GERE a conta — antes, qualquer utilizador da
+         * empresa (um caixa, um vendedor) trocava o plano.
+         */
+        Route::prefix('conta')->name('conta.')->group(function () {
+            $c = \App\Http\Controllers\Api\Conta\MinhaContaApiController::class;
+
+            Route::get('/', [$c, 'mostrar'])->name('mostrar');
+
+            Route::post('/empresas', [$c, 'criarEmpresa'])->name('empresas.criar');
+            Route::put('/empresas/{id}', [$c, 'editarEmpresa'])->whereNumber('id')->name('empresas.editar');
+            Route::post('/empresas/{id}/logotipo', [$c, 'logotipo'])->whereNumber('id')->name('empresas.logotipo');
+            Route::delete('/empresas/{id}/logotipo', [$c, 'apagarLogotipo'])->whereNumber('id')->name('empresas.apagar-logotipo');
+            Route::get('/empresas/{id}/pode-arquivar', [$c, 'podeArquivar'])->whereNumber('id')->name('empresas.pode-arquivar');
+            Route::delete('/empresas/{id}', [$c, 'arquivarEmpresa'])->whereNumber('id')->name('empresas.arquivar');
+            Route::post('/empresas/{id}/activar', [$c, 'trocarDeEmpresa'])->whereNumber('id')->name('empresas.activar');
+
+            Route::put('/perfil', [$c, 'perfil'])->name('perfil');
+            Route::post('/avatar', [$c, 'avatar'])->name('avatar');
+            Route::delete('/avatar', [$c, 'apagarAvatar'])->name('apagar-avatar');
+            Route::put('/senha', [$c, 'senha'])->name('senha');
+
+            Route::post('/contratar', [$c, 'contratar'])->name('contratar');
+            Route::post('/pedidos/{id}/comprovativo', [$c, 'comprovativo'])->whereNumber('id')->name('comprovativo');
+        });
+
         Route::prefix('empresa')->name('empresa.')->group(function () {
             $c = \App\Http\Controllers\Api\Empresa\EmpresaApiController::class;
 

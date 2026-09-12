@@ -1,0 +1,166 @@
+/**
+ * A PONTE DO ECRÃ DA MINHA CONTA.
+ *
+ * Fala com `/api/v1/invoicing/react/conta/*`. O logótipo, a fotografia e o
+ * comprovativo de pagamento vão em multipart; o resto é JSON.
+ */
+
+import { api } from './cliente';
+
+type Recado = { message: string };
+
+export type EmpresaDaConta = {
+    id: number;
+    nome: string;
+    designacao: string | null;
+    nif: string | null;
+    email: string | null;
+    telefone: string | null;
+    morada: string | null;
+    regime: string;
+    logo: string | null;
+    activa: boolean;
+    utilizadores: number;
+    modulos: number;
+    plano: string | null;
+    papel: string;
+    /** O direito de editar e remover — pelo NOME do papel, não por um número. */
+    sou_dono: boolean;
+    desde: string | null;
+};
+
+export type PlanoActual = {
+    nome: string;
+    preco: number;
+    max_utilizadores: number | null;
+    max_empresas: number | null;
+    funcionalidades: string[];
+    estado: string;
+    em_teste: boolean;
+    ciclo: string;
+    ciclo_rotulo: string;
+    termina_em: string | null;
+    dias_que_faltam: number | null;
+    a_terminar: boolean;
+    dias_de_teste: number | null;
+};
+
+export type PlanoDisponivel = {
+    id: number;
+    nome: string;
+    descricao: string | null;
+    destaque: boolean;
+    precos: { monthly: number; quarterly: number; semiannual: number; yearly: number };
+    max_utilizadores: number | null;
+    max_empresas: number | null;
+    funcionalidades: string[];
+    modulos: string[];
+    dias_de_teste: number;
+    auto_activa: boolean;
+    actual: boolean;
+    /** Porque é que não se pode escolher — ou null se se puder. */
+    recusa: string | null;
+};
+
+export type FacturaDaConta = {
+    id: number;
+    numero: string;
+    descricao: string;
+    total: number;
+    dia: string | null;
+    vence_em: string | null;
+    estado: string;
+    vencida: boolean;
+};
+
+export type PedidoDaConta = {
+    id: number;
+    numero: string;
+    empresa: string | null;
+    plano: string | null;
+    ciclo: string;
+    ciclo_rotulo: string;
+    valor: number;
+    estado: string;
+    estado_rotulo: string;
+    tem_comprovativo: boolean;
+    comprovativo: string | null;
+    referencia: string;
+    quando: string | null;
+};
+
+export type MinhaConta = {
+    perfil: {
+        nome: string;
+        email: string;
+        telefone: string | null;
+        bio: string | null;
+        avatar: string | null;
+        super_admin: boolean;
+        ultimo_acesso: string | null;
+        senha_mudada_em: string | null;
+    };
+    limite: { usadas: number; maximo: number | null; excedido: boolean; cabe_mais: boolean };
+    empresas: EmpresaDaConta[];
+    plano: PlanoActual | null;
+    planos: PlanoDisponivel[];
+    facturas: FacturaDaConta[];
+    pedidos: PedidoDaConta[];
+    conta_da_plataforma: { banco: string; titular: string; iban: string } | null;
+    permissoes: { gerir_conta: boolean };
+};
+
+export type PodeArquivar = {
+    pode: boolean;
+    razoes: string[];
+    nome: string;
+    clientes: number;
+};
+
+const C = '/conta';
+
+function comFicheiro(campo: string, ficheiro: File): FormData {
+    const corpo = new FormData();
+
+    corpo.append(campo, ficheiro);
+
+    return corpo;
+}
+
+export const conta = {
+    ler: () => api.ler<MinhaConta>(C),
+
+    empresas: {
+        criar: (dados: Record<string, unknown>) =>
+            api.criar<Recado & { data: { id: number; nome: string } }>(`${C}/empresas`, dados),
+        editar: (id: number, dados: Record<string, unknown>) =>
+            api.guardar<Recado>(`${C}/empresas/${id}`, dados),
+        logotipo: (id: number, ficheiro: File) =>
+            api.enviar<Recado & { logo: string }>(`${C}/empresas/${id}/logotipo`, comFicheiro('logo', ficheiro)),
+        apagarLogotipo: (id: number) => api.apagar<Recado>(`${C}/empresas/${id}/logotipo`),
+        podeArquivar: (id: number) => api.ler<PodeArquivar>(`${C}/empresas/${id}/pode-arquivar`),
+        arquivar: (id: number, confirmacao: string) =>
+            api.apagar<Recado & { trocou_para: number | null }>(`${C}/empresas/${id}`, { confirmacao }),
+        activar: (id: number) => api.criar<Recado>(`${C}/empresas/${id}/activar`, {}),
+    },
+
+    perfil: (dados: Record<string, unknown>) => api.guardar<Recado>(`${C}/perfil`, dados),
+    avatar: (ficheiro: File) =>
+        api.enviar<Recado & { avatar: string }>(`${C}/avatar`, comFicheiro('avatar', ficheiro)),
+    apagarAvatar: () => api.apagar<Recado>(`${C}/avatar`),
+    senha: (dados: Record<string, unknown>) => api.guardar<Recado>(`${C}/senha`, dados),
+
+    contratar: (plan_id: number, ciclo: string, comprovativo: File | null) => {
+        const corpo = new FormData();
+
+        corpo.append('plan_id', String(plan_id));
+        corpo.append('ciclo', ciclo);
+
+        if (comprovativo) corpo.append('comprovativo', comprovativo);
+
+        return api.enviar<Recado & { activado: boolean; pedido?: number }>(`${C}/contratar`, corpo);
+    },
+
+    comprovativo: (pedido: number, ficheiro: File) =>
+        api.enviar<Recado>(`${C}/pedidos/${pedido}/comprovativo`, comFicheiro('comprovativo', ficheiro)),
+};

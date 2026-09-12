@@ -111,6 +111,7 @@ class PrepararBancadaPwa extends Command
         setPermissionsTeamId($tenant->id);
 
         $this->darTodasAsPermissoes($utilizador);
+        $this->fazerDono($tenant, $utilizador);
         $this->ligarModulos($tenant);
         $this->assinatura($tenant);
 
@@ -1235,6 +1236,32 @@ class PrepararBancadaPwa extends Command
         $this->info('Bancada apagada.');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * O OPERADOR DA BANCADA É O DONO DA EMPRESA.
+     *
+     * Dar-lhe todas as PERMISSÕES não basta: quem gere a conta (o plano, as
+     * facturas, as outras empresas) é quem tem o PAPEL de «Super Admin» ou
+     * «Admin» — é isso que o `canManageAccount()` pergunta. Sem o papel, a
+     * bancada abria «A Minha Conta» sem os separadores da conta, e um ensaio
+     * que corra sobre eles não mede nada.
+     *
+     * E o papel tem de ficar também no pivot `tenant_user.role_id`: é dele que
+     * sai o direito de editar e de remover uma empresa.
+     */
+    private function fazerDono(Tenant $tenant, User $u): void
+    {
+        $papel = \Spatie\Permission\Models\Role::firstOrCreate([
+            'name' => 'Super Admin', 'guard_name' => 'web', 'tenant_id' => $tenant->id,
+        ]);
+
+        setPermissionsTeamId($tenant->id);
+        $u->assignRole($papel);
+
+        \DB::table('tenant_user')
+            ->where('user_id', $u->id)->where('tenant_id', $tenant->id)
+            ->update(['role_id' => $papel->id]);
     }
 
     private function darTodasAsPermissoes(User $u): void
