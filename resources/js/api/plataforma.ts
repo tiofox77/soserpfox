@@ -364,6 +364,150 @@ export type FichaDaSubscricao = {
 
 export type Paginacao = { pagina: number; ultima: number; total: number };
 
+/* ─── As definições ───────────────────────────────────────────────────── */
+
+export type ServidorDeCorreio = {
+    id: number; empresa: string | null; empresa_id: number | null; host: string; porta: number;
+    utilizador: string; encriptacao: string; remetente: string; nome_do_remetente: string;
+    padrao: boolean; activa: boolean; testada_em: string | null; enviados: number; falhados: number;
+};
+
+export type FichaDoCorreio = {
+    id: number | null; tenant_id: number | null; host: string; port: number; username: string;
+    password: string; tem_password?: boolean; encryption: string; from_email: string; from_name: string;
+    is_default: boolean; is_active: boolean;
+};
+
+export type ConfiguracaoSms = {
+    provider: string; api_url: string; sender_id: string; telco_application: string;
+    report_url: string; is_active: boolean; token_guardado: boolean; chave_qas_guardada: boolean;
+};
+
+export type ModeloSms = {
+    id: number; nome: string; slug: string; conteudo: string; descricao: string | null;
+    variaveis: Array<{ nome: string; descricao: string | null }>; activo: boolean; caracteres: number;
+};
+
+export type RegistoSms = {
+    id: number; destino: string; mensagem: string; remetente: string | null; gateway: string;
+    tipo: string | null; estado: string; erro: string | null; pedido: string | null;
+    quem: string | null; empresa: string | null; enviado_em: string | null; entregue_em: string | null;
+};
+
+export type ConfiguracaoWhatsApp = {
+    twilio_account_sid: string; twilio_auth_token: string; token_guardado: boolean;
+    whatsapp_from_number: string; whatsapp_business_account_id: string;
+    is_enabled: boolean; is_sandbox: boolean;
+    templates: Array<{ sid: string; name?: string; language?: string }>;
+    notification_settings: Record<string, boolean>;
+};
+
+export type ChavesDoSaft = {
+    publica: { data: string; impressao: string } | null;
+    privada: { data: string } | null;
+    metadados: { gerada_em: string | null; algoritmo: string; digest: string; conformidade: string };
+    copias: string[];
+    openssl: boolean;
+};
+
+export type DefinicoesDoSistema = {
+    valores: Record<string, string | boolean>;
+    imagens: Record<string, string | null>;
+    sem_efeito: string[];
+    auditoria: {
+        ficheiros: Record<string, {
+            ficheiro: string; url: string; existe: boolean; tamanho: number;
+            alterado: string | null; amostra: string | null; enderecos?: number;
+        }>;
+        verificacoes: Array<{ chave: string; rotulo: string; ok: boolean }>;
+        esquemas: string[];
+    };
+};
+
+export type ProdutorAgt = {
+    ambiente: string; username: string; username_herdado: string; credenciais_proprias: boolean;
+    tem_credenciais: boolean; certificacao: string; certificacao_herdada: string;
+    chave: { bits?: number | null; tipo?: string; impressao?: string; actualizada?: string; propria?: boolean; erro?: string } | null;
+};
+
+export type DefinicoesDoSoftware = {
+    bloqueios: Array<{ chave: string; rotulo: string; ligado: boolean }>;
+    produtor: ProdutorAgt;
+    empresas: Array<{
+        id: number; nome: string; nif: string | null; ambiente: string;
+        submissao_automatica: boolean; series: number; chave_do_contribuinte: boolean;
+    }>;
+    chaves_saft: boolean;
+    certificado_global: boolean;
+};
+
+export const definicoes = {
+    correio: {
+        ler: () => apiDaPlataforma.ler<{
+            configuracoes: ServidorDeCorreio[]; empresas: Escolha[];
+            plataforma_tem_correio: boolean; o_meu_email: string | null;
+        }>('/correio'),
+        ficha: (id: number) => apiDaPlataforma.ler<{ ficha: FichaDoCorreio }>(`/correio/${id}`),
+        guardar: (id: number | null, dados: Record<string, unknown>) =>
+            id ? apiDaPlataforma.guardar<Recado>(`/correio/${id}`, dados) : apiDaPlataforma.criar<Recado>('/correio', dados),
+        alternar: (id: number) => apiDaPlataforma.criar<Recado>(`/correio/${id}/alternar`, {}),
+        padrao: (id: number) => apiDaPlataforma.criar<Recado>(`/correio/${id}/padrao`, {}),
+        testar: (id: number) => apiDaPlataforma.criar<Recado & { sucesso: boolean }>(`/correio/${id}/testar`, {}),
+        enviarTeste: (id: number, email: string) => apiDaPlataforma.criar<Recado>(`/correio/${id}/enviar-teste`, { email }),
+        apagar: (id: number) => apiDaPlataforma.apagar<Recado>(`/correio/${id}`),
+    },
+    sms: {
+        ler: () => apiDaPlataforma.ler<{
+            configuracao: ConfiguracaoSms;
+            numeros: { total: number; enviados: number; falhados: number; hoje: number };
+            modelos: ModeloSms[]; tipos: string[];
+        }>('/sms'),
+        guardar: (dados: Record<string, unknown>) => apiDaPlataforma.guardar<Recado>('/sms', dados),
+        saldo: (dados: Record<string, unknown>) => apiDaPlataforma.criar<Recado & { aviso?: boolean }>('/sms/saldo', dados),
+        testar: (dados: Record<string, unknown>) => apiDaPlataforma.criar<Recado>('/sms/testar', dados),
+        previsualizar: (modelo: number) => apiDaPlataforma.ler<{ mensagem: string }>(`/sms/modelos/${modelo}/previsualizar`),
+        guardarModelo: (id: number, dados: Record<string, unknown>) => apiDaPlataforma.guardar<Recado>(`/sms/modelos/${id}`, dados),
+        historico: (f: Record<string, string | number | undefined>) =>
+            apiDaPlataforma.ler<{ registos: RegistoSms[]; paginacao: Paginacao }>('/sms/historico', f),
+    },
+    whatsapp: {
+        ler: () => apiDaPlataforma.ler<{ configuracao: ConfiguracaoWhatsApp; avisos: Escolha[]; activo: boolean }>('/whatsapp'),
+        guardar: (dados: Record<string, unknown>) => apiDaPlataforma.guardar<Recado>('/whatsapp', dados),
+        testar: () => apiDaPlataforma.criar<Recado & { sucesso: boolean }>('/whatsapp/testar', {}),
+        modelos: () => apiDaPlataforma.ler<Recado & { modelos: Array<{ sid: string; name: string; language?: string }> }>('/whatsapp/modelos-da-twilio'),
+        enviarTeste: (numero: string, mensagem: string) => apiDaPlataforma.criar<Recado>('/whatsapp/enviar-teste', { numero, mensagem }),
+    },
+    chavesSaft: {
+        ler: () => apiDaPlataforma.ler<ChavesDoSaft>('/chaves-saft'),
+        gerar: () => apiDaPlataforma.criar<Recado>('/chaves-saft/gerar', {}),
+        regenerar: (confirmacao: string) => apiDaPlataforma.criar<Recado>('/chaves-saft/regenerar', { confirmacao }),
+    },
+    sistema: {
+        ler: () => apiDaPlataforma.ler<DefinicoesDoSistema>('/sistema'),
+        guardar: (grupo: string, dados: Record<string, unknown>) => apiDaPlataforma.guardar<Recado>(`/sistema/${grupo}`, dados),
+        enviarImagem: (chave: string, ficheiro: File) => {
+            const corpo = new FormData();
+            corpo.append('ficheiro', ficheiro);
+
+            return apiDaPlataforma.enviar<Recado & { url: string }>(`/sistema/imagens/${chave}`, corpo);
+        },
+    },
+    software: {
+        ler: (ambiente: string) => apiDaPlataforma.ler<DefinicoesDoSoftware>('/software', { ambiente }),
+        guardarBloqueios: (dados: Record<string, boolean>) => apiDaPlataforma.guardar<Recado>('/software/bloqueios', dados),
+        guardarProdutor: (dados: Record<string, unknown>) => apiDaPlataforma.guardar<Recado & { produtor: ProdutorAgt }>('/software/produtor', dados),
+        limparProdutor: (ambiente: string) => apiDaPlataforma.apagar<Recado & { produtor: ProdutorAgt }>('/software/produtor', { ambiente }),
+        prontidao: (empresa: number) => apiDaPlataforma.ler<{
+            ambiente: string; itens: Array<{ chave: string; rotulo: string; ok: boolean }>;
+        }>(`/software/empresas/${empresa}/prontidao`),
+        aplicarAmbiente: (empresa: number, ambiente: string) => apiDaPlataforma.guardar<Recado>('/software/ambiente', { empresa, ambiente }),
+        testarAgt: (empresa: number, ambiente: string) =>
+            apiDaPlataforma.criar<Record<string, unknown>>('/software/agt/testar', { empresa, ambiente }),
+        operacaoAgt: (dados: Record<string, unknown>) =>
+            apiDaPlataforma.criar<Record<string, unknown>>('/software/agt/operacao', dados),
+    },
+};
+
 export const plataforma = {
     facturacao: {
         ler: () => apiDaPlataforma.ler<FacturacaoDaPlataforma>('/facturacao'),

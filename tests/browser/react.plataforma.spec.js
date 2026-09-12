@@ -26,6 +26,12 @@ const MORADAS = [
     ['/superadmin/plans', 'Planos'],
     ['/superadmin/modules', 'Módulos'],
     ['/superadmin/billing', 'Facturação da plataforma'],
+    ['/superadmin/smtp-settings', 'Servidores de correio'],
+    ['/superadmin/sms-settings', 'SMS'],
+    ['/superadmin/whatsapp-notifications', 'WhatsApp'],
+    ['/superadmin/saft-configuration', 'Chaves do SAF-T'],
+    ['/superadmin/system-settings', 'Definições do sistema'],
+    ['/superadmin/software-settings', 'Definições do software'],
 ];
 
 async function entrarComoDono(page) {
@@ -265,5 +271,65 @@ test.describe('a facturação', () => {
         await botao.click();
         await expect(botao).toHaveAttribute('aria-expanded', 'true');
         await expect(page.getByLabel(/^Versão do formato/)).toBeVisible();
+    });
+});
+
+test.describe('as definições', () => {
+    test.beforeEach(async ({ page }) => {
+        await entrarComoDono(page);
+    });
+
+    /** Escrever num campo do sistema não o faz perder o foco a cada tecla. */
+    test('o nome da aplicação escreve-se de seguida, sem perder o foco', async ({ page }) => {
+        await abrir(page, '/superadmin/system-settings', 'Definições do sistema');
+
+        const campo = page.getByLabel(/^Nome da aplicação/);
+
+        await campo.fill('');
+        await campo.pressSequentially('SOS ERP Ensaio');
+        await expect(campo).toHaveValue('SOS ERP Ensaio');
+    });
+
+    test('os interruptores sem efeito dizem-no', async ({ page }) => {
+        await abrir(page, '/superadmin/system-settings', 'Definições do sistema');
+
+        await page.getByRole('tab', { name: 'Funcionalidades' }).click();
+        await expect(page.locator('#painel-funcionalidades').getByText('Ainda não tem efeito em nenhuma parte do sistema').first()).toBeVisible();
+    });
+
+    test('o SMS tem os três separadores e o histórico pede a sua lista', async ({ page }) => {
+        await abrir(page, '/superadmin/sms-settings', 'SMS');
+
+        const pedido = page.waitForResponse((r) => r.url().includes('/api/v1/plataforma/react/sms/historico'));
+
+        await page.getByRole('tab', { name: 'Histórico' }).click();
+        expect((await pedido).status()).toBe(200);
+    });
+
+    test('regenerar as chaves do SAF-T pede a palavra', async ({ page }) => {
+        await abrir(page, '/superadmin/saft-configuration', 'Chaves do SAF-T');
+
+        const regenerar = page.getByRole('button', { name: 'Regenerar', exact: true });
+
+        if (await regenerar.count() === 0) {
+            test.skip(true, 'a bancada não tem chaves do SAF-T');
+        }
+
+        await regenerar.click();
+
+        const janela = page.getByRole('dialog');
+
+        await expect(janela.getByRole('button', { name: 'Regenerar' })).toBeDisabled();
+        await janela.getByLabel(/Escreva REGENERAR/).fill('REGENERAR');
+        await expect(janela.getByRole('button', { name: 'Regenerar' })).toBeEnabled();
+        await janela.getByRole('button', { name: 'Cancelar' }).click();
+    });
+
+    test('o software abre com a consola só de leitura', async ({ page }) => {
+        await abrir(page, '/superadmin/software-settings', 'Definições do software');
+
+        await expect(page.getByText(/nada é submetido/)).toBeVisible();
+        await page.getByRole('radio', { name: 'Produção' }).click();
+        await expect(page.getByRole('button', { name: 'Guardar para produção' })).toBeVisible();
     });
 });

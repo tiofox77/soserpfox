@@ -311,6 +311,71 @@ Route::middleware(['auth', 'superadmin'])->prefix('api/v1/plataforma/react')->na
         Route::post('/pedidos/{id}/recusar', [$c, 'recusarPedido'])->whereNumber('id')->name('pedidos.recusar');
     });
 
+    Route::prefix('correio')->name('correio.')->group(function () {
+        $c = \App\Http\Controllers\Api\Plataforma\CorreioApiController::class;
+
+        Route::get('/', [$c, 'index'])->name('index');
+        Route::post('/', [$c, 'guardar'])->name('criar');
+        Route::get('/{id}', [$c, 'ficha'])->whereNumber('id')->name('ficha');
+        Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+        Route::post('/{id}/alternar', [$c, 'alternar'])->whereNumber('id')->name('alternar');
+        Route::post('/{id}/padrao', [$c, 'padrao'])->whereNumber('id')->name('padrao');
+        Route::post('/{id}/testar', [$c, 'testar'])->whereNumber('id')->name('testar');
+        Route::post('/{id}/enviar-teste', [$c, 'enviarTeste'])->whereNumber('id')->name('enviar-teste');
+        Route::delete('/{id}', [$c, 'apagar'])->whereNumber('id')->name('apagar');
+    });
+
+    Route::prefix('sms')->name('sms.')->group(function () {
+        $c = \App\Http\Controllers\Api\Plataforma\SmsApiController::class;
+
+        Route::get('/', [$c, 'index'])->name('index');
+        Route::put('/', [$c, 'guardar'])->name('guardar');
+        Route::post('/saldo', [$c, 'saldo'])->name('saldo');
+        Route::post('/testar', [$c, 'testar'])->name('testar');
+        Route::get('/historico', [$c, 'historico'])->name('historico');
+        Route::get('/modelos/{modelo}/previsualizar', [$c, 'previsualizar'])->whereNumber('modelo')->name('modelos.previsualizar');
+        Route::put('/modelos/{id}', [$c, 'guardarModelo'])->whereNumber('id')->name('modelos.guardar');
+    });
+
+    Route::prefix('whatsapp')->name('whatsapp.')->group(function () {
+        $c = \App\Http\Controllers\Api\Plataforma\WhatsAppApiController::class;
+
+        Route::get('/', [$c, 'index'])->name('index');
+        Route::put('/', [$c, 'guardar'])->name('guardar');
+        Route::post('/testar', [$c, 'testarLigacao'])->name('testar');
+        Route::get('/modelos-da-twilio', [$c, 'modelosDaTwilio'])->name('modelos');
+        Route::post('/enviar-teste', [$c, 'enviarTeste'])->name('enviar-teste');
+    });
+
+    Route::prefix('chaves-saft')->name('chaves-saft.')->group(function () {
+        $c = \App\Http\Controllers\Api\Plataforma\ChavesSaftApiController::class;
+
+        Route::get('/', [$c, 'index'])->name('index');
+        Route::post('/gerar', [$c, 'gerar'])->name('gerar');
+        Route::post('/regenerar', [$c, 'regenerar'])->name('regenerar');
+    });
+
+    Route::prefix('sistema')->name('sistema.')->group(function () {
+        $c = \App\Http\Controllers\Api\Plataforma\SistemaApiController::class;
+
+        Route::get('/', [$c, 'index'])->name('index');
+        Route::put('/{grupo}', [$c, 'guardar'])->name('guardar');
+        Route::post('/imagens/{chave}', [$c, 'enviarImagem'])->name('imagem');
+    });
+
+    Route::prefix('software')->name('software.')->group(function () {
+        $c = \App\Http\Controllers\Api\Plataforma\SoftwareApiController::class;
+
+        Route::get('/', [$c, 'index'])->name('index');
+        Route::put('/bloqueios', [$c, 'guardarBloqueios'])->name('bloqueios');
+        Route::put('/produtor', [$c, 'guardarProdutor'])->name('produtor');
+        Route::delete('/produtor', [$c, 'limparProdutor'])->name('produtor.limpar');
+        Route::get('/empresas/{empresa}/prontidao', [$c, 'prontidao'])->whereNumber('empresa')->name('prontidao');
+        Route::put('/ambiente', [$c, 'aplicarAmbiente'])->name('ambiente');
+        Route::post('/agt/testar', [$c, 'testarLigacao'])->name('agt.testar');
+        Route::post('/agt/operacao', [$c, 'operacao'])->name('agt.operacao');
+    });
+
     Route::prefix('modulos')->name('modulos.')->group(function () {
         $c = \App\Http\Controllers\Api\Plataforma\ModulosApiController::class;
 
@@ -340,19 +405,21 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
     Route::get('/system-updates', \App\Livewire\SuperAdmin\SystemUpdates::class)->name('system-updates');
     Route::get('/system-commands', \App\Livewire\SuperAdmin\SystemCommands::class)->name('system-commands');
     Route::get('/script-runner', \App\Livewire\SuperAdmin\ScriptRunner::class)->name('script-runner');
-    Route::get('/system-settings', \App\Livewire\SuperAdmin\SystemSettings::class)->name('system-settings');
-    Route::get('/software-settings', \App\Livewire\SuperAdmin\SoftwareSettings::class)->name('software-settings');
+    Route::get('/system-settings', \App\Support\EcraReact::plataforma('plataforma/sistema', 'Definições do sistema'))->name('system-settings');
+    Route::get('/software-settings', \App\Support\EcraReact::plataforma('plataforma/software', 'Definições do software'))->name('software-settings');
     Route::get('/system-optimization', \App\Livewire\SuperAdmin\SystemOptimization::class)->name('system-optimization');
     Route::get('/email-templates', \App\Livewire\SuperAdmin\EmailTemplates::class)->name('email-templates');
-    Route::get('/smtp-settings', \App\Livewire\SuperAdmin\SmtpSettings::class)->name('smtp-settings');
+    Route::get('/smtp-settings', \App\Support\EcraReact::plataforma('plataforma/correio', 'Servidores de correio'))->name('smtp-settings');
     Route::get('/email-logs', \App\Livewire\SuperAdmin\EmailLogs::class)->name('email-logs');
     // Avisos e mensagens do dono da plataforma para as empresas.
     Route::get('/mensagens', \App\Livewire\SuperAdmin\MensagensPlataforma::class)->name('mensagens');
-    Route::get('/sms-settings', \App\Livewire\SuperAdmin\SmsSettings::class)->name('sms-settings');
+    Route::get('/sms-settings', \App\Support\EcraReact::plataforma('plataforma/sms', 'SMS'))->name('sms-settings');
     // Enviar um SMS às empresas — a todas, ou só às escolhidas.
     Route::get('/sms-empresas', \App\Livewire\SuperAdmin\SmsParaEmpresas::class)->name('sms-empresas');
-    Route::get('/whatsapp-notifications', \App\Livewire\SuperAdmin\WhatsAppNotifications::class)->name('whatsapp-notifications');
-    Route::get('/saft-configuration', \App\Livewire\SuperAdmin\SaftConfiguration::class)->name('saft');
+    Route::get('/whatsapp-notifications', \App\Support\EcraReact::plataforma('plataforma/whatsapp', 'WhatsApp'))->name('whatsapp-notifications');
+    Route::get('/saft-configuration', \App\Support\EcraReact::plataforma('plataforma/chaves-saft', 'Chaves do SAF-T'))->name('saft');
+    // A descarga das chaves: é um ficheiro, e por isso uma rota de página.
+    Route::get('/saft-configuration/descarregar/{qual}/{formato}', [\App\Http\Controllers\Api\Plataforma\ChavesSaftApiController::class, 'descarregar'])->name('saft.descarregar');
     Route::get('/contact-messages', \App\Livewire\SuperAdmin\ContactMessages::class)->name('contact-messages');
 });
 

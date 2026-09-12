@@ -421,7 +421,9 @@ class EmpresasApiController extends Controller
             // UM NIF QUE NÃO COMEÇA POR 5 NÃO É DE EMPRESA — e é ele que vai
             // nos documentos comunicados à AGT.
             'nif_de_empresa' => $nif === '' ? null : (bool) preg_match('/^5\d{8,9}$/', $nif),
-            'logo' => $t->logo ? \Illuminate\Support\Facades\Storage::url($t->logo) : null,
+            // Sem o anfitrião: o APP_URL à frente fazia o browser recusar a imagem
+            // quando o sistema se abre por outro nome.
+            'logo' => $t->logo ? (string) parse_url(\Illuminate\Support\Facades\Storage::url($t->logo), PHP_URL_PATH) : null,
             'activa' => (bool) $t->is_active,
             'criada_em' => $t->created_at?->format('d/m/Y'),
             'plano' => $sub?->plan?->name,

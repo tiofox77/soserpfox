@@ -37,15 +37,17 @@ class AgtProdutorAmbienteTest extends TenantTestCase
         Storage::disk('local')->put($pasta . '/private_key.pem', "-- privada {$pasta} --");
     }
 
-    /** Só o super admin da plataforma abre este ecrã. */
-    private function comoSuperAdmin(): \Livewire\Features\SupportTesting\Testable
+    /**
+     * O ecrã passou a React: o que se prova é o que a API lhe entrega, que é o
+     * que o ecrã desenha — o utilizador PRÓPRIO no campo, o herdado à parte.
+     */
+    private function produtor(string $ambiente = 'sandbox'): array
     {
         $this->user->forceFill(['is_super_admin' => true])->save();
 
-        // O ecrã abre no separador de facturação; a secção AGT está no seu.
-        return \Livewire\Livewire::actingAs($this->user)
-            ->test(\App\Livewire\SuperAdmin\SoftwareSettings::class)
-            ->set('activeModule', 'agt');
+        return $this->actingAs($this->user->fresh())
+            ->getJson('/api/v1/plataforma/react/software?ambiente=' . $ambiente)
+            ->assertOk()->json('produtor');
     }
 
     public function test_trocar_de_ambiente_troca_o_username_no_ecra(): void
@@ -62,31 +64,18 @@ class AgtProdutorAmbienteTest extends TenantTestCase
             'services.agt.production.password' => 'p-prd',
         ]);
 
-        $this->comoSuperAdmin()
-            ->assertSet('agt_basic_username', 'ws.hml.Empresa')
-            ->set('produtorAmbiente', 'production')
-            ->assertSet('agt_basic_username', 'ws.prd.Empresa');
+        $this->assertSame('ws.hml.Empresa', $this->produtor('sandbox')['username']);
+        $this->assertSame('ws.prd.Empresa', $this->produtor('production')['username']);
     }
 
-    public function test_a_opcao_escolhida_vem_marcada_no_html(): void
+    public function test_a_resposta_diz_de_que_ambiente_e(): void
     {
-        // O <select> não trazia `selected` em opção nenhuma. O estado vivia só
-        // na propriedade DOM, e a cada redesenho do Livewire o browser caía na
-        // primeira opção: o seletor dizia "Homologação" com o servidor em
-        // produção, e as credenciais e a chave mostradas eram do outro
-        // ambiente. Um ->set() nunca apanha isto — força sempre ida ao
-        // servidor, que é justamente o que o utilizador não tinha.
-        $ecra = $this->comoSuperAdmin()->set('produtorAmbiente', 'production');
-
-        $html = $ecra->html();
-
-        $this->assertStringContainsString('value="production" selected', $html);
-        $this->assertStringNotContainsString('value="sandbox" selected', $html);
-
-        $html = $ecra->set('produtorAmbiente', 'sandbox')->html();
-
-        $this->assertStringContainsString('value="sandbox" selected', $html);
-        $this->assertStringNotContainsString('value="production" selected', $html);
+        // O <select> não trazia `selected` e o browser caía na primeira opção:
+        // o seletor dizia "Homologação" com as credenciais de produção. Em React
+        // o estado é do ecrã, e a resposta diz sempre a que ambiente pertence.
+        $this->assertSame('production', $this->produtor('production')['ambiente']);
+        $this->assertSame('sandbox', $this->produtor('sandbox')['ambiente']);
+        $this->assertSame('sandbox', $this->produtor('inventado')['ambiente'], 'um ambiente desconhecido cai em homologação');
     }
 
     public function test_o_badge_distingue_proprias_de_partilhadas(): void
@@ -102,14 +91,9 @@ class AgtProdutorAmbienteTest extends TenantTestCase
             'services.agt.sandbox.password'    => 'p-hml',
         ]);
 
-        $ecra = $this->comoSuperAdmin();
-
-        $ecra->assertSee('Próprias deste ambiente')
-            ->assertDontSee('A usar as partilhadas');
-
-        $ecra->set('produtorAmbiente', 'production')
-            ->assertSee('A usar as partilhadas')
-            ->assertDontSee('Próprias deste ambiente');
+        $this->assertTrue($this->produtor('sandbox')['credenciais_proprias']);
+        $this->assertFalse($this->produtor('production')['credenciais_proprias']);
+        $this->assertTrue($this->produtor('production')['tem_credenciais'], 'as partilhadas continuam utilizáveis');
     }
 
     public function test_sem_credenciais_nenhumas_diz_nao_configuradas(): void
@@ -123,7 +107,7 @@ class AgtProdutorAmbienteTest extends TenantTestCase
             'services.agt.production.password' => null,
         ]);
 
-        $this->comoSuperAdmin()->assertSee('Não configuradas');
+        $this->assertFalse($this->produtor()['tem_credenciais']);
     }
 
     public function test_ambiente_sem_credenciais_proprias_mostra_campo_vazio(): void
@@ -139,16 +123,15 @@ class AgtProdutorAmbienteTest extends TenantTestCase
             'services.agt.production.password' => null,
         ]);
 
-        $this->comoSuperAdmin()
-            ->set('produtorAmbiente', 'production')
-            ->assertSet('agt_basic_username', '')
-            ->assertSet('credenciaisProprias', false)
-            // Continua a haver credenciais utilizáveis — as partilhadas.
-            ->assertSet('hasGlobalCredentials', true)
-            // E tem de continuar a ver-se qual é: campo vazio sem mais nada
-            // fazia parecer que a credencial se tinha perdido.
-            ->assertSet('usernameHerdado', 'ws.hml.Empresa')
-            ->assertSee('ws.hml.Empresa');
+        $p = $this->produtor('production');
+
+        $this->assertSame('', $p['username']);
+        $this->assertFalse($p['credenciais_proprias']);
+        // Continua a haver credenciais utilizáveis — as partilhadas.
+        $this->assertTrue($p['tem_credenciais']);
+        // E tem de continuar a ver-se qual é: campo vazio sem mais nada fazia
+        // parecer que a credencial se tinha perdido.
+        $this->assertSame('ws.hml.Empresa', $p['username_herdado']);
     }
 
     public function test_nao_se_grava_username_sem_password_no_primeiro_ambiente(): void
@@ -162,36 +145,74 @@ class AgtProdutorAmbienteTest extends TenantTestCase
             'services.agt.production.password' => null,
         ]);
 
-        $this->comoSuperAdmin()
-            ->set('produtorAmbiente', 'production')
-            ->set('agt_basic_username', 'ws.prd.Empresa')
-            ->set('agt_basic_password', '')
-            ->call('saveAgtProducerCredentials')
-            ->assertHasErrors('agt_basic_password');
+        $this->produtor();
+
+        $this->putJson('/api/v1/plataforma/react/software/produtor', [
+            'ambiente' => 'production', 'username' => 'ws.prd.Empresa', 'password' => '',
+        ])->assertStatus(422)->assertJsonValidationErrors('password');
     }
 
-    public function test_o_ecra_nao_tem_campos_para_colar_a_chave(): void
+    /**
+     * GRAVAR ESCREVE NO `.env` — e um ensaio nunca pode escrever no verdadeiro.
+     *
+     * O ficheiro vem de `environmentFilePath()`: aponta-se para um temporário.
+     */
+    public function test_gravar_as_credenciais_escreve_no_ficheiro_de_ambiente(): void
     {
-        // A chave do produtor já existe e é gerada fora daqui. Os campos só
-        // convidavam a substituir, por engano, a chave que assina os documentos
-        // de todas as empresas ao mesmo tempo.
+        $pasta = sys_get_temp_dir() . '/soserp-env-' . uniqid();
+        mkdir($pasta);
+        file_put_contents($pasta . '/.env', "APP_NAME=Ensaio\nAGT_PRODUCTION_API_USERNAME=antigo\n");
+
+        $original = app()->environmentPath();
+        app()->useEnvironmentPath($pasta);
+
+        try {
+            $this->produtor();
+
+            $this->putJson('/api/v1/plataforma/react/software/produtor', [
+                'ambiente' => 'production', 'username' => 'ws.prd.Nova', 'password' => 'segredo "com" aspas',
+            ])->assertOk();
+
+            $env = file_get_contents($pasta . '/.env');
+
+            $this->assertStringContainsString('AGT_PRODUCTION_API_USERNAME="ws.prd.Nova"', $env);
+            $this->assertStringContainsString('AGT_PRODUCTION_API_PASSWORD="segredo \"com\" aspas"', $env);
+            $this->assertStringContainsString('APP_NAME=Ensaio', $env, 'o resto do ficheiro fica');
+            $this->assertSame(1, substr_count($env, 'AGT_PRODUCTION_API_USERNAME='), 'substitui, não duplica');
+        } finally {
+            app()->useEnvironmentPath($original);
+            @unlink($pasta . '/.env');
+            @rmdir($pasta);
+        }
+    }
+
+    /** Uma quebra de linha no utilizador escrevia uma variável nova no `.env`. */
+    public function test_uma_quebra_de_linha_e_recusada(): void
+    {
+        $this->produtor();
+
+        $this->putJson('/api/v1/plataforma/react/software/produtor', [
+            'ambiente' => 'sandbox', 'username' => "ws.hml\nAPP_DEBUG=true", 'password' => 'x',
+        ])->assertStatus(422)->assertJsonValidationErrors('username');
+    }
+
+    public function test_o_ecra_nao_recebe_a_chave(): void
+    {
+        // A chave do produtor já existe e é gerada fora daqui. O ecrã só diz
+        // qual está instalada — nunca a recebe, nem a pública inteira.
         $this->escreverChaves('saft/sandbox');
 
-        $this->comoSuperAdmin()
-            ->assertDontSee('BEGIN PRIVATE KEY')
-            ->assertDontSee('Instalar chave')
-            ->assertDontSee('Substituir chave')
-            // Mas continua a dizer qual está instalada.
-            ->assertSee('Chave RSA do Produtor de Software')
-            ->assertSet('hasProducerKeys', true);
+        $p = $this->produtor();
+
+        $this->assertNotNull($p['chave']);
+        $this->assertStringNotContainsString('privada', json_encode($p));
+        $this->assertStringNotContainsString('-- publica', json_encode($p));
     }
 
     public function test_diz_quando_nao_encontra_a_chave(): void
     {
         // "Instalada" com a chave ausente mandava procurar no sítio errado.
-        $this->comoSuperAdmin()
-            ->assertSet('hasProducerKeys', false)
-            ->assertSee('Nenhuma chave encontrada');
+        $this->assertNull($this->produtor()['chave']);
     }
 
     public function test_cada_ambiente_usa_a_sua_chave(): void

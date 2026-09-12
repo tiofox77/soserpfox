@@ -416,4 +416,16 @@ export const ecras: Record<string, Ecra> = {
         import('./plataforma/Empresas'),
     'plataforma/facturacao': () =>
         import('./plataforma/Facturacao'),
+    'plataforma/correio': () =>
+        import('./plataforma/Correio'),
+    'plataforma/sms': () =>
+        import('./plataforma/Sms'),
+    'plataforma/whatsapp': () =>
+        import('./plataforma/WhatsApp'),
+    'plataforma/chaves-saft': () =>
+        import('./plataforma/ChavesSaft'),
+    'plataforma/sistema': () =>
+        import('./plataforma/Sistema'),
+    'plataforma/software': () =>
+        import('./plataforma/Software'),
 };

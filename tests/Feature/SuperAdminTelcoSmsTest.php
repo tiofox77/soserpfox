@@ -2,21 +2,36 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\SuperAdmin\SmsSettings;
-use App\Models\SmsSetting;
 use App\Models\SmsLog;
+use App\Models\SmsSetting;
 use App\Models\SmsTemplate;
 use App\Services\SmsService;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
+/**
+ * O SMS da plataforma pela TelcoSMS.
+ *
+ * O ecrã passou a React e fala com `/api/v1/plataforma/react/sms`, atrás da
+ * guarda do dono da plataforma.
+ */
 class SuperAdminTelcoSmsTest extends TenantTestCase
 {
+    private const API = '/api/v1/plataforma/react/sms';
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->user->forceFill(['is_super_admin' => true])->save();
+        $this->actingAs($this->user->fresh());
+    }
+
     private function configureTelco(): SmsSetting
     {
         SmsSetting::where('tenant_id', $this->tenant->id)->delete();
+
         return SmsSetting::updateOrCreate(['tenant_id' => null], [
             'provider' => 'telcosms',
             'api_url' => 'https://www.telcosms.co.ao/api/v2/send_message',
@@ -28,22 +43,38 @@ class SuperAdminTelcoSmsTest extends TenantTestCase
         ]);
     }
 
+    private function formulario(array $troca = []): array
+    {
+        return array_merge([
+            'provider' => 'telcosms',
+            'api_url' => 'https://www.telcosms.co.ao/api/v2/send_message',
+            'api_token' => '',
+            'telco_api_key_qas' => '',
+            'sender_id' => 'SOSERP',
+            'telco_application' => 'soserp_prd',
+            'report_url' => '',
+            'is_active' => true,
+        ], $troca);
+    }
+
     public function test_super_admin_guarda_chave_global_cifrada_e_nao_a_expoe(): void
     {
         $this->configureTelco();
 
-        Livewire::actingAs($this->user)->test(SmsSettings::class)
-            ->assertSet('provider', 'telcosms')
-            ->assertSet('telco_application', 'soserp_prd')
-            ->assertSet('api_token', '')
-            ->assertSet('apiTokenGuardado', true)
-            ->set('is_active', false)
-            ->call('save')
-            ->assertHasNoErrors();
+        $conf = $this->getJson(self::API)->assertOk()->json('configuracao');
+
+        $this->assertSame('telcosms', $conf['provider']);
+        $this->assertSame('soserp_prd', $conf['telco_application']);
+        $this->assertTrue($conf['token_guardado']);
+        $this->assertStringNotContainsString('prd-global-telco', $this->getJson(self::API)->getContent(), 'a chave não volta ao browser');
+
+        // Gravar com o campo vazio mantém a chave.
+        $this->putJson(self::API, $this->formulario(['is_active' => false]))->assertOk();
 
         $setting = SmsSetting::whereNull('tenant_id')->firstOrFail();
         $this->assertSame('prd-global-telco', $setting->api_token);
         $this->assertSame('SOSERP', $setting->sender_id);
+        $this->assertFalse((bool) $setting->is_active);
         $this->assertStringNotContainsString('prd-global-telco', $setting->getRawOriginal('api_token'));
         $this->assertArrayNotHasKey('api_token', $setting->toArray());
     }
@@ -56,13 +87,11 @@ class SuperAdminTelcoSmsTest extends TenantTestCase
         ]);
         Http::fake(['www.telcosms.co.ao/api/v2/send_message' => Http::response('', 200)]);
 
-        Livewire::actingAs($this->user)->test(SmsSettings::class)
-            ->set('provider', 'telcosms')
-            ->set('api_token', 'prd-telco-nova')
-            ->set('test_phone', '939729902')
-            ->set('test_message', 'Teste de seleção')
-            ->call('sendTestSms')
-            ->assertHasNoErrors();
+        $this->postJson(self::API . '/testar', $this->formulario([
+            'api_token' => 'prd-telco-nova',
+            'test_phone' => '939729902',
+            'test_message' => 'Teste de seleção',
+        ]))->assertOk();
 
         $this->assertDatabaseHas('sms_settings', ['tenant_id' => null, 'provider' => 'telcosms', 'is_active' => 1]);
         $this->assertDatabaseHas('sms_logs', ['recipient' => '+244939729902', 'type' => 'test', 'status' => 'sent']);
@@ -109,9 +138,8 @@ class SuperAdminTelcoSmsTest extends TenantTestCase
             ], 500),
         ]);
 
-        Livewire::actingAs($this->user)->test(SmsSettings::class)
-            ->call('checkBalance')
-            ->assertDispatched('warning');
+        // Um AVISO (200 com aviso), e não um erro: a chave pode estar boa.
+        $this->postJson(self::API . '/saldo')->assertOk()->assertJson(['aviso' => true]);
     }
 
     public function test_ambiente_qas_usa_a_chave_qas_cifrada(): void
@@ -119,13 +147,12 @@ class SuperAdminTelcoSmsTest extends TenantTestCase
         $this->configureTelco();
         Http::fake(['www.telcosms.co.ao/api/v2/send_message' => Http::response('', 200)]);
 
-        Livewire::actingAs($this->user)->test(SmsSettings::class)
-            ->set('telco_application', 'soserp_qas')
-            ->set('telco_api_key_qas', 'qas-chave-soserp')
-            ->set('test_phone', '939729902')
-            ->set('test_message', 'Teste QAS')
-            ->call('sendTestSms')
-            ->assertHasNoErrors();
+        $this->postJson(self::API . '/testar', $this->formulario([
+            'telco_application' => 'soserp_qas',
+            'telco_api_key_qas' => 'qas-chave-soserp',
+            'test_phone' => '939729902',
+            'test_message' => 'Teste QAS',
+        ]))->assertOk();
 
         $setting = SmsSetting::whereNull('tenant_id')->firstOrFail();
         $this->assertSame('qas-chave-soserp', $setting->telco_api_key_qas);
@@ -134,6 +161,15 @@ class SuperAdminTelcoSmsTest extends TenantTestCase
             $request['message']['api_key_app'] === 'qas-chave-soserp'
             && $request['message']['phone_number'] === '939729902'
         );
+    }
+
+    public function test_a_aplicacao_qas_sem_chave_e_recusada(): void
+    {
+        $this->configureTelco();
+
+        $this->putJson(self::API, $this->formulario(['telco_application' => 'soserp_qas']))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('telco_api_key_qas');
     }
 
     public function test_historico_filtra_por_gateway(): void
@@ -149,10 +185,25 @@ class SuperAdminTelcoSmsTest extends TenantTestCase
             'status' => 'sent', 'sent_at' => now(),
         ]);
 
-        Livewire::actingAs($this->user)->test(SmsSettings::class)
-            ->set('activeTab', 'logs')
-            ->set('logGateway', 'telcosms')
-            ->assertSee('Mensagem Telco')
-            ->assertDontSee('Mensagem D7');
+        $mensagens = array_column($this->getJson(self::API . '/historico?gateway=telcosms')->assertOk()->json('registos'), 'mensagem');
+
+        $this->assertContains('Mensagem Telco', $mensagens);
+        $this->assertNotContains('Mensagem D7', $mensagens);
+    }
+
+    /** O identificador de um modelo não muda: é por ele que o sistema o pede. */
+    public function test_editar_um_modelo_nao_muda_o_identificador(): void
+    {
+        $m = SmsTemplate::updateOrCreate(['slug' => 'plan_expiring'], [
+            'name' => 'Plano a expirar', 'content' => 'x', 'is_active' => true, 'tenant_id' => null,
+        ]);
+
+        $this->putJson(self::API . "/modelos/{$m->id}", [
+            'name' => 'Novo nome', 'content' => 'Outro texto', 'slug' => 'outro-slug', 'is_active' => true,
+        ])->assertOk();
+
+        $m->refresh();
+        $this->assertSame('plan_expiring', $m->slug);
+        $this->assertSame('Outro texto', $m->content);
     }
 }
