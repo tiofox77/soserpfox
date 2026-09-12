@@ -13,19 +13,29 @@ use App\Services\Restaurant\RestaurantCheckoutService;
 use App\Services\Restaurant\RestaurantReservationService;
 use Illuminate\Support\Str;
 use Tests\TenantTestCase;
-use Livewire\Livewire;
-use App\Livewire\Restaurant\OrderManagement;
-use App\Livewire\Restaurant\FloorManagement;
-use App\Livewire\Restaurant\RestaurantPos;
 
 class RestaurantOrderServiceTest extends TenantTestCase
 {
+    /** A morada dos ecrãs do restaurante em React. */
+    private const RAIZ = '/api/v1/invoicing/react/restaurant';
+
     private Venue $venue;
     private DiningTable $table;
 
     protected function setUp(): void
     {
         parent::setUp();
+
+        /*
+         * OS ECRÃS PASSARAM A REACT e a API exige a permissão de cada
+         * operação — os componentes Livewire não verificavam nada por dentro,
+         * e por isso este ensaio nunca precisou de dizer o que podia fazer.
+         */
+        $this->comModulo('restaurant')->comPermissoes(
+            'restaurant.orders.view', 'restaurant.orders.create', 'restaurant.orders.edit',
+            'restaurant.checkout.charge', 'restaurant.floor.view', 'restaurant.floor.manage',
+            'restaurant.reservations.view', 'restaurant.reservations.create', 'restaurant.reservations.edit',
+        );
 
         RestaurantSettings::forTenant($this->tenant->id)->update([
             'default_warehouse_id' => $this->armazem->id,
@@ -165,12 +175,18 @@ class RestaurantOrderServiceTest extends TenantTestCase
     {
         $product = $this->produtoComStock(10, 1000);
 
-        Livewire::actingAs($this->user)->test(RestaurantPos::class)
-            ->assertSee('POS Restaurante')
-            ->call('chooseTable', $this->table->id)
-            ->assertSet('showTables', false)
-            ->call('quickAddProduct', $product->id)
-            ->assertSee($product->name);
+        $id = $this->postJson(self::RAIZ.'/sala/abrir', [
+            'table_id' => $this->table->id, 'guest_count' => 2,
+        ])->assertCreated()->json('order_id');
+
+        $this->postJson(self::RAIZ."/comandas/{$id}/artigos", [
+            'product_id' => $product->id, 'quantity' => 1,
+        ])->assertCreated();
+
+        // E a ficha da comanda mostra-o.
+        $this->getJson(self::RAIZ."/comandas/{$id}")
+            ->assertOk()
+            ->assertJsonPath('artigos.0.nome', $product->name);
 
         $order = Order::withoutGlobalScopes()->where('tenant_id', $this->tenant->id)->latest('id')->firstOrFail();
         $this->assertSame($this->table->id, $order->table_id);
@@ -200,14 +216,21 @@ class RestaurantOrderServiceTest extends TenantTestCase
 
     public function test_pos_reserva_e_liberta_mesa_sem_comanda(): void
     {
-        Livewire::actingAs($this->user)->test(RestaurantPos::class)
-            ->call('prepareReservation', $this->table->id)
-            ->set('reservationGuestName', 'Cliente Reserva POS')
-            ->set('reservationPhone', '923000000')
-            ->set('reservationGuests', 2)
-            ->set('reservationAt', now()->addDay()->format('Y-m-d\TH:i'))
-            ->call('saveReservation')
-            ->assertSet('showReservation', false);
+        $this->postJson(self::RAIZ.'/reservas', [
+            'venue_id' => $this->venue->id,
+            'table_id' => $this->table->id,
+            'guest_name' => 'Cliente Reserva POS',
+            'phone' => '923000000',
+            'guest_count' => 2,
+            'reserved_at' => now()->addDay()->format('Y-m-d H:i:s'),
+            'duration_minutes' => 120,
+        ])->assertCreated();
+
+        $reserva = \App\Models\Restaurant\Reservation::withoutGlobalScopes()
+            ->where('tenant_id', $this->tenant->id)->latest('id')->firstOrFail();
+
+        // Confirmar é o que põe a mesa em «reservada».
+        $this->postJson(self::RAIZ."/reservas/{$reserva->id}/estado", ['estado' => 'confirmed'])->assertOk();
 
         $this->assertSame('reserved', $this->table->fresh()->status);
         $this->assertDatabaseHas('restaurant_reservations', [
@@ -217,8 +240,8 @@ class RestaurantOrderServiceTest extends TenantTestCase
             'status' => 'confirmed',
         ]);
 
-        Livewire::actingAs($this->user)->test(RestaurantPos::class)
-            ->call('tableStatus', $this->table->id, 'available');
+        $this->postJson(self::RAIZ."/sala/mesas/{$this->table->id}/estado", ['estado' => 'available'])->assertOk();
+
         $this->assertSame('available', $this->table->fresh()->status);
     }
 
@@ -256,12 +279,13 @@ class RestaurantOrderServiceTest extends TenantTestCase
         $order->update(['status' => 'served']);
         \App\Models\Invoicing\PosShift::withoutGlobalScopes()->where('tenant_id', $this->tenant->id)->forceDelete();
 
-        Livewire::actingAs($this->user)->test(OrderManagement::class)
-            ->set('order', $order->id)
-            ->call('openCheckout')
-            ->assertSet('showCheckout', false)
-            ->assertSet('showShiftRequired', true)
-            ->assertSee('Abrir turno e caixa');
+        $this->postJson(self::RAIZ."/comandas/{$order->id}/fechar", [
+            'document_type' => 'FR',
+            'idempotency_key' => (string) Str::uuid(),
+            'item_ids' => [1],
+        ])
+            ->assertStatus(409)
+            ->assertJsonPath('falta_turno', true);
     }
 
     public function test_configuracao_pode_exigir_ficha_tecnica_no_prato(): void
@@ -382,19 +406,21 @@ class RestaurantOrderServiceTest extends TenantTestCase
             'code' => 'RESTCASH'.uniqid(), 'type' => 'cash', 'is_active' => true,
         ]);
 
-        $component = Livewire::actingAs($this->user)->test(OrderManagement::class)
-            ->set('order', $order->id)
-            ->call('openCheckout')
-            ->set('paymentMethodId', $method->id)
-            ->call('checkout')
-            ->assertSet('showCheckout', false)
-            ->assertSet('showPrintModal', true);
+        $linhas = \App\Models\Restaurant\OrderItem::withoutGlobalScopes()
+            ->where('order_id', $order->id)->pluck('id')->all();
 
-        $invoiceId = $component->get('invoiceResultId');
-        $this->assertNotNull($invoiceId);
-        $this->get(route('restaurant.documents.print', $invoiceId))
+        $factura = $this->postJson(self::RAIZ."/comandas/{$order->id}/fechar", [
+            'document_type' => 'FR',
+            'payment_method_id' => $method->id,
+            'idempotency_key' => (string) Str::uuid(),
+            'item_ids' => $linhas,
+        ])->assertOk()->json('factura');
+
+        $this->assertNotNull($factura['id']);
+
+        $this->get(route('restaurant.documents.print', $factura['id']))
             ->assertOk()
-            ->assertSee($component->get('invoiceResult'))
+            ->assertSee($factura['numero'])
             ->assertSee('FACTURA RECIBO')
             ->assertSee('size:80mm auto', false);
     }
@@ -408,28 +434,46 @@ class RestaurantOrderServiceTest extends TenantTestCase
         $cash = \App\Models\Treasury\PaymentMethod::withoutGlobalScopes()->create(['tenant_id'=>$this->tenant->id,'name'=>'Dinheiro','code'=>'RC'.uniqid(),'type'=>'cash','is_active'=>true]);
         $card = \App\Models\Treasury\PaymentMethod::withoutGlobalScopes()->create(['tenant_id'=>$this->tenant->id,'name'=>'Multicaixa','code'=>'RM'.uniqid(),'type'=>'card','is_active'=>true]);
 
-        $component = Livewire::actingAs($this->user)->test(OrderManagement::class)
-            ->set('order', $order->id)->call('openCheckout')->call('toggleMultiPayment');
-        $total = (float) $component->get('checkoutTotal');
-        $component->set('payments', [
-            ['payment_method_id' => $cash->id, 'amount' => 600],
-            ['payment_method_id' => $card->id, 'amount' => $total - 600],
-        ]);
+        $linhas = \App\Models\Restaurant\OrderItem::withoutGlobalScopes()
+            ->where('order_id', $order->id)->get();
 
-        $this->assertEqualsWithDelta(0, $component->get('paymentRemaining'), .01);
-        $component->call('checkout')->assertSet('showPrintModal', true);
-        $invoiceId = $component->get('invoiceResultId');
-        $this->assertSame(2, \App\Models\Treasury\Transaction::withoutGlobalScopes()->where('invoice_id', $invoiceId)->count());
+        $total = (float) $linhas->sum('line_total');
+
+        // A SOMA TEM DE BATER CERTO: a menos, recusa-se.
+        $this->postJson(self::RAIZ."/comandas/{$order->id}/fechar", [
+            'document_type' => 'FR',
+            'payment_method_id' => $cash->id,
+            'idempotency_key' => (string) Str::uuid(),
+            'item_ids' => $linhas->pluck('id')->all(),
+            'payments' => [
+                ['payment_method_id' => $cash->id, 'amount' => 600],
+                ['payment_method_id' => $card->id, 'amount' => $total - 700],
+            ],
+        ])->assertStatus(422);
+
+        $factura = $this->postJson(self::RAIZ."/comandas/{$order->id}/fechar", [
+            'document_type' => 'FR',
+            'payment_method_id' => $cash->id,
+            'idempotency_key' => (string) Str::uuid(),
+            'item_ids' => $linhas->pluck('id')->all(),
+            'payments' => [
+                ['payment_method_id' => $cash->id, 'amount' => 600],
+                ['payment_method_id' => $card->id, 'amount' => $total - 600],
+            ],
+        ])->assertOk()->json('factura');
+
+        $this->assertSame(2, \App\Models\Treasury\Transaction::withoutGlobalScopes()
+            ->where('invoice_id', $factura['id'])->count());
     }
 
     public function test_mesa_em_limpeza_nao_abre_modal_nem_causa_erro_500(): void
     {
         $this->table->update(['status' => 'cleaning']);
 
-        Livewire::actingAs($this->user)->test(FloorManagement::class)
-            ->call('prepareOpenOrder', $this->table->id)
-            ->assertSet('showOpenOrder', false)
-            ->assertDispatched('notify');
+        $this->postJson(self::RAIZ.'/sala/abrir', ['table_id' => $this->table->id, 'guest_count' => 2])
+            ->assertStatus(422);
+
+        $this->assertDatabaseCount('restaurant_orders', 0);
     }
 
     public function test_mesa_faturada_pode_ser_marcada_limpa_no_mapa(): void
@@ -438,9 +482,7 @@ class RestaurantOrderServiceTest extends TenantTestCase
         $order->update(['status' => 'billed', 'closed_at' => now(), 'closed_by' => $this->user->id]);
         $this->table->update(['status' => 'cleaning']);
 
-        Livewire::actingAs($this->user)->test(FloorManagement::class)
-            ->call('markTableClean', $this->table->id)
-            ->assertDispatched('notify');
+        $this->postJson(self::RAIZ."/sala/mesas/{$this->table->id}/limpar")->assertOk();
 
         $this->assertSame('available', $this->table->fresh()->status);
     }

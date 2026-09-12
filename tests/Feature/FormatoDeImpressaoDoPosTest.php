@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\POS\SalesReport;
 use App\Models\Invoicing\InvoicingSettings;
 use App\Models\Invoicing\SalesInvoice;
 use Illuminate\Support\Facades\Schema;
@@ -168,10 +167,15 @@ class FormatoDeImpressaoDoPosTest extends TenantTestCase
 
         $this->assertNotEmpty($consumidores, 'o modal deixou de ser incluído em lado nenhum?');
 
-        // Os componentes por trás dessas vistas.
+        /*
+         * Os componentes por trás dessas vistas.
+         *
+         * O RELATÓRIO DE VENDAS SAIU DESTA LISTA: passou a React, e lá o papel
+         * vem no `meta.formato` da própria consulta — não há componente
+         * Livewire para lhe dar o trait. Ver `RelatorioDoPos.tsx`.
+         */
         $componentes = [
             \App\Livewire\POS\POSSystem::class,
-            \App\Livewire\POS\SalesReport::class,
             \App\Livewire\Salon\SalonPOS::class,
         ];
 
@@ -193,6 +197,10 @@ class FormatoDeImpressaoDoPosTest extends TenantTestCase
     /**
      * O 500 verdadeiro, reproduzido: abrir o talão no relatório de vendas.
      *
+     * Em React o papel não é estado do ecrã — vem no `meta.formato` da própria
+     * consulta, e a linha traz as DUAS moradas do papel. O que aqui se prende é
+     * que elas existem e ABREM: era o 500 de sempre.
+     *
      * @test
      */
     public function o_relatorio_de_vendas_abre_o_talao_sem_rebentar(): void
@@ -209,11 +217,22 @@ class FormatoDeImpressaoDoPosTest extends TenantTestCase
             'created_by'     => $this->user->id,
         ]);
 
-        Livewire::test(SalesReport::class)
-            ->call('printInvoice', $factura->id)
-            ->assertSet('showPrintModal', true)
-            ->assertSet('formatoImpressao', 'talao')
-            ->assertOk();
+        $mapa = $this->getJson('/api/v1/invoicing/react/pos/relatorio?'.http_build_query([
+            'start_date' => now()->subYear()->toDateString(),
+            'end_date' => now()->addYear()->toDateString(),
+        ]))->assertOk()->json();
+
+        $this->assertSame('talao', $mapa['meta']['formato'], 'o papel por omissão é o talão');
+
+        $linha = collect($mapa['data'])->firstWhere('numero', $factura->invoice_number);
+
+        $this->assertNotNull($linha, 'a factura tem de aparecer no mapa');
+        $this->assertNotNull($linha['papeis'], 'sem as moradas do papel não há botão de imprimir');
+
+        $this->comPermissoes('invoicing.sales.invoices.view');
+
+        $this->get($linha['papeis']['talao'])->assertOk();
+        $this->get($linha['papeis']['a4'])->assertOk();
     }
 
     /** @test */

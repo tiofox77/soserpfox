@@ -50,7 +50,10 @@ class MenuDaCascaFielTest extends TenantTestCase
         'hotel.dashboard.view', 'salon.dashboard.view', 'notifications.view', 'inventario.dashboard.view',
         'restaurant.dashboard.view', 'restaurant.floor.view', 'restaurant.orders.view', 'restaurant.settings.view',
         'restaurant.kitchen.view', 'restaurant.reservations.view', 'restaurant.recipes.view', 'restaurant.stock.view',
-        'restaurant.reports.view',
+        // A CARTA passou a ser `restaurant.menu.*` e não `orders.*`: os ecrãs
+        // em React exigem a permissão que corresponde ao que se faz, e o menu
+        // acompanhou. Ver `permissions:sync-restaurante`.
+        'restaurant.reports.view', 'restaurant.menu.view',
         // A OFICINA E O SALÃO: as entradas do menu passaram a estar atrás da
         // permissão que a rota exige, como as do RH.
         'workshop.vehicles.view', 'workshop.mechanics.view', 'workshop.services.view',

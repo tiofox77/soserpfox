@@ -393,10 +393,28 @@ class ClientApiController extends Controller
             $unico->ignore($exceptoId);
         }
 
+        /*
+         * O VERIFICADOR ANGOLANO SÓ VALE PARA ANGOLA.
+         *
+         * O `ValidateNIF` conta os dígitos e exige o prefixo 2, 3 ou 5 — as
+         * regras da AGT. Aplicá-lo a toda a gente recusava o cliente português
+         * com `PT-509999999` e o fornecedor sul-africano com o seu número: um
+         * ERP angolano importa, e quem importa tem contrapartes lá fora.
+         *
+         * Era assim que o formulário do restaurante fazia («if country ===
+         * 'AO'»), e é essa a regra certa. O NIF continua obrigatório e único
+         * por empresa, seja de que país for.
+         */
+        $emAngola = $request->input('country', 'AO') === 'AO';
+
         $dados = $request->validate([
             'type' => ['required', 'in:pessoa_juridica,pessoa_fisica'],
             'name' => ['required', 'string', 'min:3', 'max:200'],
-            'nif' => ['required', new ValidateNIF($tipo), $unico],
+            'nif' => array_values(array_filter([
+                'required', 'string', 'max:30',
+                $emAngola ? new ValidateNIF($tipo) : null,
+                $unico,
+            ])),
             'phone' => ['nullable', 'string', 'max:40'],
             'mobile' => ['nullable', 'string', 'max:40'],
             'address' => ['nullable', 'string', 'max:255'],

@@ -2,11 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\POS\SalesReport;
 use App\Models\Invoicing\CreditNote;
 use App\Models\Invoicing\SalesInvoice;
 use App\Services\POS\PosSalesReportQuery;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -61,11 +59,31 @@ class PosSalesReportNotasCreditoTest extends TenantTestCase
         ]);
     }
 
-    private function mapa()
+    /**
+     * O MAPA, pela porta que o ecrã em React usa.
+     *
+     * A consulta é a mesma de sempre (`PosSalesReportQuery`) — o que mudou foi
+     * quem lhe bate à porta.
+     */
+    private function mapa(array $filtros = []): array
     {
-        return Livewire::test(SalesReport::class)
-            ->set('startDate', now()->subYear()->toDateString())
-            ->set('endDate', now()->addYear()->toDateString());
+        return $this->getJson('/api/v1/invoicing/react/pos/relatorio?'.http_build_query(array_merge([
+            'start_date' => now()->subYear()->toDateString(),
+            'end_date' => now()->addYear()->toDateString(),
+            'por_pagina' => 100,
+        ], $filtros)))->assertOk()->json();
+    }
+
+    /** Os números dos documentos que o mapa devolveu, numa linha. */
+    private function numeros(array $filtros = []): string
+    {
+        return collect($this->mapa($filtros)['data'])->pluck('numero')->implode(' ');
+    }
+
+    /** Os totais do PERÍODO — não os da página. */
+    private function totais(array $filtros = []): array
+    {
+        return $this->mapa($filtros)['meta']['totais'];
     }
 
     public function test_a_nota_de_credito_aparece_na_listagem(): void
@@ -73,9 +91,10 @@ class PosSalesReportNotasCreditoTest extends TenantTestCase
         $f = $this->factura(10000);
         $n = $this->nota($f, 4000);
 
-        $this->mapa()
-            ->assertSee($f->invoice_number)
-            ->assertSee($n->credit_note_number);
+        $numeros = $this->numeros();
+
+        $this->assertStringContainsString($f->invoice_number, $numeros);
+        $this->assertStringContainsString($n->credit_note_number, $numeros);
     }
 
     public function test_o_filtro_separa_facturas_de_notas(): void
@@ -86,20 +105,20 @@ class PosSalesReportNotasCreditoTest extends TenantTestCase
         // Asserção sobre os dados e não sobre o HTML: a linha de uma nota de
         // crédito mostra "sobre {factura}", portanto o número da factura aparece
         // no ecrã mesmo quando ela própria está filtrada fora.
-        $tipos = fn ($c) => collect($c->viewData('documentos')->items())->pluck('doc_tipo')->unique()->values()->all();
+        // O `tipo` diz factura ou nota; o `subtipo` diz o CÓDIGO do documento
+        // (FT, FR, NC) — e uma factura pode ser FT sem deixar de ser factura.
+        $tipos = fn (array $r) => collect($r['data'])->pluck('tipo')->unique()->values()->all();
 
-        $so = $this->mapa()->set('documentType', 'FR');
-        $this->assertSame(['FR'], $tipos($so));
-        $this->assertTrue(collect($so->viewData('documentos')->items())
-            ->contains(fn ($d) => $d->numero === $f->invoice_number));
+        $so = $this->mapa(['document_type' => 'FR']);
+        $this->assertSame(['factura'], $tipos($so));
+        $this->assertTrue(collect($so['data'])->contains(fn ($d) => $d['numero'] === $f->invoice_number));
 
-        $so = $this->mapa()->set('documentType', 'NC');
-        $this->assertSame(['NC'], $tipos($so));
-        $this->assertTrue(collect($so->viewData('documentos')->items())
-            ->contains(fn ($d) => $d->numero === $n->credit_note_number));
+        $so = $this->mapa(['document_type' => 'NC']);
+        $this->assertSame(['nota'], $tipos($so));
+        $this->assertTrue(collect($so['data'])->contains(fn ($d) => $d['numero'] === $n->credit_note_number));
 
-        $ambos = $this->mapa()->set('documentType', '');
-        $this->assertEqualsCanonicalizing(['FR', 'NC'], $tipos($ambos));
+        $ambos = $this->mapa();
+        $this->assertEqualsCanonicalizing(['factura', 'nota'], $tipos($ambos));
     }
 
     public function test_a_devolucao_desce_do_liquido(): void
@@ -107,7 +126,7 @@ class PosSalesReportNotasCreditoTest extends TenantTestCase
         $f = $this->factura(10000);
         $this->nota($f, 4000);
 
-        $t = $this->mapa()->viewData('totais');
+        $t = $this->totais();
 
         $this->assertEquals(10000, $t['bruto']);
         $this->assertEquals(4000, $t['devolvido']);
@@ -122,7 +141,7 @@ class PosSalesReportNotasCreditoTest extends TenantTestCase
         $f = $this->factura(10000, 'credited');
         $this->nota($f, 10000);
 
-        $t = $this->mapa()->viewData('totais');
+        $t = $this->totais();
 
         $this->assertEquals(10000, $t['bruto'], 'a creditada fica no bruto');
         $this->assertEquals(10000, $t['devolvido']);
@@ -136,7 +155,7 @@ class PosSalesReportNotasCreditoTest extends TenantTestCase
         $this->factura(10000);
         $this->factura(3000, 'cancelled');
 
-        $t = $this->mapa()->viewData('totais');
+        $t = $this->totais();
 
         $this->assertEquals(10000, $t['bruto']);
         $this->assertEquals(1, $t['anuladas_n']);
@@ -150,7 +169,7 @@ class PosSalesReportNotasCreditoTest extends TenantTestCase
         $f = $this->factura(10000);
         $this->nota($f, 4000);
 
-        $t = $this->mapa()->set('documentType', 'NC')->viewData('totais');
+        $t = $this->totais(['document_type' => 'NC']);
 
         $this->assertEquals(10000, $t['bruto']);
         $this->assertEquals(4000, $t['devolvido']);
@@ -164,9 +183,10 @@ class PosSalesReportNotasCreditoTest extends TenantTestCase
         $f = $this->factura(10000);
         $n = $this->nota($f, 4000);
 
-        $this->mapa()->set('paymentMethod', 'cash')
-            ->assertSee($f->invoice_number)
-            ->assertDontSee($n->credit_note_number);
+        $numeros = $this->numeros(['payment_method' => 'cash']);
+
+        $this->assertStringContainsString($f->invoice_number, $numeros);
+        $this->assertStringNotContainsString($n->credit_note_number, $numeros);
     }
 
     public function test_uma_nota_anulada_nao_devolve_nada(): void
@@ -175,7 +195,7 @@ class PosSalesReportNotasCreditoTest extends TenantTestCase
         $n = $this->nota($f, 4000);
         $n->update(['status' => 'cancelled']);
 
-        $t = $this->mapa()->viewData('totais');
+        $t = $this->totais();
 
         $this->assertEquals(0, $t['devolvido']);
         $this->assertEquals(10000, $t['liquido']);
@@ -205,11 +225,12 @@ class PosSalesReportNotasCreditoTest extends TenantTestCase
             'total' => 9999, 'type' => 'total',
         ]);
 
-        $this->mapa()
-            ->assertSee($meu->invoice_number)
-            ->assertDontSee($notaAlheia->credit_note_number);
+        $numeros = $this->numeros();
 
-        $t = $this->mapa()->viewData('totais');
+        $this->assertStringContainsString($meu->invoice_number, $numeros);
+        $this->assertStringNotContainsString($notaAlheia->credit_note_number, $numeros);
+
+        $t = $this->totais();
         $this->assertEquals(0, $t['devolvido']);
     }
 
@@ -260,7 +281,7 @@ class PosSalesReportNotasCreditoTest extends TenantTestCase
         ];
 
         $doServico = (new PosSalesReportQuery($this->tenant->id, $filtros))->totais();
-        $doEcra    = $this->mapa()->viewData('totais');
+        $doEcra    = $this->totais();
 
         $this->assertEquals($doEcra['bruto'], $doServico['bruto']);
         $this->assertEquals($doEcra['devolvido'], $doServico['devolvido']);

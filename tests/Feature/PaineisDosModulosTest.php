@@ -64,7 +64,8 @@ class PaineisDosModulosTest extends TenantTestCase
         // CRM, o inventário e o restaurante, que tinham o mesmo defeito. Vão
         // baixando à medida que os módulos passam para React — lá os gráficos
         // são componentes e não há canvas nenhum para o Livewire trocar: a
-        // tesouraria, o RH, a oficina e o hotel já saíram desta conta.
+        // tesouraria, o RH, a oficina, o hotel e o restaurante já saíram desta
+        // conta.
         $comGraficos = array_filter(
             array_merge(
                 glob(resource_path('views/livewire/*/dashboard*.blade.php')),
@@ -77,7 +78,7 @@ class PaineisDosModulosTest extends TenantTestCase
         // ele guarda é que o varrimento continua a encontrar painéis. A zero,
         // este ensaio passava por vazio e deixava de dizer o que quer que
         // fosse.
-        $this->assertGreaterThanOrEqual(5, count($comGraficos),
+        $this->assertGreaterThanOrEqual(4, count($comGraficos),
             'o varrimento tem de apanhar os painéis todos');
 
         foreach ($comGraficos as $vista) {

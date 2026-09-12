@@ -438,9 +438,31 @@ class PosApiController extends Controller
         $tenantId = (int) activeTenantId();
 
         abort_unless($tenantId, 403, __('Sem empresa activa.'));
+
+        /*
+         * O MÓDULO DE ORIGEM decide também QUEM pode ver.
+         *
+         * O mesmo mapa serve o balcão da facturação e o do restaurante. Quem
+         * gere o restaurante tem `restaurant.reports.view` e pode não ter
+         * nenhuma permissão da facturação — era assim no ecrã em Livewire, que
+         * aceitava as duas.
+         */
+        $modulo = (string) $request->string('source_module');
+
+        /*
+         * A PERMISSÃO CHAMA-SE `invoicing.pos.reports` — sem `.view`.
+         *
+         * Estava aqui escrito `invoicing.pos.reports.view`, que NÃO EXISTE na
+         * base: é o nome da rota e do `SyncPosReportPermissions` sem o sufixo.
+         * Com os curingas desligados, `can()` de uma permissão inexistente é
+         * sempre falso — e o caixa que tinha exactamente a permissão que a
+         * rota exige abria a página e via um 403 em cada pedido. Só passava
+         * quem tivesse, por outro caminho, o direito de ver as facturas.
+         */
         abort_unless(
-            $request->user()?->can('invoicing.pos.reports.view')
-                || $request->user()?->can('invoicing.sales.invoices.view'),
+            $request->user()?->can('invoicing.pos.reports')
+                || $request->user()?->can('invoicing.sales.invoices.view')
+                || ($modulo === 'restaurant' && $request->user()?->can('restaurant.reports.view')),
             403,
             __('Sem permissão para ver os relatórios do POS.')
         );
@@ -452,8 +474,26 @@ class PosApiController extends Controller
             'status' => ['nullable', 'string', 'max:30'],
             'payment_method' => ['nullable', 'string', 'max:30'],
             'document_type' => ['nullable', 'string', 'max:20'],
+            'source_module' => ['nullable', 'string', 'max:30'],
+            'user_id' => ['nullable', 'integer'],
             'por_pagina' => ['nullable', 'integer', 'min:5', 'max:100'],
         ]);
+
+        /*
+         * «CADA UM VÊ AS QUE FEZ» — a regra que faltava aqui.
+         *
+         * O ecrã em Livewire prendia o mapa às vendas do próprio a quem não
+         * tivesse `invoicing.pos.reports.all`; esta porta não o fazia, e
+         * qualquer operador com o direito de VER relatórios via as vendas dos
+         * colegas — totais incluídos.
+         *
+         * É AQUI que a decisão tem de ser tomada, e não no ecrã: a lista, os
+         * totais e o Excel saem todos do mesmo `PosSalesReportQuery`, e um
+         * filtro posto no browser não prende nada.
+         */
+        $filtros['only_user_id'] = $request->user()?->can('invoicing.pos.reports.all')
+            ? ($filtros['user_id'] ?? null)
+            : $request->user()?->id;
 
         $consulta = new PosSalesReportQuery($tenantId, $filtros);
 
@@ -535,6 +575,19 @@ class PosApiController extends Controller
                 'totais' => $consulta->totais(),
                 // O papel configurado: é nele que o botão de imprimir imprime.
                 'formato' => (InvoicingSettings::forTenant($tenantId)->pos_formato_impressao ?? 'talao') === 'a4' ? 'a4' : 'talao',
+
+                /*
+                 * O SELECTOR DE OPERADOR só existe para quem pode ver as
+                 * vendas de todos. A quem não pode, mostrá-lo seria oferecer
+                 * uma escolha que o servidor ignora — e o mapa ficaria a
+                 * dizer «filtrado por Maria» a mostrar as do próprio.
+                 */
+                'pode_ver_todas' => (bool) $request->user()?->can('invoicing.pos.reports.all'),
+                'operadores' => $request->user()?->can('invoicing.pos.reports.all')
+                    ? \App\Models\User::whereHas('tenants', fn ($q) => $q->where('tenants.id', $tenantId))
+                        ->orderBy('name')->limit(200)->get(['id', 'name'])
+                        ->map(fn ($u) => ['valor' => (string) $u->id, 'rotulo' => $u->name])->values()
+                    : [],
             ],
         ]);
     }

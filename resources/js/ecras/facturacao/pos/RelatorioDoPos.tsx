@@ -67,6 +67,14 @@ type Filtros = {
     status: string;
     payment_method: string;
     document_type: string;
+    /** O módulo de origem: vazio na facturação, 'restaurant' no restaurante. */
+    source_module: string;
+    /**
+     * O OPERADOR. Só quem tem `invoicing.pos.reports.all` o pode escolher —
+     * e é o SERVIDOR que o impõe: a quem não tem, o mapa fica preso às suas
+     * vendas, escolha ele o que escolher.
+     */
+    user_id: string;
     por_pagina: number;
     page: number;
 };
@@ -99,18 +107,28 @@ const VAZIOS: Filtros = {
     status: '',
     payment_method: '',
     document_type: '',
+    source_module: '',
+    user_id: '',
     por_pagina: 20,
     page: 1,
 };
 
-export default function RelatorioDoPos() {
-    const [filtros, porFiltros] = useState<Filtros>(VAZIOS);
+export default function RelatorioDoPos({ sourceModule }: { sourceModule?: string }) {
+    const [filtros, porFiltros] = useState<Filtros>({ ...VAZIOS, source_module: sourceModule ?? '' });
     const [aVer, porAVer] = useState<LinhaDoMapa | null>(null);
 
     const mapa = useQuery({
         queryKey: ['pos', 'relatorio', filtros],
         queryFn: () =>
-            api.ler<{ data: LinhaDoMapa[]; meta: { total: number; pagina: number; paginas: number; totais: Totais; formato: 'talao' | 'a4' } }>(
+            api.ler<{
+                data: LinhaDoMapa[];
+                meta: {
+                    total: number; pagina: number; paginas: number; totais: Totais;
+                    formato: 'talao' | 'a4';
+                    pode_ver_todas: boolean;
+                    operadores: Array<{ valor: string; rotulo: string }>;
+                };
+            }>(
                 '/pos/relatorio',
                 filtros as unknown as Record<string, string | number>,
             ),
@@ -233,8 +251,13 @@ export default function RelatorioDoPos() {
                     <Campo etiqueta={t('Documento')}>
                         <select value={filtros.document_type} onChange={(e) => mudar('document_type', e.target.value)} className={entrada}>
                             <option value="">{t('Facturas e notas')}</option>
-                            <option value="factura">{t('Só facturas')}</option>
-                            <option value="nota">{t('Só notas de crédito')}</option>
+                            {/* OS CÓDIGOS SÃO `FR` E `NC` — é o que o
+                                `PosSalesReportQuery` compara. Com 'factura' e
+                                'nota' o filtro não batia com nenhum dos dois e
+                                não filtrava nada: as duas opções mostravam a
+                                mesma lista. */}
+                            <option value="FR">{t('Só facturas')}</option>
+                            <option value="NC">{t('Só notas de crédito')}</option>
                         </select>
                     </Campo>
                     <Campo etiqueta={t('Estado')}>
@@ -253,6 +276,20 @@ export default function RelatorioDoPos() {
                             className={entrada}
                         />
                     </Campo>
+
+                    {/* Sem o direito de ver todas, este selector não aparece:
+                        oferecer uma escolha que o servidor ignora fazia o mapa
+                        dizer «filtrado por Maria» a mostrar as do próprio. */}
+                    {mapa.data?.meta.pode_ver_todas && (
+                        <Campo etiqueta={t('Operador')}>
+                            <select value={filtros.user_id} onChange={(e) => mudar('user_id', e.target.value)} className={entrada}>
+                                <option value="">{t('Todos')}</option>
+                                {mapa.data.meta.operadores.map((u) => (
+                                    <option key={u.valor} value={u.valor}>{u.rotulo}</option>
+                                ))}
+                            </select>
+                        </Campo>
+                    )}
                 </div>
 
                 <div className="mt-3 flex items-center justify-between">

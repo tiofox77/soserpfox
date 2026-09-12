@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Restaurant;
 
-use App\Livewire\Restaurant\RestaurantPos;
 use App\Models\Invoicing\PosShift;
 use App\Models\Restaurant\Area;
 use App\Models\Restaurant\DiningTable;
@@ -11,7 +10,6 @@ use App\Models\Restaurant\Venue;
 use App\Models\Restaurant\Waitlist;
 use App\Services\Restaurant\ListaDeEspera;
 use InvalidArgumentException;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -198,33 +196,53 @@ class ListaDeEsperaTest extends TenantTestCase
         $this->fila()->sentar($entrada->fresh(), $this->mesa->id, $this->tenant->id, $this->user->id);
     }
 
-    /** O ecrã do POS: entra na fila, senta pelo toque na mesa. */
+    /** O ecrã: entra na fila por uma porta, senta-se pela outra. */
     public function test_o_ecra_poe_na_fila_e_senta_pelo_toque_na_mesa(): void
     {
+        $this->comPermissoes('restaurant.floor.view', 'restaurant.orders.create');
         $this->turnoAberto();
 
-        $componente = Livewire::actingAs($this->user)->test(RestaurantPos::class)
-            ->set('venueId', $this->venue->id)
-            ->set('esperaNome', 'Dona Ana')
-            ->set('esperaPessoas', 2)
-            ->call('chegouParaEspera')
-            ->assertHasNoErrors();
+        $raiz = '/api/v1/invoicing/react/restaurant/sala';
+
+        $this->postJson($raiz . '/espera', [
+            'venue_id' => $this->venue->id, 'guest_name' => 'Dona Ana', 'guest_count' => 2,
+        ])->assertCreated();
 
         $entrada = Waitlist::where('tenant_id', $this->tenant->id)->firstOrFail();
 
-        // Sentar: escolhe-se quem, e o toque na mesa passa a ser para isso.
-        $componente
-            ->call('prepararSentar', $entrada->id)
-            ->assertSet('esperaParaSentar', $entrada->id)
-            ->call('chooseTable', $this->mesa->id)
-            ->assertHasNoErrors()
-            ->assertSet('esperaParaSentar', null)
-            ->assertSet('showTables', false);
+        // O mapa da sala mostra a fila — é lá que o empregado olha.
+        $this->getJson($raiz . '?estabelecimento=' . $this->venue->id)
+            ->assertOk()
+            ->assertJsonPath('espera.0.nome', 'Dona Ana');
+
+        // Sentar: escolhe-se quem, e depois a mesa.
+        $this->postJson($raiz . "/espera/{$entrada->id}/sentar", ['table_id' => $this->mesa->id])
+            ->assertOk()
+            ->assertJsonStructure(['order_id']);
 
         $this->assertSame('seated', $entrada->fresh()->status);
         $this->assertDatabaseHas('restaurant_orders', [
             'tenant_id' => $this->tenant->id,
             'table_id' => $this->mesa->id,
         ]);
+    }
+
+    /** Sem turno, sentar não parte a fila: a pessoa fica onde estava. */
+    public function test_sem_turno_sentar_deixa_a_pessoa_na_fila(): void
+    {
+        $this->comPermissoes('restaurant.floor.view', 'restaurant.orders.create');
+
+        $entrada = $this->fila()->chegar([
+            'venue_id' => $this->venue->id, 'guest_name' => 'Dona Ana',
+        ], $this->tenant->id, $this->user->id);
+
+        $this->postJson("/api/v1/invoicing/react/restaurant/sala/espera/{$entrada->id}/sentar", [
+            'table_id' => $this->mesa->id,
+        ])
+            ->assertStatus(409)
+            ->assertJsonPath('falta_turno', true);
+
+        $this->assertSame('waiting', $entrada->fresh()->status);
+        $this->assertDatabaseCount('restaurant_orders', 0);
     }
 }

@@ -2,8 +2,6 @@
 
 namespace Tests\Feature\Restaurant;
 
-use App\Livewire\Restaurant\Reports;
-use App\Livewire\Restaurant\RestaurantPos;
 use App\Models\Invoicing\PosShift;
 use App\Models\Restaurant\Area;
 use App\Models\Restaurant\DiningTable;
@@ -12,7 +10,6 @@ use App\Models\Restaurant\RestaurantSettings;
 use App\Models\Restaurant\Venue;
 use App\Services\Restaurant\RestaurantOrderService;
 use InvalidArgumentException;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -227,18 +224,17 @@ class VendaParaForaTest extends TenantTestCase
         $this->servico()->despachar($order, $this->tenant->id, $this->user->id);
     }
 
-    /** O ecrã do POS abre a comanda pelos dois canais novos. */
+    /** O ecrã abre a comanda pelos dois canais de fora. */
     public function test_o_ecra_abre_um_take_away(): void
     {
-        Livewire::actingAs($this->user)->test(RestaurantPos::class)
-            ->set('venueId', $this->venue->id)
-            ->call('prepararVendaParaFora', 'takeaway')
-            ->assertSet('showParaFora', true)
-            ->set('paraForaNome', 'Dona Ana')
-            ->set('paraForaTelefone', '923000111')
-            ->call('abrirVendaParaFora')
-            ->assertHasNoErrors()
-            ->assertSet('showParaFora', false);
+        $this->comPermissoes('restaurant.orders.create');
+
+        $this->postJson('/api/v1/invoicing/react/restaurant/sala/abrir-sem-mesa', [
+            'venue_id' => $this->venue->id,
+            'channel' => 'takeaway',
+            'customer_name' => 'Dona Ana',
+            'customer_phone' => '923000111',
+        ])->assertCreated();
 
         $this->assertDatabaseHas('restaurant_orders', [
             'tenant_id' => $this->tenant->id,
@@ -247,15 +243,18 @@ class VendaParaForaTest extends TenantTestCase
         ]);
     }
 
-    /** E recusa a entrega incompleta antes de chegar ao servidor. */
+    /** E recusa a entrega incompleta: sem morada, ninguém a sabe entregar. */
     public function test_o_ecra_exige_morada_na_entrega(): void
     {
-        Livewire::actingAs($this->user)->test(RestaurantPos::class)
-            ->set('venueId', $this->venue->id)
-            ->call('prepararVendaParaFora', 'delivery')
-            ->set('paraForaTelefone', '923000111')
-            ->call('abrirVendaParaFora')
-            ->assertHasErrors(['paraForaMorada' => 'required']);
+        $this->comPermissoes('restaurant.orders.create');
+
+        $this->postJson('/api/v1/invoicing/react/restaurant/sala/abrir-sem-mesa', [
+            'venue_id' => $this->venue->id,
+            'channel' => 'delivery',
+            'customer_phone' => '923000111',
+        ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('delivery_address');
 
         $this->assertDatabaseCount('restaurant_orders', 0);
     }
@@ -275,8 +274,10 @@ class VendaParaForaTest extends TenantTestCase
             $order->update(['status' => 'billed', 'grand_total' => 5000]);
         }
 
-        $canais = collect(Livewire::actingAs($this->user)->test(Reports::class)->viewData('porCanal'))
-            ->pluck('channel')->all();
+        $this->comPermissoes('restaurant.reports.view');
+
+        $canais = collect($this->getJson('/api/v1/invoicing/react/restaurant/relatorios')
+            ->assertOk()->json('canais'))->pluck('canal')->all();
 
         $this->assertContains('takeaway', $canais);
         $this->assertContains('delivery', $canais);

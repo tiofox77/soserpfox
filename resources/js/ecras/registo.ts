@@ -172,6 +172,41 @@ export const ecras: Record<string, Ecra> = {
     'facturacao/modelos-de-proposta': () =>
         import('./facturacao/ModelosDeProposta'),
 
+    /*
+     * O RESTAURANTE.
+     *
+     * A CARTA serve dois endereços (pratos e categorias) e os CONTACTOS
+     * também (clientes e fornecedores): o separador de arranque vem nas props,
+     * da rota. São o mesmo ecrã porque são a mesma decisão — a ordem das
+     * categorias decide-se a olhar para os pratos.
+     */
+    'restaurant/painel': () =>
+        import('./restaurant/Painel'),
+    'restaurant/sala': () =>
+        import('./restaurant/Sala'),
+    'restaurant/comandas': () =>
+        import('./restaurant/Comandas'),
+    'restaurant/balcao': () =>
+        import('./restaurant/Balcao'),
+    'restaurant/cozinha': () =>
+        import('./restaurant/Cozinha'),
+    'restaurant/carta': () =>
+        import('./restaurant/Carta'),
+    'restaurant/contactos': () =>
+        import('./restaurant/Contactos'),
+    'restaurant/reservas': () =>
+        import('./restaurant/Reservas'),
+    'restaurant/fichas': () =>
+        import('./restaurant/Fichas'),
+    'restaurant/stock': () =>
+        import('./restaurant/Stock'),
+    'restaurant/relatorios': () =>
+        import('./restaurant/Relatorios'),
+    'restaurant/definicoes': () =>
+        import('./restaurant/Definicoes'),
+    'restaurant/aparencia-da-carta': () =>
+        import('./restaurant/Aparencia'),
+
     // A TESOURARIA. Os catálogos (bancos, formas, caixas, tipos, categorias,
     // contas) passam pelo ecrã genérico; os movimentos têm o seu.
     'tesouraria/movimentos': () =>

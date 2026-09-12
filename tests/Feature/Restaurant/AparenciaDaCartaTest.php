@@ -2,14 +2,11 @@
 
 namespace Tests\Feature\Restaurant;
 
-use App\Livewire\Restaurant\AparenciaDaCarta;
-use App\Livewire\Restaurant\MenuOnline;
 use App\Models\Product;
 use App\Models\Restaurant\MenuDestaque;
 use App\Models\Restaurant\RestaurantSettings;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -20,6 +17,8 @@ use Tests\TenantTestCase;
  */
 class AparenciaDaCartaTest extends TenantTestCase
 {
+    private const RAIZ = '/api/v1/invoicing/react/restaurant/aparencia';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -55,21 +54,26 @@ class AparenciaDaCartaTest extends TenantTestCase
         ]);
     }
 
-    /** @test */
-    public function guardar_a_aparencia_chega_a_carta_publica(): void
+    /** A forma completa que o ecrã grava. */
+    private function forma(array $extra = []): array
+    {
+        return array_merge([
+            'menu_title' => 'Cantinho do Sabor',
+            'menu_description' => 'Cozinha angolana à lenha',
+            'menu_primary_color' => '#7c2d12',
+            'menu_accent_color' => '#0f766e',
+            'menu_theme' => 'escuro',
+            'menu_destaques_titulo' => 'O que o chefe recomenda',
+            'menu_show_prices' => true,
+        ], $extra);
+    }
+
+    public function test_guardar_a_aparencia_chega_a_carta_publica(): void
     {
         $this->comPermissoes('restaurant.settings.view', 'restaurant.settings.edit');
         $d = $this->cartaPublicada();
 
-        Livewire::actingAs($this->user)->test(AparenciaDaCarta::class)
-            ->set('titulo', 'Cantinho do Sabor')
-            ->set('descricao', 'Cozinha angolana à lenha')
-            ->set('cor', '#7c2d12')
-            ->set('corAcento', '#0f766e')
-            ->set('tema', 'escuro')
-            ->set('tituloDestaques', 'O que o chefe recomenda')
-            ->call('guardar')
-            ->assertHasNoErrors();
+        $this->putJson(self::RAIZ, $this->forma())->assertOk();
 
         $d = $d->fresh();
 
@@ -92,23 +96,19 @@ class AparenciaDaCartaTest extends TenantTestCase
         $this->comPermissoes('restaurant.settings.view', 'restaurant.settings.edit');
         $this->cartaPublicada();
 
-        Livewire::actingAs($this->user)->test(AparenciaDaCarta::class)
-            ->set('cor', 'laranja')
-            ->call('guardar')
-            ->assertHasErrors('cor');
+        $this->putJson(self::RAIZ, $this->forma(['menu_primary_color' => 'laranja']))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('menu_primary_color');
     }
 
-    /** @test */
-    public function os_destaques_aparecem_primeiro_na_carta(): void
+    public function test_os_destaques_aparecem_primeiro_na_carta(): void
     {
         $this->comPermissoes('restaurant.settings.view', 'restaurant.settings.edit');
         $d = $this->cartaPublicada();
         $prato = $this->prato('Calulu de peixe');
 
-        Livewire::actingAs($this->user)->test(AparenciaDaCarta::class)
-            ->set('tituloDestaques', 'Sugestões da casa')
-            ->call('guardar')
-            ->call('destacar', $prato->id);
+        $this->putJson(self::RAIZ, $this->forma(['menu_destaques_titulo' => 'Sugestões da casa']))->assertOk();
+        $this->postJson(self::RAIZ . '/destaques', ['product_id' => $prato->id])->assertOk();
 
         $this->assertDatabaseHas('restaurant_menu_destaques', [
             'tenant_id' => $this->tenant->id,
@@ -126,12 +126,10 @@ class AparenciaDaCartaTest extends TenantTestCase
      *
      * Vale a mesma regra dos outros pratos: escondido ou a zero, sai. Um
      * destaque que já não se vende é pior do que destaque nenhum.
-     *
-     * @test
      */
-    public function destaque_escondido_ou_a_zero_sai_da_carta(): void
+    public function test_destaque_escondido_ou_a_zero_sai_da_carta(): void
     {
-        $d = $this->cartaPublicada();
+        $this->cartaPublicada();
 
         $escondido = $this->prato('Prato retirado');
         $semPreco = $this->prato('Prato sem preço');
@@ -158,14 +156,14 @@ class AparenciaDaCartaTest extends TenantTestCase
         $this->comPermissoes('restaurant.settings.view', 'restaurant.settings.edit');
         $this->cartaPublicada();
 
-        $comp = Livewire::actingAs($this->user)->test(AparenciaDaCarta::class);
-
         for ($i = 0; $i < MenuDestaque::MAXIMO; $i++) {
-            $comp->call('destacar', $this->prato('Prato '.$i)->id);
+            $this->postJson(self::RAIZ . '/destaques', ['product_id' => $this->prato('Prato '.$i)->id])
+                ->assertOk();
         }
 
         $aMais = $this->prato('Um a mais');
-        $comp->call('destacar', $aMais->id);
+
+        $this->postJson(self::RAIZ . '/destaques', ['product_id' => $aMais->id])->assertStatus(422);
 
         $this->assertSame(MenuDestaque::MAXIMO, MenuDestaque::where('tenant_id', $this->tenant->id)->count());
         $this->assertDatabaseMissing('restaurant_menu_destaques', ['product_id' => $aMais->id]);
@@ -180,17 +178,39 @@ class AparenciaDaCartaTest extends TenantTestCase
         $primeiro = $this->prato('Primeiro');
         $segundo = $this->prato('Segundo');
 
-        $comp = Livewire::actingAs($this->user)->test(AparenciaDaCarta::class)
-            ->call('destacar', $primeiro->id)
-            ->call('destacar', $segundo->id);
+        $this->postJson(self::RAIZ . '/destaques', ['product_id' => $primeiro->id])->assertOk();
+        $this->postJson(self::RAIZ . '/destaques', ['product_id' => $segundo->id])->assertOk();
 
         $idDoSegundo = MenuDestaque::where('product_id', $segundo->id)->value('id');
-        $comp->call('mover', $idDoSegundo, 'cima');
+
+        $this->postJson(self::RAIZ . "/destaques/{$idDoSegundo}/mover", ['sentido' => 'cima'])->assertOk();
 
         $ordem = MenuDestaque::where('tenant_id', $this->tenant->id)
             ->orderBy('ordem')->pluck('product_id')->all();
 
         $this->assertSame([$segundo->id, $primeiro->id], $ordem);
+    }
+
+    /** O artigo de outra empresa não se destaca aqui. */
+    public function test_o_prato_de_outra_empresa_nao_se_destaca(): void
+    {
+        $this->comPermissoes('restaurant.settings.view', 'restaurant.settings.edit');
+        $this->cartaPublicada();
+
+        $outra = \App\Models\Tenant::create([
+            'name' => 'Outra', 'slug' => 'outra-'.uniqid(),
+            'nif' => (string) random_int(500000000, 599999999),
+            'email' => 'o'.uniqid().'@exemplo.ao', 'is_active' => true,
+        ]);
+
+        $alheio = Product::create([
+            'tenant_id' => $outra->id, 'name' => 'Alheio', 'type' => 'produto',
+            'price' => 1000, 'unit' => 'UN', 'is_active' => true,
+        ]);
+
+        $this->postJson(self::RAIZ . '/destaques', ['product_id' => $alheio->id])->assertStatus(422);
+
+        $this->assertDatabaseMissing('restaurant_menu_destaques', ['product_id' => $alheio->id]);
     }
 
     /** Sem permissão de editar, nada se guarda nem se destaca. */
@@ -200,10 +220,8 @@ class AparenciaDaCartaTest extends TenantTestCase
         $d = $this->cartaPublicada();
         $prato = $this->prato();
 
-        Livewire::actingAs($this->user)->test(AparenciaDaCarta::class)
-            ->set('titulo', 'Não devia gravar')
-            ->call('guardar')
-            ->call('destacar', $prato->id);
+        $this->putJson(self::RAIZ, $this->forma(['menu_title' => 'Não devia gravar']))->assertForbidden();
+        $this->postJson(self::RAIZ . '/destaques', ['product_id' => $prato->id])->assertForbidden();
 
         $this->assertNotSame('Não devia gravar', $d->fresh()->menu_title);
         $this->assertSame(0, MenuDestaque::where('tenant_id', $this->tenant->id)->count());
@@ -216,10 +234,10 @@ class AparenciaDaCartaTest extends TenantTestCase
         $this->comPermissoes('restaurant.settings.view', 'restaurant.settings.edit');
         $d = $this->cartaPublicada();
 
-        Livewire::actingAs($this->user)->test(AparenciaDaCarta::class)
-            ->set('capaNova', UploadedFile::fake()->image('sala.jpg', 1200, 600))
-            ->call('guardar')
-            ->assertHasNoErrors();
+        $this->post(self::RAIZ . '/imagem', [
+            'qual' => 'capa',
+            'ficheiro' => UploadedFile::fake()->image('sala.jpg', 1200, 600),
+        ])->assertOk();
 
         $capa = $d->fresh()->menu_cover;
 
@@ -231,13 +249,32 @@ class AparenciaDaCartaTest extends TenantTestCase
             ->assertSee(basename($capa), false);
     }
 
+    /** A capa trocada apaga a anterior: dez trocas não deixam dez ficheiros. */
+    public function test_a_capa_trocada_apaga_a_anterior(): void
+    {
+        Storage::fake('public');
+        $this->comPermissoes('restaurant.settings.view', 'restaurant.settings.edit');
+        $d = $this->cartaPublicada();
+
+        $this->post(self::RAIZ . '/imagem', [
+            'qual' => 'capa', 'ficheiro' => UploadedFile::fake()->image('antiga.jpg', 800, 400),
+        ])->assertOk();
+
+        $antiga = $d->fresh()->menu_cover;
+
+        $this->post(self::RAIZ . '/imagem', [
+            'qual' => 'capa', 'ficheiro' => UploadedFile::fake()->image('nova.jpg', 800, 400),
+        ])->assertOk();
+
+        $this->assertNotSame($antiga, $d->fresh()->menu_cover);
+        Storage::disk('public')->assertMissing($antiga);
+    }
+
     /**
      * A carta desligada continua a recusar-se a servir — a aparência nova não
      * pode ter aberto uma porta que estava fechada.
-     *
-     * @test
      */
-    public function carta_desligada_continua_fechada(): void
+    public function test_carta_desligada_continua_fechada(): void
     {
         $d = $this->cartaPublicada();
 
@@ -245,5 +282,15 @@ class AparenciaDaCartaTest extends TenantTestCase
             ->update(['online_menu_enabled' => false]);
 
         $this->get('/menu/'.$d->menu_slug)->assertNotFound();
+    }
+
+    /** Sem carta publicada não há pré-visualização — nem endereço para ela. */
+    public function test_sem_carta_publicada_nao_ha_previsualizacao(): void
+    {
+        $this->comPermissoes('restaurant.settings.view');
+
+        RestaurantSettings::forTenant($this->tenant->id);
+
+        $this->getJson(self::RAIZ)->assertOk()->assertJsonPath('url_da_carta', null);
     }
 }

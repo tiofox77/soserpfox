@@ -178,22 +178,42 @@ class PdfDoEcraTest extends TenantTestCase
         }
     }
 
-    /** @test */
-    public function os_relatorios_do_pos_tem_o_botao_e_deixam_a_barra_de_fora(): void
+    /**
+     * O RELATÓRIO DE VENDAS PASSOU A REACT — e o papel dele é o do SERVIDOR.
+     *
+     * Enquanto foi Livewire, o PDF era uma fotografia do próprio ecrã
+     * (html2canvas), com a barra de botões marcada `data-pdf-fora` para não
+     * sair no papel. Em React deixou de ser preciso fotografar nada: o ecrã
+     * leva às exportações de sempre, que já saem do mesmo
+     * `PosSalesReportQuery` da lista — e um PDF gerado no servidor não corta
+     * linhas nem depende do tamanho da janela de quem carregou no botão.
+     *
+     * O que aqui se prende é que essas ligações NÃO SE PERDERAM, e que levam
+     * os filtros que estão à vista: um PDF do mês inteiro quando o ecrã mostra
+     * uma semana é pior do que PDF nenhum.
+     *
+     * @test
+     */
+    public function os_relatorios_do_pos_levam_ao_papel_do_servidor(): void
     {
-        // O POS continua em Livewire — o gestor de turnos, esse, passou a
-        // React e leva a ligação ao PDF do servidor (ver TurnosDoPos.tsx).
-        $relatorio = file_get_contents(resource_path('views/livewire/p-o-s/sales-report.blade.php'));
+        $ecra = file_get_contents(resource_path('js/ecras/facturacao/pos/RelatorioDoPos.tsx'));
 
-        foreach ([['relatório de vendas', $relatorio, 'relatorio-pos']] as [$nome, $s, $alvo]) {
-            $this->assertStringContainsString('data-pdf-alvo="' . $alvo . '"', $s, "{$nome}: falta o que fotografar");
-            $this->assertStringContainsString('x-pdf-descarregar', $s, "{$nome}: falta o botão");
-            $this->assertStringContainsString('data-pdf-fora', $s,
-                "{$nome}: a barra de botões tem de ficar de fora do papel");
+        foreach (['pdf', 'excel'] as $formato) {
+            $this->assertStringContainsString("/invoicing/pos/export/sales-report/{$formato}?", $ecra,
+                "falta a ligação ao {$formato} do servidor");
         }
 
-        $this->assertStringContainsString('ignoreElements', $this->gerador(),
-            'o gerador tem de saber saltar o que está marcado com data-pdf-fora');
+        $this->assertStringContainsString('new URLSearchParams(filtros', $ecra,
+            'as exportações têm de levar os filtros que estão à vista');
+
+        // E as rotas existem mesmo — uma ligação para o vazio é pior do que
+        // ligação nenhuma.
+        $uris = collect(\Illuminate\Support\Facades\Route::getRoutes()->getRoutes())
+            ->map(fn ($r) => $r->uri())->all();
+
+        foreach (['pdf', 'excel'] as $formato) {
+            $this->assertContains("invoicing/pos/export/sales-report/{$formato}", $uris);
+        }
     }
 
     /**

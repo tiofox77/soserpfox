@@ -808,6 +808,146 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::put('/opcoes', [$c, 'opcoes'])->name('opcoes');
         });
 
+        /*
+         * ─── O RESTAURANTE ────────────────────────────────────────────
+         *
+         * A SALA e as COMANDAS são portas separadas porque são perguntas
+         * separadas: o mapa da sala responde «que mesas há e como estão», a
+         * comanda responde «o que está nesta mesa». O balcão usa as duas ao
+         * mesmo tempo, e é por isso que nenhuma delas as junta.
+         *
+         * O PULSO DA COZINHA continua onde sempre esteve
+         * (`/restaurant/kitchen/pulso`, no grupo do módulo): é uma agregação
+         * que o ecrã pergunta de três em três segundos, e mudá-la de sítio
+         * era partir o único caminho barato que a cozinha tem.
+         */
+        Route::get('/restaurant/painel', [\App\Http\Controllers\Api\Restaurant\PainelApiController::class, 'index'])
+            ->name('restaurant.painel');
+
+        Route::prefix('restaurant/sala')->name('restaurant.sala.')->group(function () {
+            $c = \App\Http\Controllers\Api\Restaurant\SalaApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/', [$c, 'mapa'])->name('mapa');
+            Route::post('/mesas', [$c, 'criarMesa'])->name('mesas.criar');
+            Route::post('/abrir', [$c, 'abrir'])->name('abrir');
+            Route::post('/abrir-sem-mesa', [$c, 'abrirSemMesa'])->name('abrir-sem-mesa');
+            Route::post('/mesas/{id}/estado', [$c, 'estadoDaMesa'])->whereNumber('id')->name('mesas.estado');
+            Route::post('/mesas/{id}/limpar', [$c, 'limpar'])->whereNumber('id')->name('mesas.limpar');
+            Route::post('/carta/{id}/aceitar', [$c, 'aceitarPedidoDaCarta'])->whereNumber('id')->name('carta.aceitar');
+            Route::post('/carta/{id}/descartar', [$c, 'descartarPedidoDaCarta'])->whereNumber('id')->name('carta.descartar');
+            Route::post('/espera', [$c, 'chegouAFila'])->name('espera.chegou');
+            Route::post('/espera/{id}/sentar', [$c, 'sentarDaFila'])->whereNumber('id')->name('espera.sentar');
+            Route::post('/espera/{id}/desistiu', [$c, 'desistiuDaFila'])->whereNumber('id')->name('espera.desistiu');
+        });
+
+        Route::prefix('restaurant/comandas')->name('restaurant.comandas.')->group(function () {
+            $c = \App\Http\Controllers\Api\Restaurant\ComandasApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/artigos', [$c, 'artigos'])->name('artigos');
+            Route::post('/artigo-rapido', [$c, 'artigoRapido'])->name('artigo-rapido');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::get('/{id}', [$c, 'ficha'])->whereNumber('id')->name('ficha');
+            Route::post('/{id}/artigos', [$c, 'acrescentar'])->whereNumber('id')->name('artigos.juntar');
+            Route::put('/{id}/artigos/{item}', [$c, 'quantidade'])->whereNumber('id')->whereNumber('item')->name('artigos.quantidade');
+            Route::delete('/{id}/artigos/{item}', [$c, 'remover'])->whereNumber('id')->whereNumber('item')->name('artigos.remover');
+            Route::post('/{id}/artigos/{item}/anular', [$c, 'anularArtigo'])->whereNumber('id')->whereNumber('item')->name('artigos.anular');
+            Route::post('/{id}/confirmar', [$c, 'confirmar'])->whereNumber('id')->name('confirmar');
+            Route::post('/{id}/despachar', [$c, 'despachar'])->whereNumber('id')->name('despachar');
+            Route::post('/{id}/libertar-mesa', [$c, 'libertarMesa'])->whereNumber('id')->name('libertar-mesa');
+            Route::post('/{id}/transferir', [$c, 'transferir'])->whereNumber('id')->name('transferir');
+            Route::post('/{id}/juntar', [$c, 'juntar'])->whereNumber('id')->name('juntar');
+            Route::post('/{id}/fechar', [$c, 'fechar'])->whereNumber('id')->name('fechar');
+        });
+
+        Route::prefix('restaurant/cozinha')->name('restaurant.cozinha.')->group(function () {
+            $c = \App\Http\Controllers\Api\Restaurant\CozinhaApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/', [$c, 'bilhetes'])->name('bilhetes');
+            Route::post('/{id}/avancar', [$c, 'avancar'])->whereNumber('id')->name('avancar');
+        });
+
+        Route::prefix('restaurant/carta')->name('restaurant.carta.')->group(function () {
+            $c = \App\Http\Controllers\Api\Restaurant\CartaApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/pratos', [$c, 'criarPrato'])->name('pratos.criar');
+            Route::put('/pratos/{id}/preco', [$c, 'preco'])->whereNumber('id')->name('pratos.preco');
+            Route::put('/pratos/{id}/nome', [$c, 'nome'])->whereNumber('id')->name('pratos.nome');
+            Route::put('/pratos/{id}/categoria', [$c, 'categoriaDoPrato'])->whereNumber('id')->name('pratos.categoria');
+            Route::post('/pratos/{id}/disponibilidade', [$c, 'disponibilidade'])->whereNumber('id')->name('pratos.disponibilidade');
+            Route::post('/categorias', [$c, 'guardarCategoria'])->name('categorias.criar');
+            Route::put('/categorias/{id}', [$c, 'guardarCategoria'])->whereNumber('id')->name('categorias.guardar');
+            Route::post('/categorias/{id}/alternar', [$c, 'alternarCategoria'])->whereNumber('id')->name('categorias.alternar');
+            Route::post('/categorias/{id}/mover', [$c, 'moverCategoria'])->whereNumber('id')->name('categorias.mover');
+            Route::delete('/categorias/{id}', [$c, 'apagarCategoria'])->whereNumber('id')->name('categorias.apagar');
+        });
+
+        Route::prefix('restaurant/reservas')->name('restaurant.reservas.')->group(function () {
+            $c = \App\Http\Controllers\Api\Restaurant\ReservasApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'guardar'])->name('criar');
+            Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+            Route::post('/{id}/estado', [$c, 'estado'])->whereNumber('id')->name('estado');
+        });
+
+        Route::prefix('restaurant/fichas')->name('restaurant.fichas.')->group(function () {
+            $c = \App\Http\Controllers\Api\Restaurant\FichasApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'guardar'])->name('criar');
+            Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+            Route::post('/{id}/ingredientes', [$c, 'acrescentar'])->whereNumber('id')->name('ingredientes.juntar');
+            Route::delete('/{id}/ingredientes/{linha}', [$c, 'removerIngrediente'])->whereNumber('id')->whereNumber('linha')->name('ingredientes.tirar');
+            Route::post('/{id}/alternar', [$c, 'alternar'])->whereNumber('id')->name('alternar');
+            Route::delete('/{id}', [$c, 'apagar'])->whereNumber('id')->name('apagar');
+        });
+
+        Route::prefix('restaurant/stock')->name('restaurant.stock.')->group(function () {
+            $c = \App\Http\Controllers\Api\Restaurant\StockApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/desperdicio', [$c, 'desperdicio'])->name('desperdicio');
+        });
+
+        Route::get('/restaurant/relatorios', [\App\Http\Controllers\Api\Restaurant\RelatoriosApiController::class, 'index'])
+            ->name('restaurant.relatorios');
+
+        Route::prefix('restaurant/definicoes')->name('restaurant.definicoes.')->group(function () {
+            $c = \App\Http\Controllers\Api\Restaurant\DefinicoesApiController::class;
+
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::put('/', [$c, 'guardar'])->name('guardar');
+            Route::put('/carta', [$c, 'guardarCarta'])->name('carta');
+            Route::post('/estabelecimentos', [$c, 'criarEstabelecimento'])->name('estabelecimentos.criar');
+            Route::post('/estabelecimentos/pedir', [$c, 'pedirMaisEstabelecimentos'])->name('estabelecimentos.pedir');
+            Route::post('/zonas', [$c, 'criarZona'])->name('zonas.criar');
+            Route::post('/postos', [$c, 'criarPosto'])->name('postos.criar');
+            Route::post('/{tipo}/{id}/alternar', [$c, 'alternar'])->whereNumber('id')->where('tipo', '[a-z]+')->name('alternar');
+            Route::put('/{tipo}/{id}', [$c, 'renomear'])->whereNumber('id')->where('tipo', '[a-z]+')->name('renomear');
+            Route::delete('/{tipo}/{id}', [$c, 'apagar'])->whereNumber('id')->where('tipo', '[a-z]+')->name('apagar');
+        });
+
+        Route::prefix('restaurant/aparencia')->name('restaurant.aparencia.')->group(function () {
+            $c = \App\Http\Controllers\Api\Restaurant\AparenciaApiController::class;
+
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::put('/', [$c, 'guardar'])->name('guardar');
+            Route::post('/imagem', [$c, 'imagem'])->name('imagem');
+            Route::delete('/imagem', [$c, 'removerImagem'])->name('imagem.remover');
+            Route::get('/candidatos', [$c, 'candidatos'])->name('candidatos');
+            Route::post('/destaques', [$c, 'destacar'])->name('destaques.juntar');
+            Route::post('/destaques/{id}/mover', [$c, 'mover'])->whereNumber('id')->name('destaques.mover');
+            Route::delete('/destaques/{id}', [$c, 'retirarDestaque'])->whereNumber('id')->name('destaques.tirar');
+        });
+
         Route::prefix('oficina/ordens')->name('oficina.ordens.')->group(function () {
             $c = \App\Http\Controllers\Api\Workshop\OrdensApiController::class;
 
@@ -2081,53 +2221,52 @@ Route::get('/menu/{slug}/{mesa}', \App\Livewire\Restaurant\MenuOnline::class)->n
 // Restaurante - operação de sala e comandas; faturação permanece no módulo Invoicing.
 Route::middleware(['auth', 'tenant.module:restaurant'])->prefix('restaurant')->name('restaurant.')->group(function () {
     Route::middleware('permission:restaurant.dashboard.view')
-        ->get('/dashboard', \App\Livewire\Restaurant\Dashboard::class)->name('dashboard');
+        ->get('/dashboard', \App\Support\EcraReact::pagina('restaurant/painel', 'Painel do Restaurante'))->name('dashboard');
     Route::middleware('permission:restaurant.floor.view')
-        ->get('/floor', \App\Livewire\Restaurant\FloorManagement::class)->name('floor');
+        ->get('/floor', \App\Support\EcraReact::pagina('restaurant/sala', 'Sala e Mesas'))->name('floor');
     Route::middleware('permission:restaurant.orders.view')
-        ->get('/orders', \App\Livewire\Restaurant\OrderManagement::class)->name('orders');
+        ->get('/orders', \App\Support\EcraReact::pagina('restaurant/comandas', 'Comandas'))->name('orders');
     Route::middleware('permission:restaurant.orders.view')
-        ->get('/pos', \App\Livewire\Restaurant\RestaurantPos::class)->name('pos');
-    Route::middleware('permission:restaurant.orders.view')
+        ->get('/pos', \App\Support\EcraReact::pagina('restaurant/balcao', 'Balcão do Restaurante'))->name('pos');
+    Route::middleware('permission:restaurant.menu.view')
         ->get('/products', \App\Support\EcraReact::pagina('facturacao/produtos', 'Produtos'))->name('products');
     Route::middleware('permission:restaurant.orders.view')
-        ->get('/contacts', \App\Livewire\Restaurant\ContactManagement::class)->name('contacts');
-    Route::middleware('permission:restaurant.orders.view')
-        ->get('/categories', \App\Livewire\Restaurant\CategoryManagement::class)->name('categories');
+        ->get('/contacts', \App\Support\EcraReact::pagina('restaurant/contactos', 'Clientes e Fornecedores'))->name('contacts');
+    Route::middleware('permission:restaurant.menu.view')
+        ->get('/categories', \App\Support\EcraReact::pagina('restaurant/carta', 'Categorias', ['separador' => 'categorias']))->name('categories');
     // A carta inteira num ecrã: categorias e pratos em linha, sem os dois
     // formulários genéricos que obrigavam a saltar de ecrã para criar um prato.
-    Route::middleware('permission:restaurant.orders.view')
-        ->get('/carta', \App\Livewire\Restaurant\MontarMenu::class)->name('carta');
+    Route::middleware('permission:restaurant.menu.view')
+        ->get('/carta', \App\Support\EcraReact::pagina('restaurant/carta', 'A Carta'))->name('carta');
     Route::middleware('permission:restaurant.orders.view')
         ->get('/shifts', \App\Support\EcraReact::pagina('facturacao/turnos', 'POS - Ponto de Venda'))->name('shifts');
     Route::middleware('permission:restaurant.orders.view')
         ->get('/shift-history', \App\Support\EcraReact::pagina('facturacao/historico-de-turnos', 'Histórico de Turnos'))->name('shift-history');
     Route::middleware('permission:restaurant.reports.view')
-        ->get('/sales-report', \App\Livewire\POS\SalesReport::class)
-        ->defaults('sourceModule', 'restaurant')->name('sales-report');
+        ->get('/sales-report', \App\Support\EcraReact::pagina('facturacao/pos-relatorio', 'Relatório de Vendas', ['sourceModule' => 'restaurant']))->name('sales-report');
     Route::middleware('permission:restaurant.orders.view')
         ->get('/orders/{id}/consultation-receipt', [\App\Http\Controllers\Restaurant\RestaurantDocumentController::class, 'consultationReceipt'])->name('orders.consultation-receipt');
     Route::middleware('permission:restaurant.orders.view')
         ->get('/documents/{id}/print', [\App\Http\Controllers\Restaurant\RestaurantDocumentController::class, 'fiscalDocument'])->name('documents.print');
     Route::middleware('permission:restaurant.kitchen.view')
-        ->get('/kitchen', \App\Livewire\Restaurant\KitchenDisplay::class)->name('kitchen');
+        ->get('/kitchen', \App\Support\EcraReact::pagina('restaurant/cozinha', 'Cozinha'))->name('kitchen');
     Route::middleware('permission:restaurant.kitchen.view')->get('/kitchen/tickets/{ticket}/print', [\App\Http\Controllers\Restaurant\KitchenTicketController::class,'print'])->name('kitchen.print');
     // O pulso da cozinha: uma agregação, sem relações. O ecrã pergunta de 3 em
     // 3 segundos e só refaz a página quando a resposta muda — em vez de a
     // refazer de 15 em 15 esteja ou não a acontecer alguma coisa.
     Route::middleware('permission:restaurant.kitchen.view')->get('/kitchen/pulso', \App\Http\Controllers\Restaurant\PulsoDaCozinhaController::class)->name('kitchen.pulso');
     Route::middleware('permission:restaurant.reservations.view')
-        ->get('/reservations', \App\Livewire\Restaurant\ReservationManagement::class)->name('reservations');
-    Route::middleware('permission:restaurant.recipes.view')->get('/recipes', \App\Livewire\Restaurant\RecipeManagement::class)->name('recipes');
-    Route::middleware('permission:restaurant.stock.view')->get('/stock', \App\Livewire\Restaurant\StockWasteManagement::class)->name('stock');
-    Route::middleware('permission:restaurant.reports.view')->get('/reports', \App\Livewire\Restaurant\Reports::class)->name('reports');
-    Route::middleware('permission:restaurant.settings.view')->get('/settings', \App\Livewire\Restaurant\SettingsManagement::class)->name('settings');
+        ->get('/reservations', \App\Support\EcraReact::pagina('restaurant/reservas', 'Reservas'))->name('reservations');
+    Route::middleware('permission:restaurant.recipes.view')->get('/recipes', \App\Support\EcraReact::pagina('restaurant/fichas', 'Fichas Técnicas'))->name('recipes');
+    Route::middleware('permission:restaurant.stock.view')->get('/stock', \App\Support\EcraReact::pagina('restaurant/stock', 'Stock e Desperdícios'))->name('stock');
+    Route::middleware('permission:restaurant.reports.view')->get('/reports', \App\Support\EcraReact::pagina('restaurant/relatorios', 'Relatórios do Restaurante'))->name('reports');
+    Route::middleware('permission:restaurant.settings.view')->get('/settings', \App\Support\EcraReact::pagina('restaurant/definicoes', 'Definições do Restaurante'))->name('settings');
 
     // A aparência da carta pública: capa, cores, tema e pratos em destaque.
     // Ecrã próprio e não mais um separador das definições — escolher a
     // fotografia da capa não é a mesma decisão que escolher um armazém.
     Route::middleware('permission:restaurant.settings.view')
-        ->get('/carta/aparencia', \App\Livewire\Restaurant\AparenciaDaCarta::class)->name('carta.aparencia');
+        ->get('/carta/aparencia', \App\Support\EcraReact::pagina('restaurant/aparencia-da-carta', 'Aparência da Carta'))->name('carta.aparencia');
 
     // Os QR da carta, prontos a imprimir e a colar nas mesas. Vive sob a
     // permissão das definições: quem publica a carta é quem imprime os códigos.

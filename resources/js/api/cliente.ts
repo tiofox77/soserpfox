@@ -56,9 +56,21 @@ function comParametros(raiz: string, caminho: string, parametros?: Parametros): 
     for (const [chave, valor] of Object.entries(parametros)) {
         // Um filtro vazio não viaja: `?estado=` faria o servidor validar uma
         // cadeia vazia em vez de entender «sem filtro».
-        if (valor !== null && valor !== undefined && valor !== '') {
-            q.set(chave, String(valor));
+        if (valor === null || valor === undefined || valor === '') {
+            continue;
         }
+
+        /*
+         * UM BOOLEANO VIAJA COMO 1 OU 0, e não como «true».
+         *
+         * A regra `boolean` do Laravel aceita `1`, `0`, `"1"`, `"0"` e os
+         * booleanos verdadeiros — e mais nada. Um `String(true)` dava
+         * `?abertas=true`, que ela recusa: o ecrã das comandas abria e a
+         * lista respondia 422, com a caixa «Só as abertas» marcada por
+         * omissão. Um filtro que rebenta ligado por omissão é um ecrã que
+         * nunca funciona.
+         */
+        q.set(chave, typeof valor === 'boolean' ? (valor ? '1' : '0') : String(valor));
     }
 
     const cauda = q.toString();
