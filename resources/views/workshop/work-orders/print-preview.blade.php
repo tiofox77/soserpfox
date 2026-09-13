@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ordem de Serviço - {{ $workOrder->order_number }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/vendor/js/tailwind.js"></script>
     <style>
         /* Estilos para visualização na tela */
         @media screen {
