@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" @if(request()->cookie('casca_aberta') === '0') data-casca="fechada" @endif>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -65,14 +65,7 @@
     <!-- Font Awesome CDN -->
     <link rel="stylesheet" href="/vendor/css/fontawesome.min.css">
     
-    <script>
-        // A barra lateral lembra-se de estar encolhida: o lugar reservado para
-        // ela tem de o saber ANTES de o React a desenhar.
-        try { if (localStorage.getItem('casca:aberta') === '0') document.documentElement.dataset.casca = 'fechada'; } catch (e) {}
-    </script>
     <style>
-        [x-cloak] { display: none !important; }
-
         /* O LUGAR DA BARRA LATERAL enquanto o React não a desenha. */
         @media (min-width: 768px) {
             .casca-lugar:not(:has(aside)) { width: 5rem; background: linear-gradient(to bottom, #1e3a8a, #1e40af); }
@@ -81,7 +74,7 @@
             html:not([data-casca="fechada"]) .casca-lugar:not(:has(aside)) { width: 16rem; }
         }
 
-        /* A barra de progresso de quem muda de página (ver o fim do layout). */
+        /* A barra de progresso de quem muda de página (ver a peça casca/sistema). */
         .spa-progress {
             position: fixed;
             top: 0;
@@ -108,75 +101,6 @@
             max-height: 4rem !important;
             max-width: 200px !important;
             object-fit: contain !important;
-        }
-        
-        /* Toastr Custom Styles - Barra colorida apenas em cima */
-        #toast-container > div {
-            background-color: #ffffff !important;
-            color: #1f2937 !important;
-            border-top: 4px solid #3b82f6 !important;
-            border-radius: 8px !important;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
-        }
-        
-        .toast-success {
-            border-top-color: #3b82f6 !important;
-        }
-        
-        .toast-success .toast-message {
-            color: #1f2937 !important;
-        }
-        
-        .toast-success:before {
-            color: #3b82f6 !important;
-        }
-        
-        .toast-error {
-            border-top-color: #ef4444 !important;
-        }
-        
-        .toast-error .toast-message {
-            color: #1f2937 !important;
-        }
-        
-        .toast-error:before {
-            color: #ef4444 !important;
-        }
-        
-        .toast-warning {
-            border-top-color: #f59e0b !important;
-        }
-        
-        .toast-warning .toast-message {
-            color: #1f2937 !important;
-        }
-        
-        .toast-warning:before {
-            color: #f59e0b !important;
-        }
-        
-        .toast-info {
-            border-top-color: #3b82f6 !important;
-        }
-        
-        .toast-info .toast-message {
-            color: #1f2937 !important;
-        }
-        
-        .toast-info:before {
-            color: #3b82f6 !important;
-        }
-        
-        #toast-container > div:hover {
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2) !important;
-        }
-        
-        .toast-close-button {
-            color: #6b7280 !important;
-        }
-        
-        .toast-progress {
-            opacity: 0.3 !important;
         }
         
         /* Modern 2025 Animations */
@@ -467,33 +391,14 @@
             // O menu decide-se uma vez por pedido — o Blade e o ecrã em React desenham-no daqui.
             $menuDaCasca = \App\Support\MenuDaCasca::montar(auth()->user(), request());
         @endphp
+        @php
+            // A entrada do conteúdo em cascata só na primeira página da sessão:
+            // cada ligação abre uma página nova, e a cascata a cada clique cansa.
+            $primeiraVista = ! session('casca_vista');
+            if ($primeiraVista) session()->put('casca_vista', true);
+        @endphp
         <!-- Layout with Sidebar -->
-        <div x-data="{
-            sidebarOpen: window.innerWidth >= 1024,
-            isMobile: window.innerWidth < 768,
-            isTablet: window.innerWidth >= 768 && window.innerWidth < 1024,
-            {{-- A entrada em cascata da barra lateral só na primeira página da
-                 sessão do separador: sem a navegação do Livewire, cada página
-                 é um carregamento novo, e a cascata a cada clique cansa. --}}
-            firstLoad: (() => { try { const ja = sessionStorage.getItem('casca-vista'); sessionStorage.setItem('casca-vista', '1'); return !ja; } catch (e) { return true; } })(),
-            init() {
-                this.handleResize();
-                window.addEventListener('resize', () => this.handleResize());
-                setTimeout(() => { this.firstLoad = false; }, 1200);
-            },
-            handleResize() {
-                this.isMobile = window.innerWidth < 768;
-                this.isTablet = window.innerWidth >= 768 && window.innerWidth < 1024;
-                if (this.isMobile) {
-                    this.sidebarOpen = false;
-                } else if (this.isTablet) {
-                    this.sidebarOpen = false;
-                }
-            },
-            closeMobileSidebar() {
-                if (this.isMobile) this.sidebarOpen = false;
-            }
-        }" @casca:estado.window="sidebarOpen = $event.detail.aberta" class="flex h-screen overflow-hidden">
+        <div class="flex h-screen overflow-hidden">
             {{--
                 A BARRA LATERAL — o ecrã `casca`, em React.
 
@@ -511,19 +416,13 @@
             ]" />
 
             <!-- Main Content -->
-            <div class="flex-1 flex flex-col overflow-hidden" :class="{ 'ml-0': isMobile }">
+            <div class="flex-1 flex flex-col overflow-hidden">
                 <!-- Top Bar -->
                 <header class="bg-white shadow-sm border-b border-gray-200">
                     <div class="flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4">
                         <div class="flex items-center gap-3">
-                            <!-- Hamburger Button (Mobile/Tablet) -->
-                            <button @click="sidebarOpen = !sidebarOpen; window.dispatchEvent(new CustomEvent('casca:alternar'))" class="lg:hidden text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition">
-                                <i class="fas fa-bars text-xl"></i>
-                            </button>
-                            <!-- Desktop sidebar toggle -->
-                            <button @click="sidebarOpen = !sidebarOpen; window.dispatchEvent(new CustomEvent('casca:alternar'))" class="hidden lg:block text-gray-400 hover:text-gray-600 p-1 rounded transition">
-                                <i class="fas" :class="sidebarOpen ? 'fa-chevron-left' : 'fa-chevron-right'"></i>
-                            </button>
+                            {{-- Abrir e fechar a barra lateral — fala com ela por evento. --}}
+                            <x-ecra-react nome="casca/alternar" :esqueleto="false" class="flex flex-none items-center min-w-[2.5rem] lg:min-w-[1.5rem]" />
                             <div>
                                 <h1 class="text-lg sm:text-2xl font-bold text-gray-900 truncate max-w-[200px] sm:max-w-none">@yield('page-title', __('Dashboard'))</h1>
                                 <p class="text-xs sm:text-sm text-gray-600 hidden sm:block">@yield('page-subtitle', __('Bem-vindo ao sistema'))</p>
@@ -547,20 +446,12 @@
                             
                             <!-- Easter Egg: Fox Paw in Header (FOX Friendly Only) -->
                             @if($menuDaCasca['fox'] ?? false)
-                                <div class="ml-3 hidden sm:block" 
-                                     x-data="{ showFoxMessage: false }"
-                                     @mouseenter="showFoxMessage = true"
-                                     @mouseleave="showFoxMessage = false"
-                                     title="{{ __('FOX Friendly activo!') }}">
-                                    <div class="relative cursor-pointer">
-                                        <span class="fox-paw text-xl">🐾</span>
-                                        <div x-show="showFoxMessage"
-                                             x-transition
-                                             class="absolute top-full right-0 mt-2 px-3 py-2 bg-orange-500 text-white text-xs rounded-lg shadow-xl whitespace-nowrap z-50">
-                                            <div class="font-bold">🦊 FOX Power!</div>
-                                            <div class="absolute bottom-full right-4 mb-[-4px]">
-                                                <div class="border-4 border-transparent border-b-orange-500"></div>
-                                            </div>
+                                <div class="group relative ml-3 hidden sm:block cursor-pointer" title="{{ __('FOX Friendly activo!') }}">
+                                    <span class="fox-paw text-xl">🐾</span>
+                                    <div class="pointer-events-none absolute top-full right-0 mt-2 px-3 py-2 bg-orange-500 text-white text-xs rounded-lg shadow-xl whitespace-nowrap z-50 opacity-0 -translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition duration-200">
+                                        <div class="font-bold">🦊 FOX Power!</div>
+                                        <div class="absolute bottom-full right-4 mb-[-4px]">
+                                            <div class="border-4 border-transparent border-b-orange-500"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -569,25 +460,7 @@
                             {{-- Língua do ecrã. Um GET com ?lang= chega ao
                                  DefinirLingua, que guarda no perfil e no
                                  cookie — sem componente, sem estado. --}}
-                            <div class="relative" x-data="{ aberto: false }" @click.outside="aberto = false">
-                                <button @click="aberto = !aberto"
-                                        class="flex items-center gap-1.5 px-2.5 py-2 text-sm font-bold text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition uppercase"
-                                        title="Língua / Language / Langue">
-                                    <i class="fas fa-globe text-gray-400"></i>{{ app()->getLocale() }}
-                                </button>
-                                <div x-show="aberto" x-transition x-cloak
-                                     class="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden z-50 min-w-[10rem]">
-                                    @foreach(['pt' => 'Português', 'en' => 'English', 'fr' => 'Français'] as $sigla => $nome)
-                                        <a href="{{ request()->fullUrlWithQuery(['lang' => $sigla]) }}"
-                                           class="flex items-center justify-between px-4 py-2.5 text-sm hover:bg-gray-50 transition {{ app()->getLocale() === $sigla ? 'font-bold text-blue-700' : 'text-gray-700' }}">
-                                            {{ $nome }}
-                                            @if(app()->getLocale() === $sigla)
-                                                <i class="fas fa-check text-blue-600 text-xs"></i>
-                                            @endif
-                                        </a>
-                                    @endforeach
-                                </div>
-                            </div>
+                            <x-ecra-react nome="casca/lingua" :esqueleto="false" class="min-w-[3.5rem]" :props="['actual' => app()->getLocale()]" />
 
                             <!-- Notificações -->
                             @if(auth()->check())
@@ -598,7 +471,7 @@
                 </header>
 
                 <!-- Page Content -->
-                <main id="app-main" :class="{ 'first-load': firstLoad }" class="flex-1 overflow-y-auto bg-gray-50 p-3 sm:p-4 lg:p-6">
+                <main id="app-main" class="{{ $primeiraVista ? 'first-load ' : '' }}flex-1 overflow-y-auto bg-gray-50 p-3 sm:p-4 lg:p-6">
                     {{-- Avisos do dono da plataforma (manutenções, mudanças de
                          preço, obrigações novas da AGT). Vive aqui porque tem
                          de aparecer em qualquer página; sem mensagens no ar,
@@ -618,164 +491,26 @@
         </div>
     @endauth
 
-    {{-- O dicionário para o JavaScript dos ecrãs (POS, modais de impressão).
-         Em português não emite nada — as chaves são o texto português. --}}
-    @include('partials.js-traducoes')
+    @auth
+        {{-- O que corria em <script> soltos: avisos de canto, sessão expirada,
+             barra de progresso, PDF do ecrã e service worker. --}}
+        <x-ecra-react nome="casca/sistema" :esqueleto="false" :props="[
+            'login' => route('login'),
+            'manterViva' => url('/keep-alive'),
+        ]" />
 
-    @include('partials.alpine')
-    
-    <!-- Toastr CDN -->
-    <link rel="stylesheet" href="/vendor/css/toastr.min.css">
-    <script src="/vendor/js/jquery.min.js"></script>
-    <script src="/vendor/js/toastr.min.js"></script>
-
-    {{-- Máscara de dinheiro (1.234,56) nos inputs de preço/valores. Delegada:
-         apanha também os campos que um ecrã desenha depois de a página abrir. --}}
-    <script src="{{ asset('js/mascara-dinheiro.js') }}?v=2" defer></script>
-
-    <script>
-        // Configuração do Toastr
-        toastr.options = {
-            "closeButton": true,
-            "progressBar": true,
-            "positionClass": "toast-top-right",
-            "timeOut": "3000"
-        };
-
-        (function () {
-            // ── Recuperação de sessão expirada — sem freeze, sem perder a venda ──
-            // Quando a sessão morre por inatividade, o keep-alive dá por isso. O
-            // comportamento antigo (reload cego) perdia a venda em curso no POS.
-            // Numa página POS mostra-se um overlay claro (o carrinho fica guardado
-            // no cliente e é restaurado após novo login); nas outras faz-se só um
-            // reload suave.
-            window.__sessionDeadShown = false;
-            window.sosSessionDead = function (reason) {
-                if (window.__sessionDeadShown) return;
-                window.__sessionDeadShown = true;
-                var overlay = document.getElementById('sos-session-expired');
-                if (window.__isPOS && overlay) {
-                    overlay.style.display = 'flex';           // bloqueia o POS com mensagem + botão login
-                } else {
-                    try { toastr.warning('A sessão expirou — a recarregar…', '', { timeOut: 1500 }); } catch (_) {}
-                    setTimeout(function () { window.location.reload(); }, 900);
-                }
-            };
-
-            // Injetar o overlay (inerte até window.__isPOS o mostrar via sosSessionDead)
-            (function () {
-                if (document.getElementById('sos-session-expired')) return;
-                var o = document.createElement('div');
-                o.id = 'sos-session-expired';
-                o.style.cssText = 'display:none;position:fixed;inset:0;z-index:100000;background:rgba(17,24,39,.88);backdrop-filter:blur(3px);align-items:center;justify-content:center;padding:20px;';
-                o.innerHTML =
-                    '<div style="background:#fff;border-radius:16px;padding:32px;max-width:420px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.45);font-family:inherit;">'
-                    + '<div style="font-size:44px;line-height:1;margin-bottom:12px;">&#128274;</div>'
-                    {{-- As entidades HTML (&atilde;) sairam de cena: o @json
-                         entrega uma cadeia JavaScript ja escapada, portanto os
-                         acentos podem vir inteiros — e em frances havia
-                         demasiados para os escrever assim um a um. --}}
-                    + '<h2 style="font-size:20px;font-weight:800;margin:0 0 8px;color:#111827;">' + @json(__('Sessão expirada')) + '</h2>'
-                    + '<p style="color:#4b5563;margin:0 0 20px;font-size:14px;line-height:1.5;">' + @json(__('Por inatividade, a sua sessão terminou. <strong>O carrinho foi guardado</strong> e será restaurado assim que iniciar sessão novamente.')) + '</p>'
-                    + '<a href="{{ route('login') }}" style="display:inline-block;background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;padding:12px 26px;border-radius:10px;font-weight:700;text-decoration:none;">' + @json(__('Iniciar sessão')) + '</a>'
-                    + '</div>';
-                document.body.appendChild(o);
-            })();
-
-
-            // ── Keep-alive robusto (5 min) + ping ao voltar a ficar visível ──
-            // Mantém o cookie de sessão vivo com o separador aberto e reage a sleep/lock
-            // (o timer é estrangulado em background; o visibilitychange apanha o "acordar").
-            // Mantém o guard document.hidden para não sobrecarregar as sessões-BD.
-            window.__lastPing = 0;
-            window.sosKeepAlive = function () {
-                var now = (window.performance && performance.now) ? performance.now() : 0;
-                if (now && (now - window.__lastPing) < 30000) return;   // no máx. 1 ping / 30s
-                window.__lastPing = now;
-                fetch('{{ url('/keep-alive') }}', {
-                    method: 'GET', credentials: 'same-origin',
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                    cache: 'no-store', redirect: 'manual'
-                }).then(function (res) {
-                    // redirect:'manual' → 302 (sessão morta) vem como type 'opaqueredirect' (status 0)
-                    if (res.type === 'opaqueredirect' || res.status === 401 || res.status === 419) {
-                        window.sosSessionDead('keepalive');
-                    }
-                }).catch(function () {});
-            };
-            setInterval(function () { if (!document.hidden) window.sosKeepAlive(); }, 5 * 60 * 1000);
-            document.addEventListener('visibilitychange', function () { if (!document.hidden) window.sosKeepAlive(); });
-
-        })();
-    </script>
-    
-    
-    {{--
-        A BARRA DE PROGRESSO DE QUEM MUDA DE PÁGINA.
-
-        Era da navegação do Livewire. Agora cada ligação é uma página nova, e a
-        barra corre do clique até o browser trocar de página — quem está numa
-        rede fraca vê que o clique foi ouvido, em vez de carregar outra vez.
-    --}}
-    <div id="spa-progress" class="spa-progress" style="width: 0%;"></div>
-    <script>
-        (function () {
-            const bar = document.getElementById('spa-progress');
-            let relogio;
-
-            const comecar = () => {
-                bar.classList.remove('done');
-                let w = 0;
-                clearInterval(relogio);
-                relogio = setInterval(() => {
-                    w += (95 - w) * 0.08;
-                    bar.style.width = w + '%';
-                    if (w >= 94) clearInterval(relogio);
-                }, 80);
-            };
-
-            document.addEventListener('click', (e) => {
-                const a = e.target.closest && e.target.closest('a[href]');
-                if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-                if (a.target && a.target !== '_self') return;
-                if (a.hasAttribute('download') || a.origin !== location.origin) return;
-                if (a.getAttribute('href').startsWith('#') || (a.pathname === location.pathname && a.search === location.search && a.hash)) return;
-                comecar();
-            });
-
-            // Voltar atrás pela cache do browser: a barra não pode ficar a meio.
-            window.addEventListener('pageshow', () => {
-                clearInterval(relogio);
-                bar.style.width = '0%';
-            });
-        })();
-    </script>
-    
-    {{--
-        O PDF feito no browser, a partir da própria pré-visualização.
-
-        São 8 KB. As bibliotecas pesadas (html2canvas e jsPDF, 560 KB) só
-        descem quando alguém carrega mesmo num botão de PDF — não pesam nas
-        páginas de quem nunca gera nenhum.
-    --}}
-    <script src="/js/pdf-do-documento.js?v={{ filemtime(public_path('js/pdf-do-documento.js')) }}" defer></script>
-
-    {{-- Os gráficos do painel de facturação, num ficheiro que o browser guarda. --}}
-    <script src="/js/painel-facturacao.js?v={{ filemtime(public_path('js/painel-facturacao.js')) }}" defer></script>
+        @unless(auth()->user()->isSuperAdmin())
+            <x-ecra-react nome="casca/suporte" :esqueleto="false" :props="[
+                'tickets' => route('support.tickets'),
+                'melhorias' => route('support.features'),
+            ]" />
+        @endunless
+    @endauth
 
     {{-- OS ECRÃS EM REACT. O bloco vive num partial porque o painel da
          plataforma tem layout próprio e precisa do mesmo. --}}
     @include('partials.react-pacote')
 
-    <!-- Custom Scripts Stack -->
     @stack('scripts')
-    
-    <!-- PWA Service Worker Registration + Auto-Update -->
-    @include('partials.pwa-register')
-    
-    <!-- Botão Flutuante de Suporte -->
-    @if(!auth()->user()->isSuperAdmin())
-        @include('components.support-button')
-    @endif
 </body>
 </html>

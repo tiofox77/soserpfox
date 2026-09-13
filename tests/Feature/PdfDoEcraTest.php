@@ -21,7 +21,8 @@ class PdfDoEcraTest extends TenantTestCase
 {
     private function gerador(): string
     {
-        return file_get_contents(public_path('js/pdf-do-documento.js'));
+        return file_get_contents(resource_path('js/casca/pdfDoDocumento.ts'))
+            . file_get_contents(resource_path('js/casca/bibliotecas.ts'));
     }
 
     private function modelos(): array
@@ -29,20 +30,29 @@ class PdfDoEcraTest extends TenantTestCase
         return glob(resource_path('views/pdf/invoicing/*.blade.php'));
     }
 
-    /** @test */
-    public function o_gerador_existe_e_o_layout_carrega_o(): void
+    /**
+     * O GERADOR EXISTE E ESTÁ LIGADO ONDE HÁ BOTÕES.
+     *
+     * Era o `public/js/pdf-do-documento.js`, carregado pelo layout. Passou para
+     * dentro do pacote do React: a peça `casca/sistema` liga-o em todas as
+     * páginas, e o próprio botão (`PdfDoEcra`) liga-o onde quer que apareça —
+     * ligar duas vezes não faz nada.
+     *
+     * @test
+     */
+    public function o_gerador_existe_e_esta_ligado(): void
     {
-        $this->assertFileExists(public_path('js/pdf-do-documento.js'));
-
         foreach (['daPreVisualizacao', 'doElemento', 'PdfDoDocumento'] as $peca) {
             $this->assertStringContainsString($peca, $this->gerador(), "falta {$peca}");
         }
 
-        $layout = file_get_contents(resource_path('views/layouts/app.blade.php'));
-        $this->assertStringContainsString('/js/pdf-do-documento.js', $layout,
-            'o gerador tem de estar no layout: as listas são Livewire e um @push não sobrevive às actualizações');
+        $this->assertStringContainsString('ligarPdfDoDocumento()', file_get_contents(resource_path('js/ecras/casca/Sistema.tsx')));
+        $this->assertStringContainsString('ligarPdfDoDocumento()', file_get_contents(resource_path('js/ui/PdfDoEcra.tsx')));
 
-        $this->assertFileExists(resource_path('views/components/pdf-descarregar.blade.php'));
+        $this->assertMatchesRegularExpression('/data-peca="casca\/sistema"/', $this->get('/home')->assertOk()->getContent(),
+            'a peça que liga o gerador tem de estar no layout');
+
+        $this->assertFileDoesNotExist(public_path('js/pdf-do-documento.js'), 'uma segunda cópia ia divergir da primeira');
     }
 
     /**
@@ -112,24 +122,22 @@ class PdfDoEcraTest extends TenantTestCase
     }
 
     /**
-     * O CONTRATO DO BOTÃO É O MESMO EM BLADE E EM REACT.
+     * O BOTÃO É SÓ OS SEUS ATRIBUTOS.
      *
-     * O gerador (`/js/pdf-do-documento.js`) ouve o clique por DELEGAÇÃO no
-     * documento e não sabe nada de React nem de Livewire: reconhece um botão
-     * pelos seus `data-*`. Enquanto a peça em React escrever os mesmos
-     * atributos que o `<x-pdf-descarregar>`, os dois mundos partilham a mesma
-     * mecânica — e é por isso que não houve nada a reescrever.
+     * O gerador ouve o clique por DELEGAÇÃO no documento e não sabe nada de
+     * React: reconhece um botão pelos seus `data-*`. Enquanto a peça escrever
+     * os atributos que o gerador lê, as linhas que o React troca a cada filtro
+     * continuam a ter botão.
      *
      * @test
      */
-    public function a_peca_em_react_escreve_os_mesmos_atributos_do_componente_blade(): void
+    public function a_peca_em_react_escreve_os_atributos_que_o_gerador_le(): void
     {
         $peca = resource_path('js/ui/PdfDoEcra.tsx');
 
         $this->assertFileExists($peca, 'a peça partilhada dos ecrãs em React');
 
         $tsx = file_get_contents($peca);
-        $blade = file_get_contents(resource_path('views/components/pdf-descarregar.blade.php'));
 
         // O gerador lê-os pelo `dataset`, onde o traço vira maiúscula.
         $atributos = [
@@ -140,7 +148,6 @@ class PdfDoEcraTest extends TenantTestCase
 
         foreach ($atributos as $atributo => $noDataset) {
             $this->assertStringContainsString($atributo, $tsx, "falta {$atributo} na peça em React");
-            $this->assertStringContainsString($atributo, $blade, "falta {$atributo} no componente Blade");
             $this->assertStringContainsString($noDataset, $this->gerador(),
                 "o gerador tem de reconhecer {$atributo}");
         }

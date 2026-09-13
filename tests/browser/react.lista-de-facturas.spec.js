@@ -204,7 +204,7 @@ test('cada factura tem o PDF do servidor e o PDF do ecrã', async ({ page }) => 
     await expect(linha.locator('a[href$="/pdf"]')).toHaveCount(1);
 
     // O botão do PDF do ecrã não é uma ligação: é os seus `data-*`, que o
-    // ouvinte por delegação em /js/pdf-do-documento.js reconhece.
+    // ouvinte por delegação em casca/pdfDoDocumento.ts reconhece.
     const doEcra = linha.locator('button[data-pdf-preview]');
 
     await expect(doEcra).toHaveCount(1);

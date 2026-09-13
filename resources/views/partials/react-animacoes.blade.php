@@ -27,6 +27,11 @@
         .btn-press:hover { filter: brightness(1.04); }
         .btn-press:active { transform: scale(.96); }
 
+        /* Aviso de canto — a barrinha que se gasta até o aviso sair. */
+        @keyframes sosAvisoGasta {
+            from { width: 100%; }
+            to   { width: 0; }
+        }
 
         /* Linhas de tabela e cartões: entram em cascata, não de repente.
            O atraso vem de uma variável posta na linha (--i), para a segunda

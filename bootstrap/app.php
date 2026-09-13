@@ -20,6 +20,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // nosniff, Referrer-Policy, Permissions-Policy; remove X-Powered-By).
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
 
+        // A barra lateral aberta ou encolhida: escrito pelo React no browser,
+        // lido pelo layout para desenhar o lugar da barra com a largura certa.
+        // Cifrado, o servidor não o conseguia ler — e não guarda nada sensível.
+        $middleware->encryptCookies(except: ['casca_aberta']);
+
         // Que língua fala este pedido (utilizador → empresa → cookie → pt).
         // Em append e não prepend: precisa da sessão iniciada (auth) e dos
         // cookies decifrados, e isso só existe depois do miolo do grupo web.

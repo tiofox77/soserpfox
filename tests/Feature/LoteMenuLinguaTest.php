@@ -427,7 +427,7 @@ class LoteMenuLinguaTest extends TenantTestCase
         }
 
         // E o nó continua a chamar-se o que o exportador procura: o
-        // `/js/painel-facturacao.js` lê-o pelo id, e não recebe nada por
+        // `exportarPainel.ts` lê-o pelo id, e não recebe nada por
         // argumento.
         foreach (['id="textosPainel"', 'id="dadosVendas"'] as $no) {
             $this->assertStringContainsString($no, $fonte, "O exportador procura o nó {$no} e não o encontra.");
@@ -435,19 +435,34 @@ class LoteMenuLinguaTest extends TenantTestCase
     }
 
     /**
-     * O overlay de sessão expirada também se traduz.
+     * O aviso de sessão expirada também se traduz.
      *
-     * Vive dentro de uma cadeia JavaScript no layout, e por isso escapou aos
-     * varrimentos de Blade. É o último ecrã que um caixa vê antes de perder a
-     * sessão — em português, no meio de um sistema inglês.
+     * Vivia numa cadeia JavaScript no layout, e por isso escapou aos
+     * varrimentos de Blade. É hoje a peça `casca/sistema`, em React: as frases
+     * passam por t() e o dicionário tem de as ter nas três línguas. É o último
+     * ecrã que um caixa vê antes de perder a sessão — em português, no meio de
+     * um sistema inglês.
      */
     public function test_o_aviso_de_sessao_expirada_e_traduzido(): void
     {
         $this->user->update(['locale' => 'fr']);
 
         $html = $this->comoSeLe($this->painel());
+        $this->assertStringContainsString('data-peca="casca/sistema"', $html);
+        $this->assertStringContainsString('window.__reactDicionarioUrl', $html);
 
-        $this->assertStringContainsString('Session expirée', $html);
-        $this->assertStringNotContainsString('Sess&atilde;o expirada', $html);
+        $peca = file_get_contents(resource_path('js/ecras/casca/Sistema.tsx'));
+        $frases = ['Sessão expirada', 'Por inatividade, a sua sessão terminou. Inicie sessão novamente para continuar.', 'Iniciar sessão'];
+
+        foreach (['en', 'fr'] as $lingua) {
+            $dicionario = json_decode(file_get_contents(lang_path("{$lingua}.json")), true);
+
+            foreach ($frases as $frase) {
+                $this->assertStringContainsString("t('{$frase}')", $peca);
+                $this->assertNotEmpty($dicionario[$frase] ?? null, "{$lingua}: falta «{$frase}»");
+            }
+        }
+
+        $this->assertSame('Session expirée', json_decode(file_get_contents(lang_path('fr.json')), true)['Sessão expirada']);
     }
 }

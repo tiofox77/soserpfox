@@ -12,14 +12,15 @@ import { t } from '@/i18n';
  * desenhava. Este ecrã só sabe a forma: abrir e fechar grupos, encolher
  * a barra, o menu do utilizador.
  *
- * A BARRA DO TOPO fica no Blade: é lá que vivem o selector de empresa, o
- * contador da subscrição e as notificações (peças em React). O botão de
- * encolher, que está lá, fala com esta barra por um evento na janela.
+ * A BARRA DO TOPO é feita de peças soltas (empresa, subscrição, língua,
+ * notificações). O botão de encolher é uma delas (`casca/alternar`) e fala com
+ * esta barra por um evento na janela.
  *
  * As ligações são ligações: cada uma abre a página, como o menu de sempre.
  */
 
 const CHAVE_DE_ABERTA = 'casca:aberta';
+const COOKIE_DE_ABERTA = 'casca_aberta';
 const CHAVE_DO_SCROLL = 'sidebar-scroll-position';
 const LARGURA_TABLET = 1024;
 
@@ -101,13 +102,21 @@ export default function Casca({ menu, logo, nome, csrf }: PropsDaCasca) {
         };
     }, []);
 
+    /*
+     * A escolha fica no aparelho E num cookie: o servidor lê o cookie e desenha
+     * o lugar da barra já com a largura certa, sem script nenhum no <head> a
+     * adivinhar antes do React chegar. O `data-casca` é para as outras peças
+     * (o botão do topo) saberem o estado mesmo que montem depois desta.
+     */
     useEffect(() => {
+        document.documentElement.dataset.casca = aberta ? 'aberta' : 'fechada';
         if (movel) return;
         try {
             localStorage.setItem(CHAVE_DE_ABERTA, aberta ? '1' : '0');
         } catch {
             /* sem armazenamento, sem memória — a barra abre-se de novo */
         }
+        document.cookie = `${COOKIE_DE_ABERTA}=${aberta ? '1' : '0'}; path=/; max-age=31536000; SameSite=Lax`;
     }, [aberta, movel]);
 
     const fechar = () => { if (movel) porAberta(false); };

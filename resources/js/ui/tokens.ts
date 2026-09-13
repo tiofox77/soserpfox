@@ -166,8 +166,8 @@ export function cls(...partes: Array<string | false | null | undefined>): string
  * Dinheiro em kwanzas, à maneira de quem está a olhar: 1.234,56 em português,
  * 1,234.56 em inglês.
  *
- * Uma só função. A máscara existe hoje em `mascara-dinheiro.js` e outra vez no
- * `MoneyHelper` do servidor — é para deixar de haver uma terceira.
+ * Uma só função, do lado do browser; do lado do servidor é o `MoneyHelper`.
+ * (A máscara antiga, `mascara-dinheiro.js`, saiu com os ecrãs em Blade.)
  */
 export function kz(valor: number | string | null | undefined, casas = 2): string {
     const n = typeof valor === 'string' ? Number(valor) : (valor ?? 0);

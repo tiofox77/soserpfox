@@ -97,7 +97,11 @@ class LoteStockLinguaTest extends TenantTestCase
 
         $html = $this->comoSeLe($rota);
 
-        $this->assertStringContainsString('Session expired', $html);
+        // A página declara a língua e anuncia o dicionário aos ecrãs React
+        // (o aviso de sessão expirada, o suporte e o miolo traduzem-se lá).
+        $this->assertStringContainsString('<html lang="en"', $html);
+        $this->assertStringContainsString('window.__reactDicionarioUrl', $html);
+        // O menu vem do servidor já traduzido.
         $this->assertStringContainsString('Support', $html);
     }
 
@@ -108,7 +112,8 @@ class LoteStockLinguaTest extends TenantTestCase
 
         $html = $this->comoSeLe($rota);
 
-        $this->assertStringContainsString('Session expirée', $html);
+        $this->assertStringContainsString('<html lang="fr"', $html);
+        $this->assertStringContainsString('window.__reactDicionarioUrl', $html);
         $this->assertStringNotContainsString('Session expired', $html);
     }
 
@@ -117,7 +122,9 @@ class LoteStockLinguaTest extends TenantTestCase
     {
         $html = $this->comoSeLe($rota);
 
-        $this->assertStringContainsString('Sessão expirada', $html);
+        // Em português não há dicionário a descarregar: a chave já é a frase.
+        $this->assertStringNotContainsString('window.__reactDicionarioUrl', $html);
+        $this->assertStringContainsString('Suporte', $html);
         $this->assertStringNotContainsString('Session expired', $html);
     }
 

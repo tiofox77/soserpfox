@@ -58,26 +58,27 @@ test.describe('PDF do ecrã — o papel é a pré-visualização', () => {
         expect(medida.bytes).toBeGreaterThan(30_000);
     });
 
-    test('o relatório do POS sai sem a barra de botões', async ({ page }) => {
+    /*
+     * O RELATÓRIO DO POS já não se fotografa: passou a React e leva ao PDF do
+     * servidor (ver PdfDoEcraTest::os_relatorios_do_pos_levam_ao_papel_do_servidor).
+     * O `doElemento` continua a existir para um pedaço da página actual — e
+     * continua a deixar de fora o que está marcado com `data-pdf-fora`.
+     */
+    test('um pedaço da página sai em PDF, sem o que está marcado para ficar de fora', async ({ page }) => {
         await entrar(page);
-        await irPara(page, '/invoicing/pos/reports');
+        await irPara(page, '/home');
 
         await page.waitForFunction(() => !!window.PdfDoDocumento, null, { timeout: 30_000 });
 
-        const marcas = await avaliar(page, () => ({
-            alvo: !!document.querySelector('[data-pdf-alvo="relatorio-pos"]'),
-            barraDeFora: document.querySelectorAll('[data-pdf-fora]').length,
-            botao: !!document.querySelector('[data-pdf-elemento]'),
-        }));
-
-        expect(marcas.alvo).toBe(true);
-        expect(marcas.botao).toBe(true);
-        expect(marcas.barraDeFora).toBeGreaterThan(0);
-
         const medida = await avaliar(page, async () => {
-            const pdf = await window.PdfDoDocumento.doElemento(
-                "[data-pdf-alvo='relatorio-pos']", 'Relatorio', { guardar: false },
-            );
+            const alvo = document.getElementById('app-main');
+            const fora = document.createElement('div');
+            fora.setAttribute('data-pdf-fora', '');
+            fora.textContent = 'botões que não vão para o papel';
+            alvo.prepend(fora);
+
+            const pdf = await window.PdfDoDocumento.doElemento(alvo, 'Inicio', { guardar: false });
+            fora.remove();
 
             return { paginas: pdf.internal.getNumberOfPages(), bytes: pdf.output('blob').size };
         });

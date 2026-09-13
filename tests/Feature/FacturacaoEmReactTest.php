@@ -200,7 +200,11 @@ class FacturacaoEmReactTest extends TenantTestCase
              */
             $forasteiro = preg_match('/(?<![\w.])fetch\s*\(/', $fonte)
                 && ! str_ends_with($nome, 'api' . DIRECTORY_SEPARATOR . 'cliente.ts')
-                && ! str_ends_with($nome, 'i18n.ts');
+                && ! str_ends_with($nome, 'i18n.ts')
+                // Não são a API: o keep-alive da sessão e o HTML da
+                // pré-visualização que o PDF do ecrã fotografa.
+                && ! str_ends_with($nome, 'casca' . DIRECTORY_SEPARATOR . 'Sistema.tsx')
+                && ! str_ends_with($nome, 'casca' . DIRECTORY_SEPARATOR . 'pdfDoDocumento.ts');
 
             $this->assertFalse($forasteiro, "{$nome}: usa fetch() directo em vez do cliente da API");
         }

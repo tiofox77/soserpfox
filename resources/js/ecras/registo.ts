@@ -134,6 +134,15 @@ export const ecras: Record<string, Ecra> = {
         import('./casca/Mensagens'),
     'casca/avisos': () =>
         import('./casca/Avisos'),
+    // O que estava em <script> soltos no layout (e o Alpine da barra do topo).
+    'casca/sistema': () =>
+        import('./casca/Sistema'),
+    'casca/alternar': () =>
+        import('./casca/Alternar'),
+    'casca/lingua': () =>
+        import('./casca/Lingua'),
+    'casca/suporte': () =>
+        import('./casca/Suporte'),
 
     // SEIS catálogos (fornecedores, categorias, marcas, armazéns, condições
     // de pagamento, impostos): o `tipo` vem nas props, o esquema do servidor.

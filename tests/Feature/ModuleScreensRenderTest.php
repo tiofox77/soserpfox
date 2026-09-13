@@ -56,10 +56,32 @@ class ModuleScreensRenderTest extends TenantTestCase
         $this->assertSame([], $comLivewire, 'vistas que ainda falam com o Livewire');
     }
 
-    /** Os dois layouts carregam o Alpine do disco, sem o qual a barra lateral não abre. */
-    public function test_o_layout_traz_o_alpine(): void
+    /**
+     * O LAYOUT DA APLICAÇÃO NÃO TEM JAVASCRIPT FORA DO REACT.
+     *
+     * Depois do Livewire, a barra do topo ainda vivia de Alpine (a língua, o
+     * botão da barra, a raposa, o suporte) e o fim do layout de `<script>`
+     * soltos com jQuery e toastr. Passou tudo para peças React; o que resta de
+     * JavaScript no layout é o pacote. Um `x-data` ou um `<script>` em linha
+     * de volta é um passo atrás.
+     */
+    public function test_o_layout_nao_traz_alpine_nem_jquery(): void
     {
-        $this->get('/home')->assertOk()->assertSee('/vendor/js/alpine.min.js', false)->assertDontSee('livewire.js', false);
+        $html = $this->get('/home')->assertOk()->getContent();
+
+        foreach (['/vendor/js/alpine.min.js', 'livewire.js', 'jquery', 'toastr', 'x-data', '@click', 'mascara-dinheiro', 'pdf-do-documento', 'painel-facturacao'] as $antigo) {
+            $this->assertStringNotContainsString($antigo, $html, "o layout ainda traz {$antigo}");
+        }
+
+        foreach (['casca', 'casca/alternar', 'casca/lingua', 'casca/sistema', 'casca/suporte', 'casca/notificacoes'] as $peca) {
+            $this->assertStringContainsString('data-peca="'.$peca.'"', $html, "falta a peça {$peca}");
+        }
+
+        // Os únicos <script> em linha são os do pacote (língua) e os do pixel/JSON.
+        preg_match_all('#<script(?![^>]*\bsrc=)(?![^>]*type="application/(?:ld\+)?json")[^>]*>(.*?)</script>#s', $html, $m);
+        foreach ($m[1] as $corpo) {
+            $this->assertMatchesRegularExpression('/__reactLingua|fbq\(|gtag\(|dataLayer/', $corpo, "script em linha que devia ser React:\n".substr(trim($corpo), 0, 200));
+        }
     }
 
     /**

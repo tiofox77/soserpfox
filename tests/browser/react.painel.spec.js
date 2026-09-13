@@ -82,8 +82,8 @@ test('as quatro caixas do estado nao se sobrepoem', async ({ page }) => {
 /**
  * OS DOIS BOTÕES DE EXPORTAR, e a mesa que eles precisam de encontrar posta.
  *
- * A mecânica do PDF e do CSV vive em `/js/painel-facturacao.js`, carregado
- * pelo layout, e lê tudo do DOM: se o ecrã não escrever os nós com os nomes
+ * A mecânica do PDF e do CSV vive em `ecras/facturacao/exportarPainel.ts`,
+ * e lê tudo do DOM: se o ecrã não escrever os nós com os nomes
  * certos, os botões existem e não fazem nada. É por isso que aqui se lê o nó
  * a sério, e não a fonte.
  */

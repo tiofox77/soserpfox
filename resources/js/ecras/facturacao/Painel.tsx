@@ -14,21 +14,9 @@ import { GraficoDeDuasSeries } from '@/ui/GraficoDeDuasSeries';
 import { GraficoHorizontal } from '@/ui/GraficoHorizontal';
 import { CARTAO, RAIO, cls, data, kz } from '@/ui/tokens';
 import { etiquetaIntl, t, tPartes } from '@/i18n';
+import { avisar } from '@/casca/avisos';
 
-/**
- * O PDF e o CSV vivem em `/js/painel-facturacao.js`, carregado pelo layout.
- *
- * Não se refez a mecânica: ela já lá está, já foi corrigida uma vez (um
- * `<script>` em linha não volta a correr quando se chega aqui pela barra
- * lateral) e continua a servir. O que mudou foi quem lhe põe a mesa — era o
- * Blade, é agora este ecrã.
- */
-declare global {
-    interface Window {
-        exportToPDF?: () => void | Promise<void>;
-        exportToExcel?: () => void;
-    }
-}
+import { exportarCsvDoPainel, exportarPdfDoPainel } from './exportarPainel';
 
 /**
  * O PAINEL DA FACTURAÇÃO.
@@ -521,9 +509,8 @@ function corDoEstado(cor: string): 'bom' | 'aviso' | 'perigo' | 'primaria' | 'ne
 /**
  * OS DOIS BOTÕES QUE O PAINEL EM BLADE TINHA, e que a migração perdeu.
  *
- * Chamam o que já existe em `/js/painel-facturacao.js`. Sair daqui a construir
- * outro PDF era ter duas mecânicas a fazer a mesma coisa — e um dos dois a
- * ficar para trás no primeiro ajuste.
+ * O PDF e o CSV vivem em `exportarPainel.ts` (eram o `painel-facturacao.js`
+ * do layout). Uma falha a gerar o PDF diz-se num aviso, em vez de morrer calada.
  */
 function Exportar() {
     return (
@@ -532,13 +519,13 @@ function Exportar() {
                 cor="perigo"
                 altura="pequeno"
                 icone="fa-file-pdf"
-                onClick={() => void window.exportToPDF?.()}
+                onClick={() => void exportarPdfDoPainel().catch(() => avisar(t('Não foi possível gerar o PDF.'), 'erro'))}
             >
                 {t('Exportar PDF')}
             </Botao>
             {/* «Excel» fica fora do t(): é nome de produto, como FOX Friendly.
                 Escreve-se igual nas três línguas. */}
-            <Botao cor="bom" altura="pequeno" icone="fa-file-excel" onClick={() => window.exportToExcel?.()}>
+            <Botao cor="bom" altura="pequeno" icone="fa-file-excel" onClick={exportarCsvDoPainel}>
                 Excel
             </Botao>
         </>
@@ -548,18 +535,15 @@ function Exportar() {
 /**
  * A MESA POSTA PARA O EXPORTADOR: os mesmos nós, com os mesmos nomes.
  *
- * O `painel-facturacao.js` lê tudo do DOM e não de dentro de si — foi assim
- * que sobreviveu a uma navegação que não recarrega a página. Portanto o ecrã
- * não lhe passa nada por argumento: escreve os nós e ele encontra-os.
+ * O exportador (`exportarPainel.ts`) lê tudo do DOM, como lia o antigo
+ * `painel-facturacao.js`: o ecrã escreve os nós e ele encontra-os.
  *
  *   `textosPainel` → a etiqueta do `Intl`, as frases já traduzidas e os
  *                    valores (formatados para o PDF, CRUS para o CSV).
  *   `dadosVendas`  → as linhas do CSV, uma por mês.
  *
  * O `dadosPainel` de propósito NÃO se escreve: era só para as roscas em
- * `<canvas>` que este ecrã não tem, e a sua simples presença fazia o
- * `painel-facturacao.js` descarregar o Chart.js inteiro para não desenhar
- * nada.
+ * `<canvas>` que este ecrã não tem.
  *
  * OS VALORES DO CSV NÃO LEVAM SEPARADOR DE MILHARES. Um `1.234,56` dentro de
  * um ficheiro separado por vírgulas abre na folha de cálculo com uma coluna a
