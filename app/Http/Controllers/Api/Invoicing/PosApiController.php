@@ -131,6 +131,26 @@ class PosApiController extends Controller
         return $categorias;
     }
 
+    /**
+     * O ENDEREÇO DA FOTO DO ARTIGO, a partir da raiz do site.
+     *
+     * Relativo à raiz e não absoluto: o `image_url` do modelo junta o APP_URL,
+     * e numa instalação com o APP_URL a dizer «localhost» (ou http num site em
+     * https) a foto não carregava. Um endereço que já é completo fica como está.
+     */
+    private function enderecoDaImagem(?string $caminho): ?string
+    {
+        if (! $caminho) {
+            return null;
+        }
+
+        if (filter_var($caminho, FILTER_VALIDATE_URL) || str_starts_with($caminho, '/')) {
+            return $caminho;
+        }
+
+        return '/storage/' . ltrim(preg_replace('#^storage/#', '', $caminho), '/');
+    }
+
     /** O turno aberto DESTE operador, que é o que manda no ecrã. */
     private function turnoAberto(int $tenantId): ?PosShift
     {
@@ -347,8 +367,8 @@ class PosApiController extends Controller
                      */
                     'pergunta_preco' => (bool) $p->preco_no_pos,
                     // O caminho gravado («products/x.jpg») não é um endereço: o browser
-                    // pedia-o relativo à página e a imagem saía partida.
-                    'imagem' => $p->image_url,
+                    // pedia-o relativo à página e a imagem saía partida. Ver enderecoDaImagem.
+                    'imagem' => $this->enderecoDaImagem($p->featured_image),
                     // Serviços e artigos sem gestão de stock não mostram número.
                     'stock' => $servico || ! $p->manage_stock
                         ? null
@@ -467,8 +487,8 @@ class PosApiController extends Controller
                 'preco' => round((float) $p->price, 2),
                 'pergunta_preco' => (bool) $p->preco_no_pos,
                 // O caminho gravado («products/x.jpg») não é um endereço: o browser
-                // pedia-o relativo à página e a imagem saía partida.
-                'imagem' => $p->image_url,
+                // pedia-o relativo à página e a imagem saía partida. Ver enderecoDaImagem.
+                'imagem' => $this->enderecoDaImagem($p->featured_image),
                 'stock' => $disponivel === null ? null : round($disponivel, 3),
                 'categoria_id' => $p->category_id ? (int) $p->category_id : null,
                 'receita' => (bool) $p->requires_prescription,

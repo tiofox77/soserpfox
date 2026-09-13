@@ -9,7 +9,8 @@ import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { FOCO, RAIO, cls, kz } from '@/ui/tokens';
-import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
+import { duracaoPara, useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
+import { avisar } from '@/casca/avisos';
 import { ModalDePagamento } from './ModalDePagamento';
 import { ModalDeCliente } from './ModalDeCliente';
 import { ModalDePreco } from './ModalDePreco';
@@ -133,8 +134,17 @@ function Balcao({ o }: { o: Opcoes }) {
     const [cliente, porCliente] = useState<ClienteDoPos | null>(null);
     const [descontoTipo, porDescontoTipo] = useState<'percentagem' | 'valor'>('percentagem');
     const [desconto, porDesconto] = useState('');
-    const [aviso, porAviso] = useState('');
-    const [recado, porRecado] = useRecadoNoCanto('');
+    /*
+     * OS AVISOS DO BALCÃO SAEM NO CANTO, como todo o sistema.
+     *
+     * Eram uma faixa vermelha por cima do catálogo: empurrava a grelha para
+     * baixo a cada «só há 1 no armazém», e ficava lá até alguém a fechar.
+     * O stock e a receita avisam em âmbar; a venda que não fecha, a vermelho.
+     */
+    const porAviso = useCallback((texto: string, tom: 'aviso' | 'erro' = 'aviso') => {
+        if (texto.trim() !== '') avisar(texto, tom, { duracao: duracaoPara(texto) });
+    }, []);
+    const [, porRecado] = useRecadoNoCanto('');
 
     // Os modais.
     const [pagar, porPagar] = useState(false);
@@ -488,7 +498,7 @@ function Balcao({ o }: { o: Opcoes }) {
             porDesconto('');
             porRecado(v.message);
         },
-        onError: (e) => porAviso(e instanceof ErroDaApi ? e.message : t('Não foi possível fechar a venda.')),
+        onError: (e) => porAviso(e instanceof ErroDaApi ? e.message : t('Não foi possível fechar a venda.'), 'erro'),
     });
 
     return (
@@ -497,10 +507,6 @@ function Balcao({ o }: { o: Opcoes }) {
                 mercadoria. No ecrã de sempre o cabeçalho da página dizia
                 «Dashboard — Bem-vindo ao sistema», que num POS não diz nada. */}
             <Faixa turno={o.turno!} armazem={o.armazem} />
-
-            {(aviso || recado) && (
-                <Recados aviso={aviso} recado={recado} aoFechar={() => { porAviso(''); porRecado(''); }} />
-            )}
 
             {/* O CORPO: catálogo à esquerda, carrinho à direita, e os dois a
                 rolar POR DENTRO. A altura é a que sobra da janela — medida, não
@@ -716,29 +722,6 @@ function Faixa({
                     F2 {t('procurar')} · F4 {t('cliente')} · F9 {t('pagar')}
                 </span>
             </div>
-        </div>
-    );
-}
-
-function Recados({ aviso, recado, aoFechar }: { aviso: string; recado: string; aoFechar: () => void }) {
-    const erro = aviso !== '';
-
-    return (
-        <div
-            role={erro ? 'alert' : 'status'}
-            className={cls(
-                'flex items-center justify-between gap-3 border px-4 py-2.5 text-sm animate-fade-in',
-                erro ? 'border-red-200 bg-red-50 text-red-900' : 'border-emerald-200 bg-emerald-50 text-emerald-900',
-                RAIO,
-            )}
-        >
-            <span className="flex items-center gap-2">
-                <i className={cls('fas', erro ? 'fa-circle-exclamation' : 'fa-circle-check')} aria-hidden="true" />
-                {aviso || recado}
-            </span>
-            <button type="button" onClick={aoFechar} aria-label={t('Fechar')} className={cls('p-1', FOCO, RAIO)}>
-                <i className="fas fa-times" aria-hidden="true" />
-            </button>
         </div>
     );
 }
@@ -1410,41 +1393,60 @@ function Carrinho({
             <div className="flex-none border-t border-slate-200 bg-slate-50 p-3">
                 {/* O DESCONTO, com rótulo. Antes era um `%` mudo ao lado de uma
                     caixa com «0», e ninguém sabia o que aquilo era. */}
+                {/* O interruptor % / Kz tem largura própria e não encolhe: com a
+                    caixa a crescer ao lado, o «Kz» ficava cortado a meio. A
+                    unidade repete-se dentro da caixa, para se ler o que se
+                    está a escrever sem olhar para o botão. */}
                 <div className="mb-3">
-                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <label htmlFor="desconto-do-balcao" className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <i className="fas fa-tags text-[10px] text-amber-500" aria-hidden="true" />
                         {t('Desconto')}
                     </label>
-                    <div className="flex gap-2">
-                        <div className={cls('flex overflow-hidden border border-slate-200 bg-white', RAIO)}>
+                    <div className="flex h-10 items-stretch gap-2">
+                        <div
+                            role="group"
+                            aria-label={t('Tipo de desconto')}
+                            className={cls('grid shrink-0 grid-cols-2 gap-0.5 border border-slate-200 bg-slate-100 p-0.5', RAIO)}
+                        >
                             {(['percentagem', 'valor'] as const).map((tipo) => (
                                 <button
                                     key={tipo}
                                     type="button"
                                     onClick={() => porDescontoTipo(tipo)}
                                     aria-pressed={descontoTipo === tipo}
+                                    title={tipo === 'percentagem' ? t('Desconto em percentagem') : t('Desconto em kwanzas')}
                                     className={cls(
-                                        'px-3 py-2 text-sm font-bold transition-colors',
-                                        descontoTipo === tipo ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50',
+                                        'grid w-11 place-items-center rounded-lg text-sm font-bold transition-all duration-200',
+                                        descontoTipo === tipo
+                                            ? 'bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-sm'
+                                            : 'text-slate-500 hover:bg-white hover:text-indigo-600',
                                         FOCO,
                                     )}
                                 >
-                                    {tipo === 'percentagem' ? '%' : 'Kz'}
+                                    {tipo === 'percentagem' ? <i className="fas fa-percent text-xs" aria-hidden="true" /> : 'Kz'}
                                 </button>
                             ))}
                         </div>
-                        <input
-                            type="text"
-                            inputMode="decimal"
-                            value={desconto}
-                            onChange={(e) => porDesconto(e.target.value)}
-                            placeholder="0"
-                            aria-label={t('Valor do desconto')}
-                            className={cls(
-                                'w-full border border-slate-200 bg-white px-3 py-2 text-right text-sm font-semibold tabular-nums',
-                                RAIO,
-                                FOCO,
-                            )}
-                        />
+                        <div className="relative min-w-0 flex-1">
+                            <input
+                                id="desconto-do-balcao"
+                                type="text"
+                                inputMode="decimal"
+                                value={desconto}
+                                onChange={(e) => porDesconto(e.target.value)}
+                                placeholder="0"
+                                aria-label={t('Valor do desconto')}
+                                className={cls(
+                                    'h-full w-full border border-slate-200 bg-white pl-3 pr-10 text-right text-sm font-semibold tabular-nums',
+                                    'placeholder:text-slate-300 focus:border-indigo-400',
+                                    RAIO,
+                                    FOCO,
+                                )}
+                            />
+                            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-bold text-slate-400">
+                                {descontoTipo === 'percentagem' ? '%' : 'Kz'}
+                            </span>
+                        </div>
                     </div>
                 </div>
 

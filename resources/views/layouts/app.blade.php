@@ -45,8 +45,11 @@
 
     <!-- Prevenir FOUC: Força tamanhos de imagem antes de qualquer script -->
     <style>
-        /* Crítico: carrega ANTES de qualquer framework */
-        img[src*="/storage/"] {
+        /* Crítico: carrega ANTES de qualquer framework.
+           SÓ os logótipos da moldura (barra lateral e topo). Valia para TODAS
+           as imagens de /storage/ e apanhava as fotos dos artigos no POS: 4rem
+           de altura e encolhidas, tortas dentro do cartão. */
+        aside img[src*="/storage/"], header img[src*="/storage/"], .sidebar img[src*="/storage/"] {
             max-height: 4rem !important;
             max-width: 200px !important;
             object-fit: contain !important;
@@ -66,8 +69,8 @@
     <link rel="stylesheet" href="/vendor/css/fontawesome.min.css">
     
     <style>
-        /* Prevenir FOUC (Flash of Unstyled Content) em imagens */
-        img[src*="/storage/"] {
+        /* Prevenir FOUC nos logótipos da moldura (ver o bloco crítico acima) */
+        aside img[src*="/storage/"], header img[src*="/storage/"] {
             max-height: 4rem !important;
             max-width: 100% !important;
         }

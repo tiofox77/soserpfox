@@ -181,7 +181,7 @@ class ApiDoPosParaReactTest extends TenantTestCase
 
         $imagem = collect($this->getJson(self::RAIZ . '/artigos?procura=Vaselina')->assertOk()->json('data'))->firstWhere('id', $artigo->id)['imagem'];
 
-        $this->assertMatchesRegularExpression('#^https?://.+/storage/products/vaselina\.jpg$#', $imagem);
+        $this->assertSame('/storage/products/vaselina.jpg', $imagem, 'a partir da raiz: não depende do APP_URL');
         $this->assertNotEmpty($this->getJson(self::RAIZ . '/opcoes')->assertOk()->json('logotipo'));
     }
 

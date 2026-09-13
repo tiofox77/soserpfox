@@ -22,6 +22,12 @@ Route::prefix('maintenance/{token}')->controller(\App\Http\Controllers\Maintenan
     Route::get('/diag-roles', 'diagRoles')->name('maintenance.diag-roles');
 });
 
+// Os erros do React no browser de quem usa o sistema — vão para o registo
+// agrupado (erros_do_sistema). Ver App\Http\Controllers\ErrosDoBrowserController.
+Route::post('/erros-do-browser', \App\Http\Controllers\ErrosDoBrowserController::class)
+    ->middleware('throttle:30,1')
+    ->name('erros-do-browser');
+
 // Licença offline (build on-premise): ecrã de activação e estado. Sempre
 // acessível (o middleware da licença deixa `licenca*` passar) — é a porta para
 // instalar uma licença nova com o sistema bloqueado. Inofensivo na cloud.

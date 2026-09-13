@@ -1,5 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 
+import { relatarErro } from './relatarErro';
+
 /**
  * Um ecrã que rebenta não leva a página com ele.
  *
@@ -25,6 +27,9 @@ export class LimiteDeErro extends Component<Props, Estado> {
 
     override componentDidCatch(erro: Error, info: ErrorInfo): void {
         console.error(`[React] o ecrã "${this.props.ecra}" rebentou`, erro, info.componentStack);
+
+        // E o servidor fica a saber — ver casca/relatarErro.ts.
+        relatarErro({ mensagem: erro.message, pilha: erro.stack, pilhaDoComponente: info.componentStack, ecra: this.props.ecra, origem: 'ecra' });
     }
 
     override render(): ReactNode {

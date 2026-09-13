@@ -17,6 +17,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cacheDeMutacoesComAvisos } from '@/casca/avisosDasMutacoes';
 import { carregarDicionario, lingua } from '@/i18n';
 import { LimiteDeErro } from '@/casca/LimiteDeErro';
+import { ligarRelatoDeErros } from '@/casca/relatarErro';
 import { Carregando } from '@/ui/Carregando';
 import { ecras } from '@/ecras/registo';
 import { activarDicasDeAccao } from '@/ui/DicasDeAccao';
@@ -43,6 +44,9 @@ const clienteDeConsultas = new QueryClient({
 // Uma unica camada de legendas serve todos os ecras e todos os modais,
 // incluindo os elementos que chegam depois de uma resposta da API.
 activarDicasDeAccao();
+
+// Um erro que nenhum ecrã apanhou (um clique, uma promessa) chega ao servidor.
+ligarRelatoDeErros();
 
 function montar(elemento: HTMLElement): void {
     const nome = elemento.dataset.ecra ?? elemento.dataset.peca;
