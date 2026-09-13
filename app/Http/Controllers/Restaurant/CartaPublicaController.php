@@ -31,12 +31,27 @@ class CartaPublicaController extends Controller
         $carta = new CartaPublica($d);
         $dados = $carta->paraAPagina($mesa);
 
+        // Sem título escrito, o nome da casa: «Menu» sozinho era o mesmo
+        // título em todas as cartas do sistema.
+        $nome = $d->menu_title ?: (string) \App\Models\Tenant::find($d->tenant_id)?->name;
+
         return view('react.publico', [
             'ecra' => 'restaurant/carta-online',
             'props' => ['slug' => $slug] + $dados,
-            'titulo' => $d->menu_title ?: __('Menu'),
-            'descricao' => $d->menu_description ?: __('Menu digital'),
+            'titulo' => $nome ? __('Menu') . ' — ' . $nome : __('Menu'),
+            'descricao' => $d->menu_description ?: __('Menu digital de :casa: pratos, bebidas e preços.', ['casa' => $nome ?: __('Menu')]),
             'imagem' => $dados['casa']['capa'] ?: $dados['casa']['logo'],
+            // A carta de uma MESA é a mesma carta: não se indexa, e o endereço
+            // canónico é o da casa. Cada mesa era uma página duplicada.
+            'canonico' => \App\Support\DadosEstruturados::raiz() . '/menu/' . $slug,
+            'dadosEstruturados' => \App\Support\CasaPublica::dadosEstruturados('Restaurant', \App\Support\DadosEstruturados::raiz() . '/menu/' . $slug, (int) $d->tenant_id, [
+                'nome' => $nome ?: __('Menu'),
+                'descricao' => $d->menu_description,
+                'imagem' => $dados['casa']['capa'] ?: $dados['casa']['logo'],
+                'telefone' => $carta->numeroDoWhatsapp() ? '+' . $carta->numeroDoWhatsapp() : null,
+                'menu' => \App\Support\DadosEstruturados::raiz() . '/menu/' . $slug,
+            ]),
+            'robots' => $mesa !== null ? 'noindex, follow' : null,
         ]);
     }
 

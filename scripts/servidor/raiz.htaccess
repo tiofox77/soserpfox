@@ -1,0 +1,29 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # UM ENDEREÇO SÓ: https://soserp.vip
+    #
+    # http:// e www. respondiam 200 com a mesma página — quatro endereços para
+    # cada conteúdo, e o cookie da sessão a viajar sem cifra. 301 nos pedidos
+    # de leitura; 308 nos outros, que um POST redireccionado com 301 chega como
+    # GET e perde o corpo. O /.well-known fica de fora: é por http que o
+    # certificado automático se renova.
+    RewriteCond %{REQUEST_URI} !^/\.well-known/
+    RewriteCond %{HTTP_HOST} ^(www\.)?soserp\.vip$ [NC]
+    RewriteCond %{HTTPS} !=on [OR]
+    RewriteCond %{HTTP_HOST} ^www\. [NC]
+    RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
+    RewriteRule ^ https://soserp.vip%{REQUEST_URI} [R=301,L]
+
+    RewriteCond %{REQUEST_URI} !^/\.well-known/
+    RewriteCond %{HTTP_HOST} ^(www\.)?soserp\.vip$ [NC]
+    RewriteCond %{HTTPS} !=on [OR]
+    RewriteCond %{HTTP_HOST} ^www\. [NC]
+    RewriteRule ^ https://soserp.vip%{REQUEST_URI} [R=308,L]
+
+    # Não reescrever o que já estiver dentro de /public
+    RewriteCond %{REQUEST_URI} !^/public/
+
+    # Enviar tudo para a pasta pública do Laravel
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>

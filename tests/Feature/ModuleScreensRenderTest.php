@@ -138,6 +138,8 @@ class ModuleScreensRenderTest extends TenantTestCase
 
     public function test_reservas_online_desligadas_sao_recusadas(): void
     {
+        $this->comModulo('hotel');
+
         $definicoes = \App\Models\Hotel\HotelSettings::create([
             'tenant_id'              => $this->tenant->id,
             'hotel_name'             => 'Hotel Fechado',

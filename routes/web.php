@@ -72,6 +72,9 @@ Route::get('/', [App\Http\Controllers\LandingController::class, 'home'])->name('
 Route::view('/termos', 'legal.termos')->name('legal.termos');
 Route::view('/privacidade', 'legal.privacidade')->name('legal.privacidade');
 
+// O sitemap: só o que se indexa, com as páginas públicas das empresas. Ver o controlador.
+Route::get('/sitemap.xml', [App\Http\Controllers\SitemapController::class, 'index'])->name('sitemap');
+
 // Webhook do Meta (Facebook/Instagram/WhatsApp) — POR EMPRESA. Públicos: é o
 // Meta que chama, máquina-a-máquina. Sem sessão nem CSRF (a isenção está em
 // bootstrap/app.php). Seguros pelo verify_token (GET) e pela assinatura (POST).
@@ -3147,7 +3150,7 @@ Route::get('/booking/{tenant?}', function ($tenant = null) {
             ->first()
         : null;
 
-    abort_unless($definicoes, 404, 'Hotel não encontrado.');
+    abort_unless($definicoes && \App\Support\CasaPublica::aberta((int) $empresa->id, 'hotel'), 404, 'Hotel não encontrado.');
 
     return redirect()->route('hotel.booking.online', ['slug' => $definicoes->booking_slug]);
 })->name('booking.online');
@@ -3162,15 +3165,28 @@ Route::get('/booking/{tenant?}', function ($tenant = null) {
 Route::get('/hotel/booking/{slug}', function (string $slug) {
     $d = \App\Models\Hotel\HotelSettings::findBySlug($slug);
 
-    abort_unless($d, 404, __('Hotel não encontrado.'));
+    // Uma empresa desactivada, ou sem o módulo, não tem página de reservas.
+    abort_unless($d && \App\Support\CasaPublica::aberta((int) $d->tenant_id, 'hotel'), 404, __('Hotel não encontrado.'));
     abort_unless($d->online_booking_enabled, 403, __('Esta casa não aceita reservas por aqui.'));
 
     return view('react.publico', [
         'ecra' => 'hotel/reservar',
         'props' => ['slug' => $slug],
-        'titulo' => $d->meta_title ?: ($d->hotel_name ?: __('Reservas')),
+        'titulo' => $d->meta_title ?: ($d->hotel_name ? $d->hotel_name . ' — ' . __('Reservas online') : __('Reservas')),
         'descricao' => $d->meta_description ?: ($d->hotel_description ?: ''),
         'imagem' => $d->cover_url ?: $d->logo_url,
+        'canonico' => \App\Support\DadosEstruturados::raiz() . '/hotel/booking/' . $slug,
+        'dadosEstruturados' => \App\Support\CasaPublica::dadosEstruturados('Hotel', \App\Support\DadosEstruturados::raiz() . '/hotel/booking/' . $slug, (int) $d->tenant_id, [
+            'nome' => (string) ($d->hotel_name ?: \App\Models\Tenant::find($d->tenant_id)?->name),
+            'descricao' => $d->hotel_description,
+            'imagem' => $d->cover_url ?: $d->logo_url,
+            'telefone' => $d->hotel_phone,
+            'email' => $d->hotel_email,
+            'morada' => $d->hotel_address,
+            'cidade' => $d->hotel_city,
+            'pais' => $d->hotel_country,
+            'redes' => [$d->hotel_website],
+        ]),
     ]);
 })->name('hotel.booking.online');
 

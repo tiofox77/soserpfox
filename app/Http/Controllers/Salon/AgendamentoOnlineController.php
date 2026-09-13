@@ -24,7 +24,8 @@ class AgendamentoOnlineController extends Controller
     {
         $d = SalonSettings::getBySlug($slug);
 
-        abort_unless($d, 404, __('Salão não encontrado'));
+        // Uma empresa desactivada, ou sem o módulo, não tem salão público.
+        abort_unless($d && \App\Support\CasaPublica::aberta((int) $d->tenant_id, 'salon'), 404, __('Salão não encontrado'));
         abort_unless($d->online_booking_enabled, 403, __('Agendamento online não está disponível'));
 
         return $d;
@@ -52,7 +53,18 @@ class AgendamentoOnlineController extends Controller
         return view('react.publico', [
             'ecra' => 'salao/agendar',
             'props' => ['slug' => $slug, 'cliente' => $cliente ? $servico->paraACliente($cliente) : null] + $dados,
-            'titulo' => $d->salon_name ?: __('Agendar'),
+            'titulo' => $d->salon_name ? $d->salon_name . ' — ' . __('Marcação online') : __('Agendar'),
+            'canonico' => \App\Support\DadosEstruturados::raiz() . '/agendar/' . $slug,
+            'dadosEstruturados' => \App\Support\CasaPublica::dadosEstruturados('BeautySalon', \App\Support\DadosEstruturados::raiz() . '/agendar/' . $slug, (int) $d->tenant_id, [
+                'nome' => (string) ($d->salon_name ?: \App\Models\Tenant::find($d->tenant_id)?->name),
+                'descricao' => $d->salon_description,
+                'imagem' => $d->cover_url ?: $d->logo_url,
+                'telefone' => $d->salon_phone,
+                'email' => $d->salon_email,
+                'morada' => $d->salon_address,
+                'redes' => [$d->salon_website, $d->salon_instagram, $d->salon_facebook, $d->salon_tiktok],
+                'mapa' => $d->salon_google_maps_url,
+            ]),
             'descricao' => $d->salon_description ?: ($d->welcome_message ?: __('Agende online')),
             'imagem' => $d->cover_url ?: $d->logo_url,
         ]);

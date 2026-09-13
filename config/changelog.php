@@ -19,10 +19,25 @@ return [
     // O PWA JÁ NÃO DEPENDE DISTO: o aquecimento do cache das páginas usava este
     // valor como chave e passou a usar a assinatura da versão do próprio PWA
     // (resources/js/pwa/aquecer.ts), que muda sozinha quando os ficheiros mudam.
-    'current' => '2026.09.13.10',
+    'current' => '2026.09.13.11',
 
     'releases' => [
 
+        [
+            'version'      => '2026.09.13.11',
+            'date'         => '2026-09-13',
+            'type'         => 'patch',
+            'title'        => 'As páginas públicas encontram-se melhor no Google — e as de empresas desactivadas saem do ar',
+            'improvements' => [
+                ['produto' => 'web', 'texto' => 'A carta do restaurante, a marcação do salão e as reservas do hotel entram no mapa do site, com o nome da casa no título e a morada e o contacto para o Google.'],
+            ],
+            'fixes'        => [
+                ['produto' => 'web', 'texto' => 'A carta, a marcação online e as reservas de uma empresa desactivada (ou sem o módulo) continuavam abertas e a aceitar pedidos.'],
+            ],
+            'security'     => [
+                ['produto' => 'web', 'texto' => 'O site passa a abrir sempre em https://soserp.vip, e nenhum ficheiro de código pode correr nas pastas de imagens.'],
+            ],
+        ],
         [
             'version'      => '2026.09.13.10',
             'date'         => '2026-09-13',

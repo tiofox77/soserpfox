@@ -2,6 +2,7 @@
 
 @section('emoji', '🛠️')
 @section('codigo', '500')
+@section('robots', 'noindex, nofollow')
 @section('titulo', 'Alguma coisa correu mal do nosso lado')
 
 @section('mensagem')

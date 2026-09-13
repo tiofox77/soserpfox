@@ -75,7 +75,10 @@ class RestaurantSettings extends Model
             ->where('menu_slug', $slug)
             ->first();
 
-        return $definicoes?->online_menu_enabled ? $definicoes : null;
+        // Interruptor da carta, empresa activa e módulo activo — ver CasaPublica.
+        return $definicoes?->online_menu_enabled && \App\Support\CasaPublica::aberta((int) $definicoes->tenant_id, 'restaurant')
+            ? $definicoes
+            : null;
     }
 
     /** O endereço público da carta, se houver. */

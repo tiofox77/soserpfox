@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#1e40af">
     <title>SOS ERP - Offline</title>
+    <meta name="robots" content="noindex, nofollow">
     @include('partials.favicon')
     <link rel="manifest" href="/manifest.json">
     <style>

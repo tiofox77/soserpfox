@@ -12,7 +12,7 @@
     <meta name="description" content="SOS ERP - Sistema completo de gestão empresarial. Gerencie eventos, inventário, CRM, faturação e muito mais. Solução profissional para empresas em Angola.">
     <meta name="keywords" content="ERP, gestão empresarial, sistema de gestão, Angola, eventos, inventário, CRM, faturação, contabilidade">
     <meta name="author" content="SOS ERP">
-    <meta name="robots" content="index, follow">
+    <meta name="robots" content="noindex, nofollow">
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">

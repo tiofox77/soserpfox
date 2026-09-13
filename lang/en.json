@@ -10705,5 +10705,8 @@
     "Comanda :numero anulada. A mesa ficou livre.": "Order :numero cancelled. The table is free.",
     "Ver o carrinho": "View cart",
     "O que vender": "What to sell",
-    "Não tem permissão para criar clientes.": "You do not have permission to create customers."
+    "Não tem permissão para criar clientes.": "You do not have permission to create customers.",
+    "Marcação online": "Online booking",
+    "Reservas online": "Online reservations",
+    "Menu digital de :casa: pratos, bebidas e preços.": "Digital menu of :casa: dishes, drinks and prices."
 }

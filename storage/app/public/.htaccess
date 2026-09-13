@@ -1,0 +1,20 @@
+# AS PASTAS DAS EMPRESAS SÓ SERVEM FICHEIROS, NUNCA OS EXECUTAM.
+#
+# Segunda tranca (a primeira está em public/.htaccess): mesmo que um .php
+# chegue aqui por um carregamento, não corre e não se descarrega.
+<FilesMatch "\.(?i:php[0-9]?|phtml|phar|phps|pht|pl|py|cgi|sh|asp|aspx|jsp)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+<IfModule mod_mime.c>
+    RemoveHandler .php .php3 .php4 .php5 .php7 .php8 .phtml .phar .cgi .pl .py
+    RemoveType .php .php3 .php4 .php5 .php7 .php8 .phtml .phar
+</IfModule>
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>

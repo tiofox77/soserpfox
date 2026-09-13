@@ -347,7 +347,8 @@ class ReservaOnlineApiController extends Controller
     {
         $d = HotelSettings::findBySlug($slug);
 
-        abort_unless($d, 404, __('Hotel não encontrado.'));
+        // Uma empresa desactivada, ou sem o módulo, não recebe reservas.
+        abort_unless($d && \App\Support\CasaPublica::aberta((int) $d->tenant_id, 'hotel'), 404, __('Hotel não encontrado.'));
         abort_unless($d->online_booking_enabled, 403, __('Esta casa não aceita reservas por aqui.'));
 
         return $d;

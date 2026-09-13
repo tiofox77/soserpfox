@@ -5,6 +5,16 @@
 
     RewriteEngine On
 
+    # NENHUM SCRIPT CORRE AQUI ALÉM DO index.php.
+    #
+    # O Laravel entra todo pelo index.php; qualquer outro .php (ou .phtml,
+    # .phar…) debaixo de public/ — incluindo public/storage, onde as empresas
+    # carregam imagens — só pode ser um esquecimento ou um backdoor. Um site
+    # comprometido é marcado pelo Google Safe Browsing e perde a indexação
+    # inteira. Recusa-se antes de o PHP ver o pedido.
+    RewriteCond $1 !^index\.php$ [NC]
+    RewriteRule ^(.*\.(?:php[0-9]?|phtml|phar|phps|pht|pl|py|cgi|sh|asp|aspx|jsp))$ - [NC,F,L]
+
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]

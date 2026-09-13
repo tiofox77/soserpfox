@@ -31,6 +31,9 @@ class AgendamentoOnlineTest extends TenantTestCase
     {
         parent::setUp();
 
+        // A página pública só abre a uma empresa com o módulo (CasaPublica).
+        $this->comModulo('salon');
+
         $this->definicoes = SalonSettings::withoutGlobalScopes()->updateOrCreate(
             ['tenant_id' => $this->tenant->id],
             [

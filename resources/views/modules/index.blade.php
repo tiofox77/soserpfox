@@ -1,4 +1,43 @@
-<x-modules-layout title="Todos os Módulos" description="Conhece todos os módulos do SOSERP — soluções dedicadas para cada setor.">
+@php
+    /*
+     * A LISTA DOS MÓDULOS É UMA PÁGINA DE COLECÇÃO: não tinha canónico nem
+     * dados estruturados, e o título («Todos os Módulos», 26 caracteres) não
+     * dizia a ninguém do que se tratava. A ItemList sai da MESMA lista que os
+     * cartões desenham — um módulo que não aparece não conta.
+     */
+    $ds = \App\Support\DadosEstruturados::class;
+    $urlDaLista = $ds::raiz() . '/modulos';
+    $tituloDaLista = 'Módulos de gestão para empresas em Angola';
+    $descricaoDaLista = 'Faturação e POS certificados pela AGT, RH com IRT e INSS, restaurante, hotel, salão de beleza e oficina auto. Compare os módulos e os preços.';
+    $migalhasDaLista = [['SOSERP', $ds::raiz() . '/'], ['Módulos', $urlDaLista]];
+
+    $dadosDaLista = $ds::script([
+        $ds::organizacao(),
+        $ds::site(),
+        array_merge($ds::pagina($urlDaLista, $tituloDaLista, $descricaoDaLista, $migalhasDaLista), [
+            '@type' => 'CollectionPage',
+            'mainEntity' => ['@id' => $urlDaLista . '#modulos'],
+        ]),
+        $ds::migalhas($urlDaLista, $migalhasDaLista),
+        [
+            '@type' => 'ItemList',
+            '@id' => $urlDaLista . '#modulos',
+            'numberOfItems' => count($modules),
+            'itemListElement' => array_values(array_map(fn ($m, $i) => [
+                '@type' => 'ListItem',
+                'position' => $i + 1,
+                'name' => $ds::semEmoji($m['name']),
+                'url' => $ds::raiz() . '/modulos/' . $m['slug'],
+            ], array_values($modules), array_keys(array_values($modules)))),
+        ],
+    ]);
+@endphp
+<x-modules-layout
+    title="Todos os Módulos"
+    :tituloSeo="$tituloDaLista"
+    :description="$descricaoDaLista"
+    :canonical="$urlDaLista"
+    :dadosEstruturados="$dadosDaLista">
 
 {{-- Hero --}}
 <section class="bg-gradient-to-br from-blue-600 to-purple-700 py-16 md:py-24 text-white">

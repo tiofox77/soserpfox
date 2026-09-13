@@ -21,6 +21,7 @@
          aqui que se sabe que versão corre em cada aparelho. --}}
     <meta name="pwa-versao" content="{{ app(\App\Http\Controllers\PwaController::class)->buildVersion() }}">
     <title>{{ $titulo }} — SOS ERP</title>
+    <meta name="robots" content="noindex, nofollow">
 
     <link rel="manifest" href="{{ url('/manifest.webmanifest') }}">
     <meta name="theme-color" content="{{ pwa_theme_color() }}">

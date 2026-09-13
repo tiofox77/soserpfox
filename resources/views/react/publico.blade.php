@@ -20,18 +20,24 @@
 
     <title>{{ $titulo }}</title>
     <meta name="description" content="{{ $descricao }}">
-    <meta name="robots" content="index, follow">
+    {{-- O CANÓNICO É O ENDEREÇO DA CASA, sem a mesa e sem query string: a
+         carta da mesa 7 é a mesma carta, e um `?utm=` do Instagram não é outra
+         página. --}}
+    <meta name="robots" content="{{ $robots ?? null ?: 'index, follow, max-image-preview:large' }}">
+    <link rel="canonical" href="{{ $canonico ?? url()->current() }}">
 
     <meta property="og:type" content="website">
     <meta property="og:title" content="{{ $titulo }}">
     <meta property="og:description" content="{{ $descricao }}">
-    <meta property="og:url" content="{{ url()->current() }}">
+    <meta property="og:url" content="{{ $canonico ?? url()->current() }}">
     @if($imagem)
     <meta property="og:image" content="{{ $imagem }}">
     @endif
     <meta name="twitter:card" content="{{ $imagem ? 'summary_large_image' : 'summary' }}">
 
     @include('partials.favicon')
+
+    {{ $dadosEstruturados ?? '' }}
 
     <script src="/vendor/js/tailwind.js"></script>
     <link rel="stylesheet" href="/vendor/css/fontawesome.min.css">

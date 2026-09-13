@@ -10,7 +10,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="robots" content="noindex">
+    <meta name="robots" content="noindex, nofollow">
     @isset($exception)
         @if($exception->getHeaders()['Retry-After'] ?? null)
             <meta http-equiv="refresh" content="{{ $exception->getHeaders()['Retry-After'] }}">

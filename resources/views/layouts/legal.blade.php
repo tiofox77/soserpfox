@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('titulo') — {{ function_exists('app_name') ? app_name() : 'SOS ERP' }}</title>
     <meta name="description" content="@yield('descricao')">
+    <meta name="robots" content="index, follow, max-image-preview:large">
+    <link rel="canonical" href="{{ \App\Support\DadosEstruturados::raiz() . '/' . ltrim(request()->path(), '/') }}">
     <link rel="icon" href="/brand/favicon-32x32.png">
     <script src="/vendor/js/tailwind.js"></script>
     <link rel="stylesheet" href="/vendor/css/fontawesome.min.css">
