@@ -37,9 +37,14 @@ class PrecacheDoPwaTest extends TenantTestCase
         return $this->get('/sw.js')->assertOk()->getContent();
     }
 
+    /**
+     * A casca do PWA como o aparelho a recebe. É a mesma para os onze ecrãs
+     * (App\Support\PaginaDoPwa), por isso a entrada — que abre sem sessão —
+     * mostra tudo o que qualquer ecrã pede.
+     */
     private function layout(): string
     {
-        return view('layouts.pwa', ['title' => 'ensaio'])->render();
+        return $this->get('/invoicing/offline/login')->assertOk()->getContent();
     }
 
     /** Os URLs que o layout do PWA pede, tal e qual. */
@@ -58,7 +63,11 @@ class PrecacheDoPwaTest extends TenantTestCase
 
         preg_match_all("/'([^']+)'/", $m[1], $u);
 
-        return $u[1];
+        // E o pacote do PWA, que o servidor escreve na PACOTE_DO_PWA ao servir o sw.js.
+        preg_match('/const PACOTE_DO_PWA = (\[.*?\]);/', $this->sw(), $p);
+        $pacote = json_decode($p[1] ?? '[]', true) ?: [];
+
+        return array_merge($u[1], $pacote);
     }
 
     /** A PROVA: tudo o que o layout pede está pré-guardado, letra a letra. */
@@ -108,9 +117,9 @@ class PrecacheDoPwaTest extends TenantTestCase
     }
 
     /**
-     * Os quatro ficheiros sem os quais não há offline nenhum.
+     * Os ficheiros sem os quais não há offline nenhum.
      *
-     * Escritos à mão de propósito: se alguém trocar o Dexie por outra coisa,
+     * Escritos à mão de propósito: se alguém trocar um deles por outra coisa,
      * este teste obriga a pensar em vez de deixar passar.
      */
     public function test_o_motor_offline_esta_pre_guardado(): void
@@ -118,22 +127,35 @@ class PrecacheDoPwaTest extends TenantTestCase
         $precache = $this->precache();
 
         foreach ([
-            '/vendor/js/dexie.min.js' => 'sem Dexie o motor offline nem arranca',
-            '/vendor/js/alpine.min.js' => 'sem Alpine o ecrã não responde',
             '/vendor/js/tailwind.js' => 'sem Tailwind não há desenho nenhum',
             '/vendor/css/fontawesome.min.css' => 'sem os ícones o POS fica ilegível',
+            '/js/vendor/bcrypt.min.js?v=1' => 'sem o bcrypt o PIN não confere sem rede',
+            '/vendor/js/html2canvas.min.js' => 'sem ele não há PDF no aparelho',
+            '/vendor/js/jspdf.umd.min.js' => 'sem ele não há PDF no aparelho',
         ] as $ficheiro => $porque) {
             $this->assertContains($ficheiro, $precache, "Falta {$ficheiro} — {$porque}.");
         }
     }
 
-    /** O código da aplicação offline também: sem ele o ecrã não sabe fazer nada. */
+    /**
+     * O código da aplicação offline também — o pacote do PWA (motor, papel e
+     * ecrãs), pelo nome de HOJE. Sem ele o ecrã abre e não sabe fazer nada.
+     */
     public function test_o_codigo_da_aplicacao_offline_esta_pre_guardado(): void
     {
-        $precache = $this->precache();
-        $comApp = array_filter($precache, fn ($u) => str_contains($u, 'pwa-invoicing.js'));
+        $pacote = \App\Support\PacoteReact::doPwa();
 
-        $this->assertNotEmpty($comApp, 'O pwa-invoicing.js tem de estar pré-guardado.');
+        if (! $pacote) {
+            $this->markTestSkipped('O pacote do PWA não está construído (npm run pwa:build).');
+        }
+
+        $this->assertContains($pacote, $this->precache(), 'O pacote do PWA tem de estar pré-guardado.');
+        $this->assertStringContainsString('src="'.$pacote.'"', $this->layout(), 'e a casca tem de o carregar pelo mesmo nome');
+
+        // Os motores antigos saíram: se voltarem à lista, pré-guarda-se o que ninguém pede.
+        foreach (['pwa-invoicing.js', 'pos-offline-ticket.js', 'pwa-turno.js', 'alpine.min.js', 'dexie.min.js'] as $velho) {
+            $this->assertEmpty(array_filter($this->precache(), fn ($u) => str_contains($u, $velho)), "{$velho} já não existe no PWA");
+        }
     }
 
     /** Os ficheiros pré-guardados existem mesmo no disco. */

@@ -174,11 +174,13 @@ class ClienteOfflineNoDocumentoTest extends TenantTestCase
 
     public function test_o_motor_trata_o_409_como_espera_e_nao_como_recusa(): void
     {
-        $motor = file_get_contents(public_path('js/pwa-invoicing.js'));
+        $rede = file_get_contents(resource_path('js/pwa/motor/rede.ts'));
+        $fila = file_get_contents(resource_path('js/pwa/motor/fila.ts'));
+        $sincronizar = file_get_contents(resource_path('js/pwa/motor/sincronizar.ts'));
 
-        $this->assertStringContainsString('response.status !== 409', $motor);
-        $this->assertStringContainsString('async function resolverClienteLocal', $motor);
-        $this->assertStringContainsString("...(existente || {}), ...c, _synced: 1", $motor,
+        $this->assertStringContainsString('![408, 409, 429].includes(resposta.status)', $rede);
+        $this->assertStringContainsString('export async function resolverClienteLocal', $fila);
+        $this->assertStringContainsString("...(existente || {}), ...c, _synced: 1", $sincronizar,
             'a descarga tem de juntar e não substituir — senão apaga o local_uuid');
     }
 }

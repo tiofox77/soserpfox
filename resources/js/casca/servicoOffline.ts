@@ -3,9 +3,8 @@ import { avisar } from './avisos';
 /**
  * O SERVICE WORKER — registo e actualização automática.
  *
- * Era o `partials/pwa-register` em linha no layout. As páginas do modo offline
- * (o PWA, que não carrega o React) continuam com o seu; aqui é para a
- * aplicação web.
+ * Era o `partials/pwa-register` em linha no layout (e em cada página do PWA).
+ * Agora é um só, para a aplicação web e para o PWA (`resources/js/pwa.tsx`).
  *
  * As regras que já tinham custado caro, e que se mantêm:
  *  • Sem contexto seguro não há service worker, e o browser recusa EM
@@ -17,18 +16,22 @@ import { avisar } from './avisos';
  */
 let ligado = false;
 
-export function ligarServicoOffline(): void {
+/**
+ * `avisos: false` é o PWA: lá a faixa do estado já diz «sem conexão» e
+ * «sincronizado», e um aviso por cima dela repetia o mesmo duas vezes.
+ */
+export function ligarServicoOffline({ avisos = true }: { avisos?: boolean } = {}): void {
     if (ligado || !('serviceWorker' in navigator)) return;
     ligado = true;
 
     window.addEventListener('offline', () => {
         document.body.classList.add('app-offline');
-        avisar('Sem conexão. A trabalhar em modo offline.', 'aviso', { titulo: 'Offline', duracao: 5000 });
+        if (avisos) avisar('Sem conexão. A trabalhar em modo offline.', 'aviso', { titulo: 'Offline', duracao: 5000 });
     });
     window.addEventListener('online', () => {
         document.body.classList.remove('app-offline');
         try { localStorage.setItem('soserp-last-online', Date.now().toString()); } catch { /* sem armazenamento */ }
-        avisar('Conexão restaurada!', 'ok', { titulo: 'Online', duracao: 3000 });
+        if (avisos) avisar('Conexão restaurada!', 'ok', { titulo: 'Online', duracao: 3000 });
     });
 
     if (!window.isSecureContext) {

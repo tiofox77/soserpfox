@@ -16,11 +16,9 @@ return [
 
     // Versão actualmente em produção (mostrada no badge)
     //
-    // ATENÇÃO ao mexer aqui: o layout do PWA usa este valor como chave do
-    // "warmup" (resources/views/layouts/pwa.blade.php). Quando muda, cada
-    // aparelho volta a puxar as páginas do modo offline para a cache. É de
-    // propósito — é assim que uma versão nova chega aos telemóveis — mas
-    // significa que mudar esta linha tem efeito real, e não é só um rótulo.
+    // O PWA JÁ NÃO DEPENDE DISTO: o aquecimento do cache das páginas usava este
+    // valor como chave e passou a usar a assinatura da versão do próprio PWA
+    // (resources/js/pwa/aquecer.ts), que muda sozinha quando os ficheiros mudam.
     'current' => '2026.08.19.1',
 
     'releases' => [

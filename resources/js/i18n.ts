@@ -128,6 +128,41 @@ export function tPartes(
 }
 
 /**
+ * PLURAIS, como o `trans_choice` do Laravel e o `__n` que o PWA tinha.
+ *
+ *   tn(':n produto|:n produtos', 3, { n: 3 })  → '3 products'
+ *
+ * O ZERO não se comporta igual nas três línguas, e é o erro que passa
+ * despercebido porque em português está certo: em francês o zero é SINGULAR
+ * («0 produit»). Duas formas chegam para estas três línguas.
+ */
+export function tn(frase: string, contagem: number, substituicoes?: Record<string, string | number>): string {
+    const formas = (dicionario[frase] ?? frase).split('|');
+    const singular = lingua() === 'fr' ? Math.abs(contagem) < 2 : contagem === 1;
+    let saida = (singular ? formas[0] : (formas[1] ?? formas[0])) ?? frase;
+
+    if (substituicoes) {
+        for (const [chave, valor] of porComprimento(substituicoes)) {
+            saida = saida.split(`:${chave}`).join(String(valor));
+        }
+    }
+
+    return saida;
+}
+
+/**
+ * O DICIONÁRIO QUE JÁ VEIO NA PÁGINA — o do PWA.
+ *
+ * O POS trabalha sem rede: o dicionário vai DENTRO da página (um nó JSON) e é
+ * guardado pelo service worker com ela. Pedido à parte, era mais um recurso
+ * que podia faltar — e um caixa sem rede ficava com o POS em português a meio
+ * de um turno em inglês.
+ */
+export function definirDicionario(d: Dicionario): void {
+    dicionario = d;
+}
+
+/**
  * Vai buscar o dicionário uma vez, antes de os ecrãs montarem.
  *
  * Guarda-se no `localStorage` pela marca da versão: numa rede fraca, 200 KB a

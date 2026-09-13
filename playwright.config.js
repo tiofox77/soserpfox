@@ -75,6 +75,21 @@ export default defineConfig({
                 // Os service workers TÊM de correr: sem eles não há offline
                 // nenhum e o ensaio não mede nada.
                 serviceWorkers: 'allow',
+                /*
+                 * UM ENDEREÇO http:// LOCAL CONTA COMO SEGURO — só no browser
+                 * dos ensaios.
+                 *
+                 * Sem HTTPS o Chrome recusa o service worker em silêncio, e o
+                 * Laragon nem sempre tem o 443 ligado: a bancada inteira caía
+                 * com ERR_CONNECTION_REFUSED sem medir nada do produto. Esta
+                 * bandeira do Chromium trata esse endereço como contexto
+                 * seguro, que é o que o telemóvel com HTTPS a sério vê. Tem de
+                 * ser o Chromium inteiro (`channel`): o «headless shell» que o
+                 * Playwright usa por omissão ignora a bandeira.
+                 */
+                ...(servidor.url.startsWith('http://') && !/\/\/(127\.0\.0\.1|localhost)/.test(servidor.url)
+                    ? { channel: 'chromium', launchOptions: { args: [`--unsafely-treat-insecure-origin-as-secure=${new URL(servidor.url).origin}`] } }
+                    : {}),
             },
         },
         {

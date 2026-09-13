@@ -39,7 +39,7 @@ test.describe('PWA — com rede', () => {
     /**
      * O DEFEITO QUE ISTO APANHA: o precache do service worker apontava para
      * CDN que a aplicação já não pede. Sem estes ficheiros em cache não há
-     * offline nenhum — sem Dexie o motor nem arranca.
+     * offline nenhum — sem o pacote do PWA o motor nem arranca.
      */
     test('o motor e o desenho ficam guardados em cache', async ({ page }) => {
         await entrar(page);
@@ -60,11 +60,18 @@ test.describe('PWA — com rede', () => {
             return urls;
         });
 
+        // O pacote do PWA (motor, papel e ecrãs) muda de nome a cada construção:
+        // é o que a própria página carrega que tem de estar guardado.
+        const pacote = await avaliar(page, () =>
+            new URL(document.querySelector('script[type="module"][src*="/pwa-app/"]').src).pathname);
+
+        expect(pacote).toMatch(/^\/pwa-app\/pwa-.+\.js$/);
+
         for (const essencial of [
-            '/vendor/js/dexie.min.js',
-            '/vendor/js/alpine.min.js',
             '/vendor/js/tailwind.js',
-            '/js/pwa-invoicing.js',
+            '/vendor/css/fontawesome.min.css',
+            '/js/vendor/bcrypt.min.js',
+            pacote,
         ]) {
             expect(guardados, `${essencial} tem de estar em cache antes de faltar a rede`)
                 .toContain(essencial);

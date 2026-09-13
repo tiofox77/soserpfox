@@ -72,3 +72,4 @@ Thumbs.db
 # ficheiros de public/js — não entra no repositório.
 /public/js/react
 /public/react
+/public/pwa-app

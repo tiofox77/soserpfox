@@ -12,33 +12,34 @@ use Tests\TenantTestCase;
  * NENHUMA. A queixa foi literal: «não consigo imprimir a proforma ou factura
  * após fazer a mesma».
  *
- * Isto corre sobre os ficheiros porque a mecânica é JavaScript puro num
- * aparelho — o que os ensaios de servidor conseguem prender é o CONTRATO:
- * as peças existem, os ecrãs chamam-nas, e o texto fiscal obedece à lei.
+ * Isto corre sobre os ficheiros porque a mecânica é JavaScript num aparelho
+ * (`resources/js/pwa/papel` e `resources/js/pwa/motor/documentos.ts`) — o que
+ * os ensaios de servidor conseguem prender é o CONTRATO: as peças existem, os
+ * ecrãs chamam-nas, e o texto fiscal obedece à lei.
  */
 class ImprimirDocumentoOfflineTest extends TenantTestCase
 {
-    private function talao(): string
+    private function papel(string $ficheiro): string
     {
-        return file_get_contents(public_path('js/pos-offline-ticket.js'));
+        return file_get_contents(resource_path("js/pwa/papel/{$ficheiro}.ts"));
     }
 
     private function motor(): string
     {
-        return file_get_contents(public_path('js/pwa-invoicing.js'));
+        return file_get_contents(resource_path('js/pwa/motor/documentos.ts'));
     }
 
     /** @test */
     public function o_impressor_sabe_construir_documentos(): void
     {
-        $talao = $this->talao();
+        $documento = $this->papel('documento');
 
-        $this->assertStringContainsString('function buildDocumentHtml', $talao);
-        $this->assertStringContainsString('printDocument', $talao);
+        $this->assertStringContainsString('export function buildDocumentHtml', $documento);
+        $this->assertStringContainsString('printDocument(', $this->papel('index'));
 
         // Os três títulos que o formulário emite, mais a NC.
         foreach (['FACTURA PROFORMA', 'FACTURA RECIBO', 'NOTA DE CRÉDITO'] as $titulo) {
-            $this->assertStringContainsString($titulo, $talao, "falta o título {$titulo}");
+            $this->assertStringContainsString($titulo, $documento, "falta o título {$titulo}");
         }
     }
 
@@ -52,17 +53,16 @@ class ImprimirDocumentoOfflineTest extends TenantTestCase
      */
     public function a_proforma_e_a_factura_saem_em_a4_e_a_fr_no_talao(): void
     {
-        $talao = $this->talao();
-
         // O CSS do documento é A4; o do talão continua 80mm.
-        $this->assertStringContainsString('size: A4', $talao);
-        $this->assertStringContainsString('size: 80mm auto', $talao);
+        $this->assertStringContainsString('size: A4', $this->papel('documento'));
+        $this->assertStringContainsString('size: 80mm auto', $this->papel('talao'));
 
         // E o printDocument encaminha: FR para o talão, o resto para o A4.
-        $ini = strpos($talao, 'printDocument(doc, company, extras)');
+        $fachada = $this->papel('index');
+        $ini = strpos($fachada, 'printDocument(doc: Registo, company: Registo = {}, extras?: ExtrasDoPapel)');
         $this->assertNotFalse($ini, 'o impressor recebe o molde do servidor como terceiro argumento');
-        $fim = strpos($talao, 'printShiftReport', $ini);
-        $corpo = substr($talao, $ini, $fim - $ini);
+        $fim = strpos($fachada, 'printShiftReport', $ini);
+        $corpo = substr($fachada, $ini, $fim - $ini);
 
         // COM MOLDE, o papel é o do servidor — igual à pré-visualização — e
         // isso decide-se ANTES de qualquer desvio por tipo: com molde, até a
@@ -89,42 +89,35 @@ class ImprimirDocumentoOfflineTest extends TenantTestCase
      */
     public function o_papel_diz_a_verdade_sobre_o_que_e(): void
     {
-        $talao = $this->talao();
+        $documento = $this->papel('documento');
 
-        $this->assertStringContainsString('DOCUMENTO PROVISÓRIO', $talao);
-        $this->assertStringContainsString('A numeração fiscal é atribuída na sincronização', $talao);
-        $this->assertStringContainsString('ESTE DOCUMENTO NÃO SERVE DE FACTURA', $talao);
-        $this->assertStringContainsString('Documento sem valor fiscal', $talao);
+        $this->assertStringContainsString('DOCUMENTO PROVISÓRIO', $documento);
+        $this->assertStringContainsString('A numeração fiscal é atribuída na sincronização', $documento);
+        $this->assertStringContainsString('ESTE DOCUMENTO NÃO SERVE DE FACTURA', $documento);
+        $this->assertStringContainsString('Documento sem valor fiscal', $documento);
+        $this->assertStringContainsString('DOCUMENTO PROVISÓRIO', $this->papel('molde'), 'o molde preenchido sem número também o diz');
     }
 
     /**
      * O texto fiscal NÃO SE TRADUZ (PLANO-MULTILINGUA.md, decisão 3): o
      * documento sai em português nas três línguas, como a lei angolana manda.
-     * Um __() dentro do construtor do documento é fabricar um papel que a
+     * Um tradutor dentro do construtor do documento é fabricar um papel que a
      * AGT não reconhece.
      *
      * @test
      */
     public function o_texto_fiscal_do_documento_nao_passa_pelo_tradutor(): void
     {
-        $talao = $this->talao();
+        // Três sítios escrevem texto fiscal: o desenho de recurso, o talão e o
+        // preenchimento do molde. O gerador de PDF e o relatório de fecho só
+        // falam com o operador — esses podem (e devem) ser traduzidos.
+        foreach (['documento', 'talao', 'molde'] as $ficheiro) {
+            $fonte = $this->papel($ficheiro);
 
-        // Dois sítios escrevem texto fiscal: o desenho de recurso e o
-        // preenchimento do molde. O gerador de PDF, que fica entre eles,
-        // só fala com o operador — esse pode (e deve) ser traduzido.
-        $trocos = [
-            ['function buildDocumentHtml', 'const DOCUMENT_CSS'],
-            ['function preencherMolde', 'window.PosOfflineTicket'],
-        ];
-
-        foreach ($trocos as [$de, $ate]) {
-            $ini = strpos($talao, $de);
-            $this->assertNotFalse($ini, "falta {$de}");
-            $fim = strpos($talao, $ate, $ini);
-            $this->assertNotFalse($fim, "falta {$ate} depois de {$de}");
-
-            $this->assertStringNotContainsString('__(', substr($talao, $ini, $fim - $ini),
-                "{$de}: o documento é fiscal, sai em português nas três línguas, sem tradutor");
+            $this->assertStringNotContainsString("from '@/i18n'", $fonte,
+                "papel/{$ficheiro}.ts: o documento é fiscal, sai em português nas três línguas, sem tradutor");
+            $this->assertDoesNotMatchRegularExpression('/\btn?\(\s*[\'"]/', $fonte,
+                "papel/{$ficheiro}.ts chama o tradutor");
         }
     }
 
@@ -142,19 +135,16 @@ class ImprimirDocumentoOfflineTest extends TenantTestCase
     {
         $motor = $this->motor();
 
-        $this->assertStringContainsString('async imprimirDocumento(', $motor);
-
-        $ini = strpos($motor, 'async imprimirDocumento(');
-        $corpo = substr($motor, $ini, 3000);
+        $ini = strpos($motor, 'export async function imprimirDocumento(');
+        $this->assertNotFalse($ini);
+        $corpo = substr($motor, $ini, 1500);
 
         // O documento já emitido abre a pré-visualização do servidor. Os
-        // endereços vivem em `previewDefinitivo`, que é quem os monta — o
-        // impressor só lhe chama. Prende-se o laço inteiro, não uma janela de
-        // caracteres a seguir a uma função, que se desfaz ao primeiro arrumo.
+        // endereços vivem em `previewDefinitivo`, que é quem os monta.
         $this->assertStringContainsString('previewDefinitivo(', $corpo,
             'o documento sincronizado tem de ir buscar a pré-visualização do site');
 
-        $preview = strpos($motor, 'async previewDefinitivo(');
+        $preview = strpos($motor, 'export async function previewDefinitivo(');
         $this->assertNotFalse($preview, 'falta quem monte o endereço da pré-visualização');
         $laco = substr($motor, $preview, 1500);
 
@@ -167,7 +157,7 @@ class ImprimirDocumentoOfflineTest extends TenantTestCase
         $this->assertNotNull(route('invoicing.sales.proformas.preview', ['id' => 1], false));
         $this->assertNotNull(route('invoicing.sales.invoices.preview', ['id' => 1], false));
 
-        // A espera pelo número continua a ser a do emitirJa.
+        // A espera pelo número continua a ser a da rede verdadeira e dos 8 s.
         $this->assertStringContainsString('checkRealOnline', $corpo);
         $this->assertStringContainsString('8000', $corpo);
     }
@@ -175,22 +165,22 @@ class ImprimirDocumentoOfflineTest extends TenantTestCase
     /** Os dois ecrãs chamam a impressão — sem os botões, a lógica não existe. */
     public function test_os_ecras_dos_documentos_tem_o_botao_de_imprimir(): void
     {
-        $lista = file_get_contents(resource_path('views/invoicing/offline/drafts.blade.php'));
-        $form = file_get_contents(resource_path('views/invoicing/offline/draft-form.blade.php'));
+        $lista = file_get_contents(resource_path('js/pwa/ecras/Documentos.tsx'));
+        $form = file_get_contents(resource_path('js/pwa/ecras/NovoDocumento.tsx'));
 
         $this->assertStringContainsString('imprimirDocumento', $lista);
         $this->assertStringContainsString('imprimirDocumento', $form);
 
-        // E o formulário deixou de fugir para a lista sem oferecer o papel.
-        $this->assertStringNotContainsString('setTimeout(() => {', $form,
-            'o redireccionamento automático engolia o momento de imprimir');
+        // E o formulário não foge para a lista sem oferecer o papel: o aviso
+        // de guardado tem o botão de imprimir.
+        $this->assertStringContainsString('data-ensaio="imprimir-documento"',
+            file_get_contents(resource_path('js/pwa/ecras/novo-documento/AvisoDeGuardado.tsx')));
     }
 
-    /** O layout do PWA carrega o impressor em todas as páginas offline. */
-    public function test_o_impressor_esta_no_layout_do_pwa(): void
+    /** A fachada do impressor fica em todas as páginas: o motor põe-na na janela. */
+    public function test_o_impressor_esta_em_todas_as_paginas_do_pwa(): void
     {
-        $layout = file_get_contents(resource_path('views/layouts/pwa.blade.php'));
-
-        $this->assertStringContainsString('pos-offline-ticket.js', $layout);
+        $this->assertStringContainsString('window.PosOfflineTicket = PosOfflineTicket', file_get_contents(resource_path('js/pwa/motor/index.ts')));
+        $this->assertStringContainsString('instalarMotor()', file_get_contents(resource_path('js/pwa.tsx')));
     }
 }

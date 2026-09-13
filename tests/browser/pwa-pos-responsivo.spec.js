@@ -43,7 +43,7 @@ for (const t of TAMANHOS) {
         await esperarMotor(page);
 
         // Esperar pelos CARTÕES desenhados, e não um número de milissegundos:
-        // o Alpine só pinta a grelha depois de ler a base, e o tempo que isso
+        // o ecrã só pinta a grelha depois de ler a base, e o tempo que isso
         // leva muda com o tamanho do ecrã e com o que a máquina está a fazer.
         // Uma espera fixa passa umas vezes e falha outras.
         await page.waitForFunction(

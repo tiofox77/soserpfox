@@ -78,28 +78,40 @@ class LoteVendasLinguaTest extends TenantTestCase
     /**
      * O POS offline nas três línguas — ecrã E dicionário JavaScript.
      *
-     * É o único ecrã do sistema onde a tradução tem duas metades que podem
-     * falhar em separado: o HTML, que o Blade traduz no servidor, e o
-     * JavaScript, que traduz no browser com o dicionário que a página traz.
-     * Um pode estar certo e o outro errado.
+     * O ecrã é desenhado no aparelho (resources/js/pwa/ecras/Pos.tsx) e
+     * traduz com o dicionário que a PÁGINA traz — sem rede não há outro. O
+     * que se prova: a página vem na língua de quem entra, o dicionário vem
+     * com ela e diz «Cart»/«Panier», e o ecrã pede mesmo «Carrinho».
      */
     public function test_o_pos_offline_fala_as_tres_linguas(): void
     {
+        $dicionario = function (string $html): array {
+            preg_match('#<script type="application/json" id="pwa-dicionario">(.*?)</script>#s', $html, $m);
+
+            return json_decode($m[1] ?? '[]', true) ?: [];
+        };
+
         $this->user->update(['locale' => null]);
-        $this->get('/invoicing/offline/pos')->assertOk()->assertSee('Carrinho');
+        $html = $this->get('/invoicing/offline/pos')->assertOk()->getContent();
+        $this->assertStringContainsString('<html lang="pt', $html);
+        $this->assertSame([], $dicionario($html), 'em português a chave já é a frase');
 
         $this->user->update(['locale' => 'en']);
-        $this->get('/invoicing/offline/pos')
-            ->assertOk()
-            ->assertSee('Cart')
-            // E o dicionário do JS veio com a página, na mesma língua.
-            ->assertSee('window.SOS_LINGUA = "en"', false);
+        $html = $this->get('/invoicing/offline/pos')->assertOk()->getContent();
+        $this->assertStringContainsString('window.__reactLingua = "en"', $html);
+        $this->assertSame('Cart', $dicionario($html)['Carrinho'] ?? null);
 
         $this->user->update(['locale' => 'fr']);
-        $this->get('/invoicing/offline/pos')
-            ->assertOk()
-            ->assertSee('Panier')
-            ->assertSee('window.SOS_LINGUA = "fr"', false);
+        $html = $this->get('/invoicing/offline/pos')->assertOk()->getContent();
+        $this->assertStringContainsString('window.__reactLingua = "fr"', $html);
+        $this->assertSame('Panier', $dicionario($html)['Carrinho'] ?? null);
+
+        $pos = implode("
+", array_map('file_get_contents', array_merge(
+            [resource_path('js/pwa/ecras/Pos.tsx')],
+            glob(resource_path('js/pwa/ecras/pos/*.tsx')) ?: [],
+        )));
+        $this->assertStringContainsString("t('Carrinho')", $pos, 'o ecrã do POS tem de pedir a frase ao dicionário');
     }
 
     /**

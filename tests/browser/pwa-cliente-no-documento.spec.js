@@ -62,9 +62,9 @@ test.describe('PWA — cliente criado sem rede dentro do documento', () => {
             // 1) O cliente, pelo formulário.
             await irPara(page, '/invoicing/offline/clients/new');
             await esperarMotor(page);
-            await page.locator('input[x-model="form.name"]').fill(nomeCliente);
-            await page.locator('input[x-model="form.nif"]').fill(nif);
-            await page.locator('input[x-model="form.phone"]').fill('923000123');
+            await page.locator('input[name="name"]').fill(nomeCliente);
+            await page.locator('input[name="nif"]').fill(nif);
+            await page.locator('input[name="phone"]').fill('923000123');
             await page.getByRole('button', { name: /Guardar Cliente/ }).click();
             await expect(page.getByText(/Cliente guardado/)).toBeVisible({ timeout: 10_000 });
             await page.waitForURL(/\/invoicing\/offline\/clients$/, { timeout: 15_000 });
@@ -86,13 +86,13 @@ test.describe('PWA — cliente criado sem rede dentro do documento', () => {
             await page.locator('button', { hasText: new RegExp(`^\\s*${nome}\\s*$`) }).first().click();
 
             await page.getByRole('button', { name: /Selecionar cliente/ }).click();
-            await page.locator('input[x-model="clientSearch"]').fill(nomeCliente);
-            await page.locator('[x-show="showClientPicker"] button[type="button"]', { hasText: nomeCliente }).first().click();
+            await page.locator('input[name="pesquisa-cliente"]').fill(nomeCliente);
+            await page.locator('[data-ensaio="folha-cliente"] [data-ensaio="cliente"]', { hasText: nomeCliente }).first().click();
             await expect(page.getByText(nomeCliente).first()).toBeVisible();
 
             await page.getByRole('button', { name: /Adicionar/ }).first().click();
-            await page.locator('input[x-model="productSearch"]').waitFor({ timeout: 10_000 });
-            await page.locator('[x-show="showProductPicker"] button[type="button"]').first().click();
+            await page.locator('input[name="pesquisa-produto"]').waitFor({ timeout: 10_000 });
+            await page.locator('[data-ensaio="folha-produto"] [data-ensaio="produto"]').first().click();
 
             await page.getByRole('button', { name: /Emitir Documento/ }).click();
             await expect(page.getByText(/Documento guardado/)).toBeVisible({ timeout: 10_000 });
@@ -155,16 +155,18 @@ test.describe('PWA — cliente criado sem rede dentro do documento', () => {
             expect(preview.texto, 'o documento no servidor tem de ser em nome do cliente').toContain(nomeCliente);
             expect(preview.texto).not.toContain('Consumidor Final');
 
-            // 6) Com rede e já emitido, imprimir abre o PDF do servidor — o
-            //    mesmo papel do ecrã grande — e não o provisório.
+            // 6) Com rede e já emitido, imprimir abre a pré-visualização do
+            //    servidor — o mesmo papel do ecrã grande — e não o provisório.
+            //    O motor vai buscá-la, guarda-a (para reimprimir sem rede) e
+            //    escreve-a numa janela: é esse HTML que se lê.
             const abre = await avaliar(page, async (uuid) => {
-                const urls = [];
-                window.open = (u) => { urls.push(u); return {}; };
+                let escrito = '';
+                window.open = () => ({ document: { open() {}, write(h) { escrito += h; }, close() {} } });
                 await window.SosPwa.imprimirDocumento(uuid);
-                return urls[0] || null;
+                return escrito.replace(/\s+/g, ' ');
             }, local.local_uuid);
-            expect(abre, 'a impressão com rede abre a pré-visualização do servidor')
-                .toBe(`/invoicing/sales/${tipo === 'proforma' ? 'proformas' : 'invoices'}/${idNoServidor}/preview`);
+            expect(abre, 'a impressão com rede abre a pré-visualização do servidor').toBe(preview.texto);
+            expect(abre, 'emitido, o papel já não é o provisório').not.toContain('DOCUMENTO PROVISÓRIO');
         });
     }
 

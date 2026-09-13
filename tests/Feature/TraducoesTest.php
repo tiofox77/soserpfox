@@ -65,16 +65,16 @@ class TraducoesTest extends TenantTestCase
         'resources/views/layouts/app.blade.php',
 
         /*
-         * Fase 1, lote 2 — POS (inclui o JavaScript do PWA offline).
+         * Fase 1, lote 2 — POS.
          *
          * SAÍRAM DAQUI `resources/views/livewire/pos` e `app/Livewire/POS`, e
          * não por estarem traduzidos: o balcão passou a React e o `POSSystem`
-         * foi apagado. O que resta em Blade é o balcão SEM REDE, que continua
-         * onde estava — e é onde a tradução continua a ser exigida.
+         * foi apagado. Depois saiu também o balcão SEM REDE — o
+         * `invoicing/offline/pos.blade.php` e o JavaScript do PWA
+         * (`pwa-invoicing.js`, `pos-offline-ticket.js`) passaram a
+         * `resources/js/pwa`, e as cadeias deles são exigidas pelo
+         * `test_as_cadeias_do_react_tem_traducao_em_en_e_fr`.
          */
-        'resources/views/invoicing/offline/pos.blade.php',
-        'public/js/pwa-invoicing.js',
-        'public/js/pos-offline-ticket.js',
 
         // Os MODELOS também falam com o utilizador.
         //

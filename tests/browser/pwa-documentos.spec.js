@@ -180,12 +180,10 @@ test.describe('PWA — Documentos', () => {
         await aparelhoPreparado(page);
         await irPara(page, '/invoicing/offline/drafts/new');
 
-        const tipos = await avaliar(page, () => {
-            const raiz = document.querySelector('[x-data]');
-            const alpine = window.Alpine?.$data?.(raiz);
+        await page.locator('[data-ensaio="tipo-documento"]').first().waitFor({ timeout: 15_000 });
 
-            return (alpine?.docTypes || []).map((t) => t.code);
-        });
+        const tipos = await avaliar(page, () =>
+            [...document.querySelectorAll('[data-ensaio="tipo-documento"]')].map((b) => b.dataset.tipo));
 
         expect(tipos, 'os três tipos de venda têm de estar lá').toEqual(
             expect.arrayContaining(['FT', 'FR', 'proforma'])

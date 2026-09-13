@@ -36,11 +36,10 @@ async function aparelhoPreparado(page) {
 /** O que o ecrã de entrada está a mostrar. */
 async function ecraDeEntrada(page) {
     return avaliar(page, () => {
-        const alpine = window.Alpine?.$data?.(document.querySelector('[x-data]'));
         const visivel = (s) => !!document.querySelector(s)?.offsetParent;
 
         return {
-            estado: alpine?.estado ?? null,
+            estado: document.querySelector('[data-ensaio="entrada"]')?.dataset.estado ?? null,
             formPalavraPasse: visivel('input[name="password"]'),
             formPin: visivel('input[inputmode="numeric"]'),
         };

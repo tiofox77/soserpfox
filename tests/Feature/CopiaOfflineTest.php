@@ -376,9 +376,10 @@ class CopiaOfflineTest extends TenantTestCase
     /** O PWA tem o botão que gera o ficheiro. */
     public function test_o_pwa_exporta_a_copia(): void
     {
-        $js = file_get_contents(public_path('js/pwa-invoicing.js'));
+        $js = file_get_contents(resource_path('js/pwa/motor/copia.ts'));
 
-        $this->assertStringContainsString('async exportarCopia()', $js);
+        $this->assertStringContainsString('export async function exportarCopia()', $js);
+        $this->assertStringContainsString('exportarCopia', file_get_contents(resource_path('js/pwa/motor/index.ts')), 'na fachada SosPwa');
         $this->assertStringContainsString("formato: 'soserp.pwa.copia'", $js);
 
         // O carimbo da empresa é o que permite recusar uma cópia alheia.

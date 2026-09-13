@@ -7,16 +7,24 @@ use Tests\TenantTestCase;
 /**
  * As regras da fila offline que não podem ser quebradas.
  *
- * Os testes olham para o CÓDIGO do motor (public/js/pwa-invoicing.js) porque é
- * JavaScript que corre no telemóvel e não há aqui como o executar. É pouco,
- * mas é o que impede uma regressão silenciosa em regras que só se descobrem
- * partidas depois de um vendedor perder um dia de vendas.
+ * Os testes olham para o CÓDIGO do motor (`resources/js/pwa/motor/*.ts`) porque
+ * é JavaScript que corre no telemóvel. O comportamento prova-se a correr, nos
+ * ensaios do motor (`resources/js/pwa/motor/sincronizacao.test.ts`, contra uma
+ * base IndexedDB verdadeira); isto é a rede de segurança do lado do PHP, para
+ * uma regressão não passar calada por quem só corre a suite do servidor.
  */
 class FilaOfflineDoPwaTest extends TenantTestCase
 {
-    private function motor(): string
+    private function motor(string $ficheiro = null): string
     {
-        return file_get_contents(public_path('js/pwa-invoicing.js'));
+        if ($ficheiro) {
+            return file_get_contents(resource_path("js/pwa/motor/{$ficheiro}.ts"));
+        }
+
+        return collect(glob(resource_path('js/pwa/motor/*.ts')))
+            ->reject(fn ($f) => str_ends_with($f, '.test.ts'))
+            ->map(fn ($f) => file_get_contents($f))
+            ->implode("\n");
     }
 
     /**
@@ -29,36 +37,27 @@ class FilaOfflineDoPwaTest extends TenantTestCase
      */
     public function test_os_trabalhos_da_fila_levam_carimbo_da_empresa(): void
     {
-        $motor = $this->motor();
-
         $this->assertMatchesRegularExpression(
             '/db\.sync_queue\.add\(\{.*?tenant_id/s',
-            $motor,
+            $this->motor('fila'),
             'Cada trabalho tem de nascer carimbado com a empresa.'
         );
     }
 
     public function test_a_fila_recusa_enviar_trabalho_de_outra_empresa(): void
     {
-        $motor = $this->motor();
+        $fila = $this->motor('fila');
 
-        $this->assertStringContainsString(
-            "job.tenant_id !== empresaActual",
-            $motor,
-            'O envio tem de comparar a empresa do trabalho com a da sessão.'
-        );
-
-        $this->assertStringContainsString(
-            "'outra_empresa'",
-            $motor,
-            'Um trabalho de outra empresa fica retido, com estado próprio.'
-        );
+        $this->assertStringContainsString('job.tenant_id !== empresaActual', $fila,
+            'O envio tem de comparar a empresa do trabalho com a da sessão.');
+        $this->assertStringContainsString("status: 'outra_empresa'", $fila,
+            'Um trabalho de outra empresa fica retido, com estado próprio.');
     }
 
     /** Retido não é apagado: apagar seria perder uma venda. */
     public function test_o_trabalho_retido_nao_e_apagado(): void
     {
-        preg_match('/if \(job\.tenant_id && empresaActual.*?continue;/s', $this->motor(), $m);
+        preg_match('/if \(job\.tenant_id && empresaActual.*?continue;/s', $this->motor('fila'), $m);
 
         $this->assertNotEmpty($m, 'Guarda de empresa não encontrada.');
         $this->assertStringNotContainsString('delete', $m[0], 'Um trabalho retido nunca pode ser apagado.');
@@ -72,24 +71,20 @@ class FilaOfflineDoPwaTest extends TenantTestCase
      */
     public function test_a_troca_de_empresa_nao_limpa_a_fila(): void
     {
-        preg_match('/Empresa mudou.*?pwa:tenant-changed/s', $this->motor(), $m);
+        preg_match('/Empresa mudou.*?pwa:tenant-changed/s', $this->motor('sincronizar'), $m);
 
         $this->assertNotEmpty($m, 'Bloco de troca de empresa não encontrado.');
-        $this->assertStringNotContainsString(
-            'sync_queue.clear',
-            $m[0],
-            'A fila de sincronização nunca pode ser limpa ao trocar de empresa.'
-        );
+        $this->assertStringNotContainsString('sync_queue.clear', $m[0],
+            'A fila de sincronização nunca pode ser limpa ao trocar de empresa.');
     }
 
     /** E avisa quem ficou para trás — uma venda parada que ninguém vê perde-se na mesma. */
     public function test_a_troca_de_empresa_avisa_do_que_ficou_retido(): void
     {
-        $this->assertStringContainsString(
-            'mostrarAvisoRetidos',
-            $this->motor(),
-            'A troca de empresa tem de avisar das operações retidas.'
-        );
+        $this->assertStringContainsString('state.retidos = retidos', $this->motor('sincronizar'),
+            'A troca de empresa tem de dizer ao ecrã quantas operações ficaram retidas.');
+        $this->assertStringContainsString('e.retidos', file_get_contents(resource_path('js/pwa/casca/FaixaDoEstado.tsx')),
+            'E a faixa do estado tem de o mostrar.');
     }
 
     /**
@@ -100,33 +95,27 @@ class FilaOfflineDoPwaTest extends TenantTestCase
      */
     public function test_distingue_recusa_definitiva_de_falha_transitoria(): void
     {
-        $motor = $this->motor();
+        $rede = $this->motor('rede');
 
-        $this->assertStringContainsString('erro.definitivo = definitivo', $motor);
-        $this->assertStringContainsString('response.status !== 408', $motor, '408 é "agora não", não "nunca".');
-        $this->assertStringContainsString('response.status !== 429', $motor, '429 é "agora não", não "nunca".');
-        $this->assertStringContainsString('if (err.definitivo)', $motor, 'A fila tem de agir sobre a recusa definitiva.');
+        $this->assertStringContainsString('erro.definitivo = resposta.status >= 400 && resposta.status < 500', $rede);
+        $this->assertStringContainsString('![408, 409, 429].includes(resposta.status)', $rede,
+            '408 e 429 são «agora não», e o 409 é «o cliente ainda não chegou» — nenhum é «nunca».');
+        $this->assertStringContainsString('if (e.definitivo)', $this->motor('fila'), 'A fila tem de agir sobre a recusa definitiva.');
     }
 
     /** Guarda de reentrância: o sync é disparado por quatro caminhos diferentes. */
     public function test_o_sync_tem_guarda_de_reentrancia(): void
     {
-        $this->assertStringContainsString(
-            'if (state.syncing) return;',
-            $this->motor(),
-            'Sem guarda, duas execuções lêem a mesma fila antes de qualquer uma a esvaziar.'
-        );
+        $this->assertStringContainsString('if (state.syncing || !navigator.onLine) return;', $this->motor('sincronizar'),
+            'Sem guarda, duas execuções lêem a mesma fila antes de qualquer uma a esvaziar.');
     }
 
     /** Idempotência: cada venda leva um identificador local, imutável. */
     public function test_as_vendas_levam_identificador_local(): void
     {
-        $motor = $this->motor();
-
-        $this->assertStringContainsString('local_uuid', $motor);
         $this->assertMatchesRegularExpression(
             '/enqueue\(\s*[\'"]create_pos_sale[\'"],\s*\{\s*\n\s*local_uuid/s',
-            $motor,
+            $this->motor('vendas'),
             'A venda POS tem de ir com o local_uuid — é o que impede duplicados no reenvio.'
         );
     }
@@ -144,10 +133,17 @@ class FilaOfflineDoPwaTest extends TenantTestCase
     /** O fecho de turno só depois de tudo sincronizado — senão fica de fora do fecho. */
     public function test_o_fecho_de_turno_espera_pelas_vendas(): void
     {
-        $this->assertStringContainsString(
-            "where('_synced').equals(0).count()",
-            $this->motor(),
-            'O fecho de turno tem de esperar pelas vendas por sincronizar.'
-        );
+        $this->assertStringContainsString("where('_synced').equals(0).count()", $this->motor('fila'),
+            'O fecho de turno tem de esperar pelas vendas por sincronizar.');
+    }
+
+    /** E os ensaios que o provam a correr existem — sem eles isto era só ler texto. */
+    public function test_os_ensaios_do_motor_existem(): void
+    {
+        $ensaios = file_get_contents(resource_path('js/pwa/motor/sincronizacao.test.ts'));
+
+        foreach (['OUTRA empresa fica retido', 'não gasta tentativas', 'recusa definitiva', 'uma venda offline conta UMA vez'] as $caso) {
+            $this->assertStringContainsStringIgnoringCase($caso, $ensaios, "falta o ensaio «{$caso}»");
+        }
     }
 }

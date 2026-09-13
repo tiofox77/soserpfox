@@ -5,16 +5,19 @@ namespace Tests\Feature;
 use Tests\TenantTestCase;
 
 /**
- * O dicionário que o JavaScript usa.
+ * O dicionário que o PWA usa.
  *
  * É a peça mais frágil da tradução, e por uma razão concreta: **o POS
  * trabalha offline**. Se o dicionário faltar, ou vier na língua errada, ou
- * chegar depois dos scripts que o usam, o caixa fica com o POS meio em inglês
- * a meio de uma venda — e sem rede não há como avisar ninguém nem corrigir.
+ * chegar depois do código que o usa, o caixa fica com o POS meio em inglês a
+ * meio de uma venda — e sem rede não há como avisar ninguém nem corrigir.
  *
- * Daí estes testes serem sobre a MECÂNICA (existe, chega antes, é a língua
- * certa, é o mesmo ficheiro dos ecrãs) e não sobre o conteúdo, que o detector
- * do TraducoesTest já cobre.
+ * Era o `partials/js-traducoes` com um `window.__` à mão. Com o PWA em React o
+ * tradutor é o mesmo dos outros ecrãs (`resources/js/i18n.ts`) e o dicionário
+ * vai DENTRO da página, num `<script type="application/json">`, lido antes de
+ * qualquer ecrã (`resources/js/pwa/dicionario.ts`). Estes testes são sobre a
+ * MECÂNICA (existe, chega antes, é a língua certa, é o mesmo ficheiro dos
+ * ecrãs) e não sobre o conteúdo, que o detector do TraducoesTest já cobre.
  */
 class TraducoesJavaScriptTest extends TenantTestCase
 {
@@ -40,16 +43,26 @@ class TraducoesJavaScriptTest extends TenantTestCase
         return $this->get('/invoicing/offline/pos')->assertOk()->getContent();
     }
 
+    /** O dicionário que veio na página, já lido. */
+    private function dicionarioDaPagina(string $html): ?array
+    {
+        if (! preg_match('#<script type="application/json" id="pwa-dicionario">(.*?)</script>#s', $html, $m)) {
+            return null;
+        }
+
+        return json_decode($m[1], true);
+    }
+
     public function test_em_portugues_nao_se_emite_dicionario_nenhum(): void
     {
         $this->user->update(['locale' => null]);
 
         $html = $this->posOffline();
 
-        // As chaves SÃO o português: mandar 27 KB de dicionário para dizer que
+        // As chaves SÃO o português: mandar 200 KB de dicionário para dizer que
         // "Guardar" se diz "Guardar" é peso morto em cada página.
-        $this->assertStringContainsString('window.SOS_TRADUCOES = {}', $html);
-        $this->assertStringContainsString('window.SOS_LINGUA = "pt"', $html);
+        $this->assertNull($this->dicionarioDaPagina($html));
+        $this->assertStringContainsString('window.__reactLingua = "pt"', $html);
     }
 
     public function test_em_ingles_o_dicionario_vem_na_pagina(): void
@@ -57,10 +70,11 @@ class TraducoesJavaScriptTest extends TenantTestCase
         $this->user->update(['locale' => 'en']);
 
         $html = $this->posOffline();
+        $dicionario = $this->dicionarioDaPagina($html);
 
-        $this->assertStringContainsString('window.SOS_LINGUA = "en"', $html);
-        $this->assertStringContainsString('"Cancelar"', $html, 'O dicionário tem de trazer as chaves.');
-        $this->assertStringContainsString('Cancel', $html);
+        $this->assertStringContainsString('window.__reactLingua = "en"', $html);
+        $this->assertIsArray($dicionario, 'O dicionário tem de vir na página.');
+        $this->assertSame('Cancel', $dicionario['Cancelar'] ?? null);
     }
 
     public function test_em_frances_tambem(): void
@@ -69,87 +83,65 @@ class TraducoesJavaScriptTest extends TenantTestCase
 
         $html = $this->posOffline();
 
-        $this->assertStringContainsString('window.SOS_LINGUA = "fr"', $html);
-        $this->assertStringContainsString('Annuler', $html);
+        $this->assertStringContainsString('window.__reactLingua = "fr"', $html);
+        $this->assertSame('Annuler', $this->dicionarioDaPagina($html)['Cancelar'] ?? null);
     }
 
     /**
-     * O dicionário tem de chegar ANTES dos scripts que o usam.
+     * O dicionário tem de chegar ANTES do código que o usa.
      *
-     * Se pwa-invoicing.js correr primeiro, window.__ ainda não existe e o POS
-     * rebenta ao arrancar — offline, num ecrã em branco.
+     * Na página vem antes do pacote; e dentro do pacote, o módulo que o lê é o
+     * PRIMEIRO `import` — os módulos ES correm pela ordem em que são
+     * importados, e um `t()` à cabeça de um módulo que corresse antes ficava
+     * em português para sempre.
      */
-    public function test_o_dicionario_e_definido_antes_dos_scripts_que_o_usam(): void
+    public function test_o_dicionario_e_definido_antes_do_codigo_que_o_usa(): void
     {
         $this->user->update(['locale' => 'en']);
 
         $html = $this->posOffline();
 
-        $dicionario = strpos($html, 'window.__ = function');
-        $pwaJs = strpos($html, '/js/pwa-invoicing.js');
-        $ticketJs = strpos($html, '/js/pos-offline-ticket.js');
+        $dicionario = strpos($html, 'id="pwa-dicionario"');
+        $pacote = strpos($html, '<script type="module"');
 
-        $this->assertNotFalse($dicionario, 'O window.__ tem de estar na página.');
-        $this->assertNotFalse($pwaJs);
+        $this->assertNotFalse($dicionario, 'O dicionário tem de estar na página.');
 
-        $this->assertLessThan($pwaJs, $dicionario, 'O dicionário tem de vir antes do pwa-invoicing.js.');
-        $this->assertLessThan($ticketJs, $dicionario, 'O dicionário tem de vir antes do pos-offline-ticket.js.');
+        if ($pacote !== false) {
+            $this->assertLessThan($pacote, $dicionario, 'O dicionário tem de vir antes do pacote do PWA.');
+        }
+
+        preg_match_all('/^import\s.*$/m', file_get_contents(resource_path('js/pwa.tsx')), $imports);
+        $this->assertSame("import './pwa/dicionario';", $imports[0][0] ?? null, 'O dicionário tem de ser o primeiro import do PWA.');
     }
 
     /**
-     * O dicionário do JS é o MESMO ficheiro dos ecrãs.
+     * O dicionário é o MESMO ficheiro dos ecrãs.
      *
-     * Um segundo ficheiro de traduções só para JS seria mais um sítio para
+     * Um segundo ficheiro de traduções só para o PWA seria mais um sítio para
      * desactualizar — e a divergência só apareceria com o POS já offline.
      */
     public function test_o_dicionario_sai_do_mesmo_ficheiro_dos_ecras(): void
     {
         $this->user->update(['locale' => 'en']);
 
-        $html = $this->posOffline();
+        $naPagina = $this->dicionarioDaPagina($this->posOffline());
         $doDisco = json_decode(file_get_contents(base_path('lang/en.json')), true);
 
-        preg_match('/window\.SOS_TRADUCOES = (\{.*?\});/s', $html, $m);
-
-        $this->assertNotEmpty($m, 'Não encontrei o dicionário na página.');
-
-        $naPagina = json_decode($m[1], true);
-
         $this->assertIsArray($naPagina);
-        $this->assertSame(
-            count($doDisco),
-            count($naPagina),
-            'O dicionário da página tem de ser o mesmo do lang/en.json — sem cópias nem subconjuntos.'
-        );
+        $this->assertSame(count($doDisco), count($naPagina),
+            'O dicionário da página tem de ser o mesmo do lang/en.json — sem cópias nem subconjuntos.');
     }
 
-    /** O __ e o __n comportam-se como os do PHP. */
-    public function test_o_dicionario_traz_as_duas_funcoes(): void
+    /** O tradutor é UM, e o PWA usa-o: nada de um `__` à parte a tapar o outro. */
+    public function test_o_pwa_usa_o_tradutor_dos_ecras(): void
     {
-        $this->user->update(['locale' => 'en']);
+        $this->assertStringContainsString('definirDicionario', file_get_contents(resource_path('js/pwa/dicionario.ts')));
 
-        $html = $this->posOffline();
-
-        $this->assertStringContainsString('window.__ = function', $html);
-        $this->assertStringContainsString('window.__n = function', $html);
-    }
-
-    /**
-     * Nenhum JavaScript pode redefinir o __.
-     *
-     * Um `function __(...)` local dentro de um ficheiro de /js tapava o
-     * global e a página passava a ter duas traduções diferentes conforme o
-     * sítio de onde se chamasse.
-     */
-    public function test_nenhum_ficheiro_js_redefine_a_funcao(): void
-    {
-        foreach (glob(public_path('js/*.js')) as $ficheiro) {
-            $conteudo = file_get_contents($ficheiro);
-
+        foreach (glob(resource_path('js/pwa/{,*/,*/*/}*.{ts,tsx}'), GLOB_BRACE) as $ficheiro) {
             $this->assertDoesNotMatchRegularExpression(
-                '/\bfunction\s+__\s*\(|\b(?:const|let|var)\s+__\s*=/',
-                $conteudo,
-                basename($ficheiro).' redefine o __ — tapa o global e cria duas traduções na mesma página.'
+                '/\bfunction\s+__n?\s*\(|\b(?:const|let|var)\s+__n?\s*=|window\.__n?\s*=/',
+                file_get_contents($ficheiro),
+                basename($ficheiro).' define um tradutor próprio — tapa o comum e cria duas traduções na mesma página.'
             );
         }
     }
@@ -162,101 +154,47 @@ class TraducoesJavaScriptTest extends TenantTestCase
      *   fr:  0 produit    (SINGULAR)
      *
      * É o erro que passa despercebido porque em português está certo — um
-     * carrinho vazio em francês dizia "0 produits". O JavaScript não traz as
-     * regras de plural do Laravel consigo, portanto a regra está escrita à
-     * mão no partial, e é aqui que fica presa.
+     * carrinho vazio em francês dizia "0 produits".
      */
     public function test_o_frances_usa_singular_no_zero(): void
     {
-        $partial = file_get_contents(resource_path('views/partials/js-traducoes.blade.php'));
+        $i18n = file_get_contents(resource_path('js/i18n.ts'));
 
-        $this->assertStringContainsString(
-            "window.SOS_LINGUA === 'fr'",
-            $partial,
-            'O __n tem de distinguir o francês — senão o zero sai em plural.'
-        );
-
-        $this->assertStringContainsString(
-            'Math.abs(contagem) < 2',
-            $partial,
-            'Em francês, 0 e 1 levam singular.'
-        );
+        $this->assertStringContainsString("lingua() === 'fr' ? Math.abs(contagem) < 2", $i18n,
+            'O tn tem de distinguir o francês — em francês, 0 e 1 levam singular.');
     }
 
-    /** As duas funções não podem depender de nada que só exista online. */
+    /** O dicionário do PWA não pode depender de nada que só exista online. */
     public function test_o_dicionario_nao_faz_pedidos_a_rede(): void
     {
-        $partial = file_get_contents(resource_path('views/partials/js-traducoes.blade.php'));
+        $leitor = file_get_contents(resource_path('js/pwa/dicionario.ts'));
 
-        foreach (['fetch(', 'XMLHttpRequest', 'import(', 'axios'] as $proibido) {
-            $this->assertStringNotContainsString(
-                $proibido,
-                $partial,
-                "O dicionário usa {$proibido} — o POS trabalha offline e um pedido à rede deixa-o sem traduções."
-            );
+        foreach (['fetch(', 'XMLHttpRequest', 'import(', 'axios', 'carregarDicionario'] as $proibido) {
+            $this->assertStringNotContainsString($proibido, $leitor,
+                "O dicionário do PWA usa {$proibido} — o POS trabalha offline e um pedido à rede deixa-o sem traduções.");
         }
     }
 
     /**
-     * A versão no URL dos .js tem de acompanhar o conteúdo.
+     * O código do PWA muda de NOME quando muda de conteúdo.
      *
-     * O service worker pré-cacheia `/js/pwa-invoicing.js?v=…`. Se o ficheiro
-     * mudar e a versão não, quem já tem o PWA instalado continua com o
-     * JavaScript antigo — português escrito por dentro, página traduzida por
-     * fora — e não há nada no ecrã que o denuncie.
-     *
-     * ISTO CONFERIA UM NÚMERO ESCRITO À MÃO (`?v=14`), e o número à mão foi
-     * exactamente o que falhou: um deploy trocou o motor do PWA inteiro, o
-     * `?v=` ficou igual, e a correcção nunca chegou aos aparelhos. Passou a
-     * sair do `pwa_versao()`, que é um resumo do conteúdo. O que aqui se
-     * confere agora é o que resta poder correr mal: um ficheiro sem `?v=`
-     * nenhum — esse fica em cache para sempre.
+     * Era um `?v=` escrito à mão e depois tirado do `pwa_versao()`; um deploy
+     * trocou o motor inteiro, o `?v=` ficou igual, e a correcção nunca chegou
+     * aos aparelhos. O pacote leva hash no nome, e nenhum ficheiro nosso é
+     * carregado pela casca sem versão.
      */
-    public function test_todos_os_js_do_pwa_levam_versao(): void
+    public function test_o_codigo_do_pwa_muda_de_nome_quando_muda(): void
     {
-        $layout = file_get_contents(resource_path('views/layouts/pwa.blade.php'));
+        $casca = file_get_contents(resource_path('views/pwa/ecra.blade.php'));
 
-        preg_match_all('/(?:src|href)="(\/[^"]+\.js)"/i', $layout, $m);
+        preg_match_all('/(?:src|href)="(\/[^"]+\.js)"/i', $casca, $m);
 
-        $semVersao = array_values(array_filter(
-            $m[1],
-            // O `/vendor/` são bibliotecas de terceiros fixas numa versão: o
-            // nome do ficheiro já é a versão. O nosso código não tem essa
-            // sorte — muda com o mesmo nome.
-            fn ($src) => ! str_starts_with($src, '/vendor/')
-        ));
+        $semVersao = array_values(array_filter($m[1], fn ($src) => ! str_starts_with($src, '/vendor/')));
 
         $this->assertSame([], $semVersao,
-            "Ficheiros do PWA carregados sem `?v=`:\n  ".implode("\n  ", $semVersao)
+            "Ficheiros do PWA carregados sem versão:\n  ".implode("\n  ", $semVersao)
             ."\n\nO aparelho guarda-os em cache e nunca mais os vai buscar.");
-    }
 
-    /**
-     * E a versão é a MESMA na tag <script> e na lista de pré-carregamento.
-     *
-     * Divergirem é o erro fácil de cometer, porque estão a vinte linhas de
-     * distância: o service worker pré-carrega um endereço e a página pede
-     * outro — dois descarregamentos, e offline falta sempre um.
-     */
-    public function test_a_versao_dos_js_e_a_mesma_na_tag_e_no_precache(): void
-    {
-        $layout = file_get_contents(resource_path('views/layouts/pwa.blade.php'));
-
-        foreach (['pwa-invoicing.js', 'pos-offline-ticket.js', 'pwa-turno.js'] as $ficheiro) {
-            preg_match_all('/'.preg_quote($ficheiro, '/').'\?v=([^\'"]+)/', $layout, $m);
-
-            $this->assertGreaterThanOrEqual(
-                2,
-                count($m[1]),
-                "{$ficheiro} devia aparecer na tag <script> e na lista de pré-carregamento."
-            );
-
-            $this->assertCount(
-                1,
-                array_unique($m[1]),
-                "{$ficheiro} tem versões diferentes no layout: ".implode(', ', array_unique($m[1]))
-                    .' — o service worker pré-carrega uma e a página usa outra.'
-            );
-        }
+        $this->assertStringContainsString("entryFileNames: 'pwa-[hash].js'", file_get_contents(base_path('vite.pwa.config.js')));
     }
 }

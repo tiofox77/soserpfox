@@ -46,7 +46,7 @@ class VersaoLegivelDoPwaTest extends TestCase
         $this->assertNotEmpty($lista, 'sem lista, as duas versões ficam paradas para sempre');
 
         $this->assertContains(resource_path('pwa/sw.js'), $lista);
-        $this->assertContains(resource_path('views/layouts/pwa.blade.php'), $lista);
+        $this->assertContains(resource_path('views/pwa/ecra.blade.php'), $lista);
 
         // E mudar a matéria da lista muda a assinatura.
         $ficheiro = tempnam(sys_get_temp_dir(), 'pwa');
@@ -68,10 +68,15 @@ class VersaoLegivelDoPwaTest extends TestCase
     public function test_o_cabecalho_mostra_a_data_e_guarda_o_resto_no_title(): void
     {
         $c = new PwaController;
-        $html = view('layouts.pwa', ['title' => 'x'])->render();
+        $html = $this->get('/invoicing/offline/login')->assertOk()->getContent();
 
-        $this->assertStringContainsString($c->buildLabel(), $html);
-        $this->assertStringContainsString($c->buildVersion(), $html, 'a assinatura fica no title, para comparar aparelhos');
+        $this->assertStringContainsString(e(json_encode($c->buildLabel(), JSON_UNESCAPED_SLASHES)), $html);
+        $this->assertStringContainsString($c->buildVersion(), $html, 'a assinatura vai para o title, para comparar aparelhos');
+
+        // E o cabecalho desenha-a assim: a data a vista, o resto no title.
+        $cabecalho = file_get_contents(resource_path('js/pwa/casca/Cabecalho.tsx'));
+        $this->assertStringContainsString('{versao.etiqueta}', $cabecalho);
+        $this->assertStringContainsString("title={t('Versão :v · assinatura :h', { v: versao.numero, h: versao.assinatura })}", $cabecalho);
     }
 
     public function test_a_versao_aparece_ao_lado_da_data(): void
@@ -84,9 +89,9 @@ class VersaoLegivelDoPwaTest extends TestCase
         // alteração do próprio PWA, e já não a do changelog da aplicação
         // inteira — que subia com coisas que nada têm a ver com o aparelho e
         // por isso não respondia à pergunta "já tenho a correcção de hoje?".
-        $html = view('layouts.pwa', ['title' => 'x'])->render();
+        $html = $this->get('/invoicing/offline/login')->assertOk()->getContent();
 
-        $this->assertStringContainsString('v'.(new PwaController)->numeroDeVersao(), $html);
-        $this->assertStringContainsString((new PwaController)->buildLabel(), $html);
+        $this->assertStringContainsString(e(json_encode((new PwaController)->numeroDeVersao())), $html);
+        $this->assertStringContainsString('v{versao.numero}', file_get_contents(resource_path('js/pwa/casca/Cabecalho.tsx')));
     }
 }

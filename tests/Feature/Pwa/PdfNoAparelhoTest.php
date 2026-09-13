@@ -26,9 +26,9 @@ class PdfNoAparelhoTest extends TenantTestCase
             $this->assertGreaterThan(100_000, filesize($ficheiro), "$lib está vazio ou truncado");
         }
 
-        $layout = file_get_contents(resource_path('views/layouts/pwa.blade.php'));
+        $casca = file_get_contents(resource_path('views/pwa/ecra.blade.php'));
         foreach (self::LIBS as $lib) {
-            $this->assertStringContainsString($lib, $layout, "o layout do PWA não carrega $lib");
+            $this->assertStringContainsString($lib, $casca, "a casca do PWA não carrega $lib");
         }
     }
 
@@ -44,24 +44,29 @@ class PdfNoAparelhoTest extends TenantTestCase
 
     public function test_o_motor_sabe_fazer_e_partilhar_o_pdf(): void
     {
-        $motor = file_get_contents(public_path('js/pwa-invoicing.js'));
-        $this->assertStringContainsString('async partilharPdf(', $motor);
-        $this->assertStringContainsString('async pdfDe(', $motor);
+        $motor = file_get_contents(resource_path('js/pwa/motor/documentos.ts'));
+        $this->assertStringContainsString('export async function partilharPdf(', $motor);
+        $this->assertStringContainsString('export async function pdfDe(', $motor);
         $this->assertStringContainsString('navigator.canShare', $motor, 'a entrega é a folha de partilha do sistema');
         $this->assertStringContainsString("/pdf'", $motor, 'emitido e com rede, vai buscar o PDF do servidor');
 
-        $talao = file_get_contents(public_path('js/pos-offline-ticket.js'));
-        $this->assertStringContainsString('pdfDoTalao(', $talao);
-        $this->assertStringContainsString('pdfDoDocumento(', $talao);
-        $this->assertStringContainsString('window.html2canvas(', $talao, 'o PDF é o HTML de sempre, desenhado — não um segundo desenho');
+        $fachada = file_get_contents(resource_path('js/pwa/papel/index.ts'));
+        $this->assertStringContainsString('pdfDoTalao(', $fachada);
+        $this->assertStringContainsString('pdfDoDocumento(', $fachada);
+        $this->assertStringContainsString('window.html2canvas(', file_get_contents(resource_path('js/pwa/papel/saida.ts')),
+            'o PDF é o HTML de sempre, desenhado — não um segundo desenho');
     }
 
     public function test_os_tres_ecras_tem_o_botao(): void
     {
-        foreach (['pos', 'drafts', 'draft-form'] as $vista) {
-            $html = file_get_contents(resource_path("views/invoicing/offline/{$vista}.blade.php"));
-            $this->assertStringContainsString('data-ensaio="partilhar-pdf"', $html, "falta o botão no ecrã {$vista}");
-            $this->assertStringContainsString('partilharPdf(', $html);
+        // O botão está no recibo do POS, na lista dos documentos e no aviso do documento guardado.
+        foreach ([
+            'pos' => ['ecras/pos/Recibo.tsx', 'ecras/pos/usePos.ts'],
+            'documentos' => ['ecras/Documentos.tsx', 'ecras/Documentos.tsx'],
+            'novo documento' => ['ecras/novo-documento/AvisoDeGuardado.tsx', 'ecras/NovoDocumento.tsx'],
+        ] as $ecra => [$botao, $accao]) {
+            $this->assertStringContainsString('data-ensaio="partilhar-pdf"', file_get_contents(resource_path("js/pwa/{$botao}")), "falta o botão no ecrã {$ecra}");
+            $this->assertStringContainsString('partilharPdf(', file_get_contents(resource_path("js/pwa/{$accao}")));
         }
     }
 }

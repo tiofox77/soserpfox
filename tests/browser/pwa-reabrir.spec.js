@@ -132,7 +132,7 @@ for (const arranque of ['/invoicing/offline/pos', '/dashboard']) {
             window.SosPwa.verifyOfflineAuth('bancada@pwa.local', '4321')
         );
 
-        expect(entrou.ok, 'o PIN tem de conferir sem rede').toBe(true);
+        expect(entrou.ok, 'o PIN tem de conferir sem rede: ' + JSON.stringify(entrou)).toBe(true);
 
         // ---- E TEM DE LEVAR AO POS ----
         //

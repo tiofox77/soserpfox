@@ -92,10 +92,10 @@ class VersaoDoPwaTest extends TenantTestCase
         $vigiados = app(PwaController::class)->ficheirosVigiados();
 
         $assets = PwaController::assetsDoLayout(
-            file_get_contents(resource_path('views/layouts/pwa.blade.php'))
+            file_get_contents(resource_path('views/pwa/ecra.blade.php'))
         );
 
-        $this->assertNotEmpty($assets, 'o layout do PWA tem de carregar pelo menos um .js');
+        $this->assertNotEmpty($assets, 'a casca do PWA tem de carregar pelo menos um .js');
 
         $faltam = [];
 
@@ -111,13 +111,24 @@ class VersaoDoPwaTest extends TenantTestCase
             ."\n\nMudar um deles sai com a versao de antes e nao chega aos aparelhos.");
     }
 
-    public function test_a_versao_muda_quando_uma_pagina_offline_muda(): void
+    /**
+     * Os ecras do PWA vivem no PACOTE (resources/js/pwa.tsx, construido para
+     * public/pwa-app) e na casca do servidor. Mudar um ecra muda o pacote — e
+     * tem de mudar a versao, senao a correccao nao chega aos aparelhos.
+     */
+    public function test_a_versao_muda_quando_um_ecra_do_pwa_muda(): void
     {
-        $this->assertContains(
-            resource_path('views/invoicing/offline/pos.blade.php'),
-            app(PwaController::class)->ficheirosVigiados(),
-            'as paginas offline sao o que fica em cache: mudar uma tem de contar'
-        );
+        $vigiados = app(PwaController::class)->ficheirosVigiados();
+
+        $this->assertContains(resource_path('views/pwa/ecra.blade.php'), $vigiados, 'a casca e o que fica em cache');
+
+        $pacote = \App\Support\PacoteReact::ficheiroDoPwa();
+
+        if (! $pacote) {
+            $this->markTestSkipped('O pacote do PWA nao esta construido (npm run pwa:build).');
+        }
+
+        $this->assertContains($pacote, $vigiados, 'o pacote e o que os ecras sao: mudar um tem de contar');
     }
 
     /** Sem nada mexer, a versao e a mesma — senao cada visita invalidava a cache. */
@@ -126,13 +137,14 @@ class VersaoDoPwaTest extends TenantTestCase
         $this->assertSame($this->versao(), $this->versao());
     }
 
-    /** O cabecalho do PWA mostra as duas: a release e a build. */
-    public function test_o_cabecalho_mostra_a_release_e_a_build(): void
+    /** O cabecalho do PWA recebe a versao do PWA e a build deste deploy, e a meta que o motor manda ao servidor. */
+    public function test_o_cabecalho_mostra_a_versao_e_a_build(): void
     {
         $html = $this->actingAs($this->user)->get('/invoicing/offline')->assertOk()->getContent();
 
-        $this->assertStringContainsString(config('changelog.current'), $html, 'falta a release');
-        $this->assertStringContainsString($this->versao(), $html, 'falta a build deste aparelho');
+        $this->assertStringContainsString('<meta name="pwa-versao" content="'.$this->versao().'">', $html, 'falta a build na meta');
+        $this->assertStringContainsString('&quot;assinatura&quot;:&quot;'.$this->versao().'&quot;', $html, 'falta a build nas props do cabecalho');
+        $this->assertStringContainsString('&quot;numero&quot;:&quot;'.app(PwaController::class)->numeroDeVersao().'&quot;', $html, 'falta a versao do PWA');
     }
 
     /** E o service worker servido leva essa mesma build. */

@@ -7,11 +7,14 @@ use Tests\TenantTestCase;
 /**
  * A rede de seguranca do ecra cinzento.
  *
- * O start_url do PWA e a pagina do POS, que tem vinte e dois x-cloak. O
- * x-cloak e `display: none !important` ate o Alpine arrancar, e o Alpine vem
- * de um CDN. Numa instalacao acabada de fazer, com a rede a falhar, ele nao
- * chega: fica tudo escondido e o utilizador ve um ecra cinzento sem uma
- * palavra que o explique.
+ * O start_url do PWA e a pagina do POS. Com Alpine, tudo estava atras de
+ * x-cloak ate o Alpine arrancar — e numa instalacao acabada de fazer, com a
+ * rede a falhar, ficava um ecra cinzento sem uma palavra que o explicasse.
+ *
+ * Com o PWA em React o risco muda de forma mas nao desaparece: se o pacote
+ * nao chegar, o ecra de carregamento nunca sai. A casca (pwa/ecra.blade.php)
+ * mostra-o DE IMEDIATO, sem depender de nada, explica a demora e, se o pacote
+ * nao montar, troca-o por um aviso que diz o que fazer.
  */
 class PwaEcraCinzentoTest extends TenantTestCase
 {
@@ -19,10 +22,9 @@ class PwaEcraCinzentoTest extends TenantTestCase
     {
         parent::setUp();
 
-        // O POS do PWA passou a exigir a permissão que o menu usa para o
-        // mostrar (ver App\Support\MenuDoPwa): sem ela, a rota responde 403 e
-        // o ensaio falhava por falta de acesso, não por falta de rede de
-        // segurança — que é o que ele mede.
+        // O POS do PWA exige a permissão que o menu usa para o mostrar (ver
+        // App\Support\MenuDoPwa): sem ela, a rota responde 403 e o ensaio
+        // falhava por falta de acesso, não por falta de rede de segurança.
         $this->comModulo('invoicing')->comPermissoes('invoicing.pos.access');
     }
 
@@ -35,8 +37,8 @@ class PwaEcraCinzentoTest extends TenantTestCase
     {
         $html = $this->pos();
 
-        $this->assertStringContainsString('alpine-falhou', $html);
         $this->assertStringContainsString('pwa-aviso-arranque', $html);
+        $this->assertStringContainsString('window.__pwaMontado', $html, 'o aviso só aparece se o pacote não montou');
     }
 
     /** O aviso diz o que fazer, e nao so que correu mal. */
@@ -48,21 +50,13 @@ class PwaEcraCinzentoTest extends TenantTestCase
         $this->assertStringContainsString('Recarregar', $html);
     }
 
-    /** A regra que desfaz o x-cloak tem de existir, senao revelar nao revela nada. */
-    public function test_ha_regra_css_que_desfaz_o_x_cloak(): void
+    /** Nada fica escondido à espera de uma biblioteca: o Alpine saiu, e o x-cloak com ele. */
+    public function test_nao_ha_conteudo_escondido_a_espera_de_uma_biblioteca(): void
     {
         $html = $this->pos();
 
-        $this->assertStringContainsString('html.alpine-falhou [x-cloak]', $html);
-        $this->assertStringContainsString('display: revert !important', $html);
-    }
-
-    /** E o x-cloak continua a esconder no caso normal. */
-    public function test_o_x_cloak_continua_a_esconder_quando_tudo_corre_bem(): void
-    {
-        $html = $this->pos();
-
-        $this->assertStringContainsString('[x-cloak] { display: none !important; }', $html);
+        $this->assertStringNotContainsString('x-cloak', $html);
+        $this->assertStringNotContainsString('alpine', strtolower($html));
     }
 
     /** O ecra de carregamento aparece DE IMEDIATO, sem depender de nada. */
@@ -70,19 +64,22 @@ class PwaEcraCinzentoTest extends TenantTestCase
     {
         $html = $this->pos();
 
-        $this->assertStringContainsString("pwa-a-carregar", $html);
-        $this->assertStringContainsString("A preparar o ponto de venda", $html);
+        $this->assertStringContainsString('pwa-a-carregar', $html);
+        $this->assertStringContainsString('A preparar o ponto de venda', $html);
     }
 
-    /** E sai quando o Alpine arranca, que e quando ha algo por baixo para ver. */
-    public function test_o_ecra_de_carregamento_sai_quando_o_alpine_arranca(): void
+    /** E sai quando o pacote monta, que e quando ha algo por baixo para ver. */
+    public function test_o_ecra_de_carregamento_sai_quando_o_pacote_monta(): void
     {
-        $this->assertStringContainsString("alpine:initialized", $this->pos());
+        $entrada = file_get_contents(resource_path('js/pwa.tsx'));
+
+        $this->assertStringContainsString("getElementById('pwa-a-carregar')", $entrada);
+        $this->assertStringContainsString('window.__pwaMontado = true', $entrada);
     }
 
     /** Passado algum tempo diz porque esta a demorar, em vez de so rodar. */
     public function test_ao_fim_de_algum_tempo_explica_a_demora(): void
     {
-        $this->assertStringContainsString("A carregar pela primeira vez", $this->pos());
+        $this->assertStringContainsString('A carregar pela primeira vez', $this->pos());
     }
 }

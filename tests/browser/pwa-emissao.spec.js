@@ -89,6 +89,49 @@ async function lerVenda(page, uuid) {
 }
 
 test.describe('emissão de documentos, com rede e sem rede', () => {
+    /**
+     * O DESCONTO EM PERCENTAGEM TEM DE CHEGAR À FACTURA COMO PERCENTAGEM.
+     *
+     * O POS manda o desconto em % (é o que o operador escreve) e o talão do
+     * aparelho faz as contas assim; o servidor tratava-o como Kz — 10% de
+     * desconto saíam 10 Kz na factura. Depois de subir, o aparelho substitui os
+     * seus totais pelos do servidor: se os dois não baterem, o talão
+     * reimpresso muda de valor nas mãos do cliente.
+     */
+    test('uma venda com 10% de desconto feita sem rede sobe com o mesmo total', async ({ page, context }) => {
+        await prepararAparelho(page);
+
+        const artigo = await artigoVendavel(page);
+
+        await context.setOffline(true);
+        const noAparelho = await avaliar(page, async (a) => {
+            const v = await window.SosPwa.createPosSaleOffline({
+                client_name: 'Consumidor Final',
+                payment_method: 'cash',
+                discount_commercial: 10,
+                notes: 'ensaio desconto 10%',
+                items: [{ product_id: a.id, product_name: a.name, quantity: 4, unit_price: a.price, tax_rate: a.tax_rate }],
+            });
+
+            return { uuid: v.local_uuid, total: v.total, desconto: v.discount_amount };
+        }, artigo);
+        await context.setOffline(false);
+
+        expect(noAparelho.desconto, 'o aparelho aplica 10% sobre o líquido').toBeCloseTo(artigo.price * 4 * 0.1, 2);
+
+        await sincronizar(page);
+        await page.waitForFunction(
+            async (u) => (await window.SosPwa.db.pos_sales.toArray()).find((v) => v.local_uuid === u)?._synced === 1,
+            noAparelho.uuid,
+            { timeout: 60_000 },
+        );
+
+        const doServidor = await lerVenda(page, noAparelho.uuid);
+
+        expect(doServidor.discount_amount, 'o servidor tem de dar o mesmo desconto').toBeCloseTo(noAparelho.desconto, 1);
+        expect(doServidor.total, 'o total emitido tem de ser o do talão').toBeCloseTo(noAparelho.total, 1);
+    });
+
     test('com rede: a venda sobe e volta com número e assinatura do servidor', async ({ page }) => {
         await prepararAparelho(page);
 

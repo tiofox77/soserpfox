@@ -3,7 +3,7 @@
 namespace App\Support;
 
 /**
- * Onde está hoje o pacote dos ecrãs em React.
+ * Onde está hoje o pacote dos ecrãs em React — o da aplicação web e o do PWA.
  *
  * O nome do ficheiro leva hash e muda a cada construção — e TEM de levar. Os
  * pedaços importam a entrada por caminho relativo; se o Blade a carregasse com
@@ -12,13 +12,19 @@ namespace App\Support;
  * null (reading 'useState')», que não diz nada a quem o apanha.
  *
  * O manifesto do Vite é a única fonte do nome. Lê-se uma vez por pedido.
+ *
+ * O DO PWA É OUTRO PACOTE (`vite.pwa.config.js`), num ficheiro só: é esse
+ * ficheiro que o service worker pré-guarda e que entra na versão do PWA.
  */
 class PacoteReact
 {
-    private const MANIFESTO = 'react/.vite/manifest.json';
-    private const ENTRADA = 'resources/js/react.tsx';
+    private const PACOTES = [
+        'web' => ['manifesto' => 'react/.vite/manifest.json', 'entrada' => 'resources/js/react.tsx', 'pasta' => '/react/'],
+        'pwa' => ['manifesto' => 'pwa-app/.vite/manifest.json', 'entrada' => 'resources/js/pwa.tsx', 'pasta' => '/pwa-app/'],
+    ];
 
-    private static ?string $memoria = null;
+    /** @var array<string, string> */
+    private static array $memoria = [];
 
     /**
      * O caminho público do pacote, ou null se ainda não foi construído.
@@ -29,29 +35,49 @@ class PacoteReact
      */
     public static function caminho(): ?string
     {
-        if (self::$memoria !== null) {
-            return self::$memoria ?: null;
+        return self::ler('web');
+    }
+
+    /** O pacote do PWA (`/pwa-app/pwa-<hash>.js`), ou null se não foi construído. */
+    public static function doPwa(): ?string
+    {
+        return self::ler('pwa');
+    }
+
+    /** O ficheiro do pacote do PWA no disco — para a versão do PWA contar com ele. */
+    public static function ficheiroDoPwa(): ?string
+    {
+        $caminho = self::doPwa();
+
+        return $caminho ? public_path(ltrim($caminho, '/')) : null;
+    }
+
+    private static function ler(string $qual): ?string
+    {
+        if (array_key_exists($qual, self::$memoria)) {
+            return self::$memoria[$qual] ?: null;
         }
 
-        $manifesto = public_path(self::MANIFESTO);
+        $def = self::PACOTES[$qual];
+        $manifesto = public_path($def['manifesto']);
 
         if (! is_file($manifesto)) {
-            self::$memoria = '';
+            self::$memoria[$qual] = '';
 
             return null;
         }
 
         $mapa = json_decode((string) file_get_contents($manifesto), true);
-        $ficheiro = $mapa[self::ENTRADA]['file'] ?? null;
+        $ficheiro = $mapa[$def['entrada']]['file'] ?? null;
 
-        self::$memoria = $ficheiro ? '/react/' . $ficheiro : '';
+        self::$memoria[$qual] = $ficheiro ? $def['pasta'] . $ficheiro : '';
 
-        return self::$memoria ?: null;
+        return self::$memoria[$qual] ?: null;
     }
 
     /** Esquece o que leu — para os ensaios, que constroem a meio. */
     public static function esquecer(): void
     {
-        self::$memoria = null;
+        self::$memoria = [];
     }
 }

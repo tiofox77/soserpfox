@@ -228,16 +228,16 @@ class SyncDescarregamentoTest extends TenantTestCase
      */
     public function test_o_pwa_apaga_o_que_o_servidor_diz_ter_saido(): void
     {
-        $js = file_get_contents(public_path('js/pwa-invoicing.js'));
+        $js = file_get_contents(resource_path('js/pwa/motor/sincronizar.ts'));
 
         $this->assertStringContainsString(
-            'db.products.bulkDelete(json.data.removed_products)',
+            'db.products.bulkDelete(dados.removed_products)',
             $js,
             'O PWA tem de apagar os produtos que saíram do catálogo.'
         );
 
         $this->assertStringContainsString(
-            'db.clients.bulkDelete(json.data.removed_clients)',
+            'db.clients.bulkDelete(dados.removed_clients)',
             $js,
             'O PWA tem de apagar os clientes eliminados.'
         );

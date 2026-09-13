@@ -106,7 +106,8 @@ test.describe('PWA — PDF no aparelho', () => {
         await esperarMotor(page);
         expect(await page.locator('[data-ensaio="partilhar-pdf"]').count(), 'lista de documentos').toBeGreaterThanOrEqual(0);
 
-        const html = await avaliar(page, () => document.documentElement.outerHTML);
-        expect(html).toContain('partilhar(d)');
+        // O botão existe no código do ecrã mesmo sem documentos na lista.
+        const fonte = await avaliar(page, () => fetch(document.querySelector('script[type="module"][src*="/pwa-app/"]').src).then((r) => r.text()));
+        expect(fonte).toContain('partilhar-pdf');
     });
 });

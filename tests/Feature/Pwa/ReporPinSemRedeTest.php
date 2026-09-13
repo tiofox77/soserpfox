@@ -238,8 +238,11 @@ class ReporPinSemRedeTest extends TenantTestCase
     {
         $html = $this->get('/invoicing/offline/pin-esquecido')->assertOk()->getContent();
 
-        $this->assertStringContainsString("serviceWorker.register('/sw.js'", $html);
-        $this->assertStringContainsString('/js/pwa-invoicing.js?v=', $html, 'o mesmo motor da entrada');
+        // A mesma casca e o mesmo pacote da entrada: o pacote regista o service
+        // worker e traz o motor (a mesma gaveta, os mesmos verificadores).
+        $this->assertStringContainsString('&quot;ecra&quot;:&quot;pin-esquecido&quot;', $html);
+        $this->assertMatchesRegularExpression('#<script type="module" src="/pwa-app/pwa-[^"]+\.js"#', $html, 'o mesmo motor da entrada');
+        $this->assertStringContainsString('reporPinOffline', file_get_contents(resource_path('js/pwa/ecras/PinEsquecido.tsx')));
         $this->assertStringContainsString('/js/vendor/bcrypt.min.js', $html, 'o bcrypt corre no aparelho');
 
         foreach (['cdn.tailwindcss.com', 'unpkg.com', 'cdnjs.cloudflare.com'] as $cdn) {
@@ -264,10 +267,13 @@ class ReporPinSemRedeTest extends TenantTestCase
     /** A entrada e o ecrã de desbloqueio oferecem o caminho. */
     public function test_a_entrada_e_o_desbloqueio_apontam_para_ca(): void
     {
+        // As duas páginas recebem o endereço nas rotas…
         $this->get('/invoicing/offline/login')->assertOk()->assertSee('/invoicing/offline/pin-esquecido');
-
-        // O ecrã de desbloqueio vive no layout do PWA: qualquer página dele serve.
         $this->actingAs($this->user)->get('/invoicing/offline')->assertOk()->assertSee('/invoicing/offline/pin-esquecido');
+
+        // …e a entrada e o portão da casca (o desbloqueio) oferecem-no.
+        $this->assertStringContainsString('rotas.pinEsquecido', file_get_contents(resource_path('js/pwa/ecras/Entrada.tsx')));
+        $this->assertStringContainsString('rotas.pinEsquecido', file_get_contents(resource_path('js/pwa/casca/PortaoOffline.tsx')));
     }
 
     // ── Uma lista só ───────────────────────────────────────────────────

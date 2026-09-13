@@ -106,9 +106,10 @@ fixas e conhecidas — num servidor a sério seriam uma porta aberta. A verifica
 **Com rede** (`pwa-online.spec.js`)
 - a aplicação abre e o service worker assume o comando
 - o motor offline arranca e abre a base local
-- **o motor e o desenho ficam guardados em cache** — Dexie, Alpine, Tailwind e
-  o `pwa-invoicing.js`. É o ensaio que apanha o defeito de o precache apontar
-  para ficheiros que a aplicação já não pede
+- **o motor e o desenho ficam guardados em cache** — Tailwind, os ícones, o
+  bcrypt e o pacote do PWA (`/pwa-app/pwa-<hash>.js`: motor, papel e ecrãs em
+  React). É o ensaio que apanha o defeito de o precache apontar para ficheiros
+  que a aplicação já não pede
 - o catálogo e os clientes descem para o IndexedDB
 - as cinco páginas do PWA respondem
 

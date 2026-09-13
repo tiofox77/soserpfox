@@ -249,36 +249,28 @@ class SincronizacaoOfflineTest extends TenantTestCase
      *
      * O 408 e o 429 ficam de fora: dizem "agora não", não "nunca".
      *
-     * Verifica-se na fonte porque é JavaScript — o mesmo caminho que o
-     * TraducoesJavaScriptTest usa para as regras de plural.
+     * Verifica-se na fonte do motor (`resources/js/pwa/motor`); o comportamento
+     * prova-se a correr em `sincronizacao.test.ts`.
      */
     public function test_a_fila_do_pwa_nao_repete_o_que_o_servidor_recusou(): void
     {
-        $js = file_get_contents(public_path('js/pwa-invoicing.js'));
+        $rede = file_get_contents(resource_path('js/pwa/motor/rede.ts'));
+        $fila = file_get_contents(resource_path('js/pwa/motor/fila.ts'));
 
         $this->assertStringContainsString(
-            'erro.definitivo = definitivo',
-            $js,
+            'erro.definitivo = resposta.status >= 400 && resposta.status < 500',
+            $rede,
             'A resposta 4xx tem de ser marcada como definitiva.'
         );
 
         $this->assertStringContainsString(
-            'if (err.definitivo)',
-            $js,
+            'if (e.definitivo)',
+            $fila,
             'A fila tem de olhar para a marca antes de contar mais uma tentativa.'
         );
 
-        $this->assertStringContainsString(
-            "response.status !== 408",
-            $js,
-            'O 408 diz "agora não" e tem de continuar a ser repetido.'
-        );
-
-        $this->assertStringContainsString(
-            "response.status !== 429",
-            $js,
-            'O 429 diz "abrande" e tem de continuar a ser repetido.'
-        );
+        // O 408 diz «agora não» e o 429 diz «abrande»: continuam a ser repetidos.
+        $this->assertStringContainsString('![408, 409, 429].includes(resposta.status)', $rede);
     }
 
     /**

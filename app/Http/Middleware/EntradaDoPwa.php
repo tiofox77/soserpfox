@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Support\MenuDoPwa;
+use App\Support\PaginaDoPwa;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -34,10 +35,13 @@ class EntradaDoPwa
         // service worker não a guardar no lugar do ecrã verdadeiro.
         $definicao = MenuDoPwa::ENTRADAS[$chave] ?? null;
 
-        return response()->view('invoicing.offline.sem-acesso', [
-            'etiqueta'  => $definicao['etiqueta'] ?? $chave,
-            'permissao' => $definicao['permissao'] ?? null,
-            'modulo'    => $definicao['modulo'] ?? null,
+        return PaginaDoPwa::resposta('sem-acesso', [
+            'semAcesso' => [
+                'chave' => $chave,
+                'etiqueta' => __($definicao['etiqueta'] ?? $chave),
+                'permissao' => $definicao['permissao'] ?? null,
+                'modulo' => $definicao['modulo'] ?? null,
+            ],
         ], 403);
     }
 }

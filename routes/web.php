@@ -551,14 +551,14 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
 // Entrada do PWA — FORA do `auth`, senão a página de entrada mandava o
 // utilizador para o login para poder mostrar o login. Precisa de sessão para
 // o token CSRF do formulário, por isso fica no grupo `web`.
-Route::get('/invoicing/offline/login', fn () => view('invoicing.offline.login'))
+Route::get('/invoicing/offline/login', \App\Support\PaginaDoPwa::rota('entrada'))
     ->name('invoicing.offline.login');
 
 // Esqueci o PIN — sem rede. Também FORA do `auth`: quem cá chega não tem
 // sessão nem rede, e tudo o que a página faz é local (o gestor autoriza com o
 // seu PIN, o aparelho calcula o verificador novo e põe-no na fila). O servidor
 // só decide quando a fila subir, com sessão.
-Route::get('/invoicing/offline/pin-esquecido', fn () => view('invoicing.offline.pin-esquecido'))
+Route::get('/invoicing/offline/pin-esquecido', \App\Support\PaginaDoPwa::rota('pin-esquecido'))
     ->name('invoicing.offline.pin-esquecido');
 
 // Sair: termina a sessão e volta à entrada do PWA. Não apaga nada do
@@ -584,7 +584,7 @@ Route::middleware(['auth'])->prefix('invoicing/offline')->name('invoicing.offlin
     //
     // O 403 é deliberado: o service worker só guarda respostas OK, portanto um
     // ecrã a que o utilizador não tem direito nem chega a ficar no aparelho.
-    Route::get('/', fn() => view('invoicing.offline.index'))->name('index');
+    Route::get('/', \App\Support\PaginaDoPwa::rota('inicio'))->name('index');
 
     // O MOLDE de cada documento: o próprio modelo de impressão do servidor,
     // renderizado com marcas no lugar dos valores, para o aparelho o
@@ -609,17 +609,17 @@ Route::middleware(['auth'])->prefix('invoicing/offline')->name('invoicing.offlin
             'ETag'          => $etiqueta,
         ]);
     })->name('molde');
-    Route::middleware('pwa:catalogo')->get('/catalog', fn() => view('invoicing.offline.catalog'))->name('catalog');
+    Route::middleware('pwa:catalogo')->get('/catalog', \App\Support\PaginaDoPwa::rota('catalogo'))->name('catalog');
     Route::middleware('pwa:clientes')->group(function () {
-        Route::get('/clients', fn() => view('invoicing.offline.clients'))->name('clients');
-        Route::get('/clients/new', fn() => view('invoicing.offline.client-form'))->name('client-new');
+        Route::get('/clients', \App\Support\PaginaDoPwa::rota('clientes'))->name('clients');
+        Route::get('/clients/new', \App\Support\PaginaDoPwa::rota('novo-cliente'))->name('client-new');
     });
     Route::middleware('pwa:documentos')->group(function () {
-        Route::get('/drafts', fn() => view('invoicing.offline.drafts'))->name('drafts');
-        Route::get('/drafts/new', fn() => view('invoicing.offline.draft-form'))->name('draft-new');
+        Route::get('/drafts', \App\Support\PaginaDoPwa::rota('documentos'))->name('drafts');
+        Route::get('/drafts/new', \App\Support\PaginaDoPwa::rota('novo-documento'))->name('draft-new');
     });
-    Route::middleware('pwa:pos')->get('/pos', fn() => view('invoicing.offline.pos'))->middleware('permission:invoicing.pos.access')->name('pos');
-    Route::middleware('pwa:restaurante')->get('/restaurant', fn() => view('invoicing.offline.restaurant'))->name('restaurant');
+    Route::middleware('pwa:pos')->get('/pos', \App\Support\PaginaDoPwa::rota('pos'))->middleware('permission:invoicing.pos.access')->name('pos');
+    Route::middleware('pwa:restaurante')->get('/restaurant', \App\Support\PaginaDoPwa::rota('restaurante'))->name('restaurant');
     // Saída do PWA → redireciona para a 1ª área a que o utilizador tem permissão
     Route::get('/exit', \App\Http\Controllers\Invoicing\PwaExitController::class)->name('exit');
 });

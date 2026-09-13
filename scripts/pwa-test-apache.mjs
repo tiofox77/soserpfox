@@ -26,6 +26,8 @@ const CANDIDATOS = [
     process.env.PWA_URL,
     'https://soserp.test',
     'https://localhost/soserp/public',
+    // Sem o 443 ligado: o playwright.config trata este endereço como seguro.
+    'http://soserp.test',
 ].filter(Boolean);
 
 async function responde(base) {

@@ -324,6 +324,18 @@ class PwaController extends Controller
             $content
         );
 
+        // O PACOTE DO PWA, pelo nome de hoje. Leva hash e muda a cada
+        // construção, portanto não pode estar escrito no sw.js — e se não
+        // estiver na lista, a primeira abertura sem rede não tem aplicação
+        // nenhuma para correr. O sw.js declara a lista vazia; enche-se aqui.
+        $pacote = \App\Support\PacoteReact::doPwa();
+        $content = preg_replace(
+            '/const\s+PACOTE_DO_PWA\s*=\s*\[\s*\];/',
+            'const PACOTE_DO_PWA = '.json_encode($pacote ? [$pacote] : [], JSON_UNESCAPED_SLASHES).';',
+            $content,
+            1
+        );
+
         return response($content, 200, [
             'Content-Type' => 'application/javascript; charset=UTF-8',
             'Service-Worker-Allowed' => '/',
@@ -554,7 +566,7 @@ class PwaController extends Controller
         // actualizado, os aparelhos ficavam com o que tinham, e não havia
         // como saber que versão cada um estava a correr. Aconteceu: num só
         // dia saíram alterações ao motor e às vistas sem esta linha mexer.
-        $layout = resource_path('views/layouts/pwa.blade.php');
+        $layout = resource_path('views/pwa/ecra.blade.php');
 
         $vigiados = [
             resource_path('pwa/sw.js'),
@@ -580,10 +592,13 @@ class PwaController extends Controller
             }
         }
 
-        // E as páginas do modo offline, todas: são elas que ficam em cache
-        // e são elas que o utilizador vê quando não há rede.
-        foreach (glob(resource_path('views/invoicing/offline/*.blade.php')) ?: [] as $ficheiro) {
-            $vigiados[] = $ficheiro;
+        // E O PACOTE DO PWA — o motor, o papel e os onze ecrãs, num ficheiro
+        // só. O nome leva hash, portanto um deploy que mude uma vírgula num
+        // ecrã muda o ficheiro, e com ele esta versão.
+        $pacote = \App\Support\PacoteReact::ficheiroDoPwa();
+
+        if ($pacote) {
+            $vigiados[] = $pacote;
         }
 
         // E o logótipo da empresa: entra nos ícones do manifesto, e por

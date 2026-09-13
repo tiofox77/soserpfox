@@ -11,11 +11,14 @@
         "pwa:test:ver": "playwright test --project=pwa --headed",
         "pwa:relatorio": "playwright show-report",
         "pwa:test:apache": "node scripts/pwa-test-apache.mjs",
-        "react:build": "vite build --config vite.react.config.js",
+        "react:build": "vite build --config vite.react.config.js && vite build --config vite.pwa.config.js",
         "react:dev": "vite build --config vite.react.config.js --watch",
         "react:tipos": "tsc --noEmit",
         "react:test": "vitest run",
-        "react:test:browser": "node scripts/react-test-browser.mjs"
+        "react:test:browser": "node scripts/react-test-browser.mjs",
+        "pwa:build": "vite build --config vite.pwa.config.js",
+        "pwa:dev": "vite build --config vite.pwa.config.js --watch",
+        "pwa:test:sw": "node --test tests/pwa/"
     },
     "devDependencies": {
         "@playwright/test": "^1.62.1",
@@ -32,6 +35,7 @@
         "axios": "^1.11.0",
         "bootstrap": "^5.2.3",
         "concurrently": "^9.0.1",
+        "fake-indexeddb": "6.2.5",
         "jsdom": "^29.1.1",
         "jsqr": "^1.4.0",
         "laravel-vite-plugin": "^2.0.0",
@@ -44,5 +48,8 @@
         "vite": "^7.0.7",
         "vitest": "^4.1.11",
         "ws": "^8.21.3"
+    },
+    "dependencies": {
+        "dexie": "4.0.10"
     }
 }

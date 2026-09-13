@@ -199,15 +199,16 @@ class PerfilDoNegocioTest extends TenantTestCase
     {
         /*
          * O balcão é hoje React: a porta é o `PosApiController`, o ecrã é o
-         * `PontoDeVenda.tsx`, e o balcão sem rede continua no Blade do PWA. Os
-         * dois primeiros substituem o `POSSystem` em Livewire, que deixou de
-         * existir.
+         * `PontoDeVenda.tsx`, e o balcão sem rede é o do PWA
+         * (`resources/js/pwa/ecras/Pos.tsx` e as peças de `ecras/pos/`). Os dois
+         * primeiros substituem o `POSSystem` em Livewire; o do PWA substitui o
+         * Blade com Alpine que lá estava.
          */
-        $ficheiros = [
+        $ficheiros = array_merge([
             app_path('Http/Controllers/Api/Invoicing/PosApiController.php'),
             resource_path('js/ecras/facturacao/pos/PontoDeVenda.tsx'),
-            resource_path('views/invoicing/offline/pos.blade.php'),
-        ];
+            resource_path('js/pwa/ecras/Pos.tsx'),
+        ], glob(resource_path('js/pwa/ecras/pos/*.ts*')) ?: []);
 
         foreach ($ficheiros as $f) {
             $this->assertFileExists($f);

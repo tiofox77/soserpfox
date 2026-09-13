@@ -31,11 +31,18 @@ class EntradaRegistaServiceWorkerTest extends TenantTestCase
 
     public function test_a_entrada_regista_o_service_worker(): void
     {
-        $this->assertStringContainsString(
-            "serviceWorker.register('/sw.js'",
-            $this->entrada(),
-            'sem isto, quem chega primeiro à entrada nunca instala o modo offline'
-        );
+        $pacote = \App\Support\PacoteReact::doPwa();
+
+        if (! $pacote) {
+            $this->markTestSkipped('O pacote do PWA não está construído (npm run pwa:build).');
+        }
+
+        // O registo vive no pacote (casca/servicoOffline.ts, chamado à cabeça
+        // do pwa.tsx) — e o pacote é carregado pela entrada.
+        $this->assertStringContainsString('src="'.$pacote.'"', $this->entrada(),
+            'sem o pacote, quem chega primeiro à entrada nunca instala o modo offline');
+        $this->assertStringContainsString("register('/sw.js'", file_get_contents(resource_path('js/casca/servicoOffline.ts')));
+        $this->assertStringContainsString('ligarServicoOffline(', file_get_contents(resource_path('js/pwa.tsx')));
     }
 
     /**
@@ -55,13 +62,13 @@ class EntradaRegistaServiceWorkerTest extends TenantTestCase
         }
     }
 
-    /** E carrega mesmo o motor e o Dexie, das cópias locais. */
-    public function test_a_entrada_carrega_o_motor_e_o_dexie_locais(): void
+    /** E carrega mesmo o motor, do próprio servidor: o pacote do PWA leva o Dexie dentro. */
+    public function test_a_entrada_carrega_o_motor_local(): void
     {
         $html = $this->entrada();
 
-        $this->assertStringContainsString('/vendor/js/dexie.min.js', $html);
-        $this->assertStringContainsString('/js/pwa-invoicing.js', $html);
+        $this->assertMatchesRegularExpression('#<script type="module" src="/pwa-app/pwa-[^"]+\.js"#', $html);
+        $this->assertStringContainsString('/js/vendor/bcrypt.min.js', $html, 'o PIN confere-se com o bcrypt local');
     }
 
     /**

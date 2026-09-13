@@ -204,7 +204,12 @@ class FacturacaoEmReactTest extends TenantTestCase
                 // Não são a API: o keep-alive da sessão e o HTML da
                 // pré-visualização que o PDF do ecrã fotografa.
                 && ! str_ends_with($nome, 'casca' . DIRECTORY_SEPARATOR . 'Sistema.tsx')
-                && ! str_ends_with($nome, 'casca' . DIRECTORY_SEPARATOR . 'pdfDoDocumento.ts');
+                && ! str_ends_with($nome, 'casca' . DIRECTORY_SEPARATOR . 'pdfDoDocumento.ts')
+                // O PWA offline tem a SUA porta (`pwa/motor/rede.ts`): distingue
+                // «sem rede» de «sessão morta» e de «subscrição expirada», que o
+                // cliente da API não sabe fazer, e o aquecimento do cache e o
+                // diagnóstico precisam da resposta crua, com erro e tudo.
+                && ! str_starts_with($nome, 'resources' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'pwa' . DIRECTORY_SEPARATOR);
 
             $this->assertFalse($forasteiro, "{$nome}: usa fetch() directo em vez do cliente da API");
         }

@@ -109,8 +109,13 @@ function montarAmbiente({ respostaDaRede, erroDeRede, urlQueFalha } = {}) {
 }
 
 /** Carrega o sw.js real dentro do ambiente fingido e devolve o que interessa. */
-async function carregarServiceWorker(ambiente) {
-    const fonte = readFileSync(join(raiz, 'resources', 'pwa', 'sw.js'), 'utf8');
+async function carregarServiceWorker(ambiente, { pacote = null } = {}) {
+    let fonte = readFileSync(join(raiz, 'resources', 'pwa', 'sw.js'), 'utf8');
+
+    // O que o PwaController faz ao servir o /sw.js: escreve o pacote de hoje.
+    if (pacote) {
+        fonte = fonte.replace(/const\s+PACOTE_DO_PWA\s*=\s*\[\s*\];/, `const PACOTE_DO_PWA = ${JSON.stringify([pacote])};`);
+    }
 
     const self = {
         addEventListener: (nome, fn) => { ambiente.listeners[nome] = fn; },
@@ -265,9 +270,9 @@ test('o cache das paginas nao leva a versao, para sobreviver aos deploys', async
     );
 });
 
-test('um CDN em baixo nao leva o resto do pre-cache atras', async () => {
-    const ambiente = montarAmbiente({ urlQueFalha: 'unpkg.com/alpinejs' });
-    const sw = await carregarServiceWorker(ambiente);
+test('um ficheiro que falhe nao leva o resto do pre-cache atras', async () => {
+    const ambiente = montarAmbiente({ urlQueFalha: '/vendor/js/html2canvas.min.js' });
+    const sw = await carregarServiceWorker(ambiente, { pacote: '/pwa-app/pwa-teste.js' });
 
     // Correr o install a serio, com um dos URLs a falhar.
     let porEsperar = null;
@@ -277,23 +282,29 @@ test('um CDN em baixo nao leva o resto do pre-cache atras', async () => {
     const estatico = await ambiente.caches.open(`static-${sw.CACHE_VERSION}`);
 
     assert.ok(await estatico.match('/offline'),
-        'a pagina /offline tinha de ficar guardada mesmo com um CDN em baixo');
-    assert.ok(await estatico.match('https://unpkg.com/dexie@4.0.10/dist/dexie.min.js'),
-        'o Dexie tinha de ficar guardado — sem ele o motor offline nem arranca');
-    assert.equal(await estatico.match('https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js'), undefined,
+        'a pagina /offline tinha de ficar guardada mesmo com um ficheiro em baixo');
+    assert.ok(await estatico.match('/pwa-app/pwa-teste.js'),
+        'o pacote do PWA tinha de ficar guardado — sem ele nao ha aplicacao sem rede');
+    assert.equal(await estatico.match('/vendor/js/html2canvas.min.js'), undefined,
         'so o que falhou e que devia faltar');
 });
 
-test('o Dexie e o Alpine estao na lista do pre-cache', async () => {
+test('o que a casca do PWA pede esta todo no pre-cache, e o pacote tambem', async () => {
     const fonte = readFileSync(join(raiz, 'resources', 'pwa', 'sw.js'), 'utf8');
-    const layout = readFileSync(join(raiz, 'resources', 'views', 'layouts', 'pwa.blade.php'), 'utf8');
+    const casca = readFileSync(join(raiz, 'resources', 'views', 'pwa', 'ecra.blade.php'), 'utf8');
+    const lista = fonte.match(/const PRECACHE_URLS = \[([\s\S]*?)\n\];/);
 
-    // Os URLs tem de ser os MESMOS do layout: um URL diferente e outra entrada
+    assert.ok(lista, 'o sw.js tem de ter a PRECACHE_URLS');
+
+    // Os URLs tem de ser os MESMOS da casca: um URL diferente e outra entrada
     // no cache, e o pre-cache passava a guardar uma coisa que ninguem pede.
-    for (const biblioteca of ['dexie', 'alpinejs']) {
-        const pedido = layout.match(new RegExp('https://unpkg\.com/' + biblioteca + '[^"]*'));
-        assert.ok(pedido, 'o layout devia pedir o ' + biblioteca);
-        assert.ok(fonte.includes(pedido[0]),
-            'o sw.js tem de pre-guardar exactamente ' + pedido[0]);
+    const pedidos = [...casca.matchAll(/(?:src|href)="(\/(?:vendor|js)\/[^"]+)"/g)].map((m) => m[1]);
+    assert.ok(pedidos.length >= 4, 'a casca devia pedir os seus ficheiros de /vendor e /js');
+
+    for (const pedido of pedidos) {
+        assert.ok(lista[1].includes(`'${pedido}'`), 'o sw.js tem de pre-guardar exactamente ' + pedido);
     }
+
+    assert.ok(lista[1].includes('...PACOTE_DO_PWA'), 'o pacote do PWA tem de entrar na lista');
+    assert.match(fonte, /const PACOTE_DO_PWA = \[\];/, 'o nome do pacote nao se escreve a mao: e o servidor que o poe');
 });

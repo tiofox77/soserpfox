@@ -56,9 +56,11 @@ class RascunhoOfflineSoVendasTest extends TenantTestCase
     /** O ecra offline tambem nao a oferece — senao pedia-se e levava-se erro. */
     public function test_o_ecra_offline_nao_oferece_nota_de_credito(): void
     {
-        $html = $this->actingAs($this->user)->get('/invoicing/offline/drafts/new')->getContent();
+        preg_match('/export const TIPOS_DE_DOCUMENTO[^=]*= \[(.*?)\];/s',
+            file_get_contents(resource_path('js/pwa/ecras/novo-documento/formulario.ts')), $m);
 
-        $this->assertStringNotContainsString("code: 'NC'", $html,
+        $this->assertNotEmpty($m, 'a lista dos tipos oferecidos tem de existir');
+        $this->assertStringNotContainsString("code: 'NC'", $m[1],
             'a opcao continua na lista e so falha ao gravar');
     }
 }

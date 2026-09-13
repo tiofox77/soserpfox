@@ -35,9 +35,13 @@ test.describe('O cache das páginas não mistura empresas', () => {
         await page.goto('/home');
         await page.waitForTimeout(1000);
 
+        // Os dois caminhos por onde uma página chega: a navegação normal e um
+        // pedido sem `Accept` de HTML (era o do `wire:navigate`; o Livewire
+        // saiu, mas qualquer `fetch` de uma página faz o mesmo).
         for (const caminho of PAGINAS) {
-            await page.evaluate((p) => window.Livewire.navigate(p), caminho);
-            await page.waitForTimeout(2500);
+            await irPara(page, caminho);
+            await page.evaluate((p) => fetch(p, { credentials: 'same-origin', headers: { 'X-Livewire-Navigate': '1' } }).then((r) => r.text()), caminho);
+            await page.waitForTimeout(800);
         }
 
         const guardadas = await page.evaluate(async () => {
@@ -54,7 +58,7 @@ test.describe('O cache das páginas não mistura empresas', () => {
         expect(guardadas.some((p) => p.startsWith('/invoicing/offline')), 'o PWA continua no cache').toBe(true);
     });
 
-    test('uma página da retaguarda aberta pela barra lateral não fica guardada', async ({ page }) => {
+    test('uma página da retaguarda pedida por fetch não fica guardada', async ({ page }) => {
         await entrar(page);
         await irPara(page, '/invoicing/offline/drafts');
         await esperarServiceWorker(page);
@@ -62,7 +66,7 @@ test.describe('O cache das páginas não mistura empresas', () => {
         await page.goto('/home');
         await page.waitForTimeout(1000);
 
-        // O pedido do wire:navigate vai mesmo sem Accept — é a raiz do problema.
+        // Um pedido de página feito por `fetch`, sem Accept de HTML — é a raiz do problema.
         const pedidos = [];
         page.on('request', (r) => {
             if (r.url().includes('/invoicing/products')) {
@@ -70,8 +74,8 @@ test.describe('O cache das páginas não mistura empresas', () => {
             }
         });
 
-        await page.evaluate(() => window.Livewire.navigate('/invoicing/products'));
-        await page.waitForTimeout(3500);
+        await page.evaluate(() => fetch('/invoicing/products', { credentials: 'same-origin', headers: { 'X-Livewire-Navigate': '1' } }).then((r) => r.text()));
+        await page.waitForTimeout(1500);
 
         expect(pedidos.length, 'o navigate foi mesmo buscar a página').toBeGreaterThan(0);
 

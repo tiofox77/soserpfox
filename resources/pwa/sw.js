@@ -26,7 +26,7 @@ const DYNAMIC_CACHE = 'dynamic-paginas';
 /**
  * O que tem de estar guardado ANTES de faltar a rede.
  *
- * ESTA LISTA TEM DE BATER LETRA A LETRA COM O QUE O layouts/pwa.blade.php
+ * ESTA LISTA TEM DE BATER LETRA A LETRA COM O QUE O pwa/ecra.blade.php
  * PEDE. Um URL diferente é uma entrada diferente no cache e não serve de nada
  * — foi o que aconteceu: o layout passou a carregar tudo de `/vendor/`, local,
  * e esta lista ficou a pré-guardar os CDN (unpkg, cdnjs, cdn.tailwindcss.com)
@@ -38,14 +38,23 @@ const DYNAMIC_CACHE = 'dynamic-paginas';
  *
  * As `?v=` fazem parte do URL: sem elas o cache falha por um caracter.
  */
+
+/**
+ * O PACOTE DO PWA — o motor (Dexie incluído), o papel e os ecrãs em React.
+ *
+ * Fica VAZIO neste ficheiro de propósito: o nome leva hash e muda a cada
+ * construção, e é o PwaController que escreve aqui o de hoje quando serve o
+ * /sw.js. Um nome escrito à mão era o `?v=` esquecido outra vez — o aparelho
+ * ficava com o pacote antigo, ou sem pacote nenhum.
+ */
+const PACOTE_DO_PWA = [];
+
 const PRECACHE_URLS = [
     '/offline',
     '/pwa/icon-192x192.png',
     '/pwa/icon-512x512.png',
 
-    // ── O motor. Sem estes quatro não há offline nenhum. ──────────────
-    '/vendor/js/dexie.min.js',
-    '/vendor/js/alpine.min.js',
+    // ── O desenho. Sem estes não há ecrã. ─────────────────────────────
     '/vendor/js/tailwind.js',
     '/vendor/css/fontawesome.min.css',
 
@@ -58,9 +67,7 @@ const PRECACHE_URLS = [
 
     // ── O código da aplicação offline. É ISTO que faz o trabalho: sem
     //    ele o ecrã carrega e não sabe fazer nada. ──────────────────────
-    '/js/pwa-invoicing.js?v=24',
-    '/js/pos-offline-ticket.js?v=4',
-    '/js/pwa-turno.js?v=1',
+    ...PACOTE_DO_PWA,
 ];
 
 /**

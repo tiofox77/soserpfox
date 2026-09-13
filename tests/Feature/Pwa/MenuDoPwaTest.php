@@ -199,8 +199,14 @@ class MenuDoPwaTest extends TenantTestCase
         $this->actingAs($this->user)
             ->get('/invoicing/offline/clients')
             ->assertStatus(403)
-            ->assertSee('invoicing.clients.view')
-            ->assertSee(__('Permissão em falta'));
+            ->assertSee('&quot;ecra&quot;:&quot;sem-acesso&quot;', false)
+            ->assertSee('invoicing.clients.view');
+
+        // O ecrã desenha a permissão em falta com o rótulo — é o que o
+        // administrador procura na lista de papéis.
+        $ecra = file_get_contents(resource_path('js/pwa/ecras/SemAcesso.tsx'));
+        $this->assertStringContainsString("t('Permissão em falta')", $ecra);
+        $this->assertStringContainsString('semAcesso.permissao', $ecra);
     }
 
     public function test_a_rota_fecha_o_que_a_empresa_desligou(): void

@@ -271,7 +271,7 @@ class PdfDoEcraTest extends TenantTestCase
     {
         $geradores = [
             'o do browser' => $this->gerador(),
-            'o dos telemóveis' => file_get_contents(public_path('js/pos-offline-ticket.js')),
+            'o dos telemóveis' => file_get_contents(resource_path('js/pwa/papel/saida.ts')),
         ];
 
         foreach ($geradores as $nome => $js) {
