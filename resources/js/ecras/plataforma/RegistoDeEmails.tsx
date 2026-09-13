@@ -12,6 +12,7 @@ import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { CARTAO, RAIO, TRANSICAO, cls, dataHora, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '../facturacao/faixa';
 import { BotaoDeIcone, Confirmar, Dado, ErroDoEcra, Paginas, Recado } from './comum';
@@ -34,7 +35,7 @@ const ESTADO = (e: string) => ({
 export default function RegistoDeEmails() {
     const fila = useQueryClient();
     const [filtros, porFiltros] = useState<Filtros>({ pagina: 1 });
-    const [recado, porRecado] = useState<string | null>(null);
+    const [recado, porRecado] = useRecadoNoCanto(null);
     const [aVer, porAVer] = useState<number | null>(null);
     const [aApagar, porAApagar] = useState<RegistoDeEmail | null>(null);
     const [aLimpar, porALimpar] = useState(false);

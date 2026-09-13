@@ -15,6 +15,7 @@ import { PorPagina } from '@/ui/FiltrosComuns';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { etiquetaIntl, t } from '@/i18n';
 
 /**
@@ -64,7 +65,7 @@ export default function Equipamentos({
         local?: string; por_pagina?: number; page?: number;
     }>({ por_pagina: 12, page: 1 });
 
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     const [erro, porErro] = useState<unknown>(null);
 
     const [formulario, porFormulario] = useState<typeof VAZIO | null>(null);

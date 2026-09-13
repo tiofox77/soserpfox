@@ -14,6 +14,7 @@ import { PainelDoSeparador, Separadores } from '@/ui/Separadores';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { ACCAO_DA_FAIXA, Faixa } from '@/ecras/facturacao/faixa';
 import { FOCO, RAIO, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t } from '@/i18n';
 
 /**
@@ -37,7 +38,7 @@ export default function Definicoes() {
     const [carta, porCarta] = useState<CartaPublica | null>(null);
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [erro, porErro] = useState<unknown>(null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     const [novoEstab, porNovoEstab] = useState<{ code: string; name: string; warehouse_id: string } | null>(null);
     const [novaZona, porNovaZona] = useState<{ venue_id: string; name: string } | null>(null);

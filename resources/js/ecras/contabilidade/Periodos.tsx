@@ -14,6 +14,7 @@ import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '../facturacao/faixa';
 
@@ -35,7 +36,7 @@ export default function Periodos() {
     const cache = useQueryClient();
 
     const [ano, porAno] = useState<number>(new Date().getFullYear());
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     const [aCriar, porACriar] = useState(false);
     const [aGerar, porAGerar] = useState(false);
     const [aFechar, porAFechar] = useState<PeriodoContabilistico | null>(null);

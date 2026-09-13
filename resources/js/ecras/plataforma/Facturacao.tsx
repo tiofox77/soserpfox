@@ -17,6 +17,7 @@ import { Modal } from '@/ui/Modal';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { PainelDoSeparador, Separadores } from '@/ui/Separadores';
 import { CARTAO, FOCO, RAIO, TRANSICAO, cls, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 import { EstadoNaFaixa, Faixa } from '../facturacao/faixa';
 
@@ -39,7 +40,7 @@ type Cor = 'bom' | 'aviso' | 'perigo' | 'neutra' | 'primaria';
 export default function Facturacao() {
     const fila = useQueryClient();
     const [aba, porAba] = useState('pedidos');
-    const [recado, porRecado] = useState<string | null>(null);
+    const [recado, porRecado] = useRecadoNoCanto(null);
 
     const dados = useQuery({
         queryKey: ['plataforma', 'facturacao'],

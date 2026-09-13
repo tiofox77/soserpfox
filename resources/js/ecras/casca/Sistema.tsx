@@ -156,7 +156,7 @@ export default function Sistema({ login, manterViva, recados = [] }: Props) {
         <>
             <div id="spa-progress" className={cls('spa-progress', progresso.acabou && 'done')} style={{ width: `${progresso.largura}%` }} aria-hidden="true" />
 
-            <div className="pointer-events-none fixed right-4 top-4 z-[100001] flex w-[22rem] max-w-[calc(100vw-2rem)] flex-col gap-3" aria-live="polite">
+            <div data-ensaio="avisos-de-canto" className="pointer-events-none fixed right-4 top-4 z-[100001] flex w-[22rem] max-w-[calc(100vw-2rem)] flex-col gap-3" aria-live="polite">
                 {avisos.map((a) => {
                     const e = ESTILO[a.tipo] ?? ESTILO.info;
 

@@ -15,6 +15,7 @@ import { PainelDoSeparador, Separadores } from '@/ui/Separadores';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, RAIO, cls, dataHora, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t } from '@/i18n';
 
 /**
@@ -43,7 +44,7 @@ export default function Stock() {
     const [formulario, porFormulario] = useState<ReturnType<typeof formularioVazio> | null>(null);
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [erro, porErro] = useState<unknown>(null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     useEffect(() => {
         const id = setTimeout(() => porAtrasada(procura), 300);

@@ -14,6 +14,7 @@ import { Modal } from '@/ui/Modal';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t } from '@/i18n';
 
 /**
@@ -44,7 +45,7 @@ export default function Fichas() {
     const [aApagar, porAApagar] = useState<Ficha | null>(null);
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [erro, porErro] = useState<unknown>(null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     useEffect(() => {
         const id = setTimeout(() => porAtrasada(procura), 300);

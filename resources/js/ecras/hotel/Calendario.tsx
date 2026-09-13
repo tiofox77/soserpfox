@@ -18,6 +18,7 @@ import { Modal } from '@/ui/Modal';
 import { SemNada } from '@/ui/SemNada';
 import { ACCAO_DA_FAIXA, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { etiquetaIntl, t } from '@/i18n';
 
 /**
@@ -80,7 +81,7 @@ export default function Calendario() {
     const [filtros, porFiltros] = useState<FiltrosDoCalendario>({ dia: hoje(), vista: 'mes' });
     const [aVer, porAVer] = useState<BarraDoCalendario | null>(null);
     const [aMover, porAMover] = useState<BarraDoCalendario | null>(null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     const opcoes = useQuery({ queryKey: ['hotel', 'calendario', 'opcoes'], queryFn: calendario.opcoes, staleTime: 5 * 60_000 });
 

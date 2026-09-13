@@ -12,6 +12,7 @@ import { PorPagina } from '@/ui/FiltrosComuns';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls, dataHora, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t } from '@/i18n';
 import { COR_DO_ESTADO, ICONE_DO_CANAL, PainelDaComanda } from './PecasDaComanda';
 
@@ -30,7 +31,7 @@ export default function Comandas({ order }: { order?: number }) {
     const [aberta, porAberta] = useState<number | null>(order ?? null);
     const [filtros, porFiltros] = useState<FiltrosDasComandas>({ procura: '', abertas: true, page: 1, por_pagina: 12 });
     const [procura, porProcura] = useState('');
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     // A caixa de procura escreve-se depressa; o servidor não precisa de saber
     // de cada tecla.

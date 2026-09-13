@@ -12,6 +12,7 @@ import { Modal } from '@/ui/Modal';
 import { SemNada } from '@/ui/SemNada';
 import { ACCAO_DA_FAIXA, Faixa } from '@/ecras/facturacao/faixa';
 import { FOCO, RAIO, cls, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t } from '@/i18n';
 
 /**
@@ -35,7 +36,7 @@ export default function Aparencia() {
     const [atrasada, porAtrasada] = useState('');
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [erro, porErro] = useState<unknown>(null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     const [versao, porVersao] = useState(0);
     const [aRemover, porARemover] = useState<'capa' | 'logo' | null>(null);
 

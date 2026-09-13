@@ -10,6 +10,7 @@ import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { ACCAO_DA_FAIXA, Faixa } from '@/ecras/facturacao/faixa';
 import { FOCO, RAIO, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t } from '@/i18n';
 
 /**
@@ -33,7 +34,7 @@ type Formulario = LigacaoMeta & {
 
 export default function Meta() {
     const [f, porF] = useState<Formulario | null>(null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     const [copiado, porCopiado] = useState<string | null>(null);
 
     const ligacao = useQuery({ queryKey: ['crm', 'meta'], queryFn: () => crm.meta.ler() });

@@ -12,6 +12,7 @@ import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { GraficoDeBarras } from '@/ui/GraficoDeBarras';
 import { CORES, FOCO, RAIO, cls, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t } from '@/i18n';
 
 /**
@@ -35,7 +36,7 @@ const cascata = (i: number) => ({ '--i': i }) as CSSProperties;
 export default function Quebras() {
     const cache = useQueryClient();
     const [filtros, porFiltros] = useState({ de: primeiroDoMes(), ate: hoje(), motivo: 'todos', page: 1 });
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     const opcoes = useQuery({ queryKey: ['quebras', 'opcoes'], queryFn: quebras.opcoes, staleTime: 5 * 60_000 });
     const lista = useQuery({ queryKey: ['quebras', filtros], queryFn: () => quebras.lista(filtros), placeholderData: keepPreviousData });

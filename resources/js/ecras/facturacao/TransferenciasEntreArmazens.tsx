@@ -11,6 +11,7 @@ import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { CORES, FOCO, RAIO, cls, type Cor } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t } from '@/i18n';
 import { Carrinho, Comprovativo } from '@/ecras/facturacao/transferencias/Carrinho';
 
@@ -39,7 +40,7 @@ export default function TransferenciasEntreArmazens() {
     const [filtros, porFiltros] = useState({ procura: '', armazem: '', de: '', ate: '', page: 1 });
     const [modal, porModal] = useState<'transferir' | 'ajustar' | null>(null);
     const [detalhe, porDetalhe] = useState<LoteDoHistorico | null>(null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     const opcoes = useQuery({ queryKey: ['transferencias', 'opcoes'], queryFn: transferencias.opcoes, staleTime: 5 * 60_000 });
     const historico = useQuery({ queryKey: ['transferencias', 'historico', filtros], queryFn: () => transferencias.historico(filtros), placeholderData: keepPreviousData });

@@ -9,6 +9,7 @@ import { Campo, entrada } from '@/ui/Campo';
 import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
 import { FOCO, RAIO, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t } from '@/i18n';
 import { ACCAO_DA_FAIXA, Faixa, SemNada, cascata } from './faixa';
 
@@ -44,13 +45,15 @@ function Editor({ id, inicial, previaInicial, catalogo, variaveis }: { id: numbe
     const [previa, porPrevia] = useState(previaInicial);
     const [seleccionado, porSeleccionado] = useState<string | null>(inicial.seleccionado);
     const [mostrarVariaveis, porMostrarVariaveis] = useState(false);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     // O bloco que se está a arrastar, e aquele por cima do qual paira.
     const [arrastado, porArrastado] = useState<string | null>(null);
     const [alvo, porAlvo] = useState<string | null>(null);
 
     const accao = useMutation({
         mutationFn: (corpo: Record<string, unknown>) => modelos.accao(id, { seleccionado, ...corpo }),
+        // Corre a cada toque no editor: só avisa quando o servidor diz alguma coisa.
+        meta: { aviso: 'so-com-mensagem' },
         onSuccess: (r) => { porEstado(r.estado); porPrevia(r.previa); porSeleccionado(r.estado.seleccionado); if (r.message) porRecado(r.message); },
     });
     const fazer = (corpo: Record<string, unknown>) => accao.mutate(corpo);

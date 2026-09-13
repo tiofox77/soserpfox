@@ -10,6 +10,7 @@ import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { RAIO, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t } from '@/i18n';
 
 /**
@@ -23,7 +24,7 @@ export default function DefinirPin() {
     const q = useQuery({ queryKey: ['pin'], queryFn: pin.estado });
     const [forma, porForma] = useState({ pin: '', pin_confirmation: '', password: '' });
     const [erros, porErros] = useState<Record<string, string[]>>({});
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     const guardar = useMutation({
         mutationFn: () => pin.definir(forma),

@@ -14,6 +14,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
+import { cacheDeMutacoesComAvisos } from '@/casca/avisosDasMutacoes';
 import { carregarDicionario, lingua } from '@/i18n';
 import { LimiteDeErro } from '@/casca/LimiteDeErro';
 import { Carregando } from '@/ui/Carregando';
@@ -28,6 +29,8 @@ import { activarDicasDeAccao } from '@/ui/DicasDeAccao';
  * tentativa, e depois o ecrã que diz o que aconteceu.
  */
 const clienteDeConsultas = new QueryClient({
+    // Todo o CRUD avisa no canto superior direito — ver casca/avisosDasMutacoes.ts.
+    mutationCache: cacheDeMutacoesComAvisos(),
     defaultOptions: {
         queries: {
             retry: 1,

@@ -11,6 +11,7 @@ import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { FOCO, RAIO, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t } from '@/i18n';
 import { Carrinho, Comprovativo } from '@/ecras/facturacao/transferencias/Carrinho';
 
@@ -36,7 +37,7 @@ export default function TransferenciasEntreEmpresas() {
     const cache = useQueryClient();
     const [pagina, porPagina] = useState(1);
     const [aberto, porAberto] = useState(false);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     const opcoes = useQuery({ queryKey: ['transferencias', 'opcoes'], queryFn: transferencias.opcoes, staleTime: 5 * 60_000 });
     const historico = useQuery({ queryKey: ['transferencias', 'entre-empresas', pagina], queryFn: () => transferencias.historicoEntreEmpresas(pagina), placeholderData: keepPreviousData });

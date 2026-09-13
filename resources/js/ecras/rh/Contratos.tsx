@@ -20,6 +20,7 @@ import { Modal } from '@/ui/Modal';
 import { PainelDoSeparador, Separadores } from '@/ui/Separadores';
 import { ACCAO_DA_FAIXA, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { etiquetaIntl, t } from '@/i18n';
 
 /**
@@ -59,7 +60,7 @@ export default function Contratos() {
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [aCessar, porACessar] = useState<LinhaDeContrato | null>(null);
     const [aApagar, porAApagar] = useState<LinhaDeContrato | null>(null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     const opcoes = useQuery({ queryKey: ['rh', 'contratos', 'opcoes'], queryFn: contratos.opcoes, staleTime: 5 * 60_000 });
     const lista = useQuery({

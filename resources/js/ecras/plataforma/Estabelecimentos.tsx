@@ -12,6 +12,7 @@ import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { CARTAO, FOCO, RAIO_GRANDE, TOQUE, TRANSICAO, cls, dataHora } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 import { EstadoNaFaixa, Faixa } from '../facturacao/faixa';
 import { ErroDoEcra, Paginas, Recado } from './comum';
@@ -34,7 +35,7 @@ const ESTADOS = (): Array<{ chave: Estado; rotulo: string; icone: string; cor: '
 export default function Estabelecimentos() {
     const fila = useQueryClient();
     const [filtros, porFiltros] = useState<{ estado: Estado; procura?: string; pagina: number }>({ estado: 'pending', pagina: 1 });
-    const [recado, porRecado] = useState<string | null>(null);
+    const [recado, porRecado] = useRecadoNoCanto(null);
     const [aAnalisar, porAAnalisar] = useState<PedidoDeEstabelecimentos | null>(null);
 
     const lista = useQuery({

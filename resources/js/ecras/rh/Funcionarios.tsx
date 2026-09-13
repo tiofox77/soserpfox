@@ -22,6 +22,7 @@ import { PainelDoSeparador, Separadores } from '@/ui/Separadores';
 import { PorPagina } from '@/ui/FiltrosComuns';
 import { ACCAO_DA_FAIXA, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls, data, kz, type Cor } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { etiquetaIntl, t } from '@/i18n';
 
 /**
@@ -81,7 +82,7 @@ export default function Funcionarios() {
     const [aVer, porAVer] = useState<LinhaDeFuncionario | null>(null);
     const [aApagar, porAApagar] = useState<LinhaDeFuncionario | null>(null);
     const [aImportar, porAImportar] = useState(false);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     const opcoes = useQuery({ queryKey: ['rh', 'funcionarios', 'opcoes'], queryFn: funcionarios.opcoes, staleTime: 5 * 60_000 });
     const lista = useQuery({

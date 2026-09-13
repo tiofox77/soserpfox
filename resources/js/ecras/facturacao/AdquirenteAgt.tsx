@@ -4,6 +4,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { adquirente, type Accao, type EstadoDoAdquirente, type FacturaRecebida } from '@/api/adquirente';
 import { ErroDaApi } from '@/api/cliente';
 import { Botao } from '@/ui/Botao';
+import { useRecadoComTomNoCanto } from '@/ui/useRecadoNoCanto';
 import { Campo, entrada } from '@/ui/Campo';
 import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
@@ -50,7 +51,7 @@ function Painel({ e, podeValidar }: { e: EstadoDoAdquirente; podeValidar: boolea
     const [pedido, porPedido] = useState<{ de: string; ate: string } | null>(null);
     const [documento, porDocumento] = useState<string | null>(null);
     const [decisao, porDecisao] = useState<Accao | null>(null);
-    const [recado, porRecado] = useState<{ tipo: 'bom' | 'mau'; texto: string } | null>(null);
+    const [recado, porRecado] = useRecadoComTomNoCanto<{ tipo: 'bom' | 'mau'; texto: string }>();
 
     const falhou = (erro: unknown) => porRecado({ tipo: 'mau', texto: erro instanceof ErroDaApi ? erro.message : t('Não foi possível concluir.') });
 

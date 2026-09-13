@@ -75,6 +75,7 @@ test('o icone escolhe-se de uma galeria, com procura em portugues', async ({ pag
     await page.getByRole('button', { name: /^Cancelar$/ }).click();
 });
 
+/** E o aviso sai no canto superior direito, como em todo o CRUD (casca/avisosDasMutacoes.ts). */
 test('cria uma marca, ve-a na lista e apaga-a', async ({ page }) => {
     const nome = 'Marca ensaio ' + Date.now();
 
@@ -85,13 +86,13 @@ test('cria uma marca, ve-a na lista e apaga-a', async ({ page }) => {
     await page.getByLabel(/^Nome\b/).fill(nome);
     await page.getByRole('button', { name: /^Guardar$/ }).click();
 
-    await expect(page.getByRole('status')).toContainText('criad', { timeout: 20_000 });
+    await expect(page.locator('[data-ensaio="avisos-de-canto"]')).toContainText('criad', { timeout: 20_000 });
     await page.getByPlaceholder(/Nome ou descrição/).fill(nome);
     await expect(page.getByRole('cell', { name: nome, exact: true })).toBeVisible({ timeout: 20_000 });
 
     await page.getByRole('button', { name: `Apagar: ${nome}` }).click();
     await page.getByRole('button', { name: /^Apagar$/ }).click();
-    await expect(page.getByRole('status')).toContainText('apagad', { timeout: 20_000 });
+    await expect(page.locator('[data-ensaio="avisos-de-canto"]')).toContainText('apagad', { timeout: 20_000 });
 });
 
 /**

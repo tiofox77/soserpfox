@@ -13,6 +13,7 @@ import { PorPagina } from '@/ui/FiltrosComuns';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, RAIO, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { etiquetaIntl, t } from '@/i18n';
 
 /**
@@ -43,7 +44,7 @@ export default function ListaDeUtilizadores() {
         papel?: number | ''; por_pagina?: number; page?: number;
     }>({ estado: 'todos', por_pagina: 15, page: 1 });
 
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     const [erro, porErro] = useState<unknown>(null);
 
     const [formulario, porFormulario] = useState<Formulario | null>(null);

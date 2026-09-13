@@ -12,6 +12,7 @@ import { Modal } from '@/ui/Modal';
 import { SemNada } from '@/ui/SemNada';
 import { ACCAO_DA_FAIXA, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t, tPartes } from '@/i18n';
 
 /**
@@ -52,7 +53,7 @@ function andarMes(dia: string, quantos: number): string {
 
 export default function Tarifas() {
     const [aba, porAba] = useState<Aba>('calendario');
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     const opcoes = useQuery({ queryKey: ['hotel', 'tarifas', 'opcoes'], queryFn: tarifas.opcoes, staleTime: 5 * 60_000 });
 

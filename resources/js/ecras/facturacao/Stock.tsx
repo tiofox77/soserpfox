@@ -12,6 +12,7 @@ import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { CARTAO, CORES, FOCO, RAIO, cls, kz, type Cor } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t, tPartes } from '@/i18n';
 
 /**
@@ -71,7 +72,7 @@ export default function Stock() {
     const [aTransferir, porATransferir] = useState<LinhaComStock | null>(null);
     const [movimentosDe, porMovimentosDe] = useState<LinhaDeStock | null>(null);
     const [lote, porLote] = useState(false);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     const opcoes = useQuery({ queryKey: ['stock', 'opcoes'], queryFn: stock.opcoes, staleTime: 5 * 60_000 });
     const lista = useQuery({ queryKey: ['stock', filtros], queryFn: () => stock.lista(filtros), placeholderData: keepPreviousData });

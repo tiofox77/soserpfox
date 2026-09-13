@@ -16,6 +16,7 @@ import { IntervaloDeDatas, PorPagina } from '@/ui/FiltrosComuns';
 import { ACCAO_DA_FAIXA, Faixa, type TomDaFaixa } from './faixa';
 import { Dado, JanelaDoExtrato, Seccao } from './ExtratoDaParte';
 import { FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { etiquetaIntl, t, tPartes } from '@/i18n';
 
 /**
@@ -118,7 +119,7 @@ function UmCatalogo({ tipo }: { tipo: string }) {
     const [formulario, porFormulario] = useState<Valores | null>(null);
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [aApagar, porAApagar] = useState<Linha | null>(null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     /** A linha cuja FICHA está aberta — só nos catálogos que têm extrato. */
     const [aVer, porAVer] = useState<Linha | null>(null);
     /** A linha a quem se está a atribuir gente — só onde o esquema o oferece. */

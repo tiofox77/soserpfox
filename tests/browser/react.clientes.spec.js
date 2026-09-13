@@ -43,7 +43,7 @@ test('cria um cliente e ele aparece na lista', async ({ page }) => {
     await janela.getByLabel(/^Nome\b/).fill(nome);
     await janela.getByRole('button', { name: 'Guardar' }).click();
 
-    await expect(page.getByRole('status')).toContainText('Cliente criado', { timeout: 20_000 });
+    await expect(page.locator('[data-ensaio="avisos-de-canto"]')).toContainText('Cliente criado', { timeout: 20_000 });
 
     // E está mesmo na lista, vindo do servidor.
     await page.getByPlaceholder('Nome, NIF, email ou telefone').fill(nif);

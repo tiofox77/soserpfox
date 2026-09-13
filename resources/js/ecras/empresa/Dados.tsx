@@ -11,6 +11,7 @@ import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { etiquetaIntl, t } from '@/i18n';
 
 /**
@@ -30,7 +31,7 @@ export default function DadosDaEmpresa() {
     const cache = useQueryClient();
 
     const [dados, porDados] = useState<DadosDaEmpresa | null>(null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     const [aviso, porAviso] = useState<string | null>(null);
     const [erro, porErro] = useState<unknown>(null);
     const [aConfirmar, porAConfirmar] = useState(false);

@@ -14,6 +14,7 @@ import { PorPagina } from '@/ui/FiltrosComuns';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, RAIO, cls, data, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t } from '@/i18n';
 import { COR_DO_ESTADO, ICONE_DO_ESTADO } from './Painel';
 
@@ -48,7 +49,7 @@ export default function Clientes() {
 
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [erro, porErro] = useState<unknown>(null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     useEffect(() => {
         const id = setTimeout(() => porFiltros((f) => ({ ...f, procura, page: 1 })), 300);

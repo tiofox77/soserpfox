@@ -12,6 +12,7 @@ import { Modal } from '@/ui/Modal';
 import { PainelDoSeparador, Separadores } from '@/ui/Separadores';
 import { ACCAO_DA_FAIXA, Faixa } from '@/ecras/facturacao/faixa';
 import { FOCO, RAIO, cls, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t } from '@/i18n';
 
 /**
@@ -38,7 +39,7 @@ export default function Definicoes() {
 
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [erro, porErro] = useState<unknown>(null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     const logoRef = useRef<HTMLInputElement>(null);
     const capaRef = useRef<HTMLInputElement>(null);

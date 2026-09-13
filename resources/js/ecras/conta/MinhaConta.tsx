@@ -16,6 +16,7 @@ import { SemNada, cascata } from '@/ui/SemNada';
 import { PainelDoSeparador, Separadores } from '@/ui/Separadores';
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { etiquetaIntl, t } from '@/i18n';
 
 /**
@@ -55,7 +56,7 @@ export default function MinhaConta() {
     const cache = useQueryClient();
 
     const [aba, porAba] = useState('empresas');
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     const [erro, porErro] = useState<unknown>(null);
 
     const [formularioDeEmpresa, porFormularioDeEmpresa] = useState<typeof EMPRESA_VAZIA | null>(null);

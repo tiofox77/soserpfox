@@ -12,6 +12,7 @@ import {
 } from '@/api/produtos';
 import { ErroDaApi } from '@/api/cliente';
 import { Campo, Rotulo, entrada } from '@/ui/Campo';
+import { useRecadoComTomNoCanto } from '@/ui/useRecadoNoCanto';
 import { Botao } from '@/ui/Botao';
 import { Cartao } from '@/ui/Cartao';
 import { CartaoNumero } from '@/ui/CartaoNumero';
@@ -150,7 +151,7 @@ export default function Produtos({ tipo, titulo, subtitulo }: {
     const [formulario, porFormulario] = useState<ArtigoParaGravar | null>(null);
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [aApagar, porAApagar] = useState<Artigo | null>(null);
-    const [recado, porRecado] = useState<Recado | null>(null);
+    const [recado, porRecado] = useRecadoComTomNoCanto<Recado>();
 
     const opcoes = useQuery({
         queryKey: ['produtos', 'opcoes'],

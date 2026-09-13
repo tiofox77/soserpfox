@@ -16,6 +16,7 @@ import { IntervaloDeDatas } from '@/ui/FiltrosComuns';
 import { Modal } from '@/ui/Modal';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { CARTAO, FOCO, RAIO, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 import { ACCAO_DA_FAIXA, Faixa } from '../facturacao/faixa';
 
@@ -37,7 +38,7 @@ export default function Moedas() {
     const cache = useQueryClient();
 
     const [filtros, porFiltros] = useState<{ procura?: string; so_activas?: boolean; moeda?: number | ''; de?: string; ate?: string }>({});
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     const [modal, porModal] = useState<{ aberto: boolean; moeda: Moeda | null }>({ aberto: false, moeda: null });
     const [modalDoCambio, porModalDoCambio] = useState(false);
     const [aApagar, porAApagar] = useState<Moeda | null>(null);

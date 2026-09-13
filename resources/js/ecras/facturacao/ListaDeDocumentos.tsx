@@ -23,6 +23,7 @@ import { IntervaloDeDatas, PorPagina } from '@/ui/FiltrosComuns';
 import { Dado } from './ExtratoDaParte';
 import { ACCAO_DA_FAIXA, Faixa } from './faixa';
 import { CARTAO, FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 /**
  * UMA LISTA PARA CINCO DOCUMENTOS.
@@ -42,7 +43,7 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
     const [filtros, porFiltros] = useState<FiltrosDeDocumentos>({ procura: '', page: 1 });
     // A factura de compra que se está a pagar, e o que o servidor disse depois.
     const [aPagar, porAPagar] = useState<LinhaDeDocumento | null>(null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     const [aviso, porAviso] = useState('');
     /** O documento que se está a eliminar, a converter, ou cujo histórico se vê. */
     const [aApagar, porAApagar] = useState<LinhaDeDocumento | null>(null);

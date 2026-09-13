@@ -18,6 +18,7 @@ import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { ACCAO_DA_FAIXA, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls, data } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { etiquetaIntl, t } from '@/i18n';
 
 /**
@@ -54,7 +55,7 @@ export default function Presencas() {
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [aApagar, porAApagar] = useState<LinhaDePonto | null>(null);
     const [aImportar, porAImportar] = useState(false);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     const opcoes = useQuery({ queryKey: ['rh', 'presencas', 'opcoes'], queryFn: presencas.opcoes, staleTime: 5 * 60_000 });
     const lista = useQuery({

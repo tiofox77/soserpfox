@@ -16,6 +16,7 @@ import { IntervaloDeDatas, PorPagina } from '@/ui/FiltrosComuns';
 import { Modal } from '@/ui/Modal';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 import { ACCAO_DA_FAIXA, Faixa } from '../facturacao/faixa';
 
@@ -52,7 +53,7 @@ export default function Lancamentos() {
     const cache = useQueryClient();
 
     const [filtros, porFiltros] = useState<Filtros>({ por_pagina: 25, page: 1 });
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     const [aCriar, porACriar] = useState(false);
     const [aVer, porAVer] = useState<number | null>(null);
     const [aConfirmar, porAConfirmar] = useState<Lancamento | null>(null);

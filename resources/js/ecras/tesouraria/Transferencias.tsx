@@ -14,6 +14,7 @@ import { Modal } from '@/ui/Modal';
 import { PorPagina } from '@/ui/FiltrosComuns';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 import { ACCAO_DA_FAIXA, Faixa } from '../facturacao/faixa';
 
@@ -40,7 +41,7 @@ export default function Transferencias() {
         por_pagina: 15,
         page: 1,
     });
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     const [aRegistar, porARegistar] = useState(false);
     const [aAnular, porAAnular] = useState<Transferencia | null>(null);
 
@@ -337,7 +338,7 @@ function ModalDaTransferencia({
     const [f, porF] = useState<FormularioDaTransferencia>(VAZIO);
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [aGravar, porAGravar] = useState(false);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     useEffect(() => {
         if (!aberto) return;

@@ -17,6 +17,7 @@ import { Modal } from '@/ui/Modal';
 import { PainelDoSeparador, Separadores } from '@/ui/Separadores';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 import { ACCAO_DA_FAIXA, Faixa } from '../facturacao/faixa';
 
@@ -53,7 +54,7 @@ export default function Contas() {
     const cache = useQueryClient();
 
     const [filtros, porFiltros] = useState<Filtros>({ por_pagina: 25, page: 1 });
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     const [modal, porModal] = useState<{ aberto: boolean; id: number | null }>({ aberto: false, id: null });
     const [aVer, porAVer] = useState<number | null>(null);
     const [aApagar, porAApagar] = useState<Conta | null>(null);

@@ -14,6 +14,7 @@ import { IntervaloDeDatas, PorPagina } from '@/ui/FiltrosComuns';
 import { Modal } from '@/ui/Modal';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 import { ACCAO_DA_FAIXA, Faixa } from '../facturacao/faixa';
 import { EtiquetaDeEstado, EtiquetaDeTipo, FichaDoMovimento } from './FichaDoMovimento';
@@ -41,7 +42,7 @@ export default function Movimentos() {
     const cache = useQueryClient();
 
     const [filtros, porFiltros] = useState<FiltrosDosMovimentos>({ por_pagina: 25, page: 1 });
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     const [modal, porModal] = useState<{ aberto: boolean; aEditar: Movimento | null }>({ aberto: false, aEditar: null });
     const [aVer, porAVer] = useState<number | null>(null);
     const [aEstornar, porAEstornar] = useState<Movimento | null>(null);

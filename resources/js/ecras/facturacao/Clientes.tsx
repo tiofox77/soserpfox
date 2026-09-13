@@ -21,6 +21,7 @@ import { AvisoDeErro } from '@/ui/AvisoDeErro';
 import { Modal } from '@/ui/Modal';
 import { IntervaloDeDatas, PorPagina } from '@/ui/FiltrosComuns';
 import { CARTAO, FOCO, GRADIENTES, RAIO, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { ACCAO_DA_FAIXA, Faixa } from './faixa';
 import { Dado, JanelaDoExtrato, Seccao } from './ExtratoDaParte';
 
@@ -66,7 +67,7 @@ export default function Clientes() {
     const [formulario, porFormulario] = useState<ClienteParaGravar | null>(null);
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [aApagar, porAApagar] = useState<Cliente | null>(null);
-    const [recado, porRecado] = useState<string>('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     /** O ficheiro escolhido no formulário — sobe DEPOIS da ficha gravar. */
     const [logotipo, porLogotipo] = useState<File | null>(null);
     /** O cliente cuja FICHA está aberta — só para ler. */

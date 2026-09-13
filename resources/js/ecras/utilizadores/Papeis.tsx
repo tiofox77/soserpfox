@@ -13,6 +13,7 @@ import { SemNada, cascata } from '@/ui/SemNada';
 import { PainelDoSeparador, Separadores } from '@/ui/Separadores';
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { etiquetaIntl, t } from '@/i18n';
 
 /**
@@ -40,7 +41,7 @@ export default function PapeisEPermissoes() {
     const cache = useQueryClient();
 
     const [aba, porAba] = useState('papeis');
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     const [erro, porErro] = useState<unknown>(null);
 
     const [formulario, porFormulario] = useState<typeof VAZIO | null>(null);

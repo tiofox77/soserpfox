@@ -14,6 +14,7 @@ import { Modal } from '@/ui/Modal';
 import { PainelDoSeparador, Separadores } from '@/ui/Separadores';
 import { ACCAO_DA_FAIXA, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { etiquetaIntl, t } from '@/i18n';
 
 /**
@@ -52,7 +53,7 @@ export default function Folha() {
     const [aCriar, porACriar] = useState(false);
     const [aVer, porAVer] = useState<number | null>(null);
     const [aApagar, porAApagar] = useState<LinhaDaFolha | null>(null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     const opcoes = useQuery({ queryKey: ['rh', 'folha', 'opcoes'], queryFn: folha.opcoes, staleTime: 5 * 60_000 });
     const lista = useQuery({

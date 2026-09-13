@@ -12,6 +12,7 @@ import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { CARTAO, RAIO, TRANSICAO, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '../facturacao/faixa';
 import { Confirmar, ErroDoEcra, Interruptor, Paginas, Recado } from './comum';
@@ -44,7 +45,7 @@ const parede = (valor: string | null) => (valor ? valor.replace(/^(\d{4})-(\d{2}
 export default function Avisos() {
     const fila = useQueryClient();
     const [pagina, porPagina] = useState(1);
-    const [recado, porRecado] = useState<string | null>(null);
+    const [recado, porRecado] = useRecadoNoCanto(null);
     const [aEditar, porAEditar] = useState<number | 'nova' | null>(null);
     const [leiturasDe, porLeiturasDe] = useState<number | null>(null);
     const [aApagar, porAApagar] = useState<AvisoDaPlataforma | null>(null);

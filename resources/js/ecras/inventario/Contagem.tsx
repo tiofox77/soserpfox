@@ -14,6 +14,7 @@ import { PorPagina } from '@/ui/FiltrosComuns';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { etiquetaIntl, t } from '@/i18n';
 
 /**
@@ -33,7 +34,7 @@ import { etiquetaIntl, t } from '@/i18n';
 export default function Contagem() {
     const cache = useQueryClient();
 
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     const [erro, porErro] = useState<unknown>(null);
     const [filtros, porFiltros] = useState<{
         procura?: string; filtro?: string; por_pagina?: number; page?: number;
@@ -78,6 +79,8 @@ export default function Contagem() {
     const contar = useMutation({
         mutationFn: ({ produto, valor }: { produto: number; valor: number | null }) =>
             inventario.contagem.contar(aberta!.id, produto, valor),
+        // Uma linha de cada vez, enquanto se conta: só avisa se houver o que dizer.
+        meta: { aviso: 'so-com-mensagem' },
         onSuccess: () => void cache.invalidateQueries({ queryKey: ['inventario', 'contagem', 'linhas'] }),
         onError: porErro,
     });

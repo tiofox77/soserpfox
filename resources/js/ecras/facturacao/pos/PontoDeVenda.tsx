@@ -9,6 +9,7 @@ import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { FOCO, RAIO, cls, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { ModalDePagamento } from './ModalDePagamento';
 import { ModalDeCliente } from './ModalDeCliente';
 import { ModalDePreco } from './ModalDePreco';
@@ -132,7 +133,7 @@ function Balcao({ o }: { o: Opcoes }) {
     const [descontoTipo, porDescontoTipo] = useState<'percentagem' | 'valor'>('percentagem');
     const [desconto, porDesconto] = useState('');
     const [aviso, porAviso] = useState('');
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     // Os modais.
     const [pagar, porPagar] = useState(false);

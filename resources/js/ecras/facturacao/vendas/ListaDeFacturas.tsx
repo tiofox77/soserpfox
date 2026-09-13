@@ -18,6 +18,7 @@ import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { PdfDoEcra } from '@/ui/PdfDoEcra';
 import { CARTAO, FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { ACCAO_DA_FAIXA, Faixa } from '../faixa';
 
 /**
@@ -57,7 +58,7 @@ export default function ListaDeFacturas({ tipo }: { tipo?: 'FT' | 'FR' }) {
     const [aPagar, porAPagar] = useState<FacturaDeVenda | null>(null);
     // O rascunho que se está a apagar, à espera de confirmação.
     const [aApagar, porAApagar] = useState<FacturaDeVenda | null>(null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     /**
      * Muda-se um filtro, volta-se à primeira página.

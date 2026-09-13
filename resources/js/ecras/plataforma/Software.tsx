@@ -12,6 +12,7 @@ import { Cartao } from '@/ui/Cartao';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { CARTAO, FOCO, RAIO, TRANSICAO, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 import { EstadoNaFaixa, Faixa } from '../facturacao/faixa';
 import { ErroDoEcra, Interruptor, Recado } from './comum';
@@ -29,17 +30,26 @@ type Resultado = Record<string, unknown>;
 export default function Software() {
     const fila = useQueryClient();
     const [ambiente, porAmbiente] = useState('sandbox');
-    const [recado, porRecado] = useState<string | null>(null);
+    const [recado, porRecado] = useRecadoNoCanto(null);
     const [bloqueios, porBloqueios] = useState<Record<string, boolean>>({});
     const [cred, porCred] = useState({ username: '', password: '', certificacao: '' });
     const [aLimpar, porALimpar] = useState(false);
 
     const dados = useQuery({ queryKey: ['plataforma', 'software', ambiente], queryFn: () => definicoes.software.ler(ambiente) });
 
+    // «Resetar» (como no ecrã antigo): o formulário volta ao que está guardado,
+    // sem gravar nada. Serve para desfazer mudanças feitas por engano.
+    const reporBloqueios = () => {
+        if (dados.data) porBloqueios(Object.fromEntries(dados.data.bloqueios.map((b) => [b.chave, b.ligado])));
+    };
+    const reporProdutor = () => {
+        if (dados.data) porCred({ username: dados.data.produtor.username, password: '', certificacao: dados.data.produtor.certificacao });
+    };
+
     useEffect(() => {
-        if (!dados.data) return;
-        porBloqueios(Object.fromEntries(dados.data.bloqueios.map((b) => [b.chave, b.ligado])));
-        porCred({ username: dados.data.produtor.username, password: '', certificacao: dados.data.produtor.certificacao });
+        reporBloqueios();
+        reporProdutor();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dados.data]);
 
     const feito = (m: string) => { porRecado(m); void fila.invalidateQueries({ queryKey: ['plataforma', 'software'] }); };
@@ -103,6 +113,7 @@ export default function Software() {
                         </Campo>
                         <div className="flex flex-wrap justify-end gap-2">
                             {p.credenciais_proprias && <Botao cor="perigo" tom="suave" icone="fa-eraser" onClick={() => porALimpar(true)}>{t('Remover')}</Botao>}
+                            <Botao cor="neutra" tom="suave" icone="fa-rotate-left" onClick={reporProdutor}>{t('Resetar')}</Botao>
                             <Botao cor={producao ? 'perigo' : 'primaria'} tom="solida" icone="fa-floppy-disk" aTrabalhar={guardarProdutor.isPending} onClick={() => guardarProdutor.mutate()}>
                                 {producao ? t('Guardar para produção') : t('Guardar para homologação')}
                             </Botao>
@@ -124,7 +135,8 @@ export default function Software() {
                         ))}
                     </div>
                     <div className="flex justify-end gap-2">
-                        <Botao cor="neutra" tom="suave" icone="fa-rotate-left" onClick={() => porBloqueios(Object.fromEntries(d.bloqueios.map((b) => [b.chave, false])))}>{t('Desligar todos')}</Botao>
+                        <Botao cor="neutra" tom="suave" icone="fa-rotate-left" onClick={reporBloqueios}>{t('Resetar')}</Botao>
+                        <Botao cor="neutra" tom="suave" icone="fa-toggle-off" onClick={() => porBloqueios(Object.fromEntries(d.bloqueios.map((b) => [b.chave, false])))}>{t('Desligar todos')}</Botao>
                         <Botao cor="bom" tom="solida" icone="fa-floppy-disk" aTrabalhar={guardarBloqueios.isPending} onClick={() => guardarBloqueios.mutate()}>{t('Guardar')}</Botao>
                     </div>
                 </div>
@@ -178,7 +190,7 @@ function ConsolaAgt({ empresas }: { empresas: Array<{ id: number; nome: string; 
     const [op, porOp] = useState({ operacao: 'listarFacturas', pedido: '', documento: '', de: diasAtras(30), ate: diasAtras(0) });
     const [teste, porTeste] = useState<Resultado | null>(null);
     const [resultado, porResultado] = useState<Resultado | null>(null);
-    const [recado, porRecado] = useState<string | null>(null);
+    const [recado, porRecado] = useRecadoNoCanto(null);
 
     const prontidao = useQuery({
         queryKey: ['plataforma', 'software', 'prontidao', empresa],

@@ -20,6 +20,7 @@ import { PorPagina } from '@/ui/FiltrosComuns';
 import { SemNada } from '@/ui/SemNada';
 import { ACCAO_DA_FAIXA, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { etiquetaIntl, t, tPartes } from '@/i18n';
 
 /**
@@ -77,7 +78,7 @@ export default function Manutencao() {
     const [aVer, porAVer] = useState<OrdemDeManutencao | null>(null);
     const [aApagar, porAApagar] = useState<OrdemDeManutencao | null>(null);
     const [aConcluir, porAConcluir] = useState<OrdemDeManutencao | null>(null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     const opcoes = useQuery({ queryKey: ['hotel', 'manutencao', 'opcoes'], queryFn: manutencao.opcoes, staleTime: 5 * 60_000 });
 

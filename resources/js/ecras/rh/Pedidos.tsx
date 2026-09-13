@@ -22,6 +22,7 @@ import { PorPagina } from '@/ui/FiltrosComuns';
 import { ACCAO_DA_FAIXA, Faixa, type TomDaFaixa } from '@/ecras/facturacao/faixa';
 import { CalendarioDePedidos } from './CalendarioDePedidos';
 import { CARTAO, FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { etiquetaIntl, t } from '@/i18n';
 
 /**
@@ -62,7 +63,7 @@ export default function Pedidos({ tipo }: { tipo: string }) {
     const [aVer, porAVer] = useState<LinhaDePedido | null>(null);
     const [aDecidir, porADecidir] = useState<{ linha: LinhaDePedido; accao: 'aprovar' | 'rejeitar' | 'pagar' | 'cancelar' } | null>(null);
     const [aApagar, porAApagar] = useState<LinhaDePedido | null>(null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     /* LISTA ou CALENDÁRIO — nos pedidos que ocupam dias, ver o mês responde a
        «quem já está fora nessa semana?», que é a pergunta que se faz antes de
        aprovar mais um. */

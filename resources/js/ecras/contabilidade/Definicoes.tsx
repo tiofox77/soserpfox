@@ -14,6 +14,7 @@ import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { cascata } from '@/ui/SemNada';
 import { FOCO, RAIO, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '../facturacao/faixa';
 
@@ -33,7 +34,7 @@ import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '../facturacao/faixa';
 export default function Definicoes() {
     const cache = useQueryClient();
 
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     const [aviso, porAviso] = useState('');
     const [aEditar, porAEditar] = useState<EventoDaIntegracao | null>(null);
     const [aApagar, porAApagar] = useState(false);

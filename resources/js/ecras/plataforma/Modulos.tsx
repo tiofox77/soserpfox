@@ -14,6 +14,7 @@ import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { CARTAO, FOCO, RAIO, TRANSICAO, cls, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '../facturacao/faixa';
 
@@ -38,7 +39,7 @@ export default function Modulos() {
     const [procura, porProcura] = useState('');
     const [aEditar, porAEditar] = useState<number | null | 'novo'>(null);
     const [aApagar, porAApagar] = useState<ModuloDaLista | null>(null);
-    const [recado, porRecado] = useState<string | null>(null);
+    const [recado, porRecado] = useRecadoNoCanto(null);
 
     const lista = useQuery({
         queryKey: ['plataforma', 'modulos', procura],

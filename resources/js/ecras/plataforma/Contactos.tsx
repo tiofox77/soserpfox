@@ -12,6 +12,7 @@ import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { CARTAO, FOCO, RAIO, TRANSICAO, cls, dataHora, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 import { EstadoNaFaixa, Faixa } from '../facturacao/faixa';
 import { BotaoDeIcone, Confirmar, Dado, ErroDoEcra, Paginas, Recado } from './comum';
@@ -32,7 +33,7 @@ const ESTADO = () => ({
 export default function Contactos() {
     const fila = useQueryClient();
     const [filtros, porFiltros] = useState<{ procura?: string; estado?: string; pagina: number }>({ pagina: 1 });
-    const [recado, porRecado] = useState<string | null>(null);
+    const [recado, porRecado] = useRecadoNoCanto(null);
     const [aVer, porAVer] = useState<MensagemDeContacto | null>(null);
     const [aApagar, porAApagar] = useState<MensagemDeContacto | null>(null);
 

@@ -12,6 +12,7 @@ import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { FOCO, RAIO, TRANSICAO, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 /**
  * QUEM TRABALHA NESTA EMPRESA.
@@ -25,7 +26,7 @@ export function Utilizadores({ id, aoFechar }: { id: number; aoFechar: () => voi
     const fila = useQueryClient();
     const [aJuntar, porAJuntar] = useState(false);
     const [aRetirar, porARetirar] = useState<number | null>(null);
-    const [recado, porRecado] = useState<string | null>(null);
+    const [recado, porRecado] = useRecadoNoCanto(null);
 
     const dados = useQuery({
         queryKey: ['plataforma', 'empresas', 'utilizadores', id],

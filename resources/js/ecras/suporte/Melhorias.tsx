@@ -12,6 +12,7 @@ import { Modal } from '@/ui/Modal';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { etiquetaIntl, t } from '@/i18n';
 
 /**
@@ -50,7 +51,7 @@ export default function QuadroDeMelhorias() {
     const cache = useQueryClient();
 
     const [filtros, porFiltros] = useState<{ ordem?: string; procura?: string }>({ ordem: 'populares' });
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     const [erro, porErro] = useState<unknown>(null);
 
     const [formulario, porFormulario] = useState<typeof VAZIO | null>(null);

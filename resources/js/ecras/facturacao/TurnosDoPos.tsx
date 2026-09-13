@@ -11,6 +11,7 @@ import { Carregando } from '@/ui/Carregando';
 import { CartaoNumero, type TomDoCartao } from '@/ui/CartaoNumero';
 import { Modal } from '@/ui/Modal';
 import { CARTAO, FOCO, RAIO, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t } from '@/i18n';
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa, SemNada, cascata } from './faixa';
 
@@ -28,7 +29,7 @@ export default function TurnosDoPos() {
     const [abrirModal, porAbrirModal] = useState(false);
     const [fecharModal, porFecharModal] = useState(false);
     const [fechado, porFechado] = useState<Turno | null>(null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     const feito = (m: string) => { porRecado(m); void cache.invalidateQueries({ queryKey: ['turnos'] }); };
 

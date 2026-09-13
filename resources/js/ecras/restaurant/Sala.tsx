@@ -13,6 +13,7 @@ import { Modal } from '@/ui/Modal';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '@/ecras/facturacao/faixa';
 import { FOCO, RAIO, cls, dataHora, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t } from '@/i18n';
 import { SemTurno } from './PecasDaComanda';
 
@@ -52,7 +53,7 @@ export default function Sala() {
 
     const [casa, porCasa] = useState<number | ''>('');
     const [zona, porZona] = useState<number | ''>('');
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     const [erro, porErro] = useState<unknown>(null);
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [semTurno, porSemTurno] = useState(false);

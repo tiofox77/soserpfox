@@ -4,6 +4,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { agt, type Ambiente, type EstadoDaAgt, type OpcoesDaAgt, type Submissao } from '@/api/agt';
 import { ErroDaApi } from '@/api/cliente';
 import { AvisoDeErro } from '@/ui/AvisoDeErro';
+import { useRecadoComTomNoCanto } from '@/ui/useRecadoNoCanto';
 import { Botao } from '@/ui/Botao';
 import { Campo, entrada } from '@/ui/Campo';
 import { Cartao } from '@/ui/Cartao';
@@ -84,7 +85,7 @@ function Painel({ o, e, aActualizar, empresa, separador, porSeparador, aoEscolhe
     aoEscolherEmpresa: (id: number | undefined) => void; aoVer: (a: Ambiente) => void;
 }) {
     const cache = useQueryClient();
-    const [recado, porRecado] = useState<{ tipo: 'bom' | 'mau'; texto: string } | null>(null);
+    const [recado, porRecado] = useRecadoComTomNoCanto<{ tipo: 'bom' | 'mau'; texto: string }>();
 
     const aVer = e.ambiente;
     const activo = e.definicoes.agt_environment;

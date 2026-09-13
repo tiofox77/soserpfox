@@ -11,6 +11,7 @@ import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { CARTAO, FOCO, RAIO, TRANSICAO, cls, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '../facturacao/faixa';
 import { ApagarDefinitivo, Desactivar, Suspender } from './empresas/Accoes';
@@ -42,7 +43,7 @@ import { corDaSubscricao } from './empresas/cores';
 export default function Empresas() {
     const fila = useQueryClient();
     const [filtros, porFiltros] = useState<FiltrosDasEmpresas>({ ordenar: 'recentes', por_pagina: '10', pagina: 1 });
-    const [recado, porRecado] = useState<string | null>(null);
+    const [recado, porRecado] = useRecadoNoCanto(null);
 
     const [aEditar, porAEditar] = useState<number | 'nova' | null>(null);
     const [aVer, porAVer] = useState<number | null>(null);

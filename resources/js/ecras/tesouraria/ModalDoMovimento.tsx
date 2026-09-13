@@ -8,6 +8,7 @@ import { Botao } from '@/ui/Botao';
 import { Campo, entrada } from '@/ui/Campo';
 import { Modal } from '@/ui/Modal';
 import { RAIO, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 /**
  * LANÇAR OU CORRIGIR UM MOVIMENTO.
@@ -47,7 +48,7 @@ export function ModalDoMovimento({
     const [f, porF] = useState<FormularioDoMovimento>(() => vazio(o));
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [aGravar, porAGravar] = useState(false);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     useEffect(() => {
         if (!aberto) return;

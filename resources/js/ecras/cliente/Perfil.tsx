@@ -10,6 +10,7 @@ import { Campo, entrada } from '@/ui/Campo';
 import { Carregando } from '@/ui/Carregando';
 import { cascata } from '@/ui/SemNada';
 import { CARTAO, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 import { Recado } from '../plataforma/comum';
 import { Cabecalho } from './comum';
@@ -19,7 +20,7 @@ export default function Perfil() {
     const pedido = useQuery({ queryKey: ['portal', 'perfil'], queryFn: portal.perfil });
     const [f, porF] = useState({ name: '', email: '', phone: '' });
     const [s, porS] = useState({ current_password: '', new_password: '', new_password_confirmation: '' });
-    const [recado, porRecado] = useState<string | null>(null);
+    const [recado, porRecado] = useRecadoNoCanto(null);
 
     useEffect(() => { if (pedido.data) porF(pedido.data.perfil); }, [pedido.data]);
 

@@ -1,10 +1,13 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
+
+import { avisar } from '@/casca/avisos';
 
 import { ErroDaApi } from '@/api/cliente';
 import { t } from '@/i18n';
 import { AvisoDeErro } from '@/ui/AvisoDeErro';
 import { Botao } from '@/ui/Botao';
 import { Modal } from '@/ui/Modal';
+import { duracaoPara } from '@/ui/useRecadoNoCanto';
 import { FOCO, RAIO, TRANSICAO, cls } from '@/ui/tokens';
 
 /**
@@ -15,27 +18,24 @@ import { FOCO, RAIO, TRANSICAO, cls } from '@/ui/tokens';
  * escreveram-nas cada um à sua maneira; daqui para a frente usam estas.
  */
 
+/**
+ * O RECADO DE UMA ACÇÃO — sai no canto superior direito, como todo o CRUD.
+ *
+ * Era uma caixa verde (ou âmbar, com `aviso`) no topo do ecrã. Continua a
+ * receber o mesmo `texto`: quando chega um, vai para o canto e o recado
+ * limpa-se (`aoFechar`), para o mesmo texto poder voltar a avisar.
+ */
 export function Recado({ texto, aoFechar, aviso = false }: { texto: string | null; aoFechar: () => void; aviso?: boolean }) {
-    if (!texto) return null;
+    const fechar = useRef(aoFechar);
+    fechar.current = aoFechar;
 
-    return (
-        <div
-            role="status"
-            className={cls(
-                'entra flex items-start justify-between gap-3 border px-4 py-3 text-sm', RAIO,
-                aviso ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-emerald-200 bg-emerald-50 text-emerald-900',
-            )}
-        >
-            <span>
-                <i className={cls('fas mr-2', aviso ? 'fa-triangle-exclamation' : 'fa-circle-check')} aria-hidden="true" />
-                {texto}
-            </span>
-            <button type="button" onClick={aoFechar} className={cls('opacity-70 hover:opacity-100', FOCO, RAIO)}>
-                <i className="fas fa-xmark" aria-hidden="true" />
-                <span className="sr-only">{t('Fechar')}</span>
-            </button>
-        </div>
-    );
+    useEffect(() => {
+        if (!texto) return;
+        avisar(texto, aviso ? 'aviso' : 'ok', { duracao: duracaoPara(texto) });
+        fechar.current();
+    }, [texto, aviso]);
+
+    return null;
 }
 
 export function ErroDoEcra({ titulo, erro }: { titulo: string; erro: unknown }) {

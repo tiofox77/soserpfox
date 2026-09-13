@@ -11,6 +11,7 @@ import { Modal } from '@/ui/Modal';
 import { entrada } from '@/ui/Campo';
 import { Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t } from '@/i18n';
 
 /**
@@ -56,7 +57,7 @@ export default function Definicoes() {
     const [gravados, porGravados] = useState<Record<string, boolean>>({});
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [aRepor, porARepor] = useState<SeccaoDeDefinicoes | 'tudo' | null>(null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     const q = useQuery({ queryKey: ['rh', 'definicoes'], queryFn: definicoes.ler });
 

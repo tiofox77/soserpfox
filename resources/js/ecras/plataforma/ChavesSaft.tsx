@@ -10,6 +10,7 @@ import { Campo, entrada } from '@/ui/Campo';
 import { Carregando } from '@/ui/Carregando';
 import { Modal } from '@/ui/Modal';
 import { CARTAO, FOCO, RAIO, TRANSICAO, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 import { EstadoNaFaixa, Faixa } from '../facturacao/faixa';
 import { ErroDoEcra, Recado } from './comum';
@@ -23,7 +24,7 @@ import { ErroDoEcra, Recado } from './comum';
  */
 export default function ChavesSaft() {
     const fila = useQueryClient();
-    const [recado, porRecado] = useState<string | null>(null);
+    const [recado, porRecado] = useRecadoNoCanto(null);
     const [aRegenerar, porARegenerar] = useState(false);
     const [confirmacao, porConfirmacao] = useState('');
 

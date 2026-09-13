@@ -25,6 +25,7 @@ import { SemNada } from '@/ui/SemNada';
 import { Separadores } from '@/ui/Separadores';
 import { ACCAO_DA_FAIXA, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { etiquetaIntl, t, tPartes } from '@/i18n';
 
 /**
@@ -97,7 +98,7 @@ export default function OrdensDeServico() {
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [aVer, porAVer] = useState<number | null>(null);
     const [aApagar, porAApagar] = useState<Ordem | null>(null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     const [aviso, porAviso] = useState<string[]>([]);
 
     const opcoes = useQuery({ queryKey: ['oficina', 'ordens', 'opcoes'], queryFn: ordens.opcoes, staleTime: 5 * 60_000 });

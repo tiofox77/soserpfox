@@ -12,6 +12,7 @@ import { Modal } from '@/ui/Modal';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { etiquetaIntl, t } from '@/i18n';
 
 /**
@@ -59,7 +60,7 @@ export default function ModelosDeNotificacao() {
         canal: 'todos', modulo: 'todos', estado: 'todos',
     });
 
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     const [erro, porErro] = useState<unknown>(null);
 
     const [formulario, porFormulario] = useState<Formulario | null>(null);
@@ -137,6 +138,8 @@ export default function ModelosDeNotificacao() {
 
     const rever = useMutation({
         mutationFn: (v: Record<string, string>) => api.modelos.previsao(aTestar as number, v),
+        // Uma pré-visualização não grava nada: não avisa no canto.
+        meta: { aviso: false },
         onSuccess: (r) => porPrevisao(r.previsao),
         onError: porErro,
     });

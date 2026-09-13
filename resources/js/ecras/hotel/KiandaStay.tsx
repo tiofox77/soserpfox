@@ -11,6 +11,7 @@ import { Etiqueta } from '@/ui/Etiqueta';
 import { SemNada } from '@/ui/SemNada';
 import { Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t } from '@/i18n';
 
 /**
@@ -49,7 +50,7 @@ export default function KiandaStay() {
     const [estadoInicial, porEstadoInicial] = useState('pending');
     const [mapa, porMapa] = useState<Record<string, number | string>>({});
     const [diagnostico, porDiagnostico] = useState<DiagnosticoDoSite | null>(null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     const pagina = useQuery({ queryKey: ['hotel', 'kiandastay'], queryFn: kiandastay.mostrar });
 

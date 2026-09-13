@@ -14,6 +14,7 @@ import { Modal } from '@/ui/Modal';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { PainelDoSeparador, Separadores } from '@/ui/Separadores';
 import { CARTAO, RAIO, TRANSICAO, cls, data, dataHora, haQuanto } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 import { EstadoNaFaixa, Faixa } from '../facturacao/faixa';
 import { Confirmar, Dado, ErroDoEcra, Interruptor, Recado } from './comum';
@@ -38,7 +39,7 @@ const SITUACAO = (s: InstalacaoOffline['situacao']) => ({
 export default function Licenciamento() {
     const fila = useQueryClient();
     const [aba, porAba] = useState('instalacoes');
-    const [recado, porRecado] = useState<string | null>(null);
+    const [recado, porRecado] = useRecadoNoCanto(null);
     const [aVer, porAVer] = useState<number | null>(null);
     const [aAprovar, porAAprovar] = useState<PedidoDeLicenca | null>(null);
 

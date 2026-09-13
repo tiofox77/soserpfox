@@ -16,6 +16,7 @@ import { PorPagina } from '@/ui/FiltrosComuns';
 import { Modal } from '@/ui/Modal';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 import { ACCAO_DA_FAIXA, Faixa } from '../facturacao/faixa';
 
@@ -40,7 +41,7 @@ export default function Imobilizado() {
     const [filtros, porFiltros] = useState<{ procura?: string; estado?: string; categoria?: number | ''; por_pagina?: number; page?: number }>({
         por_pagina: 25, page: 1,
     });
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     const [modal, porModal] = useState<{ aberto: boolean; id: number | null }>({ aberto: false, id: null });
     const [aVer, porAVer] = useState<number | null>(null);
     const [aApagar, porAApagar] = useState<Bem | null>(null);

@@ -19,6 +19,7 @@ import { Modal } from '@/ui/Modal';
 import { SemNada } from '@/ui/SemNada';
 import { Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { etiquetaIntl, t } from '@/i18n';
 
 /**
@@ -45,7 +46,7 @@ export default function CheckOut({ id }: { id?: number }) {
 
     const [procura, porProcura] = useState('');
     const [aFechar, porAFechar] = useState<number | null>(id ?? null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     const opcoes = useQuery({ queryKey: ['hotel', 'fecho', 'opcoes'], queryFn: fecho.opcoes, staleTime: 5 * 60_000 });
 

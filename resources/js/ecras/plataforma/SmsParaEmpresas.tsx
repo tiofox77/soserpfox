@@ -9,6 +9,7 @@ import { Botao } from '@/ui/Botao';
 import { Campo, Rotulo, entrada } from '@/ui/Campo';
 import { Carregando } from '@/ui/Carregando';
 import { CARTAO, RAIO, RAIO_GRANDE, TRANSICAO, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 import { EstadoNaFaixa, Faixa } from '../facturacao/faixa';
 import { ErroDoEcra, Recado } from './comum';
@@ -47,7 +48,7 @@ export default function SmsParaEmpresas() {
     const [empresaIds, porEmpresaIds] = useState<number[]>([]);
     const [planoIds, porPlanoIds] = useState<number[]>([]);
     const [procura, porProcura] = useState('');
-    const [recado, porRecado] = useState<string | null>(null);
+    const [recado, porRecado] = useRecadoNoCanto(null);
 
     const dados = useQuery({ queryKey: ['plataforma', 'sms-empresas'], queryFn: ferramentas.smsEmpresas.ler });
 

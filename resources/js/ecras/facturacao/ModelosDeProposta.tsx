@@ -11,6 +11,7 @@ import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { CARTAO, FOCO, RAIO, RAIO_GRANDE, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t } from '@/i18n';
 import { Faixa, SemNada, cascata } from './faixa';
 
@@ -24,7 +25,7 @@ export default function ModelosDeProposta() {
     const [pagina, porPagina] = useState(1);
     const [novo, porNovo] = useState(false);
     const [aEliminar, porAEliminar] = useState<Modelo | null>(null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     const opcoes = useQuery({ queryKey: ['modelos', 'opcoes'], queryFn: modelos.opcoes, staleTime: 5 * 60_000 });
     const lista = useQuery({ queryKey: ['modelos', procura, pagina], queryFn: () => modelos.lista({ procura, page: pagina }), placeholderData: keepPreviousData });

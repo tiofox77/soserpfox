@@ -15,6 +15,7 @@ import { Carregando } from '@/ui/Carregando';
 import { Modal } from '@/ui/Modal';
 import { ACCAO_DA_FAIXA, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t } from '@/i18n';
 
 /**
@@ -47,7 +48,7 @@ export default function Definicoes() {
 
     const [aba, porAba] = useState<Aba>('geral');
     const [forma, porForma] = useState<DefinicoesDoHotel | null>(null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     const [aTrocarEndereco, porATrocarEndereco] = useState(false);
 
     const pagina = useQuery({ queryKey: ['hotel', 'definicoes'], queryFn: definicoesDoHotel.mostrar });

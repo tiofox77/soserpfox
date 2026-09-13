@@ -13,6 +13,7 @@ import { GraficoHorizontal } from '@/ui/GraficoHorizontal';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { etiquetaIntl, t } from '@/i18n';
 
 /**
@@ -60,7 +61,7 @@ export default function PainelDoSalao() {
     const cache = useQueryClient();
 
     const [dia, porDia] = useState(() => new Date().toISOString().slice(0, 10));
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     const [erro, porErro] = useState<unknown>(null);
 
     const painel = useQuery({

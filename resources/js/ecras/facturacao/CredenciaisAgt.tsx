@@ -10,6 +10,7 @@ import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { FOCO, RAIO, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t } from '@/i18n';
 
 /**
@@ -56,7 +57,7 @@ function Ficha({ inicial, podeEditar, cae }: { inicial: Contribuinte; podeEditar
         agt_require_validation: inicial.agt_require_validation,
     });
     const [erros, porErros] = useState<Record<string, string[]>>({});
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     const [ligacao, porLigacao] = useState<{ success?: boolean; error?: string } | null>(null);
 
     const [chave, porChave] = useState('');

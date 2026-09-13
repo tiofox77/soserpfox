@@ -13,6 +13,7 @@ import { Etiqueta } from '@/ui/Etiqueta';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { PainelDoSeparador, Separadores } from '@/ui/Separadores';
 import { CARTAO, FOCO, RAIO, TRANSICAO, cls, dataHora } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '../facturacao/faixa';
 import { Confirmar, Consola, ErroDoEcra, Recado } from './comum';
@@ -44,7 +45,7 @@ export default function Comandos() {
     const [seeder, porSeeder] = useState<SeederDoSistema | null>(null);
     const [aSemear, porASemear] = useState(false);
     const [aLimpar, porALimpar] = useState(false);
-    const [recado, porRecado] = useState<string | null>(null);
+    const [recado, porRecado] = useRecadoNoCanto(null);
 
     const dados = useQuery({ queryKey: ['plataforma', 'comandos'], queryFn: sistema.comandos.ler });
 

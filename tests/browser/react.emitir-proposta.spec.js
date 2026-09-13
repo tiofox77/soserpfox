@@ -103,7 +103,7 @@ test('grava e devolve o numero da serie', async ({ page }) => {
 
     await page.getByRole('button', { name: /Gravar rascunho/ }).click();
 
-    await expect(page.getByText('Gravado como rascunho')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('#app-main').getByText('Gravado como rascunho')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole('button', { name: /Abrir o documento/ })).toBeVisible();
 });
 
@@ -133,7 +133,7 @@ test('guardar e enviar deixa a proposta como enviada', async ({ page }) => {
     expect(resposta.status()).toBe(201);
     expect((await resposta.json()).estado).toBe('sent');
 
-    await expect(page.getByText('dado como enviado')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('#app-main').getByText('dado como enviado')).toBeVisible({ timeout: 20_000 });
 });
 
 /**

@@ -11,6 +11,7 @@ import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { CORES, FOCO, RAIO, cls, data, type Cor } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t, tPartes } from '@/i18n';
 
 /**
@@ -44,7 +45,7 @@ export default function GuiasDeTransporte() {
     const [pagina, porPagina] = useState(1);
     const [aRegistar, porARegistar] = useState(false);
     const [aAnular, porAAnular] = useState<Guia | null>(null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     const opcoes = useQuery({ queryKey: ['guias', 'opcoes'], queryFn: guias.opcoes, staleTime: 5 * 60_000 });
     const lista = useQuery({ queryKey: ['guias', { procura, pagina }], queryFn: () => guias.lista({ procura, page: pagina }), placeholderData: keepPreviousData });

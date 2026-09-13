@@ -11,6 +11,7 @@ import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { FOCO, RAIO, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t, tPartes } from '@/i18n';
 import { Faixa, SemNada, cascata } from './faixa';
 
@@ -35,7 +36,7 @@ export default function Series() {
     const [forma, porForma] = useState<Forma | null>(null);
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [aEliminar, porAEliminar] = useState<Serie | null>(null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     const opcoes = useQuery({ queryKey: ['series', 'opcoes'], queryFn: series.opcoes, staleTime: 5 * 60_000 });
     const lista = useQuery({ queryKey: ['series', filtros], queryFn: () => series.lista(filtros), placeholderData: keepPreviousData });

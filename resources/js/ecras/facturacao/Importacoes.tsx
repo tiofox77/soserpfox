@@ -12,6 +12,7 @@ import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { CORES, FOCO, RAIO, cls, data, kz, type Cor } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t, tPartes } from '@/i18n';
 
 /**
@@ -58,7 +59,7 @@ export default function Importacoes() {
     const [forma, porForma] = useState<Forma | null>(null);
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [aApagar, porAApagar] = useState<Importacao | null>(null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     const opcoes = useQuery({ queryKey: ['importacoes', 'opcoes'], queryFn: importacoes.opcoes, staleTime: 5 * 60_000 });
     const lista = useQuery({ queryKey: ['importacoes', filtros], queryFn: () => importacoes.lista(filtros), placeholderData: keepPreviousData });

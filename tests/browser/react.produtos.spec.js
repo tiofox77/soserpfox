@@ -38,7 +38,7 @@ async function definirPerfis(page, perfis) {
     }
 
     await page.getByRole('button', { name: /Guardar definições/ }).click();
-    await expect(page.getByRole('status')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('[data-ensaio="avisos-de-canto"] [role="status"]').first()).toBeVisible({ timeout: 20_000 });
 }
 
 /**
@@ -134,7 +134,7 @@ test('cria um artigo e ele aparece na lista', async ({ page }) => {
     await janela.getByLabel(/^Motivo de Isenção/).selectOption('M04');
     await janela.getByRole('button', { name: 'Guardar' }).click();
 
-    await expect(page.getByRole('status')).toContainText('Artigo criado', { timeout: 20_000 });
+    await expect(page.locator('[data-ensaio="avisos-de-canto"]')).toContainText('Artigo criado', { timeout: 20_000 });
 
     await page.getByPlaceholder('Nome, código, SKU ou código de barras').fill(nome);
     await expect(page.getByRole('cell', { name: new RegExp(nome) }).first()).toBeVisible({
@@ -224,7 +224,7 @@ test('um valor gravado continua a ver-se com o perfil desligado', async ({ page 
     await janela.getByLabel(/^Motivo de Isenção/).selectOption('M04');
     await janela.getByRole('button', { name: 'Guardar' }).click();
 
-    await expect(page.getByRole('status')).toContainText('Artigo criado', { timeout: 20_000 });
+    await expect(page.locator('[data-ensaio="avisos-de-canto"]')).toContainText('Artigo criado', { timeout: 20_000 });
 
     // O crachá da lista segue o DADO do artigo, não o perfil da empresa.
     await page.getByPlaceholder('Nome, código, SKU ou código de barras').fill(nome);
@@ -289,7 +289,7 @@ test('o controlo de lotes grava e a ficha volta a abrir marcada', async ({ page 
 
     await janela.getByRole('button', { name: 'Guardar' }).click();
 
-    await expect(page.getByRole('status')).toContainText('Artigo criado', { timeout: 20_000 });
+    await expect(page.locator('[data-ensaio="avisos-de-canto"]')).toContainText('Artigo criado', { timeout: 20_000 });
 
     await page.getByPlaceholder('Nome, código, SKU ou código de barras').fill(nome);
 

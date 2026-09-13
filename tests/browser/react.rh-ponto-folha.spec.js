@@ -94,7 +94,7 @@ test.describe('presenças', () => {
         expect((await marcado).status()).toBe(201);
 
         // O recado diz a quem, e o nome sai da lista de quem falta.
-        await expect(page.getByRole('status')).toContainText(nome, { timeout: 20_000 });
+        await expect(page.locator('[data-ensaio="avisos-de-canto"]')).toContainText(nome, { timeout: 20_000 });
         await expect(chips).toHaveCount(antes - 1, { timeout: 20_000 });
 
         // E aparece na tabela do dia, com a entrada preenchida e a saída por

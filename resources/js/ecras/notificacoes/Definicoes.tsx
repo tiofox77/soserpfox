@@ -15,6 +15,7 @@ import { Etiqueta } from '@/ui/Etiqueta';
 import { PainelDoSeparador, Separadores } from '@/ui/Separadores';
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, RAIO, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { etiquetaIntl, t } from '@/i18n';
 
 /**
@@ -39,7 +40,7 @@ export default function DefinicoesDeNotificacao() {
 
     const [aba, porAba] = useState('email');
     const [estado, porEstado] = useState<Estado | null>(null);
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     const [erro, porErro] = useState<unknown>(null);
 
     const ficha = useQuery({ queryKey: ['notificacoes', 'definicoes'], queryFn: () => api.definicoes.ler() });

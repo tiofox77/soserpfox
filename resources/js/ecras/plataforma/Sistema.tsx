@@ -11,6 +11,7 @@ import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { PainelDoSeparador, Separadores } from '@/ui/Separadores';
 import { CARTAO, RAIO, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 import { EstadoNaFaixa, Faixa } from '../facturacao/faixa';
 import { ErroDoEcra, Interruptor, Recado, SemEfeito } from './comum';
@@ -28,7 +29,7 @@ type Valores = Record<string, string | boolean>;
 export default function Sistema() {
     const fila = useQueryClient();
     const [aba, porAba] = useState('geral');
-    const [recado, porRecado] = useState<string | null>(null);
+    const [recado, porRecado] = useRecadoNoCanto(null);
     const [v, porV] = useState<Valores>({});
 
     const dados = useQuery({ queryKey: ['plataforma', 'sistema'], queryFn: definicoes.sistema.ler });

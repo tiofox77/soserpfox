@@ -14,6 +14,7 @@ import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { CARTAO, FOCO, RAIO, cls } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 import { ACCAO_DA_FAIXA, Faixa } from '../facturacao/faixa';
 
@@ -38,7 +39,7 @@ export default function Analitica() {
     const cache = useQueryClient();
 
     const [filtros, porFiltros] = useState<{ dimensao?: number | ''; procura?: string; estado?: string }>({});
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     const [modalDaDimensao, porModalDaDimensao] = useState<{ aberto: boolean; dimensao: Dimensao | null }>({ aberto: false, dimensao: null });
     const [modalDaEtiqueta, porModalDaEtiqueta] = useState<{ aberto: boolean; etiqueta: EtiquetaAnalitica | null }>({ aberto: false, etiqueta: null });
     const [dimensaoAApagar, porDimensaoAApagar] = useState<Dimensao | null>(null);

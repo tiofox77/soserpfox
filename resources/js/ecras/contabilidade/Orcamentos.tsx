@@ -15,6 +15,7 @@ import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '../facturacao/faixa';
 
@@ -46,7 +47,7 @@ export default function Orcamentos() {
     const [filtros, porFiltros] = useState<{ ano?: number; procura?: string; estado?: string }>({
         ano: new Date().getFullYear(),
     });
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
     const [modal, porModal] = useState<{ aberto: boolean; orcamento: Orcamento | null }>({ aberto: false, orcamento: null });
     const [aVer, porAVer] = useState<Orcamento | null>(null);
     const [aApagar, porAApagar] = useState<Orcamento | null>(null);

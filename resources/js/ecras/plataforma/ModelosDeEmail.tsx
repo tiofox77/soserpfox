@@ -11,6 +11,7 @@ import { Carregando } from '@/ui/Carregando';
 import { Modal } from '@/ui/Modal';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { CARTAO, FOCO, RAIO, TRANSICAO, cls, dataHora, haQuanto } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '../facturacao/faixa';
 import { BotaoDeIcone, Confirmar, ErroDoEcra, Interruptor, Paginas, Recado } from './comum';
@@ -33,7 +34,7 @@ import { BotaoDeIcone, Confirmar, ErroDoEcra, Interruptor, Paginas, Recado } fro
 export default function ModelosDeEmail() {
     const fila = useQueryClient();
     const [filtros, porFiltros] = useState<{ procura?: string; pagina: number }>({ pagina: 1 });
-    const [recado, porRecado] = useState<string | null>(null);
+    const [recado, porRecado] = useRecadoNoCanto(null);
     const [aEditar, porAEditar] = useState<number | 'novo' | null>(null);
     const [aVer, porAVer] = useState<ModeloDeEmail | null>(null);
     const [aTestar, porATestar] = useState<ModeloDeEmail | null>(null);

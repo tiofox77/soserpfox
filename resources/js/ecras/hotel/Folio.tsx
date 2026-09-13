@@ -12,6 +12,7 @@ import { Modal } from '@/ui/Modal';
 import { SemNada } from '@/ui/SemNada';
 import { ACCAO_DA_FAIXA, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls, data, dataHora, kz } from '@/ui/tokens';
+import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t, tPartes } from '@/i18n';
 
 /**
@@ -38,7 +39,7 @@ export default function Folio({ id }: { id: number }) {
     const [formulario, porFormulario] = useState<ConsumoParaLancar | null>(null);
     const [aApagar, porAApagar] = useState<number | null>(null);
     const [filtro, porFiltro] = useState('');
-    const [recado, porRecado] = useState('');
+    const [recado, porRecado] = useRecadoNoCanto('');
 
     const opcoes = useQuery({ queryKey: ['hotel', 'fecho', 'opcoes'], queryFn: fecho.opcoes, staleTime: 5 * 60_000 });
 
