@@ -41,9 +41,22 @@ class ComandasApiController extends Controller
         private readonly RestaurantCheckoutService $fecho,
     ) {}
 
-    private function exigir(Request $request, string $permissao): void
+    /** @param  string|list<string>  $permissao  basta uma. */
+    private function exigir(Request $request, string|array $permissao): void
     {
-        abort_unless($request->user()?->can($permissao), 403, __('Sem permissão para esta operação.'));
+        abort_unless(self::temUma($request, (array) $permissao), 403, __('Sem permissão para esta operação.'));
+    }
+
+    /** @param  list<string>  $permissoes */
+    private static function temUma(Request $request, array $permissoes): bool
+    {
+        foreach ($permissoes as $p) {
+            if ($request->user()?->can($p)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function recusa(\Throwable $e): never
@@ -106,7 +119,8 @@ class ComandasApiController extends Controller
             'tem_turno' => $this->temTurnoAberto($request->user()?->id),
             'permissoes' => [
                 'pode_criar' => (bool) $request->user()?->can('restaurant.orders.create'),
-                'pode_editar' => (bool) $request->user()?->can('restaurant.orders.edit'),
+                'pode_editar' => self::temUma($request, ['restaurant.orders.edit', 'restaurant.checkout.charge']),
+                'pode_libertar_mesa' => self::temUma($request, ['restaurant.floor.manage', 'restaurant.orders.edit', 'restaurant.checkout.charge']),
                 'pode_anular' => (bool) $request->user()?->can('restaurant.orders.cancel'),
                 'pode_transferir' => (bool) $request->user()?->can('restaurant.orders.transfer'),
                 'pode_dividir' => (bool) $request->user()?->can('restaurant.orders.split'),
@@ -296,7 +310,8 @@ class ComandasApiController extends Controller
 
     public function acrescentar(Request $request, int $id): JsonResponse
     {
-        $this->exigir($request, 'restaurant.orders.edit');
+        // Quem cobra também põe o último artigo na conta.
+        $this->exigir($request, ['restaurant.orders.edit', 'restaurant.checkout.charge']);
 
         $tenantId = activeTenantId();
 
@@ -326,7 +341,8 @@ class ComandasApiController extends Controller
      */
     public function quantidade(Request $request, int $id, int $item): JsonResponse
     {
-        $this->exigir($request, 'restaurant.orders.edit');
+        // Quem cobra também põe o último artigo na conta.
+        $this->exigir($request, ['restaurant.orders.edit', 'restaurant.checkout.charge']);
 
         $dados = $request->validate([
             'quantity' => ['nullable', 'numeric', 'min:0'],
@@ -355,7 +371,8 @@ class ComandasApiController extends Controller
 
     public function remover(Request $request, int $id, int $item): JsonResponse
     {
-        $this->exigir($request, 'restaurant.orders.edit');
+        // Quem cobra também põe o último artigo na conta.
+        $this->exigir($request, ['restaurant.orders.edit', 'restaurant.checkout.charge']);
 
         $linha = OrderItem::where('tenant_id', activeTenantId())->where('order_id', $id)->findOrFail($item);
 
@@ -392,7 +409,8 @@ class ComandasApiController extends Controller
 
     public function confirmar(Request $request, int $id): JsonResponse
     {
-        $this->exigir($request, 'restaurant.orders.edit');
+        // Quem cobra também põe o último artigo na conta.
+        $this->exigir($request, ['restaurant.orders.edit', 'restaurant.checkout.charge']);
 
         try {
             $this->comandas->confirm(
@@ -409,7 +427,8 @@ class ComandasApiController extends Controller
     /** A comida saiu para o cliente (take-away e entrega). */
     public function despachar(Request $request, int $id): JsonResponse
     {
-        $this->exigir($request, 'restaurant.orders.edit');
+        // Quem cobra também põe o último artigo na conta.
+        $this->exigir($request, ['restaurant.orders.edit', 'restaurant.checkout.charge']);
 
         try {
             $this->comandas->despachar($this->comanda($id), activeTenantId(), $request->user()?->id);
@@ -436,7 +455,8 @@ class ComandasApiController extends Controller
 
     public function libertarMesa(Request $request, int $id): JsonResponse
     {
-        $this->exigir($request, 'restaurant.floor.manage');
+        // Dar a mesa como limpa é de quem a serviu ou a cobrou, não só de quem gere a sala.
+        $this->exigir($request, ['restaurant.floor.manage', 'restaurant.orders.edit', 'restaurant.checkout.charge']);
 
         try {
             $this->comandas->releaseTable($this->comanda($id), activeTenantId(), $request->user()?->id);

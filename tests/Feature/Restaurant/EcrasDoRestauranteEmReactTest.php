@@ -150,9 +150,11 @@ class EcrasDoRestauranteEmReactTest extends TenantTestCase
 
     public function test_as_reservas_gravam_se_e_mudam_de_estado(): void
     {
+        // Sem `restaurant.reservations.cancel`: não existe na base, e o ensaio
+        // que a criava escondia que ninguém conseguia cancelar. Editar chega.
         $this->comPermissoes(
             'restaurant.reservations.view', 'restaurant.reservations.create',
-            'restaurant.reservations.edit', 'restaurant.reservations.cancel',
+            'restaurant.reservations.edit',
         );
 
         $mesa = DiningTable::create([

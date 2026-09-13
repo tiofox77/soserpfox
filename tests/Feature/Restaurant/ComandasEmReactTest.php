@@ -365,6 +365,79 @@ class ComandasEmReactTest extends TenantTestCase
         ])->assertForbidden();
     }
 
+    /** Um utilizador desta empresa só com estas permissões, e com turno aberto. */
+    private function utilizadorCom(string ...$permissoes): \App\Models\User
+    {
+        $u = \App\Models\User::create([
+            'name' => 'Papel '.uniqid(), 'email' => 'p'.uniqid().'@exemplo.ao',
+            'password' => bcrypt('secret'), 'tenant_id' => $this->tenant->id,
+        ]);
+        $u->tenants()->syncWithoutDetaching([$this->tenant->id]);
+
+        setPermissionsTeamId($this->tenant->id);
+        foreach ($permissoes as $nome) {
+            \Spatie\Permission\Models\Permission::findOrCreate($nome, 'web');
+        }
+        $u->givePermissionTo($permissoes);
+        $u->forgetCachedPermissions();
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+
+        PosShift::create([
+            'tenant_id' => $this->tenant->id, 'user_id' => $u->id,
+            'shift_number' => 'T-'.uniqid(), 'status' => 'open',
+            'opened_at' => now(), 'opening_balance' => 0,
+        ]);
+
+        return $u;
+    }
+
+    /**
+     * O CAIXA DO RESTAURANTE abre o balcão, põe o artigo na conta e dá a mesa
+     * como limpa — tinha só `checkout.*` e o ecrã novo pedia `orders.*` e
+     * `floor.manage` (auditoria das permissões, 2026-09-13). Abrir uma mesa
+     * continua a ser do empregado.
+     */
+    public function test_o_caixa_do_restaurante_abre_o_balcao_acrescenta_e_limpa_a_mesa(): void
+    {
+        $caixa = $this->utilizadorCom('restaurant.checkout.view', 'restaurant.checkout.charge', 'restaurant.orders.view', 'restaurant.floor.view');
+
+        $this->actingAs($caixa)->getJson('/api/v1/invoicing/react/restaurant/sala/opcoes')->assertOk()
+            ->assertJsonPath('permissoes.pode_abrir_balcao', true)
+            ->assertJsonPath('permissoes.pode_limpar', true)
+            ->assertJsonPath('permissoes.pode_abrir', false);
+
+        $id = $this->actingAs($caixa)->postJson('/api/v1/invoicing/react/restaurant/sala/abrir-sem-mesa', [
+            'venue_id' => $this->venue->id, 'channel' => 'counter',
+        ])->assertCreated()->json('order_id');
+
+        $this->actingAs($caixa)->postJson(self::RAIZ . "/{$id}/artigos", [
+            'product_id' => $this->prato->id, 'quantity' => 1,
+        ])->assertCreated();
+
+        $this->actingAs($caixa)->getJson(self::RAIZ . '/opcoes')->assertOk()
+            ->assertJsonPath('permissoes.pode_editar', true)
+            ->assertJsonPath('permissoes.pode_libertar_mesa', true);
+
+        $this->actingAs($caixa)->postJson('/api/v1/invoicing/react/restaurant/sala/abrir', [
+            'table_id' => $this->mesa->id, 'guest_count' => 2,
+        ])->assertForbidden();
+
+        // O observador do modelo repõe o estado: a mesa em limpeza põe-se por baixo.
+        \Illuminate\Support\Facades\DB::table('restaurant_tables')->where('id', $this->mesa->id)->update(['status' => 'cleaning']);
+
+        $this->actingAs($caixa)->postJson("/api/v1/invoicing/react/restaurant/sala/mesas/{$this->mesa->id}/limpar")->assertOk();
+    }
+
+    /** Só a ver, não se abre nada nem se mexe na conta. */
+    public function test_quem_so_ve_as_comandas_nao_abre_o_balcao(): void
+    {
+        $ve = $this->utilizadorCom('restaurant.orders.view', 'restaurant.floor.view');
+
+        $this->actingAs($ve)->postJson('/api/v1/invoicing/react/restaurant/sala/abrir-sem-mesa', [
+            'venue_id' => $this->venue->id, 'channel' => 'counter',
+        ])->assertForbidden();
+    }
+
     /** A comanda de outra empresa não se abre por aqui. */
     public function test_a_comanda_de_outra_empresa_nao_se_ve(): void
     {

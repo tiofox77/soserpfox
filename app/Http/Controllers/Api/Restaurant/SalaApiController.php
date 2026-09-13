@@ -35,9 +35,22 @@ class SalaApiController extends Controller
         private readonly ListaDeEspera $fila,
     ) {}
 
-    private function exigir(Request $request, string $permissao): void
+    /** @param  string|list<string>  $permissao  basta uma. */
+    private function exigir(Request $request, string|array $permissao): void
     {
-        abort_unless($request->user()?->can($permissao), 403, __('Sem permissão para esta operação.'));
+        abort_unless(self::temUma($request, (array) $permissao), 403, __('Sem permissão para esta operação.'));
+    }
+
+    /** @param  list<string>  $permissoes */
+    private static function temUma(Request $request, array $permissoes): bool
+    {
+        foreach ($permissoes as $p) {
+            if ($request->user()?->can($p)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** Uma falha de regra do serviço é 422, com a frase que ele escreveu. */
@@ -63,6 +76,8 @@ class SalaApiController extends Controller
             'permissoes' => [
                 'pode_gerir' => (bool) $request->user()?->can('restaurant.floor.manage'),
                 'pode_abrir' => (bool) $request->user()?->can('restaurant.orders.create'),
+                'pode_abrir_balcao' => self::temUma($request, ['restaurant.orders.create', 'restaurant.checkout.charge']),
+                'pode_limpar' => self::temUma($request, ['restaurant.floor.manage', 'restaurant.orders.edit', 'restaurant.checkout.charge']),
             ],
         ]);
     }
@@ -252,7 +267,8 @@ class SalaApiController extends Controller
     /** Balcão, take-away e entrega: comanda sem mesa. */
     public function abrirSemMesa(Request $request): JsonResponse
     {
-        $this->exigir($request, 'restaurant.orders.create');
+        // O balcão é do Caixa: quem cobra abre a venda sem mesa.
+        $this->exigir($request, ['restaurant.orders.create', 'restaurant.checkout.charge']);
 
         $tenantId = activeTenantId();
 
@@ -327,7 +343,7 @@ class SalaApiController extends Controller
      */
     public function limpar(Request $request, int $id): JsonResponse
     {
-        $this->exigir($request, 'restaurant.floor.manage');
+        $this->exigir($request, ['restaurant.floor.manage', 'restaurant.orders.edit', 'restaurant.checkout.charge']);
 
         $tenantId = activeTenantId();
         $mesa = DiningTable::where('tenant_id', $tenantId)->where('is_active', true)->findOrFail($id);

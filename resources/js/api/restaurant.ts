@@ -94,7 +94,7 @@ export type OpcoesDaSala = {
     estabelecimentos: Escolha[];
     estados_da_mesa: Escolha[];
     canais: Escolha[];
-    permissoes: { pode_gerir: boolean; pode_abrir: boolean };
+    permissoes: { pode_gerir: boolean; pode_abrir: boolean; pode_abrir_balcao: boolean; pode_limpar: boolean };
 };
 
 /* ─── As comandas ─────────────────────────────────────────────────────── */
@@ -158,7 +158,7 @@ export type OpcoesDasComandas = {
     definicoes: { gorjetas: boolean; taxa_de_servico: number; cozinha: boolean; exige_ficha: boolean };
     tem_turno: boolean;
     permissoes: {
-        pode_criar: boolean; pode_editar: boolean; pode_anular: boolean;
+        pode_criar: boolean; pode_editar: boolean; pode_anular: boolean; pode_libertar_mesa: boolean;
         pode_transferir: boolean; pode_dividir: boolean; pode_facturar: boolean;
     };
 };

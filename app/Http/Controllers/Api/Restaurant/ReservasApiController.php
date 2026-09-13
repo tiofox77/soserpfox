@@ -44,10 +44,34 @@ class ReservasApiController extends Controller
 
     public function __construct(private readonly RestaurantReservationService $reservas) {}
 
-    private function exigir(Request $request, string $permissao): void
+    /** @param  string|list<string>  $permissao  basta uma. */
+    private function exigir(Request $request, string|array $permissao): void
     {
-        abort_unless($request->user()?->can($permissao), 403, __('Sem permissão para esta operação.'));
+        abort_unless(self::temUma($request, (array) $permissao), 403, __('Sem permissão para esta operação.'));
     }
+
+    /** @param  list<string>  $permissoes */
+    private static function temUma(Request $request, array $permissoes): bool
+    {
+        foreach ($permissoes as $p) {
+            if ($request->user()?->can($p)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /*
+     * CANCELAR É EDITAR A RESERVA.
+     *
+     * `restaurant.reservations.cancel` nunca existiu na base — nem em produção
+     * nem nos papéis por omissão — e um `can()` sobre uma permissão que não
+     * existe é sempre falso: ninguém cancelava nem marcava a falta, nem o
+     * Super Admin (auditoria de 2026-09-13). Vale a de editar, e a de cancelar
+     * se um dia uma empresa a criar.
+     */
+    private const CANCELAR = ['restaurant.reservations.cancel', 'restaurant.reservations.edit'];
 
     private function recusa(\Throwable $e): never
     {
@@ -77,7 +101,7 @@ class ReservasApiController extends Controller
             'permissoes' => [
                 'pode_criar' => (bool) $request->user()?->can('restaurant.reservations.create'),
                 'pode_editar' => (bool) $request->user()?->can('restaurant.reservations.edit'),
-                'pode_cancelar' => (bool) $request->user()?->can('restaurant.reservations.cancel'),
+                'pode_cancelar' => self::temUma($request, self::CANCELAR),
             ],
         ]);
     }
@@ -165,7 +189,7 @@ class ReservasApiController extends Controller
         $dados = $request->validate(['estado' => ['required', Rule::in(array_keys(self::ESTADOS))]]);
 
         $this->exigir($request, in_array($dados['estado'], ['cancelled', 'no_show'], true)
-            ? 'restaurant.reservations.cancel'
+            ? self::CANCELAR
             : 'restaurant.reservations.edit');
 
         $reserva = Reservation::where('tenant_id', activeTenantId())->findOrFail($id);

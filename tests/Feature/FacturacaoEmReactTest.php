@@ -205,6 +205,9 @@ class FacturacaoEmReactTest extends TenantTestCase
                 // pré-visualização que o PDF do ecrã fotografa.
                 && ! str_ends_with($nome, 'casca' . DIRECTORY_SEPARATOR . 'Sistema.tsx')
                 && ! str_ends_with($nome, 'casca' . DIRECTORY_SEPARATOR . 'pdfDoDocumento.ts')
+                // O relato de erros do browser: se a falha for do próprio
+                // cliente da API, relatá-la por ele perdia-a (ou dava a volta).
+                && ! str_ends_with($nome, 'casca' . DIRECTORY_SEPARATOR . 'relatarErro.ts')
                 // O PWA offline tem a SUA porta (`pwa/motor/rede.ts`): distingue
                 // «sem rede» de «sessão morta» e de «subscrição expirada», que o
                 // cliente da API não sabe fazer, e o aquecimento do cache e o

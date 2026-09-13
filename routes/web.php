@@ -2294,7 +2294,10 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
          * Mesma permissão. Um ecrã novo não é uma porta nova.
          */
         Route::get('/invoices/create', \App\Support\EcraReact::pagina('facturacao/emitir-factura', 'Fatura de Venda', [], fn () => \App\Support\DuplicarNaMorada::props()))->middleware('permission:invoicing.sales.invoices.create')->name('invoices.create');
-        Route::get('/invoices/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-factura', 'Fatura de Venda'))->middleware('permission:invoicing.sales.invoices.edit')->name('invoices.edit');
+        // Reabrir o rascunho é de quem o pode criar: o Vendedor não tem `.edit`
+        // e dava 403 na factura que ele próprio gravou. A API abre com `.view`
+        // e recusa gravar o que já foi emitido (auditoria de 2026-09-13).
+        Route::get('/invoices/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-factura', 'Fatura de Venda'))->middleware('permission:invoicing.sales.invoices.edit|invoicing.sales.invoices.create')->name('invoices.edit');
         Route::get('/invoices/{id}/pdf', [\App\Http\Controllers\Invoicing\SalesInvoiceController::class, 'generatePdf'])->middleware('permission:invoicing.sales.invoices.view')->name('invoices.pdf');
         Route::get('/invoices/{id}/preview', [\App\Http\Controllers\Invoicing\SalesInvoiceController::class, 'previewHtml'])->middleware('permission:invoicing.sales.invoices.view')->name('invoices.preview');
         /*
@@ -2339,7 +2342,7 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
         // Faturas de Compra
         Route::middleware('permission:invoicing.purchases.invoices.view')->get('/invoices', \App\Support\EcraReact::pagina('facturacao/documentos', 'Faturas de Compra', ['tipo' => 'facturas-compra',]))->name('invoices');
         Route::get('/invoices/create', \App\Support\EcraReact::pagina('facturacao/emitir-factura-de-compra', 'Fatura de Compra', [], fn () => \App\Support\DuplicarNaMorada::props()))->middleware('permission:invoicing.purchases.invoices.create')->name('invoices.create');
-        Route::get('/invoices/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-factura-de-compra', 'Fatura de Compra'))->middleware('permission:invoicing.purchases.invoices.edit')->name('invoices.edit');
+        Route::get('/invoices/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-factura-de-compra', 'Fatura de Compra'))->middleware('permission:invoicing.purchases.invoices.edit|invoicing.purchases.invoices.create')->name('invoices.edit');
         Route::get('/invoices/{id}/pdf', [\App\Http\Controllers\Invoicing\PurchaseInvoiceController::class, 'generatePdf'])->middleware('permission:invoicing.purchases.invoices.view')->name('invoices.pdf');
         Route::get('/invoices/{id}/preview', [\App\Http\Controllers\Invoicing\PurchaseInvoiceController::class, 'previewHtml'])->middleware('permission:invoicing.purchases.invoices.view')->name('invoices.preview');
     });
@@ -2356,7 +2359,7 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
     Route::prefix('receipts')->name('receipts.')->group(function () {
         Route::middleware('permission:invoicing.receipts.view')->get('/', \App\Support\EcraReact::pagina('facturacao/documentos', 'Recibos', ['tipo' => 'recibos',]))->name('index');
         Route::middleware('permission:invoicing.receipts.create')->get('/create', \App\Support\EcraReact::pagina('facturacao/registar-recibo', 'Recibo', [], fn () => \App\Support\FacturaNaMorada::props()))->name('create');
-        Route::middleware('permission:invoicing.receipts.edit')->get('/{id}/edit', \App\Support\EcraReact::pagina('facturacao/registar-recibo', 'Recibo'))->name('edit');
+        Route::middleware('permission:invoicing.receipts.edit|invoicing.receipts.create|invoicing.receipts.view')->get('/{id}/edit', \App\Support\EcraReact::pagina('facturacao/registar-recibo', 'Recibo'))->name('edit');
         Route::middleware('permission:invoicing.receipts.view')->get('/{id}/pdf', [\App\Http\Controllers\Invoicing\ReceiptController::class, 'generatePdf'])->name('pdf');
         Route::middleware('permission:invoicing.receipts.view')->get('/{id}/preview', [\App\Http\Controllers\Invoicing\ReceiptController::class, 'previewHtml'])->name('preview');
     });
@@ -2365,7 +2368,7 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
     Route::prefix('credit-notes')->name('credit-notes.')->group(function () {
         Route::middleware('permission:invoicing.credit-notes.view')->get('/', \App\Support\EcraReact::pagina('facturacao/documentos', 'Notas de Crédito', ['tipo' => 'notas-credito',]))->name('index');
         Route::middleware('permission:invoicing.credit-notes.create')->get('/create', \App\Support\EcraReact::pagina('facturacao/emitir-nota', 'Nota de Crédito', ['tipo' => 'credito',], fn () => \App\Support\FacturaNaMorada::props()))->name('create');
-        Route::middleware('permission:invoicing.credit-notes.edit')->get('/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-nota', 'Nota de Crédito', ['tipo' => 'credito',]))->name('edit');
+        Route::middleware('permission:invoicing.credit-notes.edit|invoicing.credit-notes.create|invoicing.credit-notes.view')->get('/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-nota', 'Nota de Crédito', ['tipo' => 'credito',]))->name('edit');
         Route::middleware('permission:invoicing.credit-notes.view')->get('/{id}/pdf', [\App\Http\Controllers\Invoicing\CreditNoteController::class, 'generatePdf'])->name('pdf');
         Route::middleware('permission:invoicing.credit-notes.view')->get('/{id}/preview', [\App\Http\Controllers\Invoicing\CreditNoteController::class, 'previewHtml'])->name('preview');
     });
@@ -2374,7 +2377,7 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
     Route::prefix('debit-notes')->name('debit-notes.')->group(function () {
         Route::middleware('permission:invoicing.debit-notes.view')->get('/', \App\Support\EcraReact::pagina('facturacao/documentos', 'Notas de Débito', ['tipo' => 'notas-debito',]))->name('index');
         Route::middleware('permission:invoicing.debit-notes.create')->get('/create', \App\Support\EcraReact::pagina('facturacao/emitir-nota', 'Nota de Débito', ['tipo' => 'debito',], fn () => \App\Support\FacturaNaMorada::props()))->name('create');
-        Route::middleware('permission:invoicing.debit-notes.edit')->get('/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-nota', 'Nota de Débito', ['tipo' => 'debito',]))->name('edit');
+        Route::middleware('permission:invoicing.debit-notes.edit|invoicing.debit-notes.create|invoicing.debit-notes.view')->get('/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-nota', 'Nota de Débito', ['tipo' => 'debito',]))->name('edit');
         Route::middleware('permission:invoicing.debit-notes.view')->get('/{id}/pdf', [\App\Http\Controllers\Invoicing\DebitNoteController::class, 'generatePdf'])->name('pdf');
         Route::middleware('permission:invoicing.debit-notes.view')->get('/{id}/preview', [\App\Http\Controllers\Invoicing\DebitNoteController::class, 'previewHtml'])->name('preview');
     });

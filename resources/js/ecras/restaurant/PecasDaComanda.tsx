@@ -469,7 +469,7 @@ export function PainelDaComanda({
                 </div>
             )}
 
-            {!c.aberta && c.table_id && (
+            {!c.aberta && c.table_id && opcoes.permissoes.pode_libertar_mesa && (
                 <Botao icone="fa-broom" aTrabalhar={libertar.isPending} onClick={() => libertar.mutate()}>
                     {t('Mesa limpa')}
                 </Botao>

@@ -19,10 +19,22 @@ return [
     // O PWA JÁ NÃO DEPENDE DISTO: o aquecimento do cache das páginas usava este
     // valor como chave e passou a usar a assinatura da versão do próprio PWA
     // (resources/js/pwa/aquecer.ts), que muda sozinha quando os ficheiros mudam.
-    'current' => '2026.09.13.9',
+    'current' => '2026.09.13.10',
 
     'releases' => [
 
+        [
+            'version'      => '2026.09.13.10',
+            'date'         => '2026-09-13',
+            'type'         => 'patch',
+            'title'        => 'As permissões certas para quem trabalha: Caixa do restaurante, Vendedor, RH e guias',
+            'fixes'        => [
+                ['produto' => 'web', 'texto' => 'O Caixa do restaurante volta a abrir a venda ao balcão, a acrescentar artigos à conta e a dar a mesa como limpa depois de cobrar.'],
+                ['produto' => 'web', 'texto' => 'As reservas do restaurante voltam a poder ser canceladas e marcadas como falta.'],
+                ['produto' => 'web', 'texto' => 'O Vendedor volta a reabrir as facturas em rascunho que gravou; quem só consulta recibos e notas abre-os pela lista.'],
+                ['produto' => 'web', 'texto' => 'Recursos Humanos, guias de transporte e os painéis do hotel, da oficina e do salão davam «sem permissão» a todos os papéis: as permissões foram criadas e atribuídas em todas as empresas.'],
+            ],
+        ],
         [
             'version'      => '2026.09.13.9',
             'date'         => '2026-09-13',
