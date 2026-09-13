@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\Audit\AuditRecorder;
 use App\Services\Casca\MensagensParaOUtilizador;
 use App\Services\Casca\NotificacoesDoSistema;
+use App\Services\Casca\PaginaInicial;
 use App\Services\Casca\PrazoDaSubscricao;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -173,5 +174,11 @@ class CascaApiController extends Controller
     public function avisos(Request $request): JsonResponse
     {
         return response()->json(['avisos' => $this->mensagens->paraOPainel($request->user())]);
+    }
+
+    /** A página inicial (`/home`) de quem trabalha numa empresa. */
+    public function inicio(Request $request, PaginaInicial $pagina): JsonResponse
+    {
+        return response()->json($pagina->para($request->user()));
     }
 }

@@ -230,6 +230,7 @@ Route::middleware(['auth'])->prefix('api/v1/casca')->name('api.casca.')->group(f
     Route::get('/mensagens', [$c, 'mensagens'])->name('mensagens');
     Route::post('/mensagens/{id}/dispensar', [$c, 'dispensar'])->whereNumber('id')->name('mensagens.dispensar');
     Route::get('/avisos', [$c, 'avisos'])->name('avisos');
+    Route::get('/inicio', [$c, 'inicio'])->name('inicio');
 });
 
 Route::middleware(['auth', 'superadmin'])->prefix('api/v1/plataforma/react')->name('api.plataforma.react.')->group(function () {

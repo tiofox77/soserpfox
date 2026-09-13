@@ -130,7 +130,29 @@ export type MensagemDaPlataforma = {
     dispensada: boolean;
 };
 
+export type AcessoRapido = { rotulo: string; nota: string; icone: string; cor: 'verde' | 'roxo' | 'azul' | 'amarelo'; url: string };
+
+export type PaginaInicial = {
+    utilizador: { nome: string };
+    hoje: string;
+    sem_empresa: boolean;
+    avisos: {
+        pedido_pendente: boolean;
+        sem_plano: boolean;
+        em_teste: { plano: string | null; dias: number; termina_em: string | null } | null;
+        fox: { tecto: number | null; emitidos: number | null } | null;
+        empresa: string | null;
+    } | null;
+    acessos: AcessoRapido[];
+    empresa: { nome: string; nif: string | null; email: string | null; telefone: string | null } | null;
+    subscricao: { plano: string | null; valor: number; ciclo: string | null; inicio: string | null; renovacao: string | null; estado: string } | null;
+    mostra_subscricao: boolean;
+    modulos: Array<{ nome: string; descricao: string | null; icone: string | null; activo: boolean }>;
+    numeros: { clientes?: number; produtos?: number; facturas_do_mes?: number; facturado_no_mes?: number; so_o_seu?: boolean };
+};
+
 export const casca = {
+    inicio: () => apiDaCasca.ler<PaginaInicial>('/inicio'),
     topo: () => apiDaCasca.ler<TopoDaCasca>('/topo'),
     entrarNaEmpresa: (id: number) => apiDaCasca.criar<Recado & { ir_para: string }>(`/empresas/${id}/entrar`, {}),
     notificacoes: (soPorLer: boolean) =>

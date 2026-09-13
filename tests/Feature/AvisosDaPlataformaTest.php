@@ -185,10 +185,14 @@ class AvisosDaPlataformaTest extends TenantTestCase
     {
         $this->mensagem();
 
+        // A página inicial é o ecrã `inicio`, que desenha os avisos lá dentro
+        // (pede-os a /api/v1/casca/avisos).
         $this->actingAs($this->user)
             ->get('/home')
             ->assertOk()
-            ->assertSee('data-peca="casca/avisos"', false);
+            ->assertSee('data-ecra="inicio"', false);
+
+        $this->assertStringContainsString("import Avisos from './Avisos'", file_get_contents(resource_path('js/ecras/casca/Inicio.tsx')));
     }
 
     /**

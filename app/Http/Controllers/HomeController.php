@@ -39,63 +39,9 @@ class HomeController extends Controller
             return $this->superAdminHome($user);
         }
 
-        $activeSubscription = null;
-        $activeTenant = null;
-        $debug = [];
-        
-        // Verificar se tem tenant ativo
-        $hasCompany = $user->tenants()->count() > 0;
-        $activeTenant = $user->activeTenant();
-        
-        // Verificar status de subscription
-        $hasActiveSubscription = false;
-        $subscriptionStatus = null;
-        
-        if ($activeTenant) {
-            $activeSubscription = $activeTenant->subscriptions()
-                ->with('plan')
-                ->whereIn('status', ['active', 'trial'])
-                ->latest()
-                ->first();
-                
-            $hasActiveSubscription = $activeSubscription !== null;
-            $subscriptionStatus = $activeSubscription->status ?? null;
-                
-            // Debug info
-            $debug['user_id'] = $user->id;
-            $debug['user_email'] = $user->email;
-            $debug['tenant_id'] = $activeTenant->id;
-            $debug['tenant_name'] = $activeTenant->name;
-            $debug['has_subscription'] = $hasActiveSubscription;
-            $debug['subscription_status'] = $subscriptionStatus;
-            $debug['modules_count'] = $activeTenant->modules()->count();
-            $debug['active_modules'] = $activeTenant->modules()
-                ->wherePivot('is_active', true)
-                ->pluck('name', 'slug')
-                ->toArray();
-        } else {
-            $debug['warning'] = 'Usuário não tem tenant ativo';
-        }
-        
-        // Alertas
-        $needsCompany = !$hasCompany;
-        $needsSubscription = $hasCompany && !$hasActiveSubscription;
-        
-        // Verificar pedidos pendentes
-        $hasPendingOrder = Order::where('user_id', $user->id)
-            ->where('status', 'pending')
-            ->exists();
-        
-        return view('home', compact(
-            'activeSubscription',
-            'debug',
-            'hasCompany',
-            'needsCompany',
-            'needsSubscription',
-            'activeTenant',
-            'subscriptionStatus',
-            'hasPendingOrder'
-        ));
+        // O ecrã em React (`inicio`) pede o que mostra a /api/v1/casca/inicio —
+        // ver App\Services\Casca\PaginaInicial. Daqui só vai o recado da sessão.
+        return \App\Support\EcraReact::pagina('inicio', 'Início', ['estado' => session('status')])();
     }
 
     /**

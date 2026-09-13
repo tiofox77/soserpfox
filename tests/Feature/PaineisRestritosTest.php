@@ -120,11 +120,13 @@ class PaineisRestritosTest extends TenantTestCase
         $this->comPermissoes('invoicing.sales.invoices.view');
         $this->actingAs($this->user);
 
-        $resposta = $this->get(route('home'));
+        // A página inicial pede o que mostra à API; é lá que o pacote se esconde.
+        $this->get(route('home'))->assertOk()->assertSee('data-ecra="inicio"', false);
 
-        $resposta->assertOk();
-        $resposta->assertDontSee('Subscrição');
-        $resposta->assertDontSee('Renovação');
+        $inicio = $this->getJson(route('api.casca.inicio'))->assertOk();
+        $this->assertFalse($inicio->json('mostra_subscricao'));
+        $this->assertNull($inicio->json('subscricao'));
+        $this->assertNull($inicio->json('avisos'));
     }
 
     /** @test */
@@ -133,10 +135,9 @@ class PaineisRestritosTest extends TenantTestCase
         $this->comPermissoes('billing.manage');
         $this->actingAs($this->user);
 
-        $resposta = $this->get(route('home'));
-
-        $resposta->assertOk();
-        $resposta->assertSee('Subscrição');
+        $inicio = $this->getJson(route('api.casca.inicio'))->assertOk();
+        $this->assertTrue($inicio->json('mostra_subscricao'));
+        $this->assertNotNull($inicio->json('avisos'));
     }
 
     /** O ajudante que protege um número: mostra-o a quem pode, esconde-o a quem não. */

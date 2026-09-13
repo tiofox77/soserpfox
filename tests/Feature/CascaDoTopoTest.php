@@ -26,7 +26,9 @@ class CascaDoTopoTest extends TenantTestCase
     {
         $html = $this->get('/home')->assertOk()->getContent();
 
-        foreach (['casca/empresa', 'casca/subscricao', 'casca/notificacoes', 'casca/mensagens', 'casca/avisos'] as $peca) {
+        $this->assertStringContainsString('data-ecra="inicio"', $html);
+
+        foreach (['casca/empresa', 'casca/subscricao', 'casca/notificacoes', 'casca/mensagens'] as $peca) {
             $this->assertStringContainsString('data-peca="'.$peca.'"', $html);
         }
 
