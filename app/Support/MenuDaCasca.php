@@ -73,6 +73,84 @@ final class MenuDaCasca
         ];
     }
 
+    /**
+     * O MENU DO PAINEL DA PLATAFORMA — a mesma barra lateral (o ecrã `casca`),
+     * com as áreas do dono da plataforma.
+     *
+     * Estava escrito à mão no `layouts/superadmin`, em Blade com Alpine, com
+     * «Perfil» e «Configurações» a apontar para «#». Passou a ter a forma do
+     * menu da aplicação, para a mesma barra o desenhar: grupos vazios, sem
+     * suporte (é a plataforma que o dá), e as secções da plataforma.
+     */
+    public static function daPlataforma(User $u, Request $r): array
+    {
+        return [
+            'principal' => self::resolver(self::principal(), $u, $r),
+            'grupos' => [],
+            'superadmin' => array_map(
+                fn ($s) => ['titulo' => __($s['titulo']), 'entradas' => self::resolver($s['entradas'], $u, $r)],
+                self::plataforma(),
+            ),
+            'fox' => false,
+            'suporte' => null,
+            'utilizador' => [
+                'nome' => $u->name,
+                'papel' => 'Super Admin',
+                'ligacoes' => [
+                    ['url' => route('my-account'), 'rotulo' => __('Minha Conta'), 'icone' => 'fa-user-circle', 'cor' => 'blue-600'],
+                    ['url' => route('superadmin.system-settings'), 'rotulo' => __('Configurações'), 'icone' => 'fa-cog', 'cor' => 'gray-600'],
+                ],
+                'atualizacoes' => ['url' => route('changelog'), 'rotulo' => __('Atualizações'), 'versao' => 'v' . config('changelog.current', '1.0')],
+                'sair' => route('logout'),
+            ],
+        ];
+    }
+
+    /** As áreas do painel da plataforma, pela ordem do layout de sempre. */
+    private static function plataforma(): array
+    {
+        $e = fn (string $rota, string $icone, string $cor, string $rotulo, bool $marca = false) => [
+            'rota' => $rota, 'rotulo' => $rotulo, 'icone' => $icone, 'cor' => $cor, 'activo' => $rota, 'topo' => true, 'marca' => $marca,
+        ];
+
+        return [
+            ['titulo' => 'Principal', 'entradas' => [
+                $e('superadmin.dashboard', 'fa-chart-line', 'yellow-400', 'Dashboard'),
+                $e('superadmin.analytics', 'fa-fire', 'orange-400', 'Analytics & Leads'),
+            ]],
+            ['titulo' => 'Comercial', 'entradas' => [
+                $e('superadmin.tenants', 'fa-building', 'green-400', 'Empresas / Tenants'),
+                $e('superadmin.restaurant-venue-requests', 'fa-store', 'orange-400', 'Pedidos de Estabelecimentos'),
+                $e('superadmin.plans', 'fa-tags', 'pink-400', 'Planos'),
+                $e('superadmin.modules', 'fa-puzzle-piece', 'purple-400', 'Módulos'),
+                $e('superadmin.billing', 'fa-file-invoice-dollar', 'emerald-400', 'Faturação / Billing'),
+                $e('superadmin.licenciamento', 'fa-key', 'indigo-400', 'Licenciamento Offline'),
+                $e('superadmin.aparelhos-pwa', 'fa-mobile-screen-button', 'emerald-400', 'Aparelhos com PWA'),
+            ]],
+            ['titulo' => 'Comunicação', 'entradas' => [
+                $e('superadmin.mensagens', 'fa-bullhorn', 'indigo-400', 'Mensagens às Empresas'),
+                $e('superadmin.contact-messages', 'fa-comments', 'cyan-400', 'Mensagens de Contacto'),
+                $e('superadmin.email-templates', 'fa-envelope', 'blue-400', 'Email Templates'),
+                $e('superadmin.smtp-settings', 'fa-server', 'emerald-400', 'SMTP'),
+                $e('superadmin.email-logs', 'fa-history', 'yellow-400', 'Email Logs'),
+                $e('superadmin.sms-settings', 'fa-sms', 'green-400', 'SMS'),
+                $e('superadmin.sms-empresas', 'fa-comment-sms', 'teal-400', 'SMS às Empresas'),
+                $e('superadmin.whatsapp-notifications', 'fa-whatsapp', 'green-400', 'WhatsApp', true),
+            ]],
+            ['titulo' => 'Sistema', 'entradas' => [
+                $e('superadmin.system-updates', 'fa-cloud-download-alt', 'cyan-400', 'Atualizações'),
+                $e('superadmin.system-commands', 'fa-terminal', 'green-400', 'Comandos & Seeders'),
+                $e('superadmin.script-runner', 'fa-code', 'amber-400', 'Script Runner'),
+                $e('superadmin.system-optimization', 'fa-rocket', 'yellow-400', 'Otimização'),
+            ]],
+            ['titulo' => 'Configuração', 'entradas' => [
+                $e('superadmin.system-settings', 'fa-cog', 'purple-400', 'Gerais'),
+                $e('superadmin.software-settings', 'fa-shield-alt', 'red-400', 'Software'),
+                $e('superadmin.saft', 'fa-key', 'orange-400', 'SAFT-AO'),
+            ]],
+        ];
+    }
+
     /* ─── O esquema ────────────────────────────────────────────────────── */
 
     private static function principal(): array

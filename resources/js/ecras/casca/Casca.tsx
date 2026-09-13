@@ -84,7 +84,7 @@ export default function Casca({ menu, logo, nome, csrf }: PropsDaCasca) {
         return () => { nav.removeEventListener('scroll', aoRolar); window.clearTimeout(relogio); };
     }, []);
 
-    /* O botão de encolher está na barra do topo, em Blade: fala por evento. */
+    /* O botão de encolher é outra peça, na barra do topo: fala por evento. */
     useEffect(() => {
         const alternar = () => porAberta((a) => !a);
         const redimensionar = () => {
@@ -183,14 +183,16 @@ export default function Casca({ menu, logo, nome, csrf }: PropsDaCasca) {
                     </div>
                 )}
 
-                {/* Suporte */}
-                <div className="mt-auto border-t border-blue-700 pt-4">
-                    <a href={menu.suporte.url} onClick={fechar} className={cls('group flex items-center px-4 py-3 transition', menu.suporte.activo ? 'border-l-4 border-purple-400 bg-blue-700' : 'hover:bg-blue-700/50')}>
-                        <i className="fas fa-life-ring text-2xl text-purple-400" aria-hidden="true" />
-                        {aberta && <span className="ml-3 font-semibold text-white">{menu.suporte.rotulo}</span>}
-                        {aberta && <span className="ml-auto rounded-full bg-purple-500 px-2 py-1 text-xs">{menu.suporte.extra}</span>}
-                    </a>
-                </div>
+                {/* Suporte — o painel da plataforma não o tem: é ela que o dá. */}
+                {menu.suporte ? (
+                    <div className="mt-auto border-t border-blue-700 pt-4">
+                        <a href={menu.suporte.url} onClick={fechar} className={cls('group flex items-center px-4 py-3 transition', menu.suporte.activo ? 'border-l-4 border-purple-400 bg-blue-700' : 'hover:bg-blue-700/50')}>
+                            <i className="fas fa-life-ring text-2xl text-purple-400" aria-hidden="true" />
+                            {aberta && <span className="ml-3 font-semibold text-white">{menu.suporte.rotulo}</span>}
+                            {aberta && <span className="ml-auto rounded-full bg-purple-500 px-2 py-1 text-xs">{menu.suporte.extra}</span>}
+                        </a>
+                    </div>
+                ) : <div className="mt-auto" />}
 
                 {/* O utilizador */}
                 <div className="relative border-t border-blue-700 p-4">

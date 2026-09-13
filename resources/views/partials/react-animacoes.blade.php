@@ -27,6 +27,32 @@
         .btn-press:hover { filter: brightness(1.04); }
         .btn-press:active { transform: scale(.96); }
 
+        /* A casca (barra lateral, progresso, avisos) é a mesma nos layouts da
+           aplicação e da plataforma: o CSS dela vive aqui, com as animações. */
+        /* O LUGAR DA BARRA LATERAL enquanto o React não a desenha. */
+        @media (min-width: 768px) {
+            .casca-lugar:not(:has(aside)) { width: 5rem; background: linear-gradient(to bottom, #1e3a8a, #1e40af); }
+        }
+        @media (min-width: 1024px) {
+            html:not([data-casca="fechada"]) .casca-lugar:not(:has(aside)) { width: 16rem; }
+        }
+
+        /* A barra de progresso de quem muda de página (a peça casca/sistema). */
+        .spa-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899);
+            z-index: 99999;
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.7);
+        }
+        .spa-progress.done {
+            transition: width 0.1s ease, opacity 0.4s ease 0.1s;
+            opacity: 0;
+        }
+
         /* Aviso de canto — a barrinha que se gasta até o aviso sair. */
         @keyframes sosAvisoGasta {
             from { width: 100%; }

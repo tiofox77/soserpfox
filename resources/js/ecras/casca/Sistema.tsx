@@ -20,8 +20,10 @@ import { cls } from '@/ui/tokens';
  *  • A BARRA DE PROGRESSO — corre do clique numa ligação até a página seguinte
  *    chegar: numa rede fraca, vê-se que o clique foi ouvido.
  *  • O PDF DO ECRÃ e o SERVICE WORKER — ligados uma vez.
+ *  • OS RECADOS DA SESSÃO — o `->with('error', …)` de quem redirecciona para
+ *    um ecrã React, que de outra forma ninguém via (ver RecadosDaSessao).
  */
-type Props = { login: string; manterViva: string };
+type Props = { login: string; manterViva: string; recados?: Array<{ tipo: TipoDeAviso; texto: string }> };
 
 type AvisoNoEcra = Aviso & { id: number; aSair?: boolean };
 
@@ -34,7 +36,7 @@ const ESTILO: Record<TipoDeAviso, { icone: string; cor: string; barra: string; t
 
 const CINCO_MINUTOS = 5 * 60 * 1000;
 
-export default function Sistema({ login, manterViva }: Props) {
+export default function Sistema({ login, manterViva, recados = [] }: Props) {
     const [avisos, porAvisos] = useState<AvisoNoEcra[]>([]);
     const [sessaoMorta, porSessaoMorta] = useState(false);
     const [progresso, porProgresso] = useState<{ largura: number; acabou: boolean }>({ largura: 0, acabou: false });
@@ -65,6 +67,15 @@ export default function Sistema({ login, manterViva }: Props) {
         window.addEventListener(EVENTO_DE_AVISO, receber);
         return () => window.removeEventListener(EVENTO_DE_AVISO, receber);
     }, [tirar]);
+
+    /* Os recados do redirect: depois do ouvinte, senão o aviso passava sem ninguém a ouvir. Um erro fica mais tempo. */
+    const recadosDados = useRef(false);
+    useEffect(() => {
+        // Só à chegada da página, e uma vez (o StrictMode corre os efeitos duas).
+        if (recadosDados.current) return;
+        recadosDados.current = true;
+        recados.forEach((r) => avisar(r.texto, r.tipo, { duracao: r.tipo === 'erro' ? 8000 : 5000 }));
+    }, [recados]);
 
     /* ── A sessão ──────────────────────────────────────────────────── */
 

@@ -66,30 +66,6 @@
     <link rel="stylesheet" href="/vendor/css/fontawesome.min.css">
     
     <style>
-        /* O LUGAR DA BARRA LATERAL enquanto o React não a desenha. */
-        @media (min-width: 768px) {
-            .casca-lugar:not(:has(aside)) { width: 5rem; background: linear-gradient(to bottom, #1e3a8a, #1e40af); }
-        }
-        @media (min-width: 1024px) {
-            html:not([data-casca="fechada"]) .casca-lugar:not(:has(aside)) { width: 16rem; }
-        }
-
-        /* A barra de progresso de quem muda de página (ver a peça casca/sistema). */
-        .spa-progress {
-            position: fixed;
-            top: 0;
-            left: 0;
-            height: 3px;
-            background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899);
-            z-index: 99999;
-            transition: width 0.3s ease;
-            box-shadow: 0 0 10px rgba(59, 130, 246, 0.7);
-        }
-        .spa-progress.done {
-            transition: width 0.1s ease, opacity 0.4s ease 0.1s;
-            opacity: 0;
-        }
-        
         /* Prevenir FOUC (Flash of Unstyled Content) em imagens */
         img[src*="/storage/"] {
             max-height: 4rem !important;
@@ -497,6 +473,8 @@
         <x-ecra-react nome="casca/sistema" :esqueleto="false" :props="[
             'login' => route('login'),
             'manterViva' => url('/keep-alive'),
+            // Na página inicial o `status`/`success` já aparece no próprio ecrã.
+            'recados' => \App\Support\RecadosDaSessao::lista(request()->routeIs('home') ? ['status', 'success'] : []),
         ]" />
 
         @unless(auth()->user()->isSuperAdmin())

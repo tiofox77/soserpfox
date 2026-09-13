@@ -42,7 +42,8 @@ export type MenuDaCasca = {
     grupos: Grupo[];
     superadmin: Array<{ titulo: string; entradas: Ligacao[] }>;
     fox: boolean;
-    suporte: { url: string; activo: boolean; rotulo: string; extra: string };
+    /** Null no painel da plataforma: é ela que dá o suporte. */
+    suporte: { url: string; activo: boolean; rotulo: string; extra: string } | null;
     utilizador: {
         nome: string;
         papel: string;
