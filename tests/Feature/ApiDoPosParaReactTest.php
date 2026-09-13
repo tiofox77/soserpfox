@@ -122,6 +122,69 @@ class ApiDoPosParaReactTest extends TenantTestCase
         $this->assertIsBool($r->json('definicoes.esconde_sem_stock'));
     }
 
+    /**
+     * AS CATEGORIAS COMO O OPERADOR AS LÊ.
+     *
+     * Uma farmácia importou «├üLCOOL» (acentos estragados) e depois criou à
+     * mão «ÁLCOOL»: o balcão mostrava as duas, com os artigos repartidos, e a
+     * estragada ia para o topo da lista. Passa a um botão só, que filtra pelas
+     * duas, em ordem alfabética portuguesa.
+     *
+     * @test
+     */
+    public function as_categorias_repetidas_por_acentos_estragados_sao_um_botao_so(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.create');
+
+        $estragada = Category::create(['tenant_id' => $this->tenant->id, 'name' => '├üLCOOL', 'is_active' => true]);
+        $certa = Category::create(['tenant_id' => $this->tenant->id, 'name' => 'ÁLCOOL', 'is_active' => true]);
+        Category::create(['tenant_id' => $this->tenant->id, 'name' => 'Adesivo', 'is_active' => true]);
+        Category::create(['tenant_id' => $this->tenant->id, 'name' => 'Xarope', 'is_active' => true]);
+
+        $a = $this->artigo(['name' => 'Álcool 70º 1L']);
+        $a->forceFill(['category_id' => $estragada->id])->save();
+        $b = $this->artigo(['name' => 'Álcool gel']);
+        $b->forceFill(['category_id' => $estragada->id])->save();
+        $c = $this->artigo(['name' => 'Álcool 96º']);
+        $c->forceFill(['category_id' => $certa->id])->save();
+
+        $categorias = collect($this->getJson(self::RAIZ . '/opcoes')->assertOk()->json('categorias'))
+            // A empresa de ensaio nasce com as categorias do catálogo inicial.
+            ->filter(fn ($x) => in_array($x['nome'], ['Adesivo', 'ÁLCOOL', '├üLCOOL', 'Xarope'], true))->values();
+
+        $this->assertSame(['Adesivo', 'ÁLCOOL', 'Xarope'], $categorias->pluck('nome')->all(), 'acentos reparados, uma vez só, e por ordem portuguesa');
+
+        $alcool = $categorias->firstWhere('nome', 'ÁLCOOL');
+        $this->assertSame(3, $alcool['artigos']);
+        $this->assertSame($estragada->id, $alcool['id'], 'a principal é a que tem mais artigos');
+        $this->assertEqualsCanonicalizing([$estragada->id, $certa->id], $alcool['ids']);
+
+        $artigos = $this->getJson(self::RAIZ . '/artigos?categoria=' . implode(',', $alcool['ids']))->assertOk()->json('data');
+        $this->assertEqualsCanonicalizing([$a->id, $b->id, $c->id], array_column($artigos, 'id'));
+
+        $this->getJson(self::RAIZ . '/artigos?categoria=1,x')->assertStatus(422);
+    }
+
+    /**
+     * A IMAGEM DO CARTÃO É UM ENDEREÇO. Mandava-se o caminho gravado
+     * («products/x.jpg») e o browser pedia-o relativo à página do balcão —
+     * todas as imagens saíam partidas. E o logótipo vai nas opções, para o
+     * cartão sem imagem.
+     *
+     * @test
+     */
+    public function a_imagem_do_artigo_chega_como_endereco_e_o_logotipo_nas_opcoes(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.create');
+
+        $artigo = $this->artigo(['name' => 'Vaselina Pura 30g', 'featured_image' => 'products/vaselina.jpg']);
+
+        $imagem = collect($this->getJson(self::RAIZ . '/artigos?procura=Vaselina')->assertOk()->json('data'))->firstWhere('id', $artigo->id)['imagem'];
+
+        $this->assertMatchesRegularExpression('#^https?://.+/storage/products/vaselina\.jpg$#', $imagem);
+        $this->assertNotEmpty($this->getJson(self::RAIZ . '/opcoes')->assertOk()->json('logotipo'));
+    }
+
     /* ─── A grelha de artigos ─────────────────────────────────────────── */
 
     /**

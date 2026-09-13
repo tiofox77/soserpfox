@@ -84,6 +84,54 @@ test('a 1366x768 o botão de finalizar está dentro da janela', async ({ page })
 });
 
 /**
+ * AS CATEGORIAS NUMA LINHA SÓ.
+ *
+ * Numa farmácia com setenta categorias, os botões em várias linhas comiam
+ * metade do catálogo. Voltam a ser o carrossel: uma linha que anda de lado,
+ * e o painel «Todas» com procura para chegar a qualquer uma.
+ */
+test('as categorias ficam numa linha e «Todas» abre o painel com procura', async ({ page }) => {
+    await page.setViewportSize({ width: 1366, height: 768 });
+    await page.goto(ECRA);
+
+    test.skip(!(await balcaoPronto(page)), 'sem turno aberto');
+
+    const faixa = page.getByRole('group', { name: 'Categorias' });
+    await expect(faixa).toBeVisible();
+
+    const caixa = await faixa.boundingBox();
+    expect(caixa.height, 'uma linha só, por mais categorias que haja').toBeLessThan(48);
+
+    await page.getByRole('button', { name: /^Todas/ }).click();
+    const procurar = page.getByPlaceholder('Procurar categoria…');
+    await expect(procurar).toBeVisible();
+
+    // A primeira categoria que a faixa mostra encontra-se pela procura e,
+    // escolhida no painel, fica activa na faixa.
+    const primeira = (await faixa.getByRole('button').first().innerText()).replace(/\s*\d+\s*$/, '').trim();
+    await procurar.fill(primeira.slice(0, 4));
+    await procurar.press('Enter');
+
+    await expect(procurar).toBeHidden();
+    await expect(faixa.getByRole('button', { pressed: true })).toHaveCount(1);
+});
+
+/** As imagens dos artigos chegam como endereços; a que falha cai para o logótipo. */
+test('nenhum cartão do balcão fica com a imagem partida', async ({ page }) => {
+    await page.goto(ECRA);
+
+    test.skip(!(await balcaoPronto(page)), 'sem turno aberto');
+
+    await page.waitForLoadState('networkidle');
+
+    const partidas = await page.evaluate(() => [...document.querySelectorAll('#app-main button img')]
+        .filter((i) => i.complete && i.naturalWidth === 0)
+        .map((i) => i.getAttribute('src')));
+
+    expect(partidas, 'imagens partidas nos cartões').toEqual([]);
+});
+
+/**
  * UMA VENDA DE PONTA A PONTA.
  *
  * O que este ensaio prova e os de servidor não podem: que o identificador da

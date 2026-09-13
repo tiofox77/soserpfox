@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
 
-import { pos, type ArtigoDoPos, type ClienteDoPos, type VendaFechada } from '@/api/pos';
+import { pos, type ArtigoDoPos, type CategoriaDoPos, type ClienteDoPos, type VendaFechada } from '@/api/pos';
 import { ErroDaApi } from '@/api/cliente';
 import { t } from '@/i18n';
 import { Botao } from '@/ui/Botao';
@@ -126,7 +126,8 @@ type Opcoes = NonNullable<ReturnType<typeof pos.opcoes> extends Promise<infer T>
 
 function Balcao({ o }: { o: Opcoes }) {
     const [procura, porProcura] = useState('');
-    const [categoria, porCategoria] = useState<number | null>(null);
+    /** Os `ids` da categoria escolhida, separados por vírgula — ver CategoriaDoPos. */
+    const [categoria, porCategoria] = useState<string | null>(null);
     const [todasAsCategorias, porTodasAsCategorias] = useState(false);
     const [linhas, porLinhas] = useState<LinhaDoCarrinho[]>([]);
     const [cliente, porCliente] = useState<ClienteDoPos | null>(null);
@@ -521,6 +522,7 @@ function Balcao({ o }: { o: Opcoes }) {
                     porTodas={porTodasAsCategorias}
                     categoria={categoria}
                     porCategoria={porCategoria}
+                    logotipo={o.logotipo}
                     artigos={lista}
                     aCarregar={artigos.isFetching}
                     linhas={linhas}
@@ -752,6 +754,7 @@ function Catalogo({
     porTodas,
     categoria,
     porCategoria,
+    logotipo,
     artigos,
     aCarregar,
     linhas,
@@ -761,12 +764,13 @@ function Catalogo({
     porProcura: (v: string) => void;
     caixaDeProcura: React.RefObject<HTMLInputElement | null>;
     aoSubmeter: (e: React.FormEvent) => void;
-    categorias: Array<{ id: number; nome: string; artigos: number }>;
+    categorias: CategoriaDoPos[];
     vazias: number;
     todas: boolean;
     porTodas: (v: boolean) => void;
-    categoria: number | null;
-    porCategoria: (v: number | null) => void;
+    categoria: string | null;
+    porCategoria: (v: string | null) => void;
+    logotipo: string | null;
     artigos: ArtigoDoPos[];
     aCarregar: boolean;
     linhas: LinhaDoCarrinho[];
@@ -801,38 +805,14 @@ function Catalogo({
                     />
                 </div>
 
-                {/* AS CATEGORIAS QUE TÊM ARTIGOS. As vazias ficam atrás do botão
-                    — eram 26 numa lista de 30, e empurravam a única útil para
-                    fora do carrossel. */}
-                <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                    <Chip activo={categoria === null} onClick={() => porCategoria(null)}>
-                        <i className="fas fa-border-all mr-1.5" aria-hidden="true" />
-                        {t('Todos')}
-                    </Chip>
-
-                    {categorias.map((c) => (
-                        <Chip key={c.id} activo={categoria === c.id} onClick={() => porCategoria(c.id)}>
-                            {c.nome}
-                            <span className="ml-1.5 opacity-60">{c.artigos}</span>
-                        </Chip>
-                    ))}
-
-                    {vazias > 0 && (
-                        <button
-                            type="button"
-                            onClick={() => porTodas(!todas)}
-                            className={cls(
-                                'px-2.5 py-1.5 text-xs font-semibold text-slate-500 underline-offset-2 hover:text-indigo-600 hover:underline',
-                                FOCO,
-                                RAIO,
-                            )}
-                        >
-                            {todas
-                                ? t('esconder as :n vazias', { n: vazias })
-                                : t('ver as :n vazias', { n: vazias })}
-                        </button>
-                    )}
-                </div>
+                <FaixaDeCategorias
+                    categorias={categorias}
+                    vazias={vazias}
+                    todas={todas}
+                    porTodas={porTodas}
+                    categoria={categoria}
+                    porCategoria={porCategoria}
+                />
             </form>
 
             {/* A GRELHA. Cartões maiores do que os de antes: ao balcão acerta-se
@@ -860,6 +840,7 @@ function Catalogo({
                                 a={a}
                                 i={i}
                                 noCarrinho={noCarrinho.get(a.id) ?? 0}
+                                logotipo={logotipo}
                                 onClick={() => aoEscolher(a)}
                             />
                         ))}
@@ -870,6 +851,255 @@ function Catalogo({
     );
 }
 
+/** A chave de uma categoria no filtro: os seus `ids`, separados por vírgula. */
+const chaveDaCategoria = (c: CategoriaDoPos) => (c.ids?.length ? c.ids : [c.id]).join(',');
+
+/**
+ * AS CATEGORIAS NUMA LINHA SÓ, QUE ANDA DE LADO.
+ *
+ * Com setenta categorias (uma farmácia), os botões em várias linhas comiam
+ * metade da altura do catálogo — ficavam seis linhas de botões por cima de
+ * uma fila e meia de artigos. Voltam a ser o carrossel do balcão de sempre:
+ *
+ * - uma linha, que se arrasta com o dedo, anda com a roda do rato e com as
+ *   setas das pontas (que só aparecem quando há mais para esse lado);
+ * - «Todos» fica sempre à mão, à esquerda, fora do que anda;
+ * - «Todas» abre o painel com as categorias todas em grelha e uma procura —
+ *   é por onde se chega à septuagésima sem arrastar a lista inteira; e é lá
+ *   que vivem as vazias;
+ * - a escolhida vem sempre para a vista.
+ */
+function FaixaDeCategorias({
+    categorias,
+    vazias,
+    todas,
+    porTodas,
+    categoria,
+    porCategoria,
+}: {
+    categorias: CategoriaDoPos[];
+    vazias: number;
+    todas: boolean;
+    porTodas: (v: boolean) => void;
+    categoria: string | null;
+    porCategoria: (v: string | null) => void;
+}) {
+    const faixa = useRef<HTMLDivElement>(null);
+    const [pontas, porPontas] = useState({ esquerda: false, direita: false });
+    const [painel, porPainel] = useState(false);
+    const [filtro, porFiltro] = useState('');
+
+    const medir = useCallback(() => {
+        const el = faixa.current;
+        if (!el) return;
+        porPontas({
+            esquerda: el.scrollLeft > 4,
+            direita: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
+        });
+    }, []);
+
+    useEffect(() => {
+        medir();
+        const el = faixa.current;
+        if (!el || typeof ResizeObserver === 'undefined') return;
+        const observador = new ResizeObserver(medir);
+        observador.observe(el);
+        return () => observador.disconnect();
+    }, [medir, categorias]);
+
+    // A roda do rato anda para os lados: num rato sem roda horizontal era a
+    // única forma de chegar ao fim sem ir às setas.
+    useEffect(() => {
+        const el = faixa.current;
+        if (!el) return;
+        const rodar = (e: WheelEvent) => {
+            if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && el.scrollWidth > el.clientWidth) {
+                e.preventDefault();
+                el.scrollLeft += e.deltaY;
+            }
+        };
+        el.addEventListener('wheel', rodar, { passive: false });
+        return () => el.removeEventListener('wheel', rodar);
+    }, []);
+
+    // A escolhida (também a que veio do painel) vem para a vista.
+    useEffect(() => {
+        faixa.current
+            ?.querySelector<HTMLElement>('[aria-pressed="true"]')
+            ?.scrollIntoView?.({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+    }, [categoria]);
+
+    const andar = (sentido: 1 | -1) => {
+        const el = faixa.current;
+        el?.scrollBy?.({ left: sentido * el.clientWidth * 0.75, behavior: 'smooth' });
+    };
+
+    const escolher = (chave: string | null) => {
+        porCategoria(chave);
+        porPainel(false);
+        porFiltro('');
+    };
+
+    const termo = filtro.trim().toLocaleLowerCase('pt');
+    const noPainel = termo === ''
+        ? categorias
+        : categorias.filter((c) => c.nome.toLocaleLowerCase('pt').normalize('NFD').replace(/\p{Diacritic}/gu, '')
+            .includes(termo.normalize('NFD').replace(/\p{Diacritic}/gu, '')));
+
+    return (
+        <>
+            <div className="mt-2.5 flex items-center gap-1.5">
+                <Chip activo={categoria === null} onClick={() => escolher(null)}>
+                    <i className="fas fa-border-all mr-1.5" aria-hidden="true" />
+                    {t('Todos')}
+                </Chip>
+
+                <div className="relative min-w-0 flex-1">
+                    <div
+                        ref={faixa}
+                        onScroll={medir}
+                        role="group"
+                        aria-label={t('Categorias')}
+                        className="flex gap-1.5 overflow-x-auto scroll-smooth py-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                    >
+                        {categorias.map((c) => (
+                            <Chip key={c.id} activo={categoria === chaveDaCategoria(c)} onClick={() => escolher(chaveDaCategoria(c))}>
+                                {c.nome}
+                                <Contagem activo={categoria === chaveDaCategoria(c)} n={c.artigos} />
+                            </Chip>
+                        ))}
+                    </div>
+
+                    {pontas.esquerda && <SetaDaFaixa lado="esquerda" onClick={() => andar(-1)} />}
+                    {pontas.direita && <SetaDaFaixa lado="direita" onClick={() => andar(1)} />}
+                </div>
+
+                <button
+                    type="button"
+                    onClick={() => porPainel((v) => !v)}
+                    aria-expanded={painel}
+                    className={cls(
+                        'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border px-3 py-1.5 text-xs font-semibold transition-all duration-200 active:scale-95',
+                        painel
+                            ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-600',
+                        RAIO,
+                        FOCO,
+                    )}
+                >
+                    <i className={cls('fas transition-transform duration-200', painel ? 'fa-xmark rotate-90' : 'fa-table-cells-large')} aria-hidden="true" />
+                    {t('Todas')}
+                    <span className="rounded-full bg-slate-100 px-1.5 text-[10px] tabular-nums text-slate-500">{categorias.length}</span>
+                </button>
+            </div>
+
+            {painel && (
+                <div
+                    className={cls('animate-fade-in mt-2 border border-slate-200 bg-white p-3 shadow-lg', RAIO)}
+                    onKeyDown={(e) => e.key === 'Escape' && porPainel(false)}
+                >
+                    <div className="mb-2.5 flex flex-wrap items-center gap-2">
+                        <div className="relative min-w-[12rem] flex-1">
+                            <i className="fas fa-magnifying-glass pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400" aria-hidden="true" />
+                            <input
+                                type="search"
+                                value={filtro}
+                                onChange={(e) => porFiltro(e.target.value)}
+                                // Dentro do formulário da procura: o Enter escolhia
+                                // nada e ia procurar artigos. Escolhe a primeira.
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        if (noPainel[0]) escolher(chaveDaCategoria(noPainel[0]));
+                                    }
+                                }}
+                                placeholder={t('Procurar categoria…')}
+                                aria-label={t('Procurar categoria')}
+                                autoFocus
+                                className={cls('w-full border border-slate-300 bg-white py-1.5 pl-8 pr-3 text-sm', RAIO, FOCO)}
+                            />
+                        </div>
+
+                        {vazias > 0 && (
+                            <button
+                                type="button"
+                                onClick={() => porTodas(!todas)}
+                                className={cls('px-2 py-1 text-xs font-semibold text-slate-500 hover:text-indigo-600', FOCO, RAIO)}
+                            >
+                                <i className={cls('fas mr-1', todas ? 'fa-eye-slash' : 'fa-eye')} aria-hidden="true" />
+                                {todas ? t('esconder as :n vazias', { n: vazias }) : t('ver as :n vazias', { n: vazias })}
+                            </button>
+                        )}
+                    </div>
+
+                    {noPainel.length === 0 ? (
+                        <p className="py-6 text-center text-sm text-slate-400">{t('Nenhuma categoria com «:procura».', { procura: filtro })}</p>
+                    ) : (
+                        <div className="grid max-h-64 grid-cols-2 gap-1.5 overflow-y-auto pr-1 sm:grid-cols-3 xl:grid-cols-4">
+                            {noPainel.map((c) => {
+                                const activa = categoria === chaveDaCategoria(c);
+
+                                return (
+                                    <button
+                                        key={c.id}
+                                        type="button"
+                                        onClick={() => escolher(chaveDaCategoria(c))}
+                                        aria-pressed={activa}
+                                        title={c.nome}
+                                        className={cls(
+                                            'flex items-center justify-between gap-2 border px-2.5 py-2 text-left text-xs font-semibold transition-all duration-150 active:scale-[.98]',
+                                            activa
+                                                ? 'border-indigo-500 bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow'
+                                                : 'border-slate-200 text-slate-700 hover:border-indigo-300 hover:bg-indigo-50/60',
+                                            c.artigos === 0 && !activa && 'text-slate-400',
+                                            RAIO,
+                                            FOCO,
+                                        )}
+                                    >
+                                        <span className="truncate">{c.nome}</span>
+                                        <Contagem activo={activa} n={c.artigos} />
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            )}
+        </>
+    );
+}
+
+function Contagem({ activo, n }: { activo: boolean; n: number }) {
+    return (
+        <span className={cls('ml-1.5 rounded-full px-1.5 text-[10px] tabular-nums', activo ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-500')}>
+            {n}
+        </span>
+    );
+}
+
+function SetaDaFaixa({ lado, onClick }: { lado: 'esquerda' | 'direita'; onClick: () => void }) {
+    return (
+        <div
+            className={cls(
+                'pointer-events-none absolute inset-y-0 flex w-12 items-center from-slate-50 via-slate-50/90 to-transparent',
+                lado === 'esquerda' ? 'left-0 justify-start bg-gradient-to-r' : 'right-0 justify-end bg-gradient-to-l',
+            )}
+        >
+            <button
+                type="button"
+                onClick={onClick}
+                aria-label={lado === 'esquerda' ? t('Categorias anteriores') : t('Mais categorias')}
+                className={cls(
+                    'pointer-events-auto grid h-7 w-7 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:scale-110 hover:text-indigo-600',
+                    FOCO,
+                )}
+            >
+                <i className={cls('fas text-xs', lado === 'esquerda' ? 'fa-chevron-left' : 'fa-chevron-right')} aria-hidden="true" />
+            </button>
+        </div>
+    );
+}
+
 function Chip({ activo, onClick, children }: { activo: boolean; onClick: () => void; children: React.ReactNode }) {
     return (
         <button
@@ -877,7 +1107,7 @@ function Chip({ activo, onClick, children }: { activo: boolean; onClick: () => v
             onClick={onClick}
             aria-pressed={activo}
             className={cls(
-                'px-3 py-1.5 text-xs font-semibold transition-all duration-200 active:scale-95',
+                'inline-flex shrink-0 items-center whitespace-nowrap px-3 py-1.5 text-xs font-semibold transition-all duration-200 active:scale-95',
                 activo
                     ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md'
                     : 'border border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-600',
@@ -894,14 +1124,19 @@ function CartaoDeArtigo({
     a,
     i,
     noCarrinho,
+    logotipo,
     onClick,
 }: {
     a: ArtigoDoPos;
     i: number;
     noCarrinho: number;
+    logotipo: string | null;
     onClick: () => void;
 }) {
     const semStock = a.stock !== null && a.stock <= 0;
+    // Uma imagem gravada cujo ficheiro já não existe: cai para o logótipo, em
+    // vez do ícone de imagem partida do browser.
+    const [imagemFalhou, porImagemFalhou] = useState(false);
 
     return (
         <button
@@ -973,12 +1208,26 @@ function CartaoDeArtigo({
             )}
 
             <div className={cls('mb-2 aspect-square overflow-hidden bg-slate-100', RAIO)}>
-                {a.imagem ? (
+                {a.imagem && !imagemFalhou ? (
                     <img
                         src={a.imagem}
                         alt=""
+                        loading="lazy"
+                        onError={() => porImagemFalhou(true)}
                         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
+                ) : logotipo ? (
+                    <div className="relative grid h-full w-full place-items-center bg-gradient-to-br from-slate-50 to-slate-100 p-5">
+                        <img
+                            src={logotipo}
+                            alt=""
+                            loading="lazy"
+                            className="max-h-full max-w-full object-contain opacity-20 grayscale transition duration-300 group-hover:scale-105 group-hover:opacity-30"
+                        />
+                        {a.servico && (
+                            <i className="fas fa-screwdriver-wrench absolute bottom-2 right-2 text-xs text-slate-300" aria-hidden="true" />
+                        )}
+                    </div>
                 ) : (
                     <div className="grid h-full w-full place-items-center bg-gradient-to-br from-slate-50 to-slate-100">
                         <i

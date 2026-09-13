@@ -12,6 +12,7 @@ use App\Models\Invoicing\Warehouse;
 use App\Models\Treasury\PaymentMethod as TreasuryPaymentMethod;
 use App\Services\POS\PosSaleService;
 use App\Services\POS\PosSalesReportQuery;
+use App\Support\TextoEstragado;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -79,6 +80,57 @@ class PosApiController extends Controller
             : ['id' => null, 'nome' => null];
     }
 
+    /**
+     * AS CATEGORIAS COMO O OPERADOR AS LÊ.
+     *
+     * Duas coisas que o balcão mostrava tal e qual estavam gravadas:
+     *
+     * - os acentos estragados por uma importação («├üLCOOL») — reparam-se na
+     *   leitura (App\Support\TextoEstragado), sem mexer no que está gravado;
+     * - a mesma categoria duas vezes: a importada com os acentos estragados e
+     *   a criada à mão depois, com os artigos repartidos entre as duas
+     *   («ÁLCOOL 7» e «├üLCOOL 60»). Quem procura álcool quer os 67. Juntam-se
+     *   num só botão, que filtra pelas duas (`ids`).
+     *
+     * Ordem alfabética portuguesa: «Álcool» ao pé de «Adesivo», e não depois
+     * de «Xarope» como numa ordenação por bytes.
+     *
+     * @return list<array{id: int, ids: list<int>, nome: string, artigos: int}>
+     */
+    private function categoriasDoBalcao(int $tenantId): array
+    {
+        $grupos = [];
+
+        foreach (Category::where('tenant_id', $tenantId)->withCount('products')->get() as $c) {
+            $nome = trim(preg_replace('/\s+/u', ' ', (string) TextoEstragado::reparar($c->name)));
+            $chave = mb_strtoupper($nome);
+
+            $grupos[$chave][] = ['id' => (int) $c->id, 'nome' => $nome, 'artigos' => (int) $c->products_count];
+        }
+
+        $categorias = [];
+
+        foreach ($grupos as $membros) {
+            // O nome e o id principais são os da que tem mais artigos.
+            usort($membros, fn ($a, $b) => [$b['artigos'], $a['id']] <=> [$a['artigos'], $b['id']]);
+
+            $categorias[] = [
+                'id' => $membros[0]['id'],
+                'ids' => array_column($membros, 'id'),
+                'nome' => $membros[0]['nome'],
+                'artigos' => array_sum(array_column($membros, 'artigos')),
+            ];
+        }
+
+        $ordem = class_exists(\Collator::class) ? new \Collator('pt_PT') : null;
+
+        usort($categorias, fn ($a, $b) => $ordem
+            ? $ordem->compare($a['nome'], $b['nome'])
+            : strcasecmp(\Illuminate\Support\Str::ascii($a['nome']), \Illuminate\Support\Str::ascii($b['nome'])));
+
+        return $categorias;
+    }
+
     /** O turno aberto DESTE operador, que é o que manda no ecrã. */
     private function turnoAberto(int $tenantId): ?PosShift
     {
@@ -114,19 +166,9 @@ class PosApiController extends Controller
          * execuções a uma.
          */
         $categorias = Cache::remember(
-            "pos_categorias_react_{$tenantId}",
+            "pos_categorias_react_v2_{$tenantId}",
             60,
-            fn () => Category::where('tenant_id', $tenantId)
-                ->withCount('products')
-                ->orderBy('name')
-                ->get()
-                ->map(fn ($c) => [
-                    'id' => (int) $c->id,
-                    'nome' => $c->name,
-                    'artigos' => (int) $c->products_count,
-                ])
-                ->values()
-                ->all()
+            fn () => $this->categoriasDoBalcao($tenantId)
         );
 
         return response()->json([
@@ -146,6 +188,10 @@ class PosApiController extends Controller
 
             'armazem' => $armazem,
             'categorias' => $categorias,
+
+            // O cartão de um artigo sem imagem (ou com a imagem em falta)
+            // mostrava o logótipo esbatido, como no balcão de sempre.
+            'logotipo' => app_logo(),
 
             /*
              * AS FORMAS DE PAGAMENTO são as da TESOURARIA desta empresa, e não
@@ -219,7 +265,9 @@ class PosApiController extends Controller
 
         $filtros = $request->validate([
             'procura' => ['nullable', 'string', 'max:120'],
-            'categoria' => ['nullable', 'integer'],
+            // Um id, ou vários separados por vírgula (a mesma categoria
+            // gravada duas vezes — ver categoriasDoBalcao).
+            'categoria' => ['nullable', 'string', 'regex:/^\d+(,\d+){0,49}$/'],
             'armazem' => ['nullable', 'integer'],
         ]);
 
@@ -271,7 +319,7 @@ class PosApiController extends Controller
         }
 
         if ($categoria = ($filtros['categoria'] ?? null)) {
-            $q->where('invoicing_products.category_id', $categoria);
+            $q->whereIn('invoicing_products.category_id', array_map('intval', explode(',', (string) $categoria)));
         }
 
         $artigos = $q->orderBy('invoicing_products.name')->limit(50)->get();
@@ -298,7 +346,9 @@ class PosApiController extends Controller
                      * um valor punha 1,00 Kz no ecrã.
                      */
                     'pergunta_preco' => (bool) $p->preco_no_pos,
-                    'imagem' => $p->featured_image,
+                    // O caminho gravado («products/x.jpg») não é um endereço: o browser
+                    // pedia-o relativo à página e a imagem saía partida.
+                    'imagem' => $p->image_url,
                     // Serviços e artigos sem gestão de stock não mostram número.
                     'stock' => $servico || ! $p->manage_stock
                         ? null
@@ -416,7 +466,9 @@ class PosApiController extends Controller
                 'servico' => $p->type === 'servico',
                 'preco' => round((float) $p->price, 2),
                 'pergunta_preco' => (bool) $p->preco_no_pos,
-                'imagem' => $p->featured_image,
+                // O caminho gravado («products/x.jpg») não é um endereço: o browser
+                // pedia-o relativo à página e a imagem saía partida.
+                'imagem' => $p->image_url,
                 'stock' => $disponivel === null ? null : round($disponivel, 3),
                 'categoria_id' => $p->category_id ? (int) $p->category_id : null,
                 'receita' => (bool) $p->requires_prescription,

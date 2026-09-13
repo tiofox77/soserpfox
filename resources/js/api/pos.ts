@@ -33,7 +33,11 @@ export type ArtigoDoPos = {
     controlado: boolean;
 };
 
-export type CategoriaDoPos = { id: number; nome: string; artigos: number };
+/**
+ * Uma categoria como o balcão a mostra: com os acentos reparados e, se a mesma
+ * estava gravada duas vezes, as duas num botão só (`ids` — é por eles que se filtra).
+ */
+export type CategoriaDoPos = { id: number; ids: number[]; nome: string; artigos: number };
 
 export type ClienteDoPos = {
     id: number;
@@ -49,6 +53,8 @@ export type OpcoesDoPos = {
     rota_dos_turnos: string;
     armazem: { id: number | null; nome: string | null };
     categorias: CategoriaDoPos[];
+    /** O logótipo que o cartão de um artigo sem imagem mostra, esbatido. */
+    logotipo: string | null;
     formas_de_pagamento: Array<{ valor: string; rotulo: string }>;
     definicoes: {
         esconde_sem_stock: boolean;
@@ -108,7 +114,8 @@ export const pos = {
 
     porCodigo: (codigo: string) => api.ler<LeituraDeCodigo>('/pos/por-codigo', { codigo }),
 
-    artigos: (filtros: { procura?: string; categoria?: number | null; armazem?: number | null }) =>
+    /** `categoria`: os `ids` da categoria, separados por vírgula. */
+    artigos: (filtros: { procura?: string; categoria?: string | null; armazem?: number | null }) =>
         api.ler<{ data: ArtigoDoPos[] }>('/pos/artigos', filtros),
 
     clientes: (procura: string) => api.ler<{ data: ClienteDoPos[] }>('/pos/clientes', { procura }),
