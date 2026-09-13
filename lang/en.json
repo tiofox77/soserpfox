@@ -10708,5 +10708,9 @@
     "Não tem permissão para criar clientes.": "You do not have permission to create customers.",
     "Marcação online": "Online booking",
     "Reservas online": "Online reservations",
-    "Menu digital de :casa: pratos, bebidas e preços.": "Digital menu of :casa: dishes, drinks and prices."
+    "Menu digital de :casa: pratos, bebidas e preços.": "Digital menu of :casa: dishes, drinks and prices.",
+    "Defina o seu PIN de turno": "Set your shift PIN",
+    "Sem PIN não entra neste aparelho quando faltar a internet.": "Without a PIN you cannot sign in on this device when the internet is down.",
+    "Usar antes a palavra-passe neste aparelho": "Use the password on this device instead",
+    "Voltar ao POS offline": "Back to the offline POS"
 }

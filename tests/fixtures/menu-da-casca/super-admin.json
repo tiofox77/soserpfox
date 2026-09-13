@@ -168,6 +168,11 @@
         },
         {
             "tag": "a",
+            "href": "/invoicing/offline/pin",
+            "texto": "PIN de turno"
+        },
+        {
+            "tag": "a",
             "href": "/my-account?tab=companies",
             "texto": "Minhas Empresas"
         },
@@ -179,7 +184,7 @@
         {
             "tag": "a",
             "href": "/changelog",
-            "texto": "Atualizações v2026.08.19.1"
+            "texto": "Atualizações v2026.09.13.11"
         },
         {
             "tag": "button",

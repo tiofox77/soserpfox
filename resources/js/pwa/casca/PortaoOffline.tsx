@@ -5,7 +5,7 @@ import { t } from '@/i18n';
 import { usePwa } from '../contexto';
 import { useEvento } from '../ganchos';
 import { enableOfflineAuth, getOfflineAuthInfo, isOfflineAuthEnabled, isPwaUnlocked, verifyOfflineAuth, type InformacaoDoAcesso } from '../motor/acesso';
-import { lerMeta } from '../motor/base';
+import { db, lerMeta } from '../motor/base';
 import { avisar, Nota } from '../ui/Dialogos';
 import { CAMPO, Folha, ROTULO } from '../ui/Folha';
 
@@ -156,15 +156,23 @@ export function PortaoOffline() {
 }
 
 /**
- * «ACTIVAR LOGIN OFFLINE» — o verificador legado de um operador.
+ * O CONVITE A TER ACESSO SEM REDE — o PIN de turno de QUEM ESTÁ A USAR.
  *
- * Só aparece depois de uma sincronização bem-sucedida (há sessão), com rede,
- * quando o aparelho ainda não tem acesso offline, e se não foi dispensado
- * nesta sessão. Com funcionários sincronizados com PIN nunca aparece: o acesso
- * offline já existe.
+ * Antes só aparecia quando o aparelho não tinha acesso offline NENHUM, e então
+ * oferecia o verificador legado da palavra-passe. Numa empresa em que um colega
+ * já tinha PIN nunca aparecia — e quem não tinha o seu ficava fora do POS no
+ * primeiro corte de rede, sem nunca ter sido avisado. E a página «PIN de turno»,
+ * que a entrada sem rede manda procurar, não tinha ligação em lado nenhum.
+ *
+ * Agora: depois de uma sincronização com rede, se o email de quem entrou não
+ * está entre os funcionários com PIN, aparece o convite para o definir (com o
+ * regresso ao PWA). A palavra-passe neste aparelho continua como recurso, mas
+ * só numa empresa onde ninguém tem PIN — é o caso do operador sozinho.
  */
 export function AtivarLoginOffline() {
+    const { rotas } = usePwa();
     const [banner, setBanner] = useState(false);
+    const [semPinNaEmpresa, setSemPinNaEmpresa] = useState(false);
     const [modal, setModal] = useState(false);
     const [password, setPassword] = useState('');
     const [erro, setErro] = useState('');
@@ -173,10 +181,22 @@ export function AtivarLoginOffline() {
     const talvez = useCallback(async () => {
         try { if (sessionStorage.getItem('pwa_setup_dismissed') === '1') return; } catch { /* sem armazenamento */ }
         if (document.getElementById('pwa-offline-login')) return;
-        if (await isOfflineAuthEnabled()) return;
         if (!navigator.onLine) return;
         const user = await lerMeta<{ email?: string }>('user');
         if (!user?.email) return;
+
+        const email = String(user.email).toLowerCase().trim();
+        if ((await db.employees.get(email))?.pin_hash) {
+            setBanner(false);
+
+            return;
+        }
+
+        const ninguem = (await db.employees.count()) === 0;
+        // Operador sozinho que já activou a palavra-passe neste aparelho: tem acesso.
+        if (ninguem && (await isOfflineAuthEnabled())) return;
+
+        setSemPinNaEmpresa(ninguem);
         setBanner(true);
     }, []);
 
@@ -212,11 +232,17 @@ export function AtivarLoginOffline() {
                             <i className="fas fa-shield-halved text-xl" aria-hidden="true" />
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="font-bold text-sm">{t('Ativar login offline')}</p>
-                            <p className="text-xs opacity-90">{t('Permite usar o PWA mesmo quando perde a internet.')}</p>
+                            <p className="font-bold text-sm">{t('Defina o seu PIN de turno')}</p>
+                            <p className="text-xs opacity-90">{t('Sem PIN não entra neste aparelho quando faltar a internet.')}</p>
+                            {semPinNaEmpresa && (
+                                <button type="button" onClick={() => { setBanner(false); setModal(true); }}
+                                        className="mt-1 text-[11px] underline opacity-90">{t('Usar antes a palavra-passe neste aparelho')}</button>
+                            )}
                         </div>
-                        <button type="button" onClick={() => { setBanner(false); setModal(true); }}
-                                className="pwa-toque bg-white text-teal-700 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap">{t('Ativar')}</button>
+                        <a id="pwa-definir-pin" href={`${rotas.definirPin}?voltar=${encodeURIComponent(window.location.pathname)}`}
+                           className="pwa-toque bg-white text-teal-700 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap">
+                            <i className="fas fa-key mr-1" aria-hidden="true" />{t('Definir PIN')}
+                        </a>
                         <button type="button" onClick={dispensar} title={t('Mais tarde')} aria-label={t('Mais tarde')}
                                 className="text-white/70 hover:text-white text-lg px-1">&times;</button>
                     </div>

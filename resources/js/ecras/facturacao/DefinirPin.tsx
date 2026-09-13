@@ -25,10 +25,12 @@ export default function DefinirPin() {
     const [forma, porForma] = useState({ pin: '', pin_confirmation: '', password: '' });
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [recado, porRecado] = useRecadoNoCanto('');
+    // O recado vai para o canto; o regresso ao PWA precisa de saber que correu bem.
+    const [definido, porDefinido] = useState(false);
 
     const guardar = useMutation({
         mutationFn: () => pin.definir(forma),
-        onSuccess: (r) => { porRecado(r.message); porErros({}); porForma({ pin: '', pin_confirmation: '', password: '' }); void cache.invalidateQueries({ queryKey: ['pin'] }); },
+        onSuccess: (r) => { porRecado(r.message); porDefinido(true); porErros({}); porForma({ pin: '', pin_confirmation: '', password: '' }); void cache.invalidateQueries({ queryKey: ['pin'] }); },
         onError: (e) => { porErros(e instanceof ErroDaApi ? e.erros : {}); porForma((f) => ({ ...f, pin: '', pin_confirmation: '' })); },
     });
 
@@ -43,10 +45,23 @@ export default function DefinirPin() {
     }
 
     const m = (chave: keyof typeof forma) => (e: React.ChangeEvent<HTMLInputElement>) => porForma({ ...forma, [chave]: e.target.value });
+    // Só dígitos no PIN, como no modal da Gestão de Utilizadores. Com o
+    // `pattern` o browser recusava o envio com uma bolha nativa e o ecrã não
+    // dizia nada.
+    const soDigitos = (chave: 'pin' | 'pin_confirmation') => (e: React.ChangeEvent<HTMLInputElement>) => porForma({ ...forma, [chave]: e.target.value.replace(/\D/g, '') });
+
+    // Quem veio do PWA volta ao PWA — só para uma morada do próprio PWA.
+    const voltar = new URLSearchParams(window.location.search).get('voltar');
+    const regresso = voltar && /^\/invoicing\/offline(\/|$)/.test(voltar) ? voltar : null;
 
     return (
         <div className="mx-auto max-w-lg space-y-4" data-definir-pin>
             {recado && <p role="status" className={cls('border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900', RAIO)}><i className="fas fa-circle-check mr-2" aria-hidden="true" />{recado}</p>}
+            {definido && regresso && (
+                <a href={regresso} className={cls('flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3 text-sm font-bold text-white shadow-lg transition-all duration-200 hover:-translate-y-0.5', RAIO)}>
+                    <i className="fas fa-mobile-screen-button" aria-hidden="true" />{t('Voltar ao POS offline')}
+                </a>
+            )}
             {/* Sem faixa de gradiente, e de propósito: o ecrã em Blade era uma
                 ficha estreita com um cartão só, e uma faixa a toda a largura
                 por cima de um formulário de três campos ficava a gritar. */}
@@ -56,8 +71,8 @@ export default function DefinirPin() {
                 <form className="grid gap-4" onSubmit={(e) => { e.preventDefault(); guardar.mutate(); }}>
                     {/* O PIN escreve-se ao centro e espaçado, como no ecrã de
                         sempre: quatro a seis dígitos lêem-se um a um. */}
-                    <Campo etiqueta={t('PIN novo')} erro={erros.pin} obrigatorio><input type="password" inputMode="numeric" pattern="[0-9]*" maxLength={6} autoComplete="off" value={forma.pin} onChange={m('pin')} className={cls(entrada, 'h-12 text-center font-mono text-lg tracking-[0.4em]')} /></Campo>
-                    <Campo etiqueta={t('Repita o PIN')} erro={erros.pin_confirmation} obrigatorio><input type="password" inputMode="numeric" pattern="[0-9]*" maxLength={6} autoComplete="off" value={forma.pin_confirmation} onChange={m('pin_confirmation')} className={cls(entrada, 'h-12 text-center font-mono text-lg tracking-[0.4em]')} /></Campo>
+                    <Campo etiqueta={t('PIN novo')} erro={erros.pin} obrigatorio><input type="password" inputMode="numeric" maxLength={6} autoComplete="off" value={forma.pin} onChange={soDigitos('pin')} className={cls(entrada, 'h-12 text-center font-mono text-lg tracking-[0.4em]')} /></Campo>
+                    <Campo etiqueta={t('Repita o PIN')} erro={erros.pin_confirmation} obrigatorio><input type="password" inputMode="numeric" maxLength={6} autoComplete="off" value={forma.pin_confirmation} onChange={soDigitos('pin_confirmation')} className={cls(entrada, 'h-12 text-center font-mono text-lg tracking-[0.4em]')} /></Campo>
                     <div className="border-t border-slate-100 pt-4">
                         <Campo etiqueta={t('A sua palavra-passe')} erro={erros.password} obrigatorio><input type="password" autoComplete="current-password" value={forma.password} onChange={m('password')} className={entrada} /></Campo>
                     </div>

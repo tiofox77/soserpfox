@@ -982,13 +982,18 @@
         },
         {
             "tag": "a",
+            "href": "/invoicing/offline/pin",
+            "texto": "PIN de turno"
+        },
+        {
+            "tag": "a",
             "href": "/empresa",
             "texto": "Dados da Empresa"
         },
         {
             "tag": "a",
             "href": "/changelog",
-            "texto": "Atualizações v2026.08.19.1"
+            "texto": "Atualizações v2026.09.13.11"
         },
         {
             "tag": "button",

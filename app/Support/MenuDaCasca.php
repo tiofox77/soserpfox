@@ -55,6 +55,10 @@ final class MenuDaCasca
                 'papel' => $u->isSuperAdmin() ? 'Super Admin' : 'Utilizador',
                 'ligacoes' => array_values(array_filter([
                     ['url' => route('my-account'), 'rotulo' => 'Minha Conta', 'icone' => 'fa-user-circle', 'cor' => 'blue-600'],
+                    // O PIN de turno é de cada um, como a conta. A entrada sem
+                    // rede mandava defini-lo «em PIN de turno», e essa página
+                    // não tinha ligação em lado nenhum.
+                    ['url' => route('invoicing.offline.pin'), 'rotulo' => 'PIN de turno', 'icone' => 'fa-key', 'cor' => 'amber-600'],
                     // Os dados da empresa — NIF, morada e regime fiscal — são de
                     // quem a gere. O link não aparece a quem a página recusa.
                     $u->can('settings.view')

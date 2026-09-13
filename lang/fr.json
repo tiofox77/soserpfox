@@ -10708,5 +10708,9 @@
     "Não tem permissão para criar clientes.": "Vous n'avez pas la permission de créer des clients.",
     "Marcação online": "Réservation en ligne",
     "Reservas online": "Réservations en ligne",
-    "Menu digital de :casa: pratos, bebidas e preços.": "Menu numérique de :casa : plats, boissons et prix."
+    "Menu digital de :casa: pratos, bebidas e preços.": "Menu numérique de :casa : plats, boissons et prix.",
+    "Defina o seu PIN de turno": "Définissez votre PIN de service",
+    "Sem PIN não entra neste aparelho quando faltar a internet.": "Sans PIN, vous ne pourrez pas vous connecter sur cet appareil sans internet.",
+    "Usar antes a palavra-passe neste aparelho": "Utiliser plutôt le mot de passe sur cet appareil",
+    "Voltar ao POS offline": "Retour au PDV hors ligne"
 }
