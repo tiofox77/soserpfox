@@ -257,7 +257,9 @@ export const restaurante = {
 
         const metodos = (await lerMeta<Registo[]>('payment_methods')) || [];
         const metodo = metodos.find((m) => m.id === c.checkout?.payment_method_id);
-        const mesa = c.table_id ? await db.rest_tables.get(c.table_id) : null;
+        // Se o servidor a desviou ao balcão, o cliente estava na mesa pedida.
+        const idDaMesa = c.table_id ?? c.mesa_pedida ?? null;
+        const mesa = idDaMesa ? await db.rest_tables.get(idDaMesa) : null;
 
         return {
             _synced: c._synced ? 1 : 0,

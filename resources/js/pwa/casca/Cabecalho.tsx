@@ -48,7 +48,7 @@ export function Cabecalho() {
     });
 
     return (
-        <header className="bg-gradient-to-r from-blue-700 to-blue-800 text-white shadow-lg sticky top-0 z-40">
+        <header className="bg-gradient-to-r from-blue-700 to-blue-800 text-white shadow-lg">
             <div className="px-4 py-3 flex items-center justify-between gap-2">
                 <a href={rotas.inicio} className="flex items-center gap-2 min-w-0 flex-1 group">
                     {/* O ícone do PWA e não o logótipo da empresa: este está
@@ -76,11 +76,18 @@ export function Cabecalho() {
                             <i className="fas fa-download mr-1" aria-hidden="true" />{t('Instalar')}
                         </button>
                     )}
+                    {/* «A sincronizar» e «Sincronizado» vivem aqui e não numa faixa:
+                        a faixa empurrava o ecrã a cada venda (ver FaixaDoEstado). */}
                     <button type="button" id="pwa-sync-btn" onClick={() => void sync(true)} disabled={e.syncing}
-                            title={t('Sincronizar agora')} aria-label={t('Sincronizar agora')}
-                            className="pwa-toque px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg text-xs font-semibold disabled:opacity-60">
-                        <i className={`fas fa-rotate ${e.syncing ? 'fa-spin' : ''}`} aria-hidden="true" />
+                            title={e.syncing ? t('A sincronizar com o servidor…') : t('Sincronizar agora')} aria-label={t('Sincronizar agora')}
+                            className={`pwa-toque px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-300 disabled:opacity-80 ${e.acabouDeSincronizar && !e.syncing ? 'bg-emerald-500/80' : 'bg-white/15 hover:bg-white/25'}`}>
+                        <i className={`fas ${e.acabouDeSincronizar && !e.syncing ? 'fa-check' : 'fa-rotate'} ${e.syncing ? 'fa-spin' : ''}`} aria-hidden="true" />
                     </button>
+                    <span role="status" className="sr-only">
+                        {e.syncing
+                            ? <span id="pwa-status-syncing">{t('A sincronizar com o servidor…')}</span>
+                            : e.acabouDeSincronizar ? <span id="pwa-status-synced">{t('Sincronizado')}</span> : null}
+                    </span>
                     <button type="button" onClick={() => void sairJa()} disabled={aSair}
                             className="pwa-toque px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg text-xs font-semibold">
                         <i className={`fas ${aSair ? 'fa-spinner fa-spin' : 'fa-arrow-right-from-bracket'} mr-1`} aria-hidden="true" />{t('Sair')}

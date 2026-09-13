@@ -168,7 +168,7 @@ export function Documentos() {
             </div>
 
             {/* Filtros por tipo */}
-            <div className="sticky top-[60px] z-30 bg-slate-50/95 backdrop-blur flex gap-2 mb-3 overflow-x-auto py-2 text-xs no-scrollbar"
+            <div className="sticky top-[var(--pwa-topo,60px)] z-30 bg-slate-50/95 backdrop-blur flex gap-2 mb-3 overflow-x-auto py-2 text-xs no-scrollbar"
                  role="group" aria-label={t('Tipo')}>
                 {FILTROS.map((f) => (
                     <button key={f.chave} type="button" onClick={() => setTipo(f.chave)} aria-pressed={tipo === f.chave}

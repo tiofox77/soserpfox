@@ -127,7 +127,7 @@ export function Catalogo() {
             </div>
 
             {/* Pesquisa e filtros — ficam à mão enquanto se desce a lista. */}
-            <div className="sticky top-[60px] z-30 bg-slate-50/95 backdrop-blur py-2 mb-1 -mx-1 px-1">
+            <div className="sticky top-[var(--pwa-topo,60px)] z-30 bg-slate-50/95 backdrop-blur py-2 mb-1 -mx-1 px-1">
                 <label htmlFor="catalogo-pesquisa" className="sr-only">{t('Pesquisar por nome, SKU, código...')}</label>
                 <div className="flex items-center gap-2 bg-white rounded-2xl shadow-sm px-3 h-12 border-2 border-transparent focus-within:border-blue-500 transition">
                     <i className="fas fa-magnifying-glass text-slate-400" aria-hidden="true" />

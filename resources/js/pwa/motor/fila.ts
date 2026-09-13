@@ -293,10 +293,22 @@ async function executar(job: Trabalho): Promise<void> {
                     if (Array.isArray(f.items) && f.items.length) mudanca.items_facturados = f.items;
                 }
 
+                // A MESA PODE TER MUDADO DE DONO NO SERVIDOR: outro posto sentou
+                // lá gente enquanto este estava sem rede, e a comanda abriu ao
+                // balcão. A comanda local LARGA a mesa — senão este aparelho
+                // continuava a desenhá-la como sua, e fechar a conta punha «em
+                // limpeza» uma mesa com clientes sentados. A mesa pedida fica
+                // guardada para o talão dizer onde o cliente estava.
+                const mudouDeMesa = !!comanda.table_id && (r.table_id ?? null) !== comanda.table_id;
+
+                if (mudouDeMesa) {
+                    mudanca.table_id = r.table_id ?? null;
+                    mudanca.mesa_pedida = comanda.table_id;
+                }
+
                 await db.rest_orders.update(comanda.local_uuid, mudanca);
 
-                // A mesa pode ter mudado de dono no servidor (a comanda abriu ao balcão).
-                if (comanda.table_id && r.table_id !== comanda.table_id) {
+                if (mudouDeMesa) {
                     await db.rest_tables.update(comanda.table_id, { status: 'occupied' });
                 }
 

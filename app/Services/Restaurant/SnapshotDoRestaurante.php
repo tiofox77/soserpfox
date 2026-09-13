@@ -4,6 +4,7 @@ namespace App\Services\Restaurant;
 
 use App\Models\Restaurant\Area;
 use App\Models\Restaurant\DiningTable;
+use App\Models\Restaurant\Order;
 use App\Models\Restaurant\Recipe;
 use App\Models\Restaurant\RestaurantSettings;
 use App\Models\Restaurant\Venue;
@@ -53,6 +54,14 @@ class SnapshotDoRestaurante
             ->orderBy('code')
             ->get(['id', 'venue_id', 'area_id', 'code', 'name', 'capacity', 'status']);
 
+        // As mesas com comanda aberta AGORA — é por elas que se lê o estado.
+        $comComanda = Order::withoutGlobalScopes()
+            ->where('tenant_id', $tenantId)
+            ->whereIn('status', Order::OPEN_STATUSES)
+            ->whereNotNull('table_id')
+            ->pluck('table_id')
+            ->flip();
+
         return [
             'venues' => $salas->map(fn ($v) => [
                 'id'           => $v->id,
@@ -79,7 +88,7 @@ class SnapshotDoRestaurante
                 'code'     => $m->code,
                 'name'     => $m->name,
                 'capacity' => (int) $m->capacity,
-                'status'   => $m->status,
+                'status'   => self::estadoParaOAparelho($m->status, isset($comComanda[$m->id])),
             ])->values()->all(),
 
             'settings' => [
@@ -120,5 +129,33 @@ class SnapshotDoRestaurante
                     ->all()
                 : null,
         ];
+    }
+
+    /** Os estados que querem dizer «tem gente sentada». */
+    private const OCUPADA = ['occupied', 'waiting_kitchen', 'served', 'billing'];
+
+    /**
+     * O ESTADO DA MESA LÊ-SE PELAS COMANDAS, NÃO SÓ PELA COLUNA.
+     *
+     * Vários postos trabalham a mesma sala, uns com rede e outros sem. A
+     * coluna `status` é escrita por quem abre, fecha e limpa — e fica para trás
+     * quando alguma coisa corre fora do caminho (uma comanda feita sem rede
+     * que chegou a uma mesa já ocupada abre ao balcão; uma comanda cancelada).
+     * Uma mesa «ocupada» sem comanda nenhuma ficava ocupada em todos os
+     * tablets para sempre, e uma mesa com comanda aberta podia vir «livre».
+     *
+     * O aparelho recebe o estado corrigido: com comanda aberta está ocupada;
+     * «ocupada» sem comanda está livre. Limpeza, reserva e bloqueio passam
+     * como estão — são decisões de alguém, não restos.
+     */
+    public static function estadoParaOAparelho(string $estado, bool $temComandaAberta): string
+    {
+        $ocupada = in_array($estado, self::OCUPADA, true);
+
+        if ($temComandaAberta) {
+            return $ocupada ? $estado : 'occupied';
+        }
+
+        return $ocupada ? 'available' : $estado;
     }
 }

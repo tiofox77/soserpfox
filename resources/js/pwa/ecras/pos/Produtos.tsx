@@ -35,7 +35,7 @@ function BarraDoPos({ pos }: { pos: ControloDoPos }) {
          * cartões — era o corte que se via. No telemóvel continua sticky, porque
          * aí quem rola é a página inteira e a barra tem de acompanhar.
          */
-        <div className="sticky top-14 lg:static z-30 bg-slate-100/95 backdrop-blur px-3 pt-3 pb-2 space-y-2 border-b border-slate-200">
+        <div className="sticky top-[var(--pwa-topo,56px)] lg:static z-30 bg-slate-100/95 backdrop-blur px-3 pt-3 pb-2 space-y-2 border-b border-slate-200">
             {/*
               `min-w-0` NÃO É DECORAÇÃO, é o que impede esta barra de sair do ecrã.
               Um item flex recusa-se a encolher abaixo do seu conteúdo, e um

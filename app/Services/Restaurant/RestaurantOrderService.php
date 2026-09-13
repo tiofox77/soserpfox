@@ -74,7 +74,21 @@ class RestaurantOrderService
                 ->where('tenant_id', $tenantId)->where('user_id', $userId)->whereNull('deleted_at')->where('status', 'open')->exists()) {
                 throw new InvalidArgumentException('Abra o turno e o caixa antes de iniciar vendas no restaurante.');
             }
-            $number = (int) $settings->next_order_number;
+            // O CONTADOR NÃO PODE ANDAR ATRÁS DO QUE JÁ FOI USADO.
+            //
+            // `next_order_number` é a sugestão; a verdade são as comandas que
+            // existem. Um contador reposto (o `bancada:producao` põe-no a 1, e
+            // uma definição recriada também) dava um CMD que já existia: a
+            // chave única recusava, a transacção desfazia-se e o contador
+            // nunca avançava — uma comanda feita sem rede ficava a voltar à
+            // fila para sempre (#76 em produção, 2026-09-13). Retoma-se depois
+            // do maior número usado, dentro da mesma tranca das definições.
+            $maiorUsado = (int) Order::withoutGlobalScopes()
+                ->where('tenant_id', $tenantId)
+                ->where('order_number', 'like', 'CMD-%')
+                ->selectRaw("MAX(CAST(SUBSTRING_INDEX(order_number, '-', -1) AS UNSIGNED)) AS maior")
+                ->value('maior');
+            $number = max((int) $settings->next_order_number, $maiorUsado + 1, 1);
             $settings->update(['next_order_number' => $number + 1]);
 
             $canal = $table ? 'table' : ($data['channel'] ?? 'counter');

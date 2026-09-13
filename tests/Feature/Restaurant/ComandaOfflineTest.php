@@ -467,4 +467,82 @@ class ComandaOfflineTest extends TenantTestCase
             Order::withoutGlobalScopes()->find($resposta->json('id'))->waiter_id
         );
     }
+
+    // ── Vários postos na mesma sala ──────────────────────────────────
+
+    /**
+     * UM CONTADOR ATRASADO NÃO REPETE O NÚMERO.
+     *
+     * Em produção (#76, 2026-09-13) o `next_order_number` da empresa estava a 1
+     * com a CMD-…-000001 já gravada: a chave única recusava, a transacção
+     * desfazia-se e a comanda feita sem rede voltava à fila para sempre.
+     */
+    public function test_um_contador_atrasado_nao_repete_o_numero_da_comanda(): void
+    {
+        $primeira = Order::withoutGlobalScopes()->find($this->enviar($this->comanda())->assertStatus(201)->json('id'));
+
+        RestaurantSettings::forTenant($this->tenant->id)->update(['next_order_number' => 1]);
+
+        $resposta = $this->enviar($this->comanda(['table_id' => null, 'channel' => 'counter']));
+
+        $resposta->assertStatus(201)->assertJson(['success' => true]);
+        $segunda = Order::withoutGlobalScopes()->find($resposta->json('id'));
+
+        $this->assertNotSame($primeira->order_number, $segunda->order_number);
+        $this->assertSame(
+            (int) substr($primeira->order_number, -6) + 1,
+            (int) substr($segunda->order_number, -6),
+            'retoma logo a seguir ao maior número usado'
+        );
+    }
+
+    /**
+     * O ESTADO QUE O APARELHO RECEBE LÊ-SE PELAS COMANDAS.
+     *
+     * Uma mesa «ocupada» sem comanda nenhuma ficava ocupada em todos os
+     * tablets; uma mesa com comanda aberta e a coluna atrasada vinha livre, e
+     * outro posto sentava lá gente.
+     */
+    public function test_a_sala_do_aparelho_le_o_estado_pelas_comandas(): void
+    {
+        $ocupadaSemComanda = DiningTable::create([
+            'tenant_id' => $this->tenant->id, 'venue_id' => $this->sala->id, 'code' => 'M2',
+            'name' => 'Mesa 2', 'capacity' => 4, 'status' => 'occupied', 'is_active' => true,
+        ]);
+        $emLimpeza = DiningTable::create([
+            'tenant_id' => $this->tenant->id, 'venue_id' => $this->sala->id, 'code' => 'M3',
+            'name' => 'Mesa 3', 'capacity' => 4, 'status' => 'cleaning', 'is_active' => true,
+        ]);
+
+        $this->enviar($this->comanda())->assertStatus(201);
+        // A coluna ficou para trás: a comanda está aberta mas a mesa diz livre.
+        // (Directo na tabela: pelo modelo, o observador repõe logo o estado.)
+        \Illuminate\Support\Facades\DB::table('restaurant_tables')->where('id', $this->mesa->id)->update(['status' => 'available']);
+
+        $sala = app(\App\Services\Restaurant\SnapshotDoRestaurante::class)->paraTenant($this->tenant->fresh());
+        $estado = collect($sala['tables'])->pluck('status', 'id');
+
+        $this->assertSame('occupied', $estado[$this->mesa->id], 'com comanda aberta está ocupada, diga a coluna o que disser');
+        $this->assertSame('available', $estado[$ocupadaSemComanda->id], 'ocupada sem comanda nenhuma está livre');
+        $this->assertSame('cleaning', $estado[$emLimpeza->id], 'a limpeza é uma decisão de alguém e passa como está');
+    }
+
+    /** @dataProvider estadosDaMesa */
+    public function test_a_regra_do_estado_da_mesa(string $coluna, bool $comComanda, string $esperado): void
+    {
+        $this->assertSame($esperado, \App\Services\Restaurant\SnapshotDoRestaurante::estadoParaOAparelho($coluna, $comComanda));
+    }
+
+    public static function estadosDaMesa(): array
+    {
+        return [
+            'livre e sem comanda' => ['available', false, 'available'],
+            'livre com comanda' => ['available', true, 'occupied'],
+            'na cozinha com comanda' => ['waiting_kitchen', true, 'waiting_kitchen'],
+            'a pedir conta sem comanda' => ['billing', false, 'available'],
+            'reservada sem comanda' => ['reserved', false, 'reserved'],
+            'bloqueada sem comanda' => ['blocked', false, 'blocked'],
+            'em limpeza com comanda' => ['cleaning', true, 'occupied'],
+        ];
+    }
 }

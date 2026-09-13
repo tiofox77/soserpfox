@@ -176,7 +176,7 @@ export function Comanda({
                 {/* ---------- PRATOS ---------- */}
                 <div className="lg:col-span-7 xl:col-span-8 bg-slate-100 lg:h-full lg:flex lg:flex-col lg:overflow-hidden">
 
-                    <div className="sticky top-[60px] lg:static z-30 bg-slate-100/95 backdrop-blur px-3 pt-3 pb-2 space-y-2 border-b border-slate-200">
+                    <div className="sticky top-[var(--pwa-topo,60px)] lg:static z-30 bg-slate-100/95 backdrop-blur px-3 pt-3 pb-2 space-y-2 border-b border-slate-200">
                         <div className="flex gap-2 items-center">
                             <button type="button" onClick={voltarSala} title={t('Voltar à sala')} aria-label={t('Voltar à sala')}
                                     className="pwa-toque shrink-0 h-12 w-12 rounded-2xl bg-white shadow-sm text-slate-600 hover:text-orange-600 hover:shadow transition">

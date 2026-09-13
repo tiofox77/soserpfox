@@ -11,9 +11,15 @@ import { usePwa } from '../contexto';
  *
  * Uma de cada vez, pela ordem do que é mais grave: a subscrição (vermelho, e
  * leva a quem pode renovar), a sessão (laranja, e leva à entrada), a falha da
- * última sincronização (sai sozinha), a sincronizar (o único caso com a roda a
- * girar), sem rede com o que falta enviar, por enviar com rede (toca-se para
- * enviar) e, por dois segundos, «Sincronizado».
+ * última sincronização (sai sozinha), sem rede com o que falta enviar, e por
+ * enviar com rede (toca-se para enviar).
+ *
+ * «A sincronizar» e «Sincronizado» JÁ NÃO SÃO FAIXA: a faixa empurra o
+ * cabeçalho (ver Casca › Topo), e estes dois aparecem a cada venda — o ecrã
+ * saltava debaixo do dedo de quem estava a tocar no artigo seguinte. Vivem no
+ * botão de sincronizar do cabeçalho (roda, e depois um visto). Pela mesma
+ * razão o «por enviar» com rede só aparece se ficar pendurado: uma venda
+ * acabada de fazer sobe em segundos e não merece faixa.
  *
  * Os trabalhos retidos de outra empresa ficam por baixo e NÃO saem sozinhos:
  * uma venda retida que ninguém vê é uma venda perdida, só mais devagar.
@@ -29,6 +35,8 @@ export function FaixaDoEstado() {
 
     useEffect(() => { setErroFechado(false); }, [e.erroDeSync]);
     useEffect(() => { setRetidosFechados(false); }, [e.retidos]);
+
+    const porEnviarPendurado = useDepoisDe(e.online && e.pendingCount > 0 && !e.syncing, 8000);
 
     const base = 'pwa-desce w-full text-white text-center py-1.5 px-3 text-xs font-semibold shadow-lg';
     let faixa = null;
@@ -54,12 +62,6 @@ export function FaixaDoEstado() {
                 {t('Erro de sincronização: :erro (toca para fechar)', { erro: e.erroDeSync || t('desconhecido') })}
             </button>
         );
-    } else if (e.syncing) {
-        faixa = (
-            <div role="status" id="pwa-status-syncing" className={`${base} bg-blue-600`}>
-                <i className="fas fa-sync fa-spin mr-1" aria-hidden="true" />{t('A sincronizar com o servidor…')}
-            </div>
-        );
     } else if (!e.online) {
         faixa = (
             <div role="status" id="pwa-status-offline" className={`${base} bg-amber-500`}>
@@ -67,18 +69,12 @@ export function FaixaDoEstado() {
                 {e.pendingCount > 0 && <span className="ml-2">{t(':n por sincronizar', { n: e.pendingCount })}</span>}
             </div>
         );
-    } else if (e.pendingCount > 0) {
+    } else if (porEnviarPendurado) {
         faixa = (
             <button type="button" id="pwa-status-waiting" onClick={() => void sync(true)} className={`${base} bg-amber-500 hover:bg-amber-600`}>
                 <i className="fas fa-rotate mr-1" aria-hidden="true" />
                 {tn(':n documento por sincronizar — toque para sincronizar|:n documentos por sincronizar — toque para sincronizar', e.pendingCount, { n: e.pendingCount })}
             </button>
-        );
-    } else if (e.acabouDeSincronizar) {
-        faixa = (
-            <div role="status" id="pwa-status-synced" className={`${base} bg-emerald-600`}>
-                <i className="fas fa-check-circle mr-1" aria-hidden="true" />{t('Sincronizado')}
-            </div>
         );
     }
 
@@ -87,7 +83,7 @@ export function FaixaDoEstado() {
     if (!faixa && !retidos) return null;
 
     return (
-        <div id="pwa-status-bar" className="fixed top-0 inset-x-0 z-50">
+        <div id="pwa-status-bar" className="relative z-50">
             {faixa}
             {retidos && (
                 <button type="button" id="pwa-retidos" onClick={() => setRetidosFechados(true)} className="pwa-desce w-full bg-amber-500 text-white text-xs px-3 py-2 text-left">
@@ -97,4 +93,17 @@ export function FaixaDoEstado() {
             )}
         </div>
     );
+}
+
+/** Verdadeiro só depois de a condição se manter por `ms` seguidos. */
+function useDepoisDe(condicao: boolean, ms: number): boolean {
+    const [passou, porPassou] = useState(false);
+
+    useEffect(() => {
+        if (!condicao) { porPassou(false); return; }
+        const relogio = window.setTimeout(() => porPassou(true), ms);
+        return () => window.clearTimeout(relogio);
+    }, [condicao, ms]);
+
+    return condicao && passou;
 }

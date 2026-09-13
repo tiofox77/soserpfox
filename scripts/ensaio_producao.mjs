@@ -167,6 +167,59 @@ async function vendaOffline() {
     diz('reposta no servidor', depois);
 }
 
+/**
+ * O DESCONTO EM PERCENTAGEM SEM REDE.
+ *
+ * Era o erro #73 da produção: o aparelho fazia a conta com 10% e o servidor
+ * lia o 10 como kwanzas — «as formas de pagamento somam X mas o total é Y», e
+ * a venda voltava à fila 143 vezes. Tem de subir, com o total do aparelho.
+ */
+async function descontoOffline() {
+    await esperarMotor();
+
+    await contexto.setOffline(true);
+
+    const v = await pagina.evaluate(async () => {
+        const artigos = await window.SosPwa.db.products.toArray();
+        const a = artigos.find((p) => (parseFloat(p.price) || 0) > 0);
+        if (!a) return { erro: 'sem artigo com preco' };
+
+        const venda = await window.SosPwa.createPosSaleOffline({
+            client_name: 'Consumidor Final',
+            payment_method: 'cash',
+            discount_commercial: 10,
+            notes: 'ensaio producao desconto 10% sem rede',
+            items: [{
+                product_id: a.id, product_name: a.name, quantity: 3,
+                unit_price: parseFloat(a.price), tax_rate: parseFloat(a.tax_rate) || 0, discount_percent: 0,
+            }],
+        });
+
+        const r = await window.SosPwa.db.pos_sales.get(venda.local_uuid);
+
+        return { uuid: venda.local_uuid, artigo: a.name, subtotal: r.subtotal, desconto: r.discount_amount, total: r.total };
+    });
+
+    diz('venda com 10% sem rede', v);
+
+    await contexto.setOffline(false);
+    await sincronizar();
+
+    const depois = await pagina.evaluate(async (u) => {
+        const s = await window.SosPwa.db.pos_sales.get(u);
+        const naFila = await window.SosPwa.db.sync_queue.toArray();
+        const trabalho = naFila.find((j) => JSON.stringify(j.payload || j.data || {}).includes(u));
+
+        return {
+            sincronizada: s?._synced === 1,
+            numero: s?._server_number,
+            fila: trabalho ? { estado: trabalho.status, erro: trabalho.last_error || trabalho.error || null } : 'saiu da fila',
+        };
+    }, v.uuid);
+
+    diz('depois de subir', depois);
+}
+
 /** O ensaio que interessa: os cinco PIN, e o de um a não abrir a conta de outro. */
 async function pins() {
     await esperarMotor();
@@ -264,7 +317,7 @@ async function offlineReal() {
     await nova.close().catch(() => {});
 }
 
-const passos = { estado, entrar, turno, vendaOnline, vendaOffline, pins, offlineReal };
+const passos = { estado, entrar, turno, vendaOnline, vendaOffline, descontoOffline, pins, offlineReal };
 
 if (!passos[passo]) {
     console.log('passos: ' + Object.keys(passos).join(', '));
