@@ -21,6 +21,23 @@ class LoginController extends Controller
     use AuthenticatesUsers;
 
     /**
+     * A página de entrada — o ecrã `entrada/login`, em React.
+     *
+     * O formulário continua a vir aqui (POST /login): a autenticação, a
+     * limitação de tentativas e o «para onde ia» são deste controlador. E os
+     * recados de quem manda para cá (a licença instalada, o limite de
+     * utilizadores de um convite) passam a ver-se.
+     */
+    public function showLoginForm()
+    {
+        return \App\Support\EcraReact::solta('entrada/login', 'Entrar', \App\Support\Entrada::comum() + [
+            'acao' => route('login'),
+            'recuperar' => \Illuminate\Support\Facades\Route::has('password.request') ? route('password.request') : null,
+            'registo' => route('register'),
+        ])();
+    }
+
+    /**
      * Where to redirect users after login.
      *
      * @var string

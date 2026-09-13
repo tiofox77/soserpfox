@@ -37,93 +37,38 @@
         .icon-float { animation: float 3s ease-in-out infinite; }
         .card-hover { transition: transform .3s cubic-bezier(.4, 0, .2, 1), box-shadow .3s cubic-bezier(.4, 0, .2, 1); }
         .card-hover:hover { transform: translateY(-6px); box-shadow: 0 20px 40px rgba(0, 0, 0, .1); }
-        [data-menu-painel][hidden] { display: none !important; }
     </style>
 
     @include('partials.react-animacoes')
 </head>
 <body class="flex min-h-screen flex-col bg-gray-100">
-    {{-- O PORTAL SEM LIVEWIRE. Os menus (utilizador e telemóvel) abrem com o
-         pequeno script do fim desta página: eram Alpine, que vinha com o Livewire. --}}
+    {{-- A BARRA DO TOPO DO PORTAL — a peça `cliente/topo`, em React. Os menus
+         (utilizador e telemóvel) eram um <script> em linha no fim da página.
+         A altura fica reservada enquanto o JavaScript chega. --}}
     @php
-        $ligacoesDoPortal = [
+        $ligacoesDoPortal = collect([
             ['route' => 'client.dashboard', 'icon' => 'fa-house',        'label' => __('Início')],
             ['route' => 'client.statement', 'icon' => 'fa-chart-line',   'label' => __('Extrato')],
             ['route' => 'client.events',    'icon' => 'fa-calendar-days', 'label' => __('Eventos')],
             ['route' => 'client.invoices',  'icon' => 'fa-file-invoice', 'label' => __('Faturas')],
             ['route' => 'client.proformas', 'icon' => 'fa-file-lines',   'label' => __('Proformas')],
-        ];
+        ])->map(fn ($l) => [
+            'url' => route($l['route']),
+            'icone' => $l['icon'],
+            'rotulo' => $l['label'],
+            'activo' => request()->routeIs($l['route']),
+        ])->all();
     @endphp
 
-    <nav class="relative bg-white shadow-md">
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div class="flex h-16 justify-between">
-                <a href="{{ route('client.dashboard') }}" class="flex items-center">
-                    @if(app_logo())
-                        <img src="{{ app_logo() }}" alt="{{ app_name() }}" class="mr-3 h-12 w-auto object-contain">
-                    @else
-                        <span class="mr-3 flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-purple-600">
-                            <i class="fas fa-users text-white"></i>
-                        </span>
-                    @endif
-                    <span class="text-xl font-bold text-gray-900">{{ __('Portal do Cliente') }}</span>
-                </a>
-
-                <div class="hidden items-center space-x-1 md:flex">
-                    @foreach($ligacoesDoPortal as $l)
-                        <a href="{{ route($l['route']) }}"
-                           @if(request()->routeIs($l['route'])) aria-current="page" @endif
-                           class="rounded-md px-3 py-2 text-sm font-medium transition {{ request()->routeIs($l['route']) ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50 hover:text-blue-600' }}">
-                            <i class="fas {{ $l['icon'] }} mr-1"></i>{{ $l['label'] }}
-                        </a>
-                    @endforeach
-
-                    <div class="relative ml-2" data-menu>
-                        <button type="button" data-menu-botao aria-expanded="false" class="flex items-center text-gray-700 hover:text-blue-600">
-                            <span class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100"><i class="fas fa-user text-blue-600"></i></span>
-                            <i class="fas fa-chevron-down ml-2 text-sm"></i>
-                            <span class="sr-only">{{ __('Menu do utilizador') }}</span>
-                        </button>
-                        <div data-menu-painel hidden class="animate-scale-in absolute right-0 z-20 mt-2 w-48 rounded-md bg-white py-1 shadow-lg">
-                            <a href="{{ route('client.profile') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                <i class="fas fa-circle-user mr-2"></i>{{ __('Meu Perfil') }}
-                            </a>
-                            <form method="POST" action="{{ route('client.logout') }}">
-                                @csrf
-                                <button type="submit" class="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50">
-                                    <i class="fas fa-right-from-bracket mr-2"></i>{{ __('Sair') }}
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="flex items-center md:hidden" data-menu>
-                    <button type="button" data-menu-botao aria-expanded="false" class="p-2 text-gray-700 hover:text-blue-600">
-                        <i class="fas fa-bars text-xl"></i>
-                        <span class="sr-only">{{ __('Menu') }}</span>
-                    </button>
-                    <div data-menu-painel hidden class="animate-fade-in absolute left-0 right-0 top-16 z-20 border-t border-gray-100 bg-white py-2 shadow-lg">
-                        @foreach($ligacoesDoPortal as $l)
-                            <a href="{{ route($l['route']) }}"
-                               class="block px-6 py-3 text-sm font-medium {{ request()->routeIs($l['route']) ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' }}">
-                                <i class="fas {{ $l['icon'] }} mr-2 w-5"></i>{{ $l['label'] }}
-                            </a>
-                        @endforeach
-                        <a href="{{ route('client.profile') }}" class="block border-t border-gray-100 px-6 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                            <i class="fas fa-circle-user mr-2 w-5"></i>{{ __('Meu Perfil') }}
-                        </a>
-                        <form method="POST" action="{{ route('client.logout') }}">
-                            @csrf
-                            <button type="submit" class="block w-full px-6 py-3 text-left text-sm font-medium text-red-600 hover:bg-red-50">
-                                <i class="fas fa-right-from-bracket mr-2 w-5"></i>{{ __('Sair') }}
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </nav>
+    <x-ecra-react nome="cliente/topo" :esqueleto="false" class="relative z-10 block min-h-[4rem] bg-white shadow-md" :props="[
+        'inicio' => route('client.dashboard'),
+        'logo' => app_logo(),
+        'nome' => app_name(),
+        'ligacoes' => $ligacoesDoPortal,
+        'perfil' => route('client.profile'),
+        'sair' => route('client.logout'),
+        'csrf' => csrf_token(),
+    ]" />
 
     <main class="flex-1 py-10">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -137,37 +82,14 @@
         </div>
     </footer>
 
-    <script>
-        // Os dois menus do topo: abrem no botão, fecham ao clicar fora ou com Escape.
-        (function () {
-            var menus = document.querySelectorAll('[data-menu]');
-            function fechar(excepto) {
-                menus.forEach(function (m) {
-                    if (m === excepto) return;
-                    m.querySelector('[data-menu-painel]').hidden = true;
-                    m.querySelector('[data-menu-botao]').setAttribute('aria-expanded', 'false');
-                });
-            }
-            menus.forEach(function (m) {
-                var botao = m.querySelector('[data-menu-botao]');
-                var painel = m.querySelector('[data-menu-painel]');
-                botao.addEventListener('click', function (e) {
-                    e.stopPropagation();
-                    fechar(m);
-                    painel.hidden = !painel.hidden;
-                    botao.setAttribute('aria-expanded', painel.hidden ? 'false' : 'true');
-                });
-            });
-            document.addEventListener('click', function (e) {
-                if (!e.target.closest('[data-menu]')) fechar(null);
-            });
-            document.addEventListener('keydown', function (e) {
-                if (e.key === 'Escape') fechar(null);
-            });
-        })();
-    </script>
+    {{-- Avisos de canto e recados da sessão, barra de progresso e service
+         worker. Sem keep-alive: a sessão do cliente é de outro guarda. --}}
+    <x-ecra-react nome="casca/sistema" :esqueleto="false" :props="[
+        'login' => route('client.login'),
+        'manterViva' => null,
+        'recados' => \App\Support\RecadosDaSessao::lista(),
+    ]" />
 
     @include('partials.react-pacote')
-    @include('partials.pwa-register')
 </body>
 </html>

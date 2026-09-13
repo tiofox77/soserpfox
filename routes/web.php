@@ -120,15 +120,9 @@ Route::post('/invitation/{token}', [App\Http\Controllers\InvitationController::c
 // Auth routes (sem register padrão)
 Auth::routes(['register' => false]);
 
-// Tenant Deactivated Page
-Route::get('/tenant-deactivated', function () {
-    return view('auth.tenant-deactivated');
-})->name('tenant.deactivated');
-
-// Subscription Expired Page
-Route::get('/subscription-expired', function () {
-    return view('subscription-expired');
-})->middleware('auth')->name('subscription.expired');
+// As duas portas fechadas — ecrãs React (ver EntradaController).
+Route::get('/tenant-deactivated', [\App\Http\Controllers\EntradaController::class, 'empresaDesactivada'])->name('tenant.deactivated');
+Route::get('/subscription-expired', [\App\Http\Controllers\EntradaController::class, 'subscricaoExpirada'])->middleware('auth')->name('subscription.expired');
 
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
 

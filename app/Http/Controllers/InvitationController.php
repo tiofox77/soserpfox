@@ -12,31 +12,52 @@ use Illuminate\Support\Facades\Auth;
 class InvitationController extends Controller
 {
     /**
-     * Mostrar página de aceitar convite
+     * A página do convite — o ecrã `entrada/convite`, com o estado decidido aqui.
+     *
+     * Um convite que já tinha sido marcado como expirado (na primeira visita)
+     * voltava a mostrar o formulário na segunda: o `isExpired()` só olha aos
+     * pendentes, e o estado `expired` não era nenhum dos três casos. Quem
+     * escolhia a senha levava «não está mais disponível» — sem saber porquê.
      */
     public function show($token)
     {
-        $invitation = UserInvitation::where('token', $token)->firstOrFail();
-        
-        // Verificar se o convite já expirou
+        $invitation = UserInvitation::with(['tenant', 'invitedBy'])->where('token', $token)->firstOrFail();
+
         if ($invitation->isExpired()) {
             $invitation->markAsExpired();
-            return view('invitation.expired', compact('invitation'));
         }
-        
-        // Verificar se já foi aceito
-        if ($invitation->status === 'accepted') {
-            return view('invitation.already-accepted', compact('invitation'));
-        }
-        
-        // Verificar se foi cancelado
-        if ($invitation->status === 'cancelled') {
-            return view('invitation.cancelled', compact('invitation'));
-        }
-        
-        return view('invitation.accept', compact('invitation'));
+
+        $estado = match (true) {
+            $invitation->status === 'expired' => 'expirado',
+            $invitation->status === 'accepted' => 'aceite',
+            $invitation->status === 'cancelled' => 'cancelado',
+            default => 'pendente',
+        };
+
+        $titulo = [
+            'pendente' => 'Aceitar Convite',
+            'expirado' => 'Convite Expirado',
+            'aceite' => 'Convite Já Aceito',
+            'cancelado' => 'Convite Cancelado',
+        ][$estado];
+
+        return \App\Support\EcraReact::solta('entrada/convite', $titulo, \App\Support\Entrada::comum() + [
+            'estado' => $estado,
+            'login' => route('login'),
+            'acao' => route('invitation.accept.post', $invitation->token),
+            'convite' => [
+                'nome' => $invitation->name,
+                'email' => $invitation->email,
+                'empresa' => $invitation->tenant?->name,
+                'convidou' => $invitation->invitedBy?->name,
+                'funcao' => $invitation->role,
+                'expira' => $invitation->expires_at?->diffForHumans(),
+                'expirou_em' => $invitation->expires_at?->format('d/m/Y'),
+                'aceite_em' => $invitation->accepted_at?->format('d/m/Y'),
+            ],
+        ])();
     }
-    
+
     /**
      * Processar aceitação do convite
      */
@@ -96,16 +117,35 @@ class InvitationController extends Controller
                 'joined_at' => now(),
             ]);
             
-            // Atribuir role se especificada
-            if ($invitation->role) {
+            // O PAPEL É O DA EMPRESA DO CONVITE.
+            //
+            // Procurava-se pelo nome em todas as empresas (`firstOrCreate` sem
+            // `tenant_id` na procura): um convite para «Caixa» podia apanhar o
+            // papel «Caixa» de OUTRA empresa, com as permissões que lá lhe
+            // deram. Primeiro o papel escolhido (role_id), depois o nome — e
+            // sempre dentro da empresa.
+            if ($invitation->role_id || $invitation->role) {
                 setPermissionsTeamId($invitation->tenant_id);
-                
-                $role = \Spatie\Permission\Models\Role::firstOrCreate(
-                    ['name' => $invitation->role, 'guard_name' => 'web'],
-                    ['tenant_id' => $invitation->tenant_id]
-                );
-                
-                $user->assignRole($role);
+
+                $role = $invitation->role_id
+                    ? \Spatie\Permission\Models\Role::whereKey($invitation->role_id)->where('tenant_id', $invitation->tenant_id)->first()
+                    : null;
+
+                if (! $role && $invitation->role) {
+                    $role = \Spatie\Permission\Models\Role::where('name', $invitation->role)
+                        ->where('guard_name', 'web')
+                        ->where('tenant_id', $invitation->tenant_id)
+                        ->first()
+                        ?? \Spatie\Permission\Models\Role::create([
+                            'name' => $invitation->role,
+                            'guard_name' => 'web',
+                            'tenant_id' => $invitation->tenant_id,
+                        ]);
+                }
+
+                if ($role) {
+                    $user->assignRole($role);
+                }
             }
             
             // Marcar convite como aceito

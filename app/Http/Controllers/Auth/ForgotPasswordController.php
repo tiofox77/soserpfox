@@ -19,4 +19,13 @@ class ForgotPasswordController extends Controller
     */
 
     use SendsPasswordResetEmails;
+
+    /** Pedir o link — o ecrã `entrada/recuperar-senha`; o `status` chega nos recados. */
+    public function showLinkRequestForm()
+    {
+        return \App\Support\EcraReact::solta('entrada/recuperar-senha', 'Recuperar Palavra-passe', \App\Support\Entrada::comum() + [
+            'acao' => route('password.email'),
+            'login' => route('login'),
+        ])();
+    }
 }

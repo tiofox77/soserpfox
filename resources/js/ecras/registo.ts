@@ -107,6 +107,27 @@ export const ecras: Record<string, Ecra> = {
         import('./casca/Inicio'),
     'setup/assistente': () =>
         import('./setup/Assistente'),
+    // As páginas de entrada: formulários de verdade (POST aos controladores de sempre).
+    'entrada/login': () =>
+        import('./entrada/Login'),
+    'entrada/recuperar-senha': () =>
+        import('./entrada/RecuperarSenha'),
+    'entrada/nova-senha': () =>
+        import('./entrada/NovaSenha'),
+    'entrada/confirmar-senha': () =>
+        import('./entrada/ConfirmarSenha'),
+    'entrada/convite': () =>
+        import('./entrada/Convite'),
+    'entrada/empresa-desactivada': () =>
+        import('./entrada/EmpresaDesactivada'),
+    'entrada/subscricao-expirada': () =>
+        import('./entrada/SubscricaoExpirada'),
+    'entrada/checkin-expresso': () =>
+        import('./entrada/CheckinExpresso'),
+    'entrada/licenca': () =>
+        import('./entrada/Licenca'),
+    'cliente/topo': () =>
+        import('./cliente/Topo'),
     'cliente/entrada': () =>
         import('./cliente/Entrada'),
     'cliente/esqueci-a-senha': () =>

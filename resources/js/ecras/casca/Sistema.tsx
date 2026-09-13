@@ -23,7 +23,7 @@ import { cls } from '@/ui/tokens';
  *  • OS RECADOS DA SESSÃO — o `->with('error', …)` de quem redirecciona para
  *    um ecrã React, que de outra forma ninguém via (ver RecadosDaSessao).
  */
-type Props = { login: string; manterViva: string; recados?: Array<{ tipo: TipoDeAviso; texto: string }> };
+type Props = { login: string; manterViva: string | null; recados?: Array<{ tipo: TipoDeAviso; texto: string }> };
 
 type AvisoNoEcra = Aviso & { id: number; aSair?: boolean };
 
@@ -80,6 +80,8 @@ export default function Sistema({ login, manterViva, recados = [] }: Props) {
     /* ── A sessão ──────────────────────────────────────────────────── */
 
     useEffect(() => {
+        // O portal do cliente não tem keep-alive: a sessão é de outro guarda.
+        if (!manterViva) return;
         let ultimo = 0;
 
         const perguntar = () => {

@@ -88,12 +88,15 @@ class LimiteDeUtilizadoresTest extends TenantTestCase
 
         $antes = User::count();
 
-        $this->post('/invitation/' . $convite->token . '/accept', [
+        // A morada certa: o ensaio enviava para «/accept», que não existe — e passava na mesma.
+        $resposta = $this->post(route('invitation.accept.post', $convite->token), [
             'password' => 'segredo123',
             'password_confirmation' => 'segredo123',
         ]);
 
         // O furo: antes disto, a conta era criada na mesma.
+        $this->assertSame(route('login'), $resposta->headers->get('Location'));
+        $this->assertStringContainsString('limite de utilizadores', session('error'));
         $this->assertSame($antes, User::count(), 'o convite furou o limite de utilizadores');
     }
 }

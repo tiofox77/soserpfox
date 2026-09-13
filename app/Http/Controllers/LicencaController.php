@@ -39,13 +39,47 @@ class LicencaController extends Controller
                 : redirect('/setup');
         }
 
-        return view('licenca.index', [
-            'estado'      => $estado,
-            'fingerprint' => MachineFingerprint::atual(),
-            'pedido'      => $this->pedidoGuardado(),
-            'temServidor' => trim((string) config('licensing.checkin_url')) !== '',
-            'ligacao'     => $this->diagnosticarLigacao(),
-        ]);
+        $ligacao = $this->diagnosticarLigacao();
+        $payload = $estado->payload;
+
+        // O ecrã `entrada/licenca`, em React: os formulários continuam a vir
+        // a este controlador; os separadores eram um <script> com onclick.
+        return \App\Support\EcraReact::solta('entrada/licenca', 'Licença', \App\Support\Entrada::comum() + [
+            'estado' => [
+                'nome' => strtoupper((string) $estado->estado),
+                'tom' => match ($estado->estado) {
+                    LicenseState::ATIVA => 'ativa',
+                    LicenseState::AVISO, LicenseState::BANNER, LicenseState::SO_LEITURA => 'aviso',
+                    default => 'bloqueada',
+                },
+                'motivo' => (string) $estado->motivo,
+                'empresa' => $payload ? ($payload->empresa() ?? '—') : null,
+                'plano' => $payload ? ($payload->plano() ?? '—') : null,
+                'modulos' => $payload ? array_values($payload->modulos()) : null,
+                'dias_para_expirar' => $estado->diasParaExpirar,
+                'dias_offline' => $estado->diasOffline,
+                'graca_dias' => $estado->gracaDias,
+            ],
+            'maquina' => MachineFingerprint::atual(),
+            'ligacao' => [
+                'ok' => (bool) $ligacao['ok'],
+                'estado' => (string) $ligacao['estado'],
+                'mensagem' => (string) $ligacao['mensagem'],
+                'host' => $ligacao['url'] ? parse_url($ligacao['url'], PHP_URL_HOST) : null,
+            ],
+            'pedido' => $this->pedidoGuardado(),
+            // Com uma licença a funcionar não se pede outra: só a substituição.
+            'boa' => ! $estado->bloqueiaTudo(),
+            'tem_servidor' => trim((string) config('licensing.checkin_url')) !== '',
+            'token_antigo' => old('token'),
+            'rotas' => [
+                'verificar' => route('licenca.verificar'),
+                'solicitar' => route('licenca.solicitar'),
+                'sincronizar' => route('licenca.sincronizar'),
+                'guardar' => route('licenca.guardar'),
+                'login' => url('/login'),
+            ],
+        ])();
     }
 
     /**

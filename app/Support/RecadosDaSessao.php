@@ -24,6 +24,10 @@ final class RecadosDaSessao
         'error' => 'erro',
         'warning' => 'aviso',
         'info' => 'info',
+        // As do ecrã da licença, que falam português desde o primeiro dia.
+        'ok' => 'ok',
+        'erro' => 'erro',
+        'aviso' => 'aviso',
     ];
 
     /**

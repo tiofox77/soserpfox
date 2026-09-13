@@ -20,6 +20,15 @@ class ConfirmPasswordController extends Controller
 
     use ConfirmsPasswords;
 
+    /** Confirmar a senha antes de uma zona sensível — o ecrã `entrada/confirmar-senha`. */
+    public function showConfirmForm()
+    {
+        return \App\Support\EcraReact::solta('entrada/confirmar-senha', 'Confirmar Palavra-passe', \App\Support\Entrada::comum() + [
+            'acao' => route('password.confirm'),
+            'recuperar' => \Illuminate\Support\Facades\Route::has('password.request') ? route('password.request') : null,
+        ])();
+    }
+
     /**
      * Where to redirect users when the intended url fails.
      *

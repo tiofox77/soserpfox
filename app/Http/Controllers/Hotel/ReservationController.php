@@ -37,11 +37,30 @@ class ReservationController extends Controller
             abort(403, 'Código de confirmação inválido.');
         }
 
-        return view('hotel.express-checkin', [
-            'reservation' => $reservation,
-            'settings' => HotelSettings::getForTenant($reservation->tenant_id),
-            'alreadyCheckedIn' => $reservation->status === Reservation::STATUS_CHECKED_IN,
-        ]);
+        $settings = HotelSettings::getForTenant($reservation->tenant_id);
+
+        // O ecrã `entrada/checkin-expresso`, em React. Os recados da sessão
+        // levam também o erro de uma reserva que não permite check-in — o
+        // Blade só mostrava o de sucesso.
+        return \App\Support\EcraReact::solta('entrada/checkin-expresso', 'Check-in Expresso', [
+            'csrf' => csrf_token(),
+            'acao' => route('hotel.express-checkin.confirm', [$reservation->id, $reservation->confirmation_code]),
+            'recados' => \App\Support\RecadosDaSessao::lista(),
+            'hotel' => [
+                'nome' => $settings->hotel_name ?: __('Hotel'),
+                'telefone' => $settings->hotel_phone ?: null,
+                'email' => $settings->hotel_email ?: null,
+            ],
+            'reserva' => [
+                'numero' => (string) $reservation->reservation_number,
+                'hospede' => $reservation->guest?->name ?? $reservation->client?->name ?? '—',
+                'entrada' => \Carbon\Carbon::parse($reservation->check_in_date)->format('d/m/Y'),
+                'saida' => \Carbon\Carbon::parse($reservation->check_out_date)->format('d/m/Y'),
+                'quarto' => $reservation->room?->room_number ? (string) $reservation->room->room_number : null,
+                'tipo' => $reservation->roomType?->name,
+            ],
+            'ja_entrou' => $reservation->status === Reservation::STATUS_CHECKED_IN,
+        ])();
     }
 
     /** A confirmação do mesmo check-in público — e pela mesma razão, sem escopo. */
