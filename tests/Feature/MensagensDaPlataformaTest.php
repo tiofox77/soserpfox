@@ -2,13 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\MensagensDaPlataforma;
 use App\Models\Plan;
 use App\Models\PlatformMessage;
 use App\Models\PlatformMessageRead;
 use App\Models\Subscription;
 use App\Models\Tenant;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -42,36 +40,50 @@ class MensagensDaPlataformaTest extends TenantTestCase
         ], $extra));
     }
 
+    /**
+     * O que a barra do topo recebe, como texto. A barra e o pop-up passaram a
+     * React e pedem as mensagens a `/api/v1/casca/mensagens`.
+     */
+    private function barra(): string
+    {
+        return json_encode($this->getJson('/api/v1/casca/mensagens')->assertOk()->json(), JSON_UNESCAPED_UNICODE);
+    }
+
+    /** O que o painel do ecrã de entrada recebe, como texto. */
+    private function painel(): string
+    {
+        return json_encode($this->getJson('/api/v1/casca/avisos')->assertOk()->json(), JSON_UNESCAPED_UNICODE);
+    }
+
     // ==================== quem a vê ====================
 
     public function test_uma_mensagem_para_todas_aparece(): void
     {
         $this->mensagem();
 
-        Livewire::test(MensagensDaPlataforma::class)
-            ->assertSee('Manutenção no domingo')
-            ->assertSee('das 22h à 1h');
+        $this->assertStringContainsString('Manutenção no domingo', $this->barra());
+        $this->assertStringContainsString('das 22h à 1h', $this->barra());
     }
 
     public function test_uma_mensagem_retirada_nao_aparece(): void
     {
         $this->mensagem(['is_active' => false]);
 
-        Livewire::test(MensagensDaPlataforma::class)->assertDontSee('Manutenção no domingo');
+        $this->assertStringNotContainsString('Manutenção no domingo', $this->barra());
     }
 
     public function test_uma_mensagem_agendada_para_amanha_ainda_nao_aparece(): void
     {
         $this->mensagem(['starts_at' => now()->addDay()]);
 
-        Livewire::test(MensagensDaPlataforma::class)->assertDontSee('Manutenção no domingo');
+        $this->assertStringNotContainsString('Manutenção no domingo', $this->barra());
     }
 
     public function test_uma_mensagem_terminada_nao_aparece(): void
     {
         $this->mensagem(['starts_at' => now()->subDays(3), 'ends_at' => now()->subDay()]);
 
-        Livewire::test(MensagensDaPlataforma::class)->assertDontSee('Manutenção no domingo');
+        $this->assertStringNotContainsString('Manutenção no domingo', $this->barra());
     }
 
     /** Dirigida a outra empresa, não é para esta. */
@@ -85,14 +97,14 @@ class MensagensDaPlataformaTest extends TenantTestCase
 
         $this->mensagem(['audience' => 'empresas', 'tenant_ids' => [$outra->id]]);
 
-        Livewire::test(MensagensDaPlataforma::class)->assertDontSee('Manutenção no domingo');
+        $this->assertStringNotContainsString('Manutenção no domingo', $this->barra());
     }
 
     public function test_uma_mensagem_para_esta_empresa_aparece(): void
     {
         $this->mensagem(['audience' => 'empresas', 'tenant_ids' => [$this->tenant->id]]);
 
-        Livewire::test(MensagensDaPlataforma::class)->assertSee('Manutenção no domingo');
+        $this->assertStringContainsString('Manutenção no domingo', $this->barra());
     }
 
     /** Dirigida a um plano: só quem lá está a vê. */
@@ -107,7 +119,7 @@ class MensagensDaPlataformaTest extends TenantTestCase
         $this->mensagem(['audience' => 'planos', 'plan_ids' => [$plano->id]]);
 
         // A empresa está noutro plano.
-        Livewire::test(MensagensDaPlataforma::class)->assertDontSee('Manutenção no domingo');
+        $this->assertStringNotContainsString('Manutenção no domingo', $this->barra());
 
         // Passa a estar neste.
         Subscription::where('tenant_id', $this->tenant->id)->delete();
@@ -117,7 +129,7 @@ class MensagensDaPlataformaTest extends TenantTestCase
             'current_period_end' => now()->addMonth(),
         ]);
 
-        Livewire::test(MensagensDaPlataforma::class)->assertSee('Manutenção no domingo');
+        $this->assertStringContainsString('Manutenção no domingo', $this->barra());
     }
 
     // ==================== ler e dispensar ====================
@@ -127,7 +139,7 @@ class MensagensDaPlataformaTest extends TenantTestCase
     {
         $m = $this->mensagem();
 
-        Livewire::test(MensagensDaPlataforma::class)->assertSee('Manutenção no domingo');
+        $this->assertStringContainsString('Manutenção no domingo', $this->barra());
 
         $leitura = PlatformMessageRead::where('platform_message_id', $m->id)
             ->where('user_id', $this->user->id)
@@ -142,12 +154,11 @@ class MensagensDaPlataformaTest extends TenantTestCase
     {
         $m = $this->mensagem();
 
-        Livewire::test(MensagensDaPlataforma::class)
-            ->call('dispensar', $m->id)
-            ->assertDontSee('Manutenção no domingo');
+        $this->postJson("/api/v1/casca/mensagens/{$m->id}/dispensar")->assertOk();
+        $this->assertStringNotContainsString('Manutenção no domingo', $this->barra());
 
         // E continua escondida numa visita nova.
-        Livewire::test(MensagensDaPlataforma::class)->assertDontSee('Manutenção no domingo');
+        $this->assertStringNotContainsString('Manutenção no domingo', $this->barra());
 
         $this->assertNotNull(
             PlatformMessageRead::where('platform_message_id', $m->id)
@@ -156,14 +167,16 @@ class MensagensDaPlataformaTest extends TenantTestCase
         );
     }
 
-    /** Uma mensagem que não se dispensa não tem botão para isso. */
+    /** Uma mensagem que não se dispensa não tem botão para isso — nem se dispensa pela API. */
     public function test_uma_mensagem_nao_dispensavel_nao_oferece_como_fechar(): void
     {
-        $this->mensagem(['dismissible' => false, 'display' => 'popup']);
+        $m = $this->mensagem(['dismissible' => false, 'display' => 'popup']);
 
-        Livewire::test(MensagensDaPlataforma::class)
-            ->assertSee('Manutenção no domingo')
-            ->assertSee('não pode ser dispensada');
+        $this->postJson("/api/v1/casca/mensagens/{$m->id}/dispensar")->assertOk();
+
+        $this->assertStringContainsString('Manutenção no domingo', $this->barra());
+        $this->assertFalse($this->getJson('/api/v1/casca/mensagens')->json('mensagens.0.dispensavel'));
+        $this->assertStringContainsString("t('Esta mensagem não pode ser dispensada.')", file_get_contents(resource_path('js/ecras/casca/Mensagens.tsx')));
     }
 
     /** O ecrã não pode cair por causa de um aviso. */
@@ -173,7 +186,7 @@ class MensagensDaPlataformaTest extends TenantTestCase
         \Schema::rename('platform_messages', 'platform_messages_escondida');
 
         try {
-            Livewire::test(MensagensDaPlataforma::class)->assertOk();
+            $this->barra();
         } finally {
             \Schema::rename('platform_messages_escondida', 'platform_messages');
         }
@@ -225,23 +238,23 @@ class MensagensDaPlataformaTest extends TenantTestCase
     public function test_publicar_limpa_a_cache_para_a_mensagem_aparecer_ja(): void
     {
         // Aquecer a cache com "não há nada".
-        Livewire::test(MensagensDaPlataforma::class)->assertDontSee('Urgente');
+        $this->assertStringNotContainsString('Urgente', $this->barra());
 
         $this->publicar(['title' => 'Urgente: paragem agora', 'body' => 'Vamos parar em cinco minutos.', 'level' => 'urgente'])->assertOk();
 
-        Livewire::test(MensagensDaPlataforma::class)->assertSee('Urgente: paragem agora');
+        $this->assertStringContainsString('Urgente: paragem agora', $this->barra());
     }
 
     /** Retirar também tem de valer já. */
     public function test_retirar_limpa_a_cache(): void
     {
         $this->publicar(['title' => 'Paragem hoje', 'body' => 'Vamos parar às 22h.'])->assertOk();
-        Livewire::test(MensagensDaPlataforma::class)->assertSee('Paragem hoje');
+        $this->assertStringContainsString('Paragem hoje', $this->barra());
 
         $id = PlatformMessage::where('title', 'Paragem hoje')->value('id');
         $this->postJson("/api/v1/plataforma/react/avisos/{$id}/alternar")->assertOk();
 
-        Livewire::test(MensagensDaPlataforma::class)->assertDontSee('Paragem hoje');
+        $this->assertStringNotContainsString('Paragem hoje', $this->barra());
     }
 
     public function test_quem_nao_e_dono_da_plataforma_nao_entra(): void

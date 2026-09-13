@@ -222,6 +222,23 @@ Route::middleware(['auth'])->prefix('users')->name('users.')->group(function () 
  * não se aplica, porque o dono não é subscritor de nada. O `superadmin` é a
  * única porta, e cada controlador não precisa de mais nada.
  */
+// A CASCA: o topo de todas as páginas (empresa activa, contador, sino, mensagens
+// da plataforma). Só sessão — tem de responder também com a subscrição acabada.
+Route::middleware(['auth'])->prefix('api/v1/casca')->name('api.casca.')->group(function () {
+    $c = \App\Http\Controllers\Api\Casca\CascaApiController::class;
+
+    Route::get('/topo', [$c, 'topo'])->name('topo');
+    Route::post('/empresas/{id}/entrar', [$c, 'trocarDeEmpresa'])->whereNumber('id')->name('empresa');
+    Route::get('/notificacoes', [$c, 'notificacoes'])->name('notificacoes');
+    Route::post('/notificacoes/lidas', [$c, 'marcarTodasComoLidas'])->name('notificacoes.lidas');
+    Route::post('/notificacoes/{id}/lida', [$c, 'marcarComoLida'])->name('notificacoes.lida');
+    Route::delete('/notificacoes/{id}', [$c, 'apagar'])->name('notificacoes.apagar');
+    Route::delete('/notificacoes', [$c, 'limparTodas'])->name('notificacoes.limpar');
+    Route::get('/mensagens', [$c, 'mensagens'])->name('mensagens');
+    Route::post('/mensagens/{id}/dispensar', [$c, 'dispensar'])->whereNumber('id')->name('mensagens.dispensar');
+    Route::get('/avisos', [$c, 'avisos'])->name('avisos');
+});
+
 Route::middleware(['auth', 'superadmin'])->prefix('api/v1/plataforma/react')->name('api.plataforma.react.')->group(function () {
     Route::prefix('painel')->name('painel.')->group(function () {
         $c = \App\Http\Controllers\Api\Plataforma\PainelApiController::class;

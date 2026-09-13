@@ -2,12 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\TenantSwitcher;
 use App\Models\AuditTrail;
 use App\Models\Invoicing\SalesInvoice;
 use App\Models\Tenant;
 use App\Services\Audit\AuditRecorder;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -72,8 +70,7 @@ class AuditActosTest extends TenantTestCase
         ]);
         $this->user->tenants()->syncWithoutDetaching([$outra->id]);
 
-        Livewire::actingAs($this->user)->test(TenantSwitcher::class)
-            ->call('switchTenant', $outra->id);
+        $this->actingAs($this->user)->postJson("/api/v1/casca/empresas/{$outra->id}/entrar")->assertOk();
 
         app(AuditRecorder::class)->despejar();
 

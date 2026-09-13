@@ -42,10 +42,12 @@ const clienteDeConsultas = new QueryClient({
 activarDicasDeAccao();
 
 function montar(elemento: HTMLElement): void {
-    const nome = elemento.dataset.ecra;
+    const nome = elemento.dataset.ecra ?? elemento.dataset.peca;
+    // Uma peça do topo (`data-peca`): sem esqueleto e com o erro discreto.
+    const peca = Boolean(elemento.dataset.peca);
 
     if (!nome) {
-        console.warn('[React] ponto de montagem sem data-ecra', elemento);
+        console.warn('[React] ponto de montagem sem data-ecra nem data-peca', elemento);
         return;
     }
 
@@ -74,7 +76,7 @@ function montar(elemento: HTMLElement): void {
     void carregar().then(({ default: Ecra }) => {
         raiz.render(
             <StrictMode>
-                <LimiteDeErro ecra={nome}>
+                <LimiteDeErro ecra={nome} discreto={peca}>
                     <QueryClientProvider client={clienteDeConsultas}>
                         <Ecra {...props} />
                     </QueryClientProvider>
@@ -83,12 +85,13 @@ function montar(elemento: HTMLElement): void {
         );
     });
 
-    raiz.render(<Carregando />);
+    // As peças pequenas do topo não mostram esqueleto: ocupavam o cabeçalho.
+    if (!peca) raiz.render(<Carregando />);
 }
 
 function montarTudo(): void {
     document
-        .querySelectorAll<HTMLElement>('[data-ecra]:not([data-montado])')
+        .querySelectorAll<HTMLElement>('[data-ecra]:not([data-montado]), [data-peca]:not([data-montado])')
         .forEach((el) => {
             el.dataset.montado = '1';
             montar(el);

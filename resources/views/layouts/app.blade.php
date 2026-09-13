@@ -734,14 +734,14 @@
                             <!-- Tenant Switcher (Sempre mostra empresa ativa) -->
                             @if(auth()->check() && !auth()->user()->isSuperAdmin())
                                 <div class="hidden sm:block">
-                                    <livewire:tenant-switcher />
+                                    <x-ecra-react nome="casca/empresa" :esqueleto="false" />
                                 </div>
                             @endif
                             
                             <!-- Subscription Timer -->
                             @if(auth()->check())
                                 <div class="hidden md:block">
-                                    <livewire:subscription-timer />
+                                    <x-ecra-react nome="casca/subscricao" :esqueleto="false" />
                                 </div>
                             @endif
                             
@@ -791,7 +791,7 @@
 
                             <!-- Notificações -->
                             @if(auth()->check())
-                                <livewire:notifications />
+                                <x-ecra-react nome="casca/notificacoes" :esqueleto="false" />
                             @endif
                         </div>
                     </div>
@@ -803,7 +803,7 @@
                          preço, obrigações novas da AGT). Vive aqui porque tem
                          de aparecer em qualquer página; sem mensagens no ar,
                          custa uma leitura de cache. --}}
-                    @livewire('mensagens-da-plataforma')
+                    <x-ecra-react nome="casca/mensagens" :esqueleto="false" />
 
                     {{ $slot ?? '' }}
                     @yield('content')
@@ -1129,9 +1129,6 @@
     
     <!-- PWA Service Worker Registration + Auto-Update -->
     @include('partials.pwa-register')
-    
-    <!-- Componente para enviar email de boas-vindas após redirect -->
-    @livewire('send-welcome-email')
     
     <!-- Botão Flutuante de Suporte -->
     @if(!auth()->user()->isSuperAdmin())

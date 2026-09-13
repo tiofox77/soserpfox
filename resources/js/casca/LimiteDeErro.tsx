@@ -13,7 +13,7 @@ import { Component, type ErrorInfo, type ReactNode } from 'react';
  * chega numa fotografia do ecrã.
  */
 
-type Props = { ecra: string; children: ReactNode };
+type Props = { ecra: string; children: ReactNode; discreto?: boolean };
 type Estado = { erro: Error | null };
 
 export class LimiteDeErro extends Component<Props, Estado> {
@@ -32,6 +32,16 @@ export class LimiteDeErro extends Component<Props, Estado> {
 
         if (!erro) {
             return this.props.children;
+        }
+
+        // Uma peça do topo que rebenta não pode empurrar o cabeçalho: fica um
+        // ícone com o erro no título, e a consola tem o resto.
+        if (this.props.discreto) {
+            return (
+                <span title={erro.message} className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-500">
+                    <i className="fas fa-triangle-exclamation" aria-hidden="true" />
+                </span>
+            );
         }
 
         return (

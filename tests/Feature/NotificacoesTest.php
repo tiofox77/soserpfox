@@ -2,10 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Notifications;
 use App\Models\Invoicing\ProductBatch;
 use App\Models\Invoicing\Stock;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -25,19 +23,15 @@ class NotificacoesTest extends TenantTestCase
         $this->comModulo('invoicing');
     }
 
+    /** Os títulos no sino, lidos ou não. O sino passou a React e pede-os a `/api/v1/casca/notificacoes`. */
     private function avisos(): array
     {
-        $c = Livewire::test(Notifications::class);
-
-        return collect($c->instance()->systemNotifications ?? [])->all()
-            ?: collect($c->viewData('notifications') ?? [])->all();
+        return array_column($this->getJson('/api/v1/casca/notificacoes?so_por_ler=0')->assertOk()->json('notificacoes'), 'titulo');
     }
 
     private function temAviso(string $titulo): bool
     {
-        $html = Livewire::test(Notifications::class)->html();
-
-        return str_contains($html, $titulo);
+        return collect($this->avisos())->contains(fn ($t) => str_contains($t, $titulo));
     }
 
     public function test_o_aviso_de_baixo_stock_usa_o_minimo_do_produto(): void
@@ -132,6 +126,57 @@ class NotificacoesTest extends TenantTestCase
         ]);
 
         $this->assertFalse($this->temAviso('Baixo Stock'), 'o stock baixo é da outra empresa');
+    }
+
+    private function factura(array $troca): \App\Models\Invoicing\SalesInvoice
+    {
+        return \App\Models\Invoicing\SalesInvoice::create(array_merge([
+            'tenant_id' => $this->tenant->id,
+            'client_id' => $this->clienteEmpresa()->id,
+            'invoice_number' => 'FT NOTIF/' . random_int(1000, 9999),
+            'invoice_date' => now()->subMonth()->toDateString(),
+            'due_date' => now()->subDays(5)->toDateString(),
+            'total' => 1000,
+            'paid_amount' => 0,
+            'created_by' => $this->user->id,
+        ], $troca));
+    }
+
+    /**
+     * AS VENCIDAS CONTAM-SE PELO SALDO. O aviso escolhia pelo nome do estado
+     * (`pending`, `sent`, `partial`) e deixava de fora justamente a que está
+     * marcada `overdue` — a vencida por excelência.
+     */
+    public function test_uma_factura_vencida_avisa_pelo_saldo(): void
+    {
+        $this->factura(['status' => 'overdue']);
+
+        $this->assertTrue($this->temAviso('Faturas Vencidas'));
+    }
+
+    /** Um rascunho não é dívida, e uma paga já não deve nada. */
+    public function test_rascunhos_e_pagas_nao_contam_como_vencidas(): void
+    {
+        $this->factura(['status' => 'draft']);
+        $this->factura(['status' => 'sent', 'paid_amount' => 1000]);
+
+        $this->assertFalse($this->temAviso('Faturas Vencidas'));
+    }
+
+    /**
+     * O prazo da subscrição sai do mesmo sítio que o contador do topo. O aviso
+     * lia `ends_at`, vazio numa subscrição activa: o contador dizia «3 dias» e
+     * o sino ficava calado.
+     */
+    public function test_o_prazo_a_acabar_avisa_como_o_contador(): void
+    {
+        \App\Models\Subscription::where('tenant_id', $this->tenant->id)->update([
+            'status' => 'active', 'ends_at' => null, 'current_period_end' => now()->addDays(2),
+        ]);
+        $this->tenant->unsetRelation('activeSubscription');
+
+        $this->assertTrue($this->temAviso('Urgente: Subscription Expirando'));
+        $this->assertSame('red', $this->getJson('/api/v1/casca/topo')->assertOk()->json('prazo.cor'));
     }
 
     public function test_o_fornecedor_de_sms_nao_suportado_e_recusado(): void

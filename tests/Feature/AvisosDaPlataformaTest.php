@@ -2,11 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\AvisosDaPlataforma;
-use App\Livewire\MensagensDaPlataforma;
 use App\Models\PlatformMessage;
 use App\Models\PlatformMessageRead;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -129,9 +126,8 @@ class AvisosDaPlataformaTest extends TenantTestCase
     {
         $this->mensagem();
 
-        Livewire::test(AvisosDaPlataforma::class)
-            ->assertSee('Suporte')
-            ->assertSee('942705533');
+        $this->assertStringContainsString('Suporte', $this->painel());
+        $this->assertStringContainsString('942705533', $this->painel());
     }
 
     /**
@@ -142,20 +138,18 @@ class AvisosDaPlataformaTest extends TenantTestCase
     {
         $m = $this->mensagem();
 
-        Livewire::test(MensagensDaPlataforma::class)->call('dispensar', $m->id);
+        $this->postJson("/api/v1/casca/mensagens/{$m->id}/dispensar")->assertOk();
 
-        Livewire::test(MensagensDaPlataforma::class)->assertDontSee('942705533');
+        $this->assertStringNotContainsString('942705533', $this->barra());
 
-        Livewire::test(AvisosDaPlataforma::class)
-            ->assertSee('942705533')
-            ->assertSee('Lido');
+        $this->assertStringContainsString('942705533', $this->painel());
+        $this->assertTrue($this->getJson('/api/v1/casca/avisos')->json('avisos.0.dispensada'), 'marcado como lido');
     }
 
     /** Sem avisos o painel nao se desenha. */
     public function test_sem_avisos_o_painel_nao_ocupa_o_ecra(): void
     {
-        Livewire::test(AvisosDaPlataforma::class)
-            ->assertDontSee('Avisos da plataforma');
+        $this->assertSame([], $this->getJson('/api/v1/casca/avisos')->assertOk()->json('avisos'));
     }
 
     /** Uma mensagem retirada do ar sai do painel. */
@@ -163,7 +157,7 @@ class AvisosDaPlataformaTest extends TenantTestCase
     {
         $this->mensagem(['is_active' => false]);
 
-        Livewire::test(AvisosDaPlataforma::class)->assertDontSee('942705533');
+        $this->assertStringNotContainsString('942705533', $this->painel());
     }
 
     /** Um aviso de outra empresa nao entra aqui. */
@@ -171,7 +165,7 @@ class AvisosDaPlataformaTest extends TenantTestCase
     {
         $this->mensagem(['audience' => 'empresas', 'tenant_ids' => [$this->tenant->id + 9999]]);
 
-        Livewire::test(AvisosDaPlataforma::class)->assertDontSee('942705533');
+        $this->assertStringNotContainsString('942705533', $this->painel());
     }
 
     /** O painel nao pode derrubar o ecra de entrada. */
@@ -180,7 +174,7 @@ class AvisosDaPlataformaTest extends TenantTestCase
         \Schema::rename('platform_messages', 'platform_messages_escondida');
 
         try {
-            Livewire::test(AvisosDaPlataforma::class)->assertOk();
+            $this->painel();
         } finally {
             \Schema::rename('platform_messages_escondida', 'platform_messages');
         }
@@ -194,7 +188,22 @@ class AvisosDaPlataformaTest extends TenantTestCase
         $this->actingAs($this->user)
             ->get('/home')
             ->assertOk()
-            ->assertSee('Avisos da plataforma');
+            ->assertSee('data-peca="casca/avisos"', false);
+    }
+
+    /**
+     * O que a barra do topo recebe, como texto. A barra e o pop-up passaram a
+     * React e pedem as mensagens a `/api/v1/casca/mensagens`.
+     */
+    private function barra(): string
+    {
+        return json_encode($this->getJson('/api/v1/casca/mensagens')->assertOk()->json(), JSON_UNESCAPED_UNICODE);
+    }
+
+    /** O que o painel do ecrã de entrada recebe, como texto. */
+    private function painel(): string
+    {
+        return json_encode($this->getJson('/api/v1/casca/avisos')->assertOk()->json(), JSON_UNESCAPED_UNICODE);
     }
 
     private function comoDonoDaPlataforma(): void

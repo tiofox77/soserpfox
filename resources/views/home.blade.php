@@ -18,7 +18,7 @@
          entra no sistema deve ver primeiro o que lhe estão a dizer. A barra do
          topo continua a existir e a interromper; isto é o sítio onde o aviso
          fica depois de dispensado. --}}
-    @livewire('avisos-da-plataforma')
+    <x-ecra-react nome="casca/avisos" :esqueleto="false" />
 
     <!-- Easter Egg: FOX Friendly Welcome Banner -->
     @php

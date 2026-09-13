@@ -11,20 +11,26 @@
     vá buscar outra vez o que o Blade tinha à mão. Vai como JSON escapado; o
     Blade trata das aspas.
 --}}
-@props(['nome', 'props' => []])
+{{-- `:esqueleto="false"` para as peças pequenas da barra do topo: o esqueleto de
+     ecrã inteiro empurrava o cabeçalho enquanto o JavaScript chegava. --}}
+@props(['nome', 'props' => [], 'esqueleto' => true])
 
+{{-- As peças do topo montam por `data-peca` e não por `data-ecra`: o ecrã da página
+     continua a ser o único `data-ecra`, que é o que os ensaios de browser procuram. --}}
 <div
-    data-ecra="{{ $nome }}"
+    @if($esqueleto) data-ecra="{{ $nome }}" @else data-peca="{{ $nome }}" @endif
     @if(!empty($props)) data-props="{{ json_encode($props, JSON_UNESCAPED_UNICODE) }}" @endif
-    {{ $attributes->merge(['class' => 'ecra-react']) }}
+    {{ $attributes->merge(['class' => $esqueleto ? 'ecra-react' : 'peca-react']) }}
 >
     {{-- O que se vê antes de o JavaScript chegar. Sem isto a página pisca a
          branco no primeiro carregamento, que num telemóvel de balcão com rede
          fraca é meio segundo a olhar para o nada. --}}
+    @if($esqueleto)
     <div class="animate-pulse space-y-3">
         <div class="h-9 w-1/3 rounded-xl bg-slate-200"></div>
         <div class="h-12 rounded-xl bg-slate-100"></div>
         <div class="h-12 rounded-xl bg-slate-50"></div>
         <div class="h-12 rounded-xl bg-slate-100"></div>
     </div>
+    @endif
 </div>

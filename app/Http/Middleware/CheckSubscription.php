@@ -35,11 +35,17 @@ class CheckSubscription
          *
          * `api/v1/invoicing/react/conta` é a API dessa página — tem de estar
          * aqui pela mesma razão que a morada dela.
+         *
+         * `api/v1/casca` é o topo de todas as páginas — a empresa activa, o
+         * contador e o sino. Tem de responder na página de conta de quem já não
+         * tem subscrição, e a troca de empresa tem de deixar SAIR de uma empresa
+         * sem subscrição para outra que a tenha.
          */
         $allowedRoutes = [
             'logout',
             'my-account',
             'api/v1/invoicing/react/conta',
+            'api/v1/casca',
             'register',
             'login',
             'subscription-expired',

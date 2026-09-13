@@ -376,7 +376,7 @@
                     
                     <div class="flex items-center space-x-4">
                         @if(auth()->check())
-                            <livewire:notifications />
+                            <x-ecra-react nome="casca/notificacoes" :esqueleto="false" />
                         @endif
                     </div>
                 </div>

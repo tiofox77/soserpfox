@@ -26,6 +26,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // Continua a correr antes de qualquer controlador.
         $middleware->appendToGroup('web', \App\Http\Middleware\DefinirLingua::class);
 
+        // Os GET à API não reescrevem a sessão (só renovam a actividade): um
+        // pedido de fundo que acabasse depois de outro repunha a sessão velha.
+        // Ver App\Http\Middleware\SessaoSoDeLeitura.
+        $middleware->appendToGroup('web', \App\Http\Middleware\SessaoSoDeLeitura::class);
+
         // Licença offline (build on-premise). No grupo web e, por dentro, um
         // no-op TOTAL enquanto LICENSE_ENFORCE não estiver ligado — na cloud
         // não lê sequer a licença. Cedo no grupo para trancar antes do miolo.

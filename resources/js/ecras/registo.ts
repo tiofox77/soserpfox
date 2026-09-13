@@ -98,6 +98,17 @@ export const ecras: Record<string, Ecra> = {
     // A casca: a barra lateral com o menu, o suporte e o utilizador.
     'casca': () =>
         import('./casca/Casca'),
+    // As peças do topo de todas as páginas (eram componentes Livewire no layout).
+    'casca/empresa': () =>
+        import('./casca/Empresa'),
+    'casca/subscricao': () =>
+        import('./casca/Subscricao'),
+    'casca/notificacoes': () =>
+        import('./casca/Notificacoes'),
+    'casca/mensagens': () =>
+        import('./casca/Mensagens'),
+    'casca/avisos': () =>
+        import('./casca/Avisos'),
 
     // SEIS catálogos (fornecedores, categorias, marcas, armazéns, condições
     // de pagamento, impostos): o `tipo` vem nas props, o esquema do servidor.

@@ -2,9 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\TenantSwitcher;
 use App\Models\Tenant;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -18,6 +16,9 @@ use Tests\TenantTestCase;
  *
  * Um redireccionamento entrega uma página nova, com sessão e token frescos, e
  * aterra em casa — onde nada depende da empresa de onde se veio.
+ *
+ * O selector passou a React: a troca é um POST a `/api/v1/casca`, que muda a
+ * sessão e devolve para onde ir; o ecrã faz a navegação completa.
  */
 class TrocaDeEmpresaTest extends TenantTestCase
 {
@@ -40,9 +41,9 @@ class TrocaDeEmpresaTest extends TenantTestCase
     {
         $outra = $this->outraEmpresa();
 
-        Livewire::actingAs($this->user)->test(TenantSwitcher::class)
-            ->call('switchTenant', $outra->id)
-            ->assertRedirect(route('home'));
+        $this->postJson("/api/v1/casca/empresas/{$outra->id}/entrar")
+            ->assertOk()
+            ->assertJson(['ir_para' => route('home')]);
 
         $this->assertSame($outra->id, (int) session('active_tenant_id'),
             'a sessão tem de apontar à empresa nova antes do redireccionamento');
@@ -57,14 +58,14 @@ class TrocaDeEmpresaTest extends TenantTestCase
     {
         $outra = $this->outraEmpresa();
 
-        Livewire::actingAs($this->user)->test(TenantSwitcher::class)
-            ->call('switchTenant', $outra->id);
+        $this->postJson("/api/v1/casca/empresas/{$outra->id}/entrar")->assertOk();
 
-        // Um componente montado de novo (= a página a que se aterra) lê a
-        // empresa da sessão — e é a nova.
-        Livewire::actingAs($this->user)->test(TenantSwitcher::class)
-            ->assertSet('activeTenantId', $outra->id)
-            ->assertSet('activeTenantName', 'Segunda Casa');
+        // O topo pedido de novo (= a página a que se aterra) lê a empresa da
+        // sessão — e é a nova.
+        $this->getJson('/api/v1/casca/topo')
+            ->assertOk()
+            ->assertJsonPath('empresa.activa.id', $outra->id)
+            ->assertJsonPath('empresa.activa.nome', 'Segunda Casa');
     }
 
     /** Sem pertencer à empresa, não há troca nem redireccionamento. */
@@ -78,10 +79,7 @@ class TrocaDeEmpresaTest extends TenantTestCase
             'is_active' => true,
         ]);
 
-        Livewire::actingAs($this->user)->test(TenantSwitcher::class)
-            ->call('switchTenant', $alheia->id)
-            ->assertNoRedirect()
-            ->assertDispatched('error');
+        $this->postJson("/api/v1/casca/empresas/{$alheia->id}/entrar")->assertForbidden();
 
         $this->assertSame($this->tenant->id, (int) session('active_tenant_id'));
     }
