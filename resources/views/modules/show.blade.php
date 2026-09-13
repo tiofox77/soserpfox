@@ -1,6 +1,9 @@
 <x-modules-layout
     :title="$module['name']"
-    :description="$module['description']"
+    :description="$seo['descricao']"
+    :tituloSeo="$seo['titulo']"
+    :canonical="$seo['url']"
+    :dadosEstruturados="$dadosEstruturados"
     :ctaText="'Experimenta o ' . $module['name'] . ' grátis durante ' . ($plan?->trial_days ?? 14) . ' dias.'"
     :whatsapp="$module['whatsapp']"
     :gradientFrom="$module['gradient_from']"
@@ -22,6 +25,21 @@
     <div class="max-w-7xl mx-auto px-4 py-16 md:py-24 relative">
         <div class="grid md:grid-cols-2 gap-10 items-center">
             <div class="text-white">
+                {{-- As migalhas à vista, as mesmas do BreadcrumbList. --}}
+                <nav aria-label="Migalhas" class="mb-4 text-sm text-white/80">
+                    <ol class="flex flex-wrap items-center gap-1.5">
+                        @foreach($migalhas as [$nomeDaMigalha, $urlDaMigalha])
+                            <li class="flex items-center gap-1.5">
+                                @if($loop->last)
+                                    <span aria-current="page" class="font-semibold text-white">{{ $nomeDaMigalha }}</span>
+                                @else
+                                    <a href="{{ $loop->first ? '/' : '/modulos' }}" class="hover:text-white hover:underline">{{ $nomeDaMigalha }}</a>
+                                    <i class="fas fa-chevron-right text-[10px] opacity-60" aria-hidden="true"></i>
+                                @endif
+                            </li>
+                        @endforeach
+                    </ol>
+                </nav>
                 <div class="inline-flex items-center gap-2 bg-white/20 backdrop-blur px-3 py-1.5 rounded-full text-xs font-bold mb-4">
                     <i class="fas {{ $module['icon'] }}"></i> MÓDULO
                 </div>
@@ -155,6 +173,29 @@
         <p class="text-center text-sm text-gray-500 mt-6">
             <i class="fas fa-shield-halved mr-1"></i>Sem fidelização · Cancele quando quiser · Suporte em Português
         </p>
+    </div>
+</section>
+@endif
+
+{{-- PERGUNTAS FREQUENTES — as mesmas do FAQPage desta página. --}}
+@if(count($perguntas))
+<section id="perguntas" class="py-16 md:py-20 bg-slate-50">
+    <div class="max-w-3xl mx-auto px-4">
+        <div class="text-center mb-10">
+            <p class="text-sm font-bold uppercase mb-2" style="color: {{ $module['gradient_from'] }};">Perguntas frequentes</p>
+            <h2 class="text-3xl md:text-4xl font-bold text-gray-900">O que nos perguntam sobre {{ \App\Support\DadosEstruturados::semEmoji($module['name']) }}</h2>
+        </div>
+        <div class="space-y-3">
+            @foreach($perguntas as [$pergunta, $resposta])
+                <details class="group rounded-2xl border border-gray-200 bg-white open:shadow-lg transition-all duration-300" @if($loop->first) open @endif>
+                    <summary class="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-4 font-semibold text-gray-900">
+                        <span>{{ $pergunta }}</span>
+                        <i class="fas fa-chevron-down transition-transform duration-300 group-open:rotate-180" style="color: {{ $module['gradient_from'] }};" aria-hidden="true"></i>
+                    </summary>
+                    <p class="px-6 pb-5 text-gray-600 leading-relaxed">{{ $resposta }}</p>
+                </details>
+            @endforeach
+        </div>
     </div>
 </section>
 @endif

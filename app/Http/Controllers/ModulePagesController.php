@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Plan;
+use App\Support\DadosEstruturados;
 
 class ModulePagesController extends Controller
 {
@@ -34,8 +35,8 @@ class ModulePagesController extends Controller
                 ['icon' => 'fa-boxes-stacked', 'title' => 'Catálogo de Produtos', 'desc' => 'Produtos e serviços com imagens, SKU, código de barras, categorias e taxas de IVA.'],
                 ['icon' => 'fa-warehouse', 'title' => 'Controlo de Stock', 'desc' => 'Inventário multi-armazém com movimentos automáticos por venda.'],
                 ['icon' => 'fa-receipt', 'title' => 'Recibos & Pagamentos', 'desc' => 'Múltiplos métodos: dinheiro, multicaixa, cartão, transferência. Vista de tesouraria.'],
-                ['icon' => 'fa-chart-line', 'title' => 'Relatórios de Vendas', 'desc' => 'Vendas por dia/produto/cliente/utilizador. Dashboard com KPIs em tempo real.'],
-                ['icon' => 'fa-shield-halved', 'title' => 'AGT Compliance', 'desc' => 'Hash SAFT, comunicação automática e séries documentais conforme regulamento angolano.'],
+                ['icon' => 'fa-chart-line', 'title' => 'Relatórios de Vendas', 'desc' => 'Vendas por dia, produto, cliente e utilizador, e um painel com o que entrou e o que está por receber.'],
+                ['icon' => 'fa-shield-halved', 'title' => 'Certificação AGT', 'desc' => 'Documentos assinados, séries fiscais, comunicação à AGT e o ficheiro SAFT-AO gerado pelo sistema.'],
                 ['icon' => 'fa-print', 'title' => 'Impressão & PDF', 'desc' => 'Imprime em impressoras térmicas (POS) ou gera PDF profissional para envio por email.'],
             ],
             'screenshots' => [
@@ -65,16 +66,16 @@ class ModulePagesController extends Controller
             'features' => [
                 ['icon' => 'fa-id-card', 'title' => 'Ficha do Trabalhador', 'desc' => 'Dados pessoais, documentos, dependentes, contactos de emergência e formação académica.'],
                 ['icon' => 'fa-clock', 'title' => 'Assiduidade', 'desc' => 'Registo de entrada/saída, faltas, atrasos e horas extras. Relatórios mensais.'],
-                ['icon' => 'fa-umbrella-beach', 'title' => 'Gestão de Férias', 'desc' => 'Plano anual, pedidos online e aprovação hierárquica. Saldo automático por colaborador.'],
-                ['icon' => 'fa-file-invoice-dollar', 'title' => 'Processamento Salarial', 'desc' => 'Cálculo automático de IRT, INSS, subsídios e benefícios. Em conformidade com a lei angolana.'],
-                ['icon' => 'fa-receipt', 'title' => 'Recibo de Vencimento', 'desc' => 'Recibo mensal em PDF com QR code, enviado automaticamente por email ao colaborador.'],
+                ['icon' => 'fa-umbrella-beach', 'title' => 'Férias e Licenças', 'desc' => 'Pedidos de férias, licenças e faltas, aprovados por quem tem essa permissão, e o saldo de férias de cada trabalhador.'],
+                ['icon' => 'fa-file-invoice-dollar', 'title' => 'Processamento Salarial', 'desc' => 'IRT pela tabela angolana e INSS (3% do trabalhador, 8% da empresa) calculados em cada recibo, com subsídios e descontos.'],
+                ['icon' => 'fa-receipt', 'title' => 'Recibo de Vencimento', 'desc' => 'O recibo de cada trabalhador, ou os de toda a folha do mês, em PDF pronto a imprimir ou a partilhar.'],
                 ['icon' => 'fa-sitemap', 'title' => 'Departamentos & Cargos', 'desc' => 'Estrutura organizacional, hierarquia e gestão de cargos com tabela salarial.'],
                 ['icon' => 'fa-hand-holding-dollar', 'title' => 'Adiantamentos', 'desc' => 'Pedidos de adiantamento salarial com aprovação e desconto automático no próximo recibo.'],
-                ['icon' => 'fa-cake-candles', 'title' => 'Aniversários & Eventos', 'desc' => 'Calendário de aniversários, antiguidade e eventos da equipa.'],
-                ['icon' => 'fa-chart-bar', 'title' => 'Relatórios RH', 'desc' => 'Mapa de pessoal, custos salariais, absentismo, turnover e produtividade.'],
+                ['icon' => 'fa-business-time', 'title' => 'Horas Extras e Descontos', 'desc' => 'Horas extras, turno nocturno e descontos salariais com aprovação, que entram sozinhos na folha do mês.'],
+                ['icon' => 'fa-chart-bar', 'title' => 'Relatórios RH', 'desc' => 'Mapa de salários, custo por departamento, resumo de presenças, saldo de férias e evolução do quadro de pessoal.'],
             ],
             'screenshots' => [
-                ['title' => 'Dashboard RH', 'desc' => 'Presenças do dia, férias pendentes e aniversariantes', 'icon' => 'fa-users'],
+                ['title' => 'Painel de RH', 'desc' => 'Presenças do dia, pedidos por aprovar e aniversariantes', 'icon' => 'fa-users'],
                 ['title' => 'Processamento Salarial', 'desc' => 'Cálculo automático de IRT e INSS em conformidade com a lei', 'icon' => 'fa-calculator'],
                 ['title' => 'Ficha do Trabalhador', 'desc' => 'Dossier completo do colaborador com PDF exportável', 'icon' => 'fa-file-lines'],
             ],
@@ -210,13 +211,61 @@ class ModulePagesController extends Controller
                 ['icon' => 'fa-book-open', 'title' => 'Fichas Técnicas', 'desc' => 'Receitas, rendimento, ingredientes, unidades e desperdício técnico por prato.'],
                 ['icon' => 'fa-boxes-stacked', 'title' => 'Stock e Desperdícios', 'desc' => 'Consumo automático por receita, movimentos auditados e controlo de ruturas.'],
                 ['icon' => 'fa-money-bill-transfer', 'title' => 'Conta e Pagamentos', 'desc' => 'Divisão por artigos e pagamentos mistos com métodos oficiais da Tesouraria.'],
-                ['icon' => 'fa-file-invoice', 'title' => 'Faturação AGT', 'desc' => 'Emissão FR/FT pelo motor fiscal central, séries do tenant, IVA, ATCUD e comunicação AGT.'],
+                ['icon' => 'fa-file-invoice', 'title' => 'Faturação AGT', 'desc' => 'O fecho da conta emite fatura ou fatura-recibo pela faturação certificada, com as séries e o IVA da empresa.'],
                 ['icon' => 'fa-chart-line', 'title' => 'Relatórios', 'desc' => 'Vendas, comandas, ticket médio, reservas, desperdícios e produtos mais vendidos.'],
             ],
             'screenshots' => [
                 ['title' => 'Mapa de Sala', 'desc' => 'Mesas e estados operacionais por zona', 'icon' => 'fa-chair'],
                 ['title' => 'Cozinha / KDS', 'desc' => 'Fila de tickets com tempos e prioridade', 'icon' => 'fa-fire-burner'],
                 ['title' => 'Fecho da Conta', 'desc' => 'Divisão por artigos, pagamentos mistos e FR/FT', 'icon' => 'fa-cash-register'],
+            ],
+        ],
+    ];
+
+    /**
+     * O QUE CADA PÁGINA DIZ A QUEM PESQUISA — título, descrição, categoria e
+     * as perguntas frequentes (que a página mostra e o JSON-LD repete).
+     *
+     * Só as páginas trabalhadas uma a uma estão aqui; as outras continuam com
+     * o nome e a descrição do módulo. Cada resposta foi confirmada contra o
+     * que o sistema faz — o recibo «enviado por email com QR code» saiu da
+     * página de RH porque não existe.
+     */
+    protected array $paginas = [
+        'vendas' => [
+            'titulo' => 'Software de Faturação e POS em Angola, certificado AGT',
+            'descricao' => 'Faturação certificada pela AGT, POS que vende sem internet, stock por armazém e SAFT-AO. Para lojas, farmácias e mercearias em Angola. Experimente grátis.',
+            'categoria' => 'Faturação e ponto de venda',
+            'migalha' => 'Faturação e POS',
+            'perguntas' => [
+                ['O POS funciona sem internet?', 'Sim. O POS instala-se como aplicação no telemóvel, tablet ou computador e continua a vender sem rede; as vendas sincronizam com o servidor quando a ligação volta.'],
+                ['A faturação é certificada pela AGT?', 'Sim. O SOSERP é software de faturação certificado pela AGT (:certificado): os documentos saem assinados, com numeração por série, e o ficheiro SAFT-AO é gerado pelo próprio sistema.'],
+                ['Que documentos posso emitir?', 'Faturas, faturas-recibo, recibos, notas de crédito e de débito, proformas, orçamentos, adiantamentos e guias de transporte.'],
+                ['Posso controlar o stock de vários armazéns?', 'Sim. O stock é controlado por armazém, com transferências entre armazéns, lotes e prazos de validade, e baixa automática a cada venda.'],
+            ],
+        ],
+        'rh' => [
+            'titulo' => 'Software de RH e Folha de Pagamento em Angola',
+            'descricao' => 'Processamento salarial com IRT e INSS angolanos, assiduidade, férias, horas extras e adiantamentos, com recibos de vencimento em PDF. Experimente grátis.',
+            'categoria' => 'Recursos humanos e processamento salarial',
+            'migalha' => 'Recursos Humanos',
+            'perguntas' => [
+                ['O IRT e o INSS são calculados automaticamente?', 'Sim. O processamento salarial aplica a tabela de IRT angolana e as contribuições para o INSS — 3% do trabalhador e 8% da entidade empregadora — em cada recibo.'],
+                ['Posso emitir os recibos de vencimento?', 'Sim. Pode tirar o recibo de cada trabalhador ou os de toda a folha do mês, em PDF.'],
+                ['Controla férias, faltas e horas extras?', 'Sim. Assiduidade, férias, licenças e faltas, horas extras, adiantamentos e descontos salariais, com quem pede separado de quem aprova.'],
+                ['Os adiantamentos são descontados no salário?', 'Sim. O adiantamento aprova-se por um valor e em prestações, e cada prestação é descontada na folha dos meses seguintes.'],
+            ],
+        ],
+        'restaurant' => [
+            'titulo' => 'Software para Restaurante em Angola: Sala, Comandas e Cozinha',
+            'descricao' => 'Mapa de sala, comandas, cozinha (KDS), reservas, fichas técnicas e fecho da conta com faturação AGT. Para restaurantes, bares e cafés em Angola.',
+            'categoria' => 'Gestão de restaurante',
+            'migalha' => 'Restaurante',
+            'perguntas' => [
+                ['Os pedidos chegam à cozinha?', 'Sim. Cada comanda gera tickets no ecrã da cozinha (KDS), com o estado de cada prato até à entrega na mesa.'],
+                ['É possível dividir a conta?', 'Sim. A conta divide-se por artigos e aceita pagamento com vários métodos, como numerário e multicaixa.'],
+                ['Os clientes podem ver a carta no telemóvel?', 'Sim. Cada mesa tem um QR que abre a carta digital; o cliente envia o pedido por WhatsApp ou, se o restaurante ligar essa opção, directamente para a sala.'],
+                ['O fecho da conta emite fatura certificada?', 'Sim. Fechar a conta emite fatura ou fatura-recibo pela faturação certificada pela AGT do SOSERP.'],
             ],
         ],
     ];
@@ -228,9 +277,55 @@ class ModulePagesController extends Controller
         }
 
         $module = $this->modules[$slug];
-        $plan = Plan::where('slug', $module['plan_slug'])->first();
+        // Só um plano que se vende: um pacote desactivado ou escondido não
+        // pode continuar a mostrar preço aqui nem a ir para os dados estruturados.
+        $plan = Plan::publico()->where('slug', $module['plan_slug'])->first();
 
-        return view('modules.show', compact('module', 'plan'));
+        $pagina = $this->paginas[$slug] ?? null;
+        $url = DadosEstruturados::raiz() . '/modulos/' . $slug;
+        $nomeLimpo = DadosEstruturados::semEmoji($module['name']);
+
+        $perguntas = collect($pagina['perguntas'] ?? [])
+            ->map(fn ($p) => [$p[0], str_replace(':certificado', \App\Helpers\AGTHelper::softwareValidationNumber(), $p[1])])
+            ->all();
+
+        if ($pagina && $plan) {
+            $dias = (int) ($plan->trial_days ?: 14);
+            $perguntas[] = ['Quanto custa?', 'O ' . DadosEstruturados::semEmoji($plan->name) . ' custa '
+                . number_format((float) $plan->price_monthly, 0, ',', '.') . ' Kz por mês'
+                . ((float) $plan->getRawOriginal('price_yearly') > 0 ? ' ou ' . number_format((float) $plan->getRawOriginal('price_yearly'), 0, ',', '.') . ' Kz por ano' : '')
+                . ", com {$dias} dias grátis para experimentar."];
+        }
+
+        $seo = [
+            'titulo' => $pagina['titulo'] ?? $nomeLimpo,
+            'descricao' => $pagina['descricao'] ?? $module['description'],
+            'url' => $url,
+        ];
+
+        $migalhas = [
+            ['SOSERP', DadosEstruturados::raiz() . '/'],
+            ['Módulos', DadosEstruturados::raiz() . '/modulos'],
+            [$pagina['migalha'] ?? $nomeLimpo, $url],
+        ];
+
+        $oferta = $plan ? DadosEstruturados::oferta($plan, $url . '#pricing') + ['category' => $pagina['categoria'] ?? $nomeLimpo] : null;
+
+        $dadosEstruturados = DadosEstruturados::script([
+            DadosEstruturados::organizacao(),
+            DadosEstruturados::site(),
+            DadosEstruturados::software(false, $oferta ? [$oferta] : null),
+            DadosEstruturados::pagina($url, $seo['titulo'], $seo['descricao'], $migalhas, [
+                'mainEntity' => ['@id' => DadosEstruturados::id('software')],
+                'hasPart' => ['@id' => $url . '#funcionalidades'],
+                'keywords' => $pagina['categoria'] ?? $nomeLimpo,
+            ]),
+            DadosEstruturados::migalhas($url, $migalhas),
+            DadosEstruturados::funcionalidades($url, 'Funcionalidades — ' . $nomeLimpo, $module['features']),
+            DadosEstruturados::perguntas($url, $perguntas),
+        ]);
+
+        return view('modules.show', compact('module', 'plan', 'seo', 'migalhas', 'perguntas', 'dadosEstruturados'));
     }
 
     public function index()
@@ -242,7 +337,7 @@ class ModulePagesController extends Controller
             'icon' => $m['icon'],
             'gradient_from' => $m['gradient_from'],
             'gradient_to' => $m['gradient_to'],
-            'plan' => Plan::where('slug', $m['plan_slug'])->first(),
+            'plan' => Plan::publico()->where('slug', $m['plan_slug'])->first(),
         ], $this->modules);
 
         return view('modules.index', compact('modules'));

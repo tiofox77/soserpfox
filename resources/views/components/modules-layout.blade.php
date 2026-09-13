@@ -1,12 +1,33 @@
-@props(['title' => 'Módulo', 'description' => '', 'ctaText' => null, 'whatsapp' => null, 'gradientFrom' => '#2563eb', 'gradientTo' => '#7c3aed'])
+@props(['title' => 'Módulo', 'description' => '', 'ctaText' => null, 'whatsapp' => null, 'gradientFrom' => '#2563eb', 'gradientTo' => '#7c3aed', 'tituloSeo' => null, 'canonical' => null, 'dadosEstruturados' => null])
+@php
+    $tituloDaPagina = $tituloSeo ? $tituloSeo . ' | SOSERP' : $title . ' — ' . (function_exists('app_name') ? app_name() : 'SOSERP');
+    $imagemDePartilha = asset('brand/soserp-og-1200x630.png');
+@endphp
 <!DOCTYPE html>
 <html lang="pt-AO">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ $title }} — {{ function_exists('app_name') ? app_name() : 'SOSERP' }}</title>
+    <title>{{ $tituloDaPagina }}</title>
     <meta name="description" content="{{ $description }}">
-    <meta name="robots" content="index, follow">
+    <meta name="robots" content="index, follow, max-image-preview:large">
+    @if($canonical)
+    <link rel="canonical" href="{{ $canonical }}">
+    @endif
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="SOSERP">
+    <meta property="og:locale" content="pt_AO">
+    <meta property="og:title" content="{{ $tituloDaPagina }}">
+    <meta property="og:description" content="{{ $description }}">
+    @if($canonical)
+    <meta property="og:url" content="{{ $canonical }}">
+    @endif
+    <meta property="og:image" content="{{ $imagemDePartilha }}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="{{ $imagemDePartilha }}">
+    {{ $dadosEstruturados }}
     @include('partials.favicon')
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -205,7 +226,7 @@
             </div>
 
             <div class="border-t border-gray-800 pt-8 text-center text-sm">
-                <p>&copy; {{ date('Y') }} SOSERP. Todos os direitos reservados.</p>
+                <p>&copy; {{ date('Y') }} Softec Angola. SOSERP. Todos os direitos reservados.</p>
                 <p class="mt-2">
                     Desenvolvido por
                     <a href="https://softecangola.net" target="_blank" class="text-blue-400 hover:text-blue-300 font-semibold">

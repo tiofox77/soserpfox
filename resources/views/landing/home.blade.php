@@ -25,7 +25,7 @@
     <title>{{ $seoTitle }}</title>
     <meta name="description" content="{{ $seoDesc }}">
     <meta name="keywords" content="{{ $seoKw }}">
-    <meta name="author" content="{{ $settings['seo_author'] ?? $settings['schema_creator_name'] ?? 'SOSERP — Softec Angola' }}">
+    <meta name="author" content="{{ $settings['seo_author'] ?? 'Softec Angola' }}">
     <meta name="robots" content="{{ $settings['seo_robots'] ?? 'index, follow' }}, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
     <meta name="googlebot" content="{{ $settings['seo_robots'] ?? 'index, follow' }}">
     <meta name="bingbot" content="index, follow">
@@ -93,198 +93,28 @@
          pesquisas. Sem subir a versão, os browsers serviam o antigo da cache. --}}
     <script src="{{ asset('js/sos-tracker.js') }}?v=2" defer></script>
 
-    {{-- JSON-LD: Organization + LocalBusiness Angola --}}
-    <script type="application/ld+json">
-    {
-        "@@context": "https://schema.org",
-        "@type": "Organization",
-        "@id": "{{ $canonical }}#organization",
-        "name": "{{ $appName }}",
-        "alternateName": ["SOSERP", "SOS ERP Angola", "Softec Angola"],
-        "url": "{{ $canonical }}",
-        "logo": {
-            "@type": "ImageObject",
-            "url": "{{ $brandLogo }}",
-            "contentUrl": "{{ $brandLogo }}",
-            "width": 512,
-            "height": 512
-        },
-        "image": "{{ $ogImage }}",
-        "description": "{{ $seoDesc }}",
-        "foundingDate": "2024",
-        "founders": [{"@type": "Person", "name": "Softec Angola"}],
-        "slogan": "Software de gestão 100% angolano, certificado AGT",
-        "areaServed": [
-            {"@type": "Country", "name": "Angola"},
-            {"@type": "AdministrativeArea", "name": "Luanda"},
-            {"@type": "AdministrativeArea", "name": "Benguela"},
-            {"@type": "AdministrativeArea", "name": "Huíla"},
-            {"@type": "AdministrativeArea", "name": "Huambo"},
-            {"@type": "AdministrativeArea", "name": "Cabinda"},
-            {"@type": "AdministrativeArea", "name": "Bié"},
-            {"@type": "AdministrativeArea", "name": "Cuanza Sul"},
-            {"@type": "AdministrativeArea", "name": "Cuanza Norte"},
-            {"@type": "AdministrativeArea", "name": "Cunene"},
-            {"@type": "AdministrativeArea", "name": "Lunda Norte"},
-            {"@type": "AdministrativeArea", "name": "Lunda Sul"},
-            {"@type": "AdministrativeArea", "name": "Malanje"},
-            {"@type": "AdministrativeArea", "name": "Moxico"},
-            {"@type": "AdministrativeArea", "name": "Namibe"},
-            {"@type": "AdministrativeArea", "name": "Uíge"},
-            {"@type": "AdministrativeArea", "name": "Zaire"},
-            {"@type": "AdministrativeArea", "name": "Bengo"},
-            {"@type": "AdministrativeArea", "name": "Cuando Cubango"}
-        ],
-        "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Talatona, Rua Principal",
-            "addressLocality": "Luanda",
-            "addressRegion": "Luanda",
-            "postalCode": "0000",
-            "addressCountry": "AO"
-        },
-        "geo": {"@type": "GeoCoordinates", "latitude": -8.838333, "longitude": 13.234444},
-        "contactPoint": [{
-            "@type": "ContactPoint",
-            "telephone": "+244-939-729-902",
-            "email": "comercial@soserp.vip",
-            "contactType": "sales",
-            "areaServed": "AO",
-            "availableLanguage": ["Portuguese", "pt-AO"]
-        }, {
-            "@type": "ContactPoint",
-            "telephone": "+244-939-729-902",
-            "email": "suporte@soserp.vip",
-            "contactType": "customer support",
-            "areaServed": "AO",
-            "availableLanguage": ["Portuguese"]
-        }],
-        "sameAs": [
-            "https://www.facebook.com/soserp",
-            "https://www.linkedin.com/company/soserp",
-            "https://www.instagram.com/soserp_angola"
-        ]
-    }
-    </script>
+    {{--
+        OS DADOS ESTRUTURADOS — um grafo só, feito em App\Support\DadosEstruturados.
 
-    {{-- JSON-LD: SoftwareApplication --}}
-    <script type="application/ld+json">
-    {
-        "@@context": "https://schema.org",
-        "@type": "SoftwareApplication",
-        "@id": "{{ $canonical }}#software",
-        "name": "{{ $appName }}",
-        "operatingSystem": "Web, Windows, macOS, Linux, Android, iOS",
-        "applicationCategory": "BusinessApplication",
-        "applicationSubCategory": "Enterprise Resource Planning",
-        "softwareVersion": "2.0",
-        "inLanguage": "pt-AO",
-        "url": "{{ $canonical }}",
-        "image": "{{ $ogImage }}",
-        "description": "ERP completo certificado pela AGT Angola: faturação eletrónica, SAFT-AO, POS offline, RH com IRT/INSS, hotelaria, salão de beleza e oficina auto.",
-        "publisher": {"@id": "{{ $canonical }}#organization"},
-        {{-- Os planos saem da tabela, como já saem na FAQ e na secção #planos.
-             Estavam aqui "Starter 15000, Business 35000, Enterprise 75000" —
-             os mesmos números falsos que já tinham sido retirados da FAQ, mas
-             que continuavam a ser servidos ao Google neste bloco. --}}
-        @if($plans->isNotEmpty())
-        "offers": [
-@foreach($plans as $planoSchema)
-            {"@type": "Offer", "name": "{{ $planoSchema->name }}", "price": "{{ (int) $planoSchema->price_monthly }}", "priceCurrency": "AOA", "priceValidUntil": "{{ date('Y-12-31') }}", "availability": "https://schema.org/InStock", "url": "{{ $canonical }}#planos"}@if(!$loop->last),@endif
+        Havia aqui quatro blocos escritos à mão e mais um lá em baixo: duas
+        SoftwareApplication com ofertas que se contradiziam, a Softec Angola
+        como PESSOA fundadora de uma organização chamada SOSERP, e um FAQPage
+        com perguntas que a página não mostrava. Agora a empresa é a Softec
+        Angola, o software é um só (com as ofertas dos planos públicos), e as
+        perguntas são as mesmas da secção #perguntas.
+    --}}
+    @php
+        $perguntasFrequentes = \App\Support\DadosEstruturados::perguntasDaPaginaInicial($plans);
+        $urlDaPagina = \App\Support\DadosEstruturados::raiz() . '/';
+    @endphp
+    {!! \App\Support\DadosEstruturados::script([
+        \App\Support\DadosEstruturados::organizacao(),
+        \App\Support\DadosEstruturados::site(),
+        \App\Support\DadosEstruturados::software(true, \App\Support\DadosEstruturados::ofertasDosPlanos($plans)),
+        \App\Support\DadosEstruturados::pagina($urlDaPagina, $seoTitle, $seoDesc, null, ['mainEntity' => ['@id' => \App\Support\DadosEstruturados::id('software')]]),
+        \App\Support\DadosEstruturados::perguntas($urlDaPagina, $perguntasFrequentes),
+    ]) !!}
 
-@endforeach
-        ],
-        @endif
-        {{-- Não há aqui "aggregateRating": estava declarada uma média de 4,8 em
-             127 avaliações e o sistema não tem sequer onde as recolher. O
-             Google mostra estrelas com base nisto, e são estrelas que ninguém
-             pode provar. Volta quando existirem avaliações reais para contar. --}}
-        {{-- Público-alvo declarado por sector: é o que responde à pesquisa
-             "isto serve para a minha farmácia?" antes de alguém abrir a
-             página. Só entram sectores que têm mesmo perfil ou módulo. --}}
-        "audience": [
-            {"@type": "BusinessAudience", "audienceType": "Farmácias e parafarmácias"},
-            {"@type": "BusinessAudience", "audienceType": "Lojas de roupa, calçado e boutiques"},
-            {"@type": "BusinessAudience", "audienceType": "Lojas de cosmética e perfumaria"},
-            {"@type": "BusinessAudience", "audienceType": "Mercearias, minimercados e supermercados"},
-            {"@type": "BusinessAudience", "audienceType": "Hotéis e alojamentos"},
-            {"@type": "BusinessAudience", "audienceType": "Salões de beleza"},
-            {"@type": "BusinessAudience", "audienceType": "Oficinas auto"},
-            {"@type": "BusinessAudience", "audienceType": "Restaurantes"}
-        ],
-        "featureList": [
-            "Faturação Certificada AGT ({{ \App\Helpers\AGTHelper::softwareValidationNumber() }})",
-            "SAFT-AO mensal automático",
-            "POS funciona offline",
-            "Folha de pagamento angolana (IRT + INSS)",
-            "Multi-empresa e multi-utilizador",
-            "Gestão de stock e inventário",
-            "Perfis de negócio: farmácia, vestuário, cosmética e mercearia",
-            "Farmácia: aviso de receita médica e de psicotrópico no POS",
-            "Lotes e validades com saída FIFO pela data de expiração",
-            "Cosmética: meses após abertura (PAO) e lista INCI",
-            "Mercearia: conservação, alergénios e país de origem",
-            "Hotelaria: booking engine, channel manager",
-            "Salão de Beleza: agendamento e comissões",
-            "Oficina Auto: ordens de reparação",
-            "Servidores em Angola — baixa latência"
-        ]
-    }
-    </script>
-
-    {{-- JSON-LD: WebSite com SearchAction --}}
-    <script type="application/ld+json">
-    {
-        "@@context": "https://schema.org",
-        "@type": "WebSite",
-        "@id": "{{ $canonical }}#website",
-        "url": "{{ $canonical }}",
-        "name": "{{ $appName }}",
-        "description": "{{ $seoDesc }}",
-        "inLanguage": "pt-AO",
-        "publisher": {"@id": "{{ $canonical }}#organization"},
-        "potentialAction": {
-            "@type": "SearchAction",
-            "target": {"@type": "EntryPoint", "urlTemplate": "{{ $canonical }}/?q={search_term_string}"},
-            "query-input": "required name=search_term_string"
-        }
-    }
-    </script>
-
-    {{-- JSON-LD: FAQ (rich snippet) --}}
-    <script type="application/ld+json">
-    {
-        "@@context": "https://schema.org",
-        "@type": "FAQPage",
-        "mainEntity": [
-            {"@type": "Question", "name": "O software é certificado pela AGT Angola?",
-             "acceptedAnswer": {"@type": "Answer", "text": "Sim. SOSERP tem certificação oficial da Administração Geral Tributária de Angola ({{ \App\Helpers\AGTHelper::softwareValidationNumber() }}) para faturação eletrónica e geração de SAFT-AO."}},
-            {"@type": "Question", "name": "Funciona em todo o território de Angola?",
-             {{-- Sem contagem de províncias, pela razão explicada no $seoDesc. --}}
-             "acceptedAnswer": {"@type": "Answer", "text": "Sim. Atendemos todo o território nacional — Luanda, Benguela, Huíla, Huambo, Cabinda, Cuanza Norte, Cuanza Sul, Bié, Cunene, Lunda Norte, Lunda Sul, Malanje, Moxico, Namibe, Uíge, Zaire, Bengo e as restantes províncias. Servidores em Luanda garantem baixa latência."}},
-            {"@type": "Question", "name": "Posso emitir faturas mesmo sem internet?",
-             "acceptedAnswer": {"@type": "Answer", "text": "Sim. O POS SOSERP funciona 100% offline e sincroniza automaticamente quando recupera ligação à internet — ideal para Angola onde a conectividade pode falhar."}},
-            {{-- Os preços saem dos planos, não da cabeça de quem escreveu isto.
-                 Estava aqui "15.000 Kz (Starter), 35.000 (Business), 75.000
-                 (Enterprise)" — números que nunca existiram em plano nenhum, e
-                 que o Google mostrava nos resultados de pesquisa. --}}
-            @php
-                $planoDeEntrada = $plans->where('price_monthly', '>', 0)->sortBy('price_monthly')->first();
-                $planoDeTopo    = $plans->sortByDesc('price_monthly')->first();
-                $diasDeTeste    = (int) ($planoDeEntrada->trial_days ?? 14);
-            @endphp
-            {"@type": "Question", "name": "Quanto custa o SOSERP em Kwanzas?",
-             "acceptedAnswer": {"@type": "Answer", "text": "Os planos começam em {{ number_format($planoDeEntrada->price_monthly ?? 0, 0, ',', '.') }} Kz/mês e vão até {{ number_format($planoDeTopo->price_monthly ?? 0, 0, ',', '.') }} Kz/mês. Todos incluem {{ $diasDeTeste }} dias gratuitos, sem cartão de crédito."}},
-            {"@type": "Question", "name": "Calcula IRT e INSS automaticamente?",
-             "acceptedAnswer": {"@type": "Answer", "text": "Sim. O módulo de RH calcula automaticamente o Imposto sobre o Rendimento do Trabalho (IRT) e contribuições para o INSS conforme a legislação angolana atualizada."}},
-            {"@type": "Question", "name": "É possível gerir várias empresas com uma só conta?",
-             "acceptedAnswer": {"@type": "Answer", "text": "Sim. SOSERP é multi-empresa nativo. Pode gerir holdings, grupos empresariais e franquias com utilizadores e permissões granulares."}},
-            {"@type": "Question", "name": "Serve para farmácia, loja de roupa, cosmética ou mercearia?",
-             "acceptedAnswer": {"@type": "Answer", "text": "Sim. Nas definições de faturação liga o perfil do seu negócio e a ficha do produto passa a mostrar os campos desse sector: receita médica, substância activa e n.º ARMED na farmácia; tamanho, cor e composição no vestuário; meses após abertura (PAO), lista INCI e conteúdo líquido na cosmética; conservação, alergénios e país de origem na mercearia. Pode ligar mais do que um perfil ao mesmo tempo — uma mercearia com balcão de farmácia é as duas coisas."}}
-        ]
-    }
-    </script>
-    
     @if(!empty($settings['google_analytics_id']))
     <!-- Google Analytics (GA4) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id={{ $settings['google_analytics_id'] }}"></script>
@@ -323,46 +153,6 @@
     <link rel="preconnect" href="https://cdn.tailwindcss.com">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
     
-    <script type="application/ld+json">
-    {
-      "@@context": "https://schema.org",
-      "@@type": "SoftwareApplication",
-      "name": "{{ $settings['schema_app_name'] ?? 'SOSERP' }}",
-      "description": "{{ $settings['schema_app_description'] ?? 'Sistema de Gestão Empresarial Multi-Tenant para empresas em Angola' }}",
-      "url": "{{ $settings['schema_app_url'] ?? 'https://soserp.vip' }}",
-      "applicationCategory": "{{ $settings['schema_app_category'] ?? 'BusinessApplication' }}",
-      "operatingSystem": "Web",
-      @if($settings['app_logo'])
-      "image": "{{ asset('storage/' . $settings['app_logo']) }}",
-      @endif
-      "offers": {
-        "@@type": "Offer",
-        "price": "{{ $settings['schema_price'] ?? '0' }}",
-        "priceCurrency": "{{ $settings['schema_currency'] ?? 'AOA' }}",
-        "availability": "https://schema.org/InStock",
-        "eligibleRegion": {
-          "@@type": "Place",
-          "name": "{{ $settings['schema_region'] ?? 'Angola' }}"
-        }
-      },
-      {{-- Só sai se alguém tiver mesmo escrito uma nota e um número de
-           avaliações nas definições. Vinha com 4,8 em 150 avaliações por
-           omissão — ninguém as contou, e uma estrela inventada no resultado
-           de pesquisa é pior do que resultado nenhum. --}}
-      @if(filled($settings['schema_rating_value'] ?? null) && filled($settings['schema_review_count'] ?? null))
-      "aggregateRating": {
-        "@@type": "AggregateRating",
-        "ratingValue": "{{ $settings['schema_rating_value'] }}",
-        "reviewCount": "{{ $settings['schema_review_count'] }}"
-      },
-      @endif
-      "creator": {
-        "@@type": "Organization",
-        "name": "{{ $settings['schema_creator_name'] ?? 'SOSERP' }}",
-        "url": "{{ $settings['schema_creator_url'] ?? 'https://soserp.vip' }}"
-      }
-    }
-    </script>
     
     <!-- Prevenir FOUC: Força tamanhos de imagem antes de qualquer script -->
     <style>
@@ -1905,6 +1695,30 @@
         </div>
     </section>
 
+    <!-- Perguntas frequentes -->
+    {{-- As mesmas perguntas do FAQPage no <head>: um FAQPage que a página não
+         mostra vai contra as regras do Google. --}}
+    <section id="perguntas" class="py-20 bg-white">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-10">
+                <span class="inline-block px-4 py-2 bg-blue-100 text-blue-700 text-sm font-bold rounded-full mb-4">
+                    <i class="fas fa-circle-question mr-2"></i>PERGUNTAS FREQUENTES
+                </span>
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-900">O que nos perguntam antes de começar</h2>
+            </div>
+            <div class="space-y-3">
+                @foreach($perguntasFrequentes as [$pergunta, $resposta])
+                    <details class="group rounded-2xl border border-gray-200 bg-gray-50 open:bg-white open:shadow-lg transition-all duration-300" @if($loop->first) open @endif>
+                        <summary class="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-4 font-semibold text-gray-900">
+                            <span>{{ $pergunta }}</span>
+                            <i class="fas fa-chevron-down text-blue-600 transition-transform duration-300 group-open:rotate-180"></i>
+                        </summary>
+                        <p class="px-6 pb-5 text-gray-600 leading-relaxed">{{ $resposta }}</p>
+                    </details>
+                @endforeach
+            </div>
+        </div>
+    </section>
     <!-- CTA Section -->
     <section class="py-20 bg-gradient-to-r from-blue-600 to-purple-600">
         <div class="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
