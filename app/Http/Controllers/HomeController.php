@@ -29,8 +29,10 @@ class HomeController extends Controller
         }
 
         // O ecrã em React (`inicio`) pede o que mostra a /api/v1/casca/inicio —
-        // ver App\Services\Casca\PaginaInicial. Daqui só vai o recado da sessão.
-        return \App\Support\EcraReact::pagina('inicio', 'Início', ['estado' => session('status')])();
+        // ver App\Services\Casca\PaginaInicial. Daqui só vai o recado da sessão:
+        // o `status` de sempre, ou o `success` com que o registo aterra aqui
+        // (e que ninguém chegava a ver).
+        return \App\Support\EcraReact::pagina('inicio', 'Início', ['estado' => session('status') ?? session('success')])();
     }
 
     /**

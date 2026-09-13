@@ -28,6 +28,15 @@ class PaginaInicialTest extends TenantTestCase
             ->assertSee('Tudo pronto.', false);
     }
 
+    /** O registo de uma empresa nova aterra aqui com `success` — e ninguém o via. */
+    public function test_o_recado_do_registo_tambem_chega(): void
+    {
+        $this->withSession(['success' => 'Empresa criada com sucesso! Bem-vindo ao SOSERP.'])
+            ->get('/home')
+            ->assertOk()
+            ->assertSee('Empresa criada com sucesso! Bem-vindo ao SOSERP.', false);
+    }
+
     public function test_os_numeros_e_a_ficha_sao_da_empresa_activa(): void
     {
         $this->comPermissoes('customers.view');
