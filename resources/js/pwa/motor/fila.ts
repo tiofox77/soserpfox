@@ -40,7 +40,10 @@ export async function refreshPendingCount(base = db, estado = state): Promise<nu
     return estado.pendingCount;
 }
 
-const OPS_COM_OPERADOR = ['create_pos_sale', 'open_pos_shift', 'close_pos_shift', 'sync_restaurant_order'];
+// Tudo o que cria um registo operacional ou fiscal em nome de alguém tem de
+// levar o operador que entrou por PIN. A sessão HTTP pertence muitas vezes ao
+// primeiro utilizador que preparou o aparelho e não a quem está agora no balcão.
+const OPS_COM_OPERADOR = ['create_pos_sale', 'create_draft', 'open_pos_shift', 'close_pos_shift', 'sync_restaurant_order'];
 
 /**
  * Põe um trabalho na fila.
@@ -235,8 +238,21 @@ async function executar(job: Trabalho): Promise<void> {
         }
 
         case 'close_pos_shift': {
-            // O FECHO só depois de TODAS as vendas offline subirem — senão não entram nele.
-            const porSubir = await db.pos_sales.where('_synced').equals(0).count();
+            // O FECHO espera apenas pelas vendas DESTE OPERADOR. Num aparelho
+            // partilhado, esperar pelas vendas dos colegas fazia o primeiro
+            // caixa ficar pendente até uma segunda sincronizacao, apesar de a
+            // sua propria venda ja ter subido na ordem abertura > venda > fecho.
+            const operador = job.payload?.operator_id;
+            const vendasPorEnviar = await db.sync_queue
+                .where('status').anyOf('pending', 'failed')
+                .filter((outro) => outro.op === 'create_pos_sale'
+                    && Number(outro.id || 0) < Number(job.id || Number.MAX_SAFE_INTEGER)
+                    && (!operador || outro.payload?.operator_id === operador))
+                .count();
+            const porSubir = operador
+                ? vendasPorEnviar
+                // Compatibilidade com filas antigas, ainda sem operador.
+                : await db.pos_sales.where('_synced').equals(0).count();
             if (porSubir > 0) throw new Error(t('Vendas por sincronizar — fecho de turno adiado'));
 
             const r = await post('/api/v1/invoicing/pos/shift/close', job.payload);

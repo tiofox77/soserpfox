@@ -356,7 +356,12 @@ class PosShift extends Model
     /**
      * Fechar turno
      */
-    public function close(float $actualCash, ?string $notes = null, ?string $differenceReason = null): void
+    public function close(
+        float $actualCash,
+        ?string $notes = null,
+        ?string $differenceReason = null,
+        ?int $closedBy = null
+    ): void
     {
         $this->expected_cash = $this->opening_balance + $this->cash_sales;
         $this->actual_cash = $actualCash;
@@ -365,7 +370,9 @@ class PosShift extends Model
         $this->closing_notes = $notes;
         $this->difference_reason = $differenceReason;
         $this->closed_at = now();
-        $this->closed_by = auth()->id();
+        // No PWA offline, a sessao HTTP e a do aparelho, mas quem fechou foi
+        // o operador validado pelo PIN e carimbado no trabalho da fila.
+        $this->closed_by = $closedBy ?: auth()->id();
         $this->closed_ip = request()->ip();
         $this->status = 'closed';
         

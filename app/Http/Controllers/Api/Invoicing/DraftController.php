@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Invoicing;
 
+use App\Http\Controllers\Api\Invoicing\Concerns\ResolveOperadorOffline;
 use App\Http\Controllers\Controller;
 use App\Models\Invoicing\SalesInvoice;
 use App\Models\Invoicing\SalesInvoiceItem;
@@ -19,6 +20,8 @@ use Illuminate\Support\Facades\Validator;
  */
 class DraftController extends Controller
 {
+    use ResolveOperadorOffline;
+
     public function store(Request $request): JsonResponse
     {
         $tenantId = activeTenantId();
@@ -67,6 +70,8 @@ class DraftController extends Controller
             'is_service'            => 'nullable|boolean',
             'withholding_percentage' => 'nullable|numeric|min:0|max:100',
             'local_uuid' => 'nullable|string|max:80',
+            'operator_id' => 'nullable|integer',
+            'operator_email' => 'nullable|string|max:191',
         ]);
 
         if ($validator->fails()) {
@@ -78,9 +83,10 @@ class DraftController extends Controller
 
         $data = $validator->validated();
         $docType = $data['doc_type'];
+        $operatorId = $this->operadorOffline($request, $tenantId);
 
         try {
-            return DB::transaction(function () use ($data, $tenantId, $docType) {
+            return DB::transaction(function () use ($data, $tenantId, $docType, $operatorId) {
                 // Serialize this tenant's offline issuance before checking UUIDs.
                 // The lock survives until the document AND series counter commit.
                 DB::table('tenants')->where('id', $tenantId)->lockForUpdate()->first();
@@ -119,9 +125,9 @@ class DraftController extends Controller
                     }
                 }
                 if ($docType === 'proforma') {
-                    return $this->createProforma($data, $tenantId);
+                    return $this->createProforma($data, $tenantId, $operatorId);
                 }
-                return $this->createInvoice($data, $tenantId, $docType);
+                return $this->createInvoice($data, $tenantId, $docType, $operatorId);
             });
         } catch (\App\Services\POS\ClientePorSincronizar $e) {
             // O cliente deste documento ainda não subiu. Não é recusa: o
@@ -130,7 +136,7 @@ class DraftController extends Controller
         }
     }
 
-    private function createInvoice(array $data, int $tenantId, string $docType): JsonResponse
+    private function createInvoice(array $data, int $tenantId, string $docType, int $operatorId): JsonResponse
     {
         $invoice = new SalesInvoice();
         $invoice->tenant_id = $tenantId;
@@ -167,12 +173,12 @@ class DraftController extends Controller
         $invoice->status = $docType === 'FR' ? 'paid' : 'pending';
         $invoice->invoice_status = 'F';
         $invoice->invoice_status_date = now();
-        $invoice->source_id = auth()->id() ?? 'PWA';
+        $invoice->source_id = $operatorId;
         $invoice->source_billing = 'P';
         // created_by é NOT NULL sem default: sem isto, TODA a sincronização de
         // rascunhos do PWA rebentava com "Field 'created_by' doesn't have a
         // default value" e o dispositivo ficava a retentar para sempre.
-        $invoice->created_by = auth()->id();
+        $invoice->created_by = $operatorId;
         $invoice->system_entry_date = now();
         $invoice->notes = ($data['notes'] ?? '')
             . (isset($data['reference']) ? "\n\nReferência: " . $data['reference'] : '')
@@ -306,7 +312,7 @@ class DraftController extends Controller
         ], 201);
     }
 
-    private function createProforma(array $data, int $tenantId): JsonResponse
+    private function createProforma(array $data, int $tenantId, int $operatorId): JsonResponse
     {
         $proforma = new SalesProforma();
         $proforma->tenant_id = $tenantId;
@@ -319,7 +325,7 @@ class DraftController extends Controller
         $proforma->proforma_date = $data['invoice_date'] ?? now()->toDateString();
         $proforma->valid_until = $data['due_date'] ?? now()->addDays(15)->toDateString();
         $proforma->status = 'draft';
-        $proforma->created_by = auth()->id();   // NOT NULL sem default
+        $proforma->created_by = $operatorId;   // operador que entrou por PIN
         $proforma->notes = ($data['notes'] ?? '') . "\n\n[Criado via PWA Offline]";
 
         // NOTA: invoicing_sales_proformas NÃO tem net_total/tax_payable/gross_total.

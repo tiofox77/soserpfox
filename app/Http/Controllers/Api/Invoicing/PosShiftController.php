@@ -140,7 +140,8 @@ class PosShiftController extends Controller
             $shift->close(
                 (float) $request->input('actual_cash'),
                 $request->input('closing_notes'),
-                $request->input('difference_reason')
+                $request->input('difference_reason'),
+                $operatorId
             );
 
             // Preservar hora local do fecho offline, se enviada

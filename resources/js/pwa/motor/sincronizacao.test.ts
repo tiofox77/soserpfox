@@ -93,6 +93,62 @@ describe('a fila', () => {
         expect(job!.payload).toMatchObject({ operator_id: 9, operator_email: 'b@x.ao' });
     });
 
+    it('FT, FR e proforma levam o operador que entrou por PIN', async () => {
+        servidor((u) => (u.includes('/ping') ? { status: 503 } : undefined));
+        await db.meta.bulkPut([{ key: 'tenant_id', value: 3 }, { key: 'user', value: { id: 9, email: 'b@x.ao' } }]);
+
+        for (const doc_type of ['FT', 'FR', 'proforma']) {
+            await SosPwa.createDraftOffline({
+                doc_type,
+                items: [{ product_name: 'Teste', quantity: 1, unit_price: 100, tax_rate: 0 }],
+            });
+        }
+
+        const jobs = await db.sync_queue.where('op').equals('create_draft').toArray();
+        expect(jobs).toHaveLength(3);
+        expect(jobs.every((job) => job.payload?.operator_id === 9)).toBe(true);
+        expect(jobs.every((job) => job.payload?.operator_email === 'b@x.ao')).toBe(true);
+    });
+
+    it('o fecho de um operador nao espera pelas vendas de outro operador', async () => {
+        await db.meta.put({ key: 'tenant_id', value: 1 });
+        await db.pos_sales.put({ local_uuid: 'venda-b', _synced: 0, created_at: new Date().toISOString() });
+        await db.sync_queue.bulkAdd([
+            { op: 'close_pos_shift', payload: { operator_id: 7, actual_cash: 0 }, tenant_id: 1, created_at: '2026-09-13T10:00:01Z', retries: 0, status: 'pending' },
+            { op: 'create_pos_sale', payload: { operator_id: 8, local_uuid: 'venda-b', items: [] }, tenant_id: 1, created_at: '2026-09-13T10:00:02Z', retries: 0, status: 'pending' },
+        ]);
+        servidor(
+            (u) => (u.includes('/shift/close') ? { corpo: { success: true, shift: { id: 1 } } } : undefined),
+            (u) => (u.includes('/pos/sale') ? { corpo: { success: true, id: 10, invoice_number: 'FR T/1' } } : undefined),
+            (u) => (u.includes('/invoicing/sync') ? { corpo: respostaDeSync() } : undefined),
+        );
+
+        await SosPwa.sync(false);
+
+        const jobs = await db.sync_queue.toArray();
+        expect(jobs.every((job) => job.status === 'done')).toBe(true);
+        expect(jobs[0]!.retries).toBe(0);
+    });
+
+    it('o fecho nao espera por venda posterior do mesmo operador', async () => {
+        await db.meta.put({ key: 'tenant_id', value: 1 });
+        await db.sync_queue.bulkAdd([
+            { op: 'close_pos_shift', payload: { operator_id: 7, actual_cash: 0 }, tenant_id: 1, created_at: '2026-09-13T10:00:01Z', retries: 0, status: 'pending' },
+            { op: 'create_pos_sale', payload: { operator_id: 7, local_uuid: 'venda-seguinte', items: [] }, tenant_id: 1, created_at: '2026-09-13T10:00:02Z', retries: 0, status: 'pending' },
+        ]);
+        servidor(
+            (u) => (u.includes('/shift/close') ? { corpo: { success: true, shift: { id: 1 } } } : undefined),
+            (u) => (u.includes('/pos/sale') ? { corpo: { success: true, id: 11, invoice_number: 'FR T/2' } } : undefined),
+            (u) => (u.includes('/invoicing/sync') ? { corpo: respostaDeSync() } : undefined),
+        );
+
+        await SosPwa.sync(false);
+
+        const jobs = await db.sync_queue.toArray();
+        expect(jobs.every((job) => job.status === 'done')).toBe(true);
+        expect(jobs.every((job) => (job.retries || 0) === 0)).toBe(true);
+    });
+
     it('um trabalho de OUTRA empresa fica retido e não sobe', async () => {
         await db.meta.put({ key: 'tenant_id', value: 2 });
         await db.sync_queue.add({ op: 'create_client', payload: { local_uuid: 'c1', name: 'X' }, tenant_id: 1, created_at: new Date().toISOString(), retries: 0, status: 'pending' });
