@@ -392,11 +392,10 @@ class EcraDaMinhaContaEmReactTest extends TenantTestCase
 
         $this->assertSame(ContaDaPlataforma::dados()['iban'], $r->json('conta_da_plataforma.iban'));
 
-        // E o assistente de registo lê da mesma fonte, em vez de ter o seu.
-        $blade = file_get_contents(resource_path('views/livewire/auth/register-wizard.blade.php'));
-
-        $this->assertStringContainsString('ContaDaPlataforma::dados', $blade);
-        $this->assertStringNotContainsString('AO06 0000 0000', $blade,
+        // E o assistente de registo lê da mesma fonte, em vez de ter o seu:
+        // a página passa-lhe a conta, e o ecrã não tem IBAN nenhum escrito.
+        $this->assertStringContainsString('ContaDaPlataforma::dados', file_get_contents(app_path('Http/Controllers/Registo/RegistoController.php')));
+        $this->assertStringNotContainsString('AO06', file_get_contents(resource_path('js/ecras/registo/Assistente.tsx')),
             'o IBAN voltou a estar escrito à mão no assistente de registo');
     }
 

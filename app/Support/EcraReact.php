@@ -50,17 +50,28 @@ final class EcraReact
     {
         // O logótipo e o nome saem da configuração a cada pedido: a página de
         // entrada não tem layout que os desenhe.
-        return self::servir('react.entrada-cliente', $ecra, $titulo, $props, fn () => ['logo' => app_logo(), 'nome' => app_name()]);
+        return self::servir('react.pagina-solta', $ecra, $titulo, $props, fn () => ['logo' => app_logo(), 'nome' => app_name()], [
+            'descricao' => __('Acesse sua área exclusiva do cliente para visualizar faturas, eventos e documentos.'),
+        ]);
     }
 
-    private static function servir(string $vista, string $ecra, string $titulo, array $props, ?Closure $aoAbrir): Closure
+    /**
+     * UMA PÁGINA SOLTA — sem menu nem sessão de empresa: o registo de uma conta
+     * nova, o assistente de 1.ª utilização. O ecrã desenha a página inteira.
+     */
+    public static function solta(string $ecra, string $titulo, array $props = [], array $daVista = []): Closure
     {
-        return function () use ($vista, $ecra, $titulo, $props, $aoAbrir) {
+        return self::servir('react.pagina-solta', $ecra, $titulo, $props, fn () => ['logo' => app_logo(), 'nome' => app_name()], $daVista + ['descricao' => '']);
+    }
+
+    private static function servir(string $vista, string $ecra, string $titulo, array $props, ?Closure $aoAbrir, array $daVista = []): Closure
+    {
+        return function () use ($vista, $ecra, $titulo, $props, $aoAbrir, $daVista) {
             $daRota = collect(request()->route()?->parameters() ?? [])
                 ->map(fn ($v) => is_string($v) && ctype_digit($v) ? (int) $v : $v)
                 ->all();
 
-            return view($vista, [
+            return view($vista, $daVista + [
                 'ecra' => $ecra,
                 // O cabeçalho da página é desenhado pelo Laravel e traduz-se
                 // como o resto do layout. Sem o `__()`, quem trabalha em

@@ -36,7 +36,8 @@ if (config('licensing.enforce')) {
     // Puxar já o que o fornecedor mudou, sem esperar pela cadência automática.
     Route::post('/licenca/sincronizar', [\App\Http\Controllers\LicencaController::class, 'sincronizar'])->name('licenca.sincronizar');
     // Assistente de 1.ª utilização: cria empresa + admin a partir da licença.
-    Route::get('/setup', \App\Livewire\Setup\SetupWizard::class)->name('setup');
+    Route::get('/setup', [\App\Http\Controllers\Setup\AssistenteDeSetupController::class, 'index'])->name('setup');
+    Route::post('/setup', [\App\Http\Controllers\Setup\AssistenteDeSetupController::class, 'finalizar'])->name('setup.finalizar');
 }
 
 // Analytics tracking (sem auth, sem CSRF — público)
@@ -101,7 +102,16 @@ Route::get('/subscrever/{plan}', function (string $plan) {
     ]));
 })->where('plan', '[a-z0-9-]+')->name('subscribe.plan');
 
-Route::get('/register', \App\Livewire\Auth\RegisterWizard::class)->name('register');
+// O registo de uma conta nova: a página e as acções do assistente (React).
+Route::get('/register', [\App\Http\Controllers\Registo\RegistoController::class, 'index'])->name('register');
+Route::prefix('register')->name('register.')->controller(\App\Http\Controllers\Registo\RegistoController::class)->group(function () {
+    Route::post('/seguinte', 'seguinte')->name('seguinte');
+    Route::post('/anterior', 'anterior')->name('anterior');
+    Route::post('/outro-plano', 'outroPlano')->name('outro-plano');
+    Route::put('/progresso', 'guardar')->name('guardar');
+    Route::delete('/progresso', 'recomecar')->name('recomecar');
+    Route::post('/', 'registar')->middleware('throttle:10,1')->name('registar');
+});
 
 // User Invitation Routes
 Route::get('/invitation/{token}', [App\Http\Controllers\InvitationController::class, 'show'])->name('invitation.accept');

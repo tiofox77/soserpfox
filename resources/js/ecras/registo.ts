@@ -99,6 +99,10 @@ export const ecras: Record<string, Ecra> = {
     'casca': () =>
         import('./casca/Casca'),
     // O portal do cliente (guard `client`).
+    'registo/assistente': () =>
+        import('./registo/Assistente'),
+    'setup/assistente': () =>
+        import('./setup/Assistente'),
     'cliente/entrada': () =>
         import('./cliente/Entrada'),
     'cliente/esqueci-a-senha': () =>

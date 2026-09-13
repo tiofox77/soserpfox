@@ -73,11 +73,10 @@ class VerificarLicenca
         }
 
         // Instalação fresca: licença válida, mas ainda NÃO há empresa. Obriga o
-        // assistente de setup. O próprio /setup e o Livewire dele passam — nesta
-        // fase não há dados a proteger; assim que existir empresa, o Livewire
-        // volta a seguir o enforcement normal.
+        // assistente de setup. O próprio /setup (a página e o envio) passa —
+        // nesta fase não há dados a proteger.
         if (!\App\Models\Tenant::query()->exists()) {
-            if ($request->is('setup') || $request->is('livewire/*')) {
+            if ($request->is('setup')) {
                 return $next($request);
             }
             if ($this->ehLivewireOuJson($request)) {
