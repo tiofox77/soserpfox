@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import { eLigacao, eSeparador, eSub, eTitulo, type Entrada, type Grupo, type Ligacao, type PropsDaCasca } from '@/api/casca';
+import { type PropsDaCasca } from '@/api/casca';
 import { cls } from '@/ui/tokens';
 import { t } from '@/i18n';
+
+import { GrupoDoMenu, GrupoSimples, LigacaoDoMenu, ProcuraNoMenu, ResultadosDaProcura, Titulo } from './MenuDaBarra';
 
 /**
  * A CASCA — a barra lateral com o menu, o suporte e o utilizador.
@@ -50,6 +52,7 @@ export default function Casca({ menu, logo, nome, csrf }: PropsDaCasca) {
     const [movel, porMovel] = useState(window.innerWidth < 768);
     const [menuDoUtilizador, porMenuDoUtilizador] = useState(false);
     const [cascata, porCascata] = useState(primeiraPagina);
+    const [procura, porProcura] = useState('');
     const lista = useRef<HTMLElement>(null);
 
     useEffect(() => {
@@ -63,16 +66,36 @@ export default function Casca({ menu, logo, nome, csrf }: PropsDaCasca) {
         window.dispatchEvent(new CustomEvent('casca:estado', { detail: { aberta } }));
     }, [aberta]);
 
-    /* O menu é comprido: volta-se a abrir onde se estava. */
+    /*
+     * O MENU É COMPRIDO: ABRE-SE COM A PÁGINA ACTIVA À VISTA.
+     *
+     * Guardava-se a posição em píxeis e repunha-se na página seguinte. Mas cada
+     * página abre grupos diferentes (o servidor abre o da página activa), e a
+     * lista muda de altura: 2416 px numa, 1228 na outra. A posição guardada
+     * era cortada, o corte sobrescrevia a guardada, e quem carregava em
+     * «Modelos» no fundo do menu abria a página com «Clientes» fora de vista —
+     * ou com o menu no topo. Agora repõe-se a posição só se a página activa
+     * continuar à vista; senão centra-se nela.
+     */
     useEffect(() => {
         const nav = lista.current;
         if (!nav) return;
-        try {
-            const guardado = localStorage.getItem(CHAVE_DO_SCROLL);
-            if (guardado !== null) nav.scrollTop = parseInt(guardado, 10);
-        } catch {
-            /* sem armazenamento, começa-se do topo */
-        }
+        const pagina = window.requestAnimationFrame(() => {
+            try {
+                const guardado = localStorage.getItem(CHAVE_DO_SCROLL);
+                if (guardado !== null) nav.scrollTop = parseInt(guardado, 10);
+            } catch {
+                /* sem armazenamento, começa-se do topo */
+            }
+            const activa = nav.querySelector<HTMLElement>('[aria-current="page"]');
+            if (activa) {
+                const n = nav.getBoundingClientRect();
+                const a = activa.getBoundingClientRect();
+                if (a.top < n.top || a.bottom > n.bottom) {
+                    nav.scrollTop += a.top - n.top - (n.height - a.height) / 2;
+                }
+            }
+        });
         let relogio = 0;
         const aoRolar = () => {
             window.clearTimeout(relogio);
@@ -81,7 +104,7 @@ export default function Casca({ menu, logo, nome, csrf }: PropsDaCasca) {
             }, 100);
         };
         nav.addEventListener('scroll', aoRolar, { passive: true });
-        return () => { nav.removeEventListener('scroll', aoRolar); window.clearTimeout(relogio); };
+        return () => { nav.removeEventListener('scroll', aoRolar); window.clearTimeout(relogio); window.cancelAnimationFrame(pagina); };
     }, []);
 
     /* O botão de encolher é outra peça, na barra do topo: fala por evento. */
@@ -154,24 +177,38 @@ export default function Casca({ menu, logo, nome, csrf }: PropsDaCasca) {
                     )}
                 </div>
 
+                {/* A procura no menu: são mais de cem ligações num tenant com tudo. */}
+                {aberta && <ProcuraNoMenu termo={procura} porTermo={porProcura} />}
+
                 {/* O menu */}
-                <nav ref={lista} id="sidebar-menu" aria-label={t('Menu principal')} className="flex-1 overflow-y-auto py-4">
-                    <Titulo aberta={aberta} primeiro>{t('Menu Principal')}</Titulo>
+                <nav
+                    ref={lista}
+                    id="sidebar-menu"
+                    aria-label={t('Menu principal')}
+                    className="flex-1 overflow-y-auto overscroll-contain px-2 pb-4 pt-2 [scrollbar-color:rgba(255,255,255,.18)_transparent] [scrollbar-width:thin]"
+                >
+                    {procura.trim() !== '' ? (
+                        <ResultadosDaProcura menu={menu} termo={procura} aoClicar={fechar} />
+                    ) : (
+                        <>
+                            <Titulo aberta={aberta} primeiro>{t('Menu Principal')}</Titulo>
 
-                    {menu.principal.map((l) => <LigacaoDoMenu key={l.url} l={l} nivel="topo" aberta={aberta} aoClicar={fechar} />)}
+                            {menu.principal.map((l) => <LigacaoDoMenu key={l.url} l={l} nivel="topo" aberta={aberta} aoClicar={fechar} />)}
 
-                    {menu.grupos.map((g) => (
-                        g.simples
-                            ? <GrupoSimples key={g.chave} g={g} aberta={aberta} aoClicar={fechar} />
-                            : <GrupoDoMenu key={g.chave} g={g} aberta={aberta} aoClicar={fechar} />
-                    ))}
+                            {menu.grupos.map((g) => (
+                                g.simples
+                                    ? <GrupoSimples key={g.chave} g={g} aberta={aberta} aoClicar={fechar} />
+                                    : <GrupoDoMenu key={g.chave} g={g} aberta={aberta} aoClicar={fechar} />
+                            ))}
 
-                    {menu.superadmin.map((s) => (
-                        <div key={s.titulo}>
-                            <Titulo aberta={aberta}>{s.titulo}</Titulo>
-                            {s.entradas.map((l) => <LigacaoDoMenu key={l.url} l={l} nivel="topo" aberta={aberta} aoClicar={fechar} />)}
-                        </div>
-                    ))}
+                            {menu.superadmin.map((s) => (
+                                <div key={s.titulo}>
+                                    <Titulo aberta={aberta}>{s.titulo}</Titulo>
+                                    {s.entradas.map((l) => <LigacaoDoMenu key={l.url} l={l} nivel="topo" aberta={aberta} aoClicar={fechar} />)}
+                                </div>
+                            ))}
+                        </>
+                    )}
                 </nav>
 
                 {/* FOX Friendly */}
@@ -185,24 +222,26 @@ export default function Casca({ menu, logo, nome, csrf }: PropsDaCasca) {
 
                 {/* Suporte — o painel da plataforma não o tem: é ela que o dá. */}
                 {menu.suporte ? (
-                    <div className="mt-auto border-t border-blue-700 pt-4">
-                        <a href={menu.suporte.url} onClick={fechar} className={cls('group flex items-center px-4 py-3 transition', menu.suporte.activo ? 'border-l-4 border-purple-400 bg-blue-700' : 'hover:bg-blue-700/50')}>
-                            <i className="fas fa-life-ring text-2xl text-purple-400" aria-hidden="true" />
+                    <div className="mt-auto border-t border-white/10 px-2 py-2">
+                        <a href={menu.suporte.url} onClick={fechar} title={menu.suporte.rotulo} className={cls('group flex items-center rounded-xl px-2 py-2 transition-all duration-200', !aberta && 'justify-center', menu.suporte.activo ? 'bg-white/15 ring-1 ring-white/15' : 'hover:bg-white/10')}>
+                            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-purple-500/20 transition-transform duration-200 group-hover:rotate-45">
+                                <i className="fas fa-life-ring text-lg text-purple-300" aria-hidden="true" />
+                            </span>
                             {aberta && <span className="ml-3 font-semibold text-white">{menu.suporte.rotulo}</span>}
-                            {aberta && <span className="ml-auto rounded-full bg-purple-500 px-2 py-1 text-xs">{menu.suporte.extra}</span>}
+                            {aberta && <span className="ml-auto rounded-full bg-purple-500 px-2 py-0.5 text-[10px] font-bold shadow-sm">{menu.suporte.extra}</span>}
                         </a>
                     </div>
                 ) : <div className="mt-auto" />}
 
                 {/* O utilizador */}
-                <div className="relative border-t border-blue-700 p-4">
-                    <button type="button" onClick={() => porMenuDoUtilizador((v) => !v)} aria-expanded={menuDoUtilizador} className="flex w-full items-center rounded-lg p-2 text-left transition hover:bg-blue-700/50">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-blue-600 shadow-lg">
+                <div className="relative border-t border-white/10 p-2">
+                    <button type="button" onClick={() => porMenuDoUtilizador((v) => !v)} aria-expanded={menuDoUtilizador} title={menu.utilizador.nome} className={cls('flex w-full items-center rounded-xl p-2 text-left transition hover:bg-white/10', !aberta && 'justify-center')}>
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-indigo-600 shadow-lg ring-2 ring-white/20">
                             <i className="fas fa-user text-white" aria-hidden="true" />
                         </div>
                         {aberta && (
-                            <div className="ml-3 flex-1">
-                                <p className="text-sm font-medium">{menu.utilizador.nome}</p>
+                            <div className="ml-3 min-w-0 flex-1">
+                                <p className="truncate text-sm font-medium">{menu.utilizador.nome}</p>
                                 <p className="text-xs text-blue-300">{menu.utilizador.papel}</p>
                             </div>
                         )}
@@ -237,116 +276,3 @@ export default function Casca({ menu, logo, nome, csrf }: PropsDaCasca) {
     );
 }
 
-/* ─── As peças ──────────────────────────────────────────────────────────── */
-
-function Titulo({ children, aberta, primeiro = false }: { children: ReactNode; aberta: boolean; primeiro?: boolean }) {
-    return (
-        <div className={cls('px-3 mb-2', !primeiro && 'mt-6')}>
-            {aberta && <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-blue-300">{children}</p>}
-        </div>
-    );
-}
-
-type Nivel = 'topo' | 'sub' | 'subsub' | 'relatorio';
-
-const FORMA: Record<Nivel, [string, string, string]> = {
-    topo: ['px-4 py-3', 'w-6', 'ml-3'],
-    sub: ['pl-8 pr-4 py-2.5', 'w-5 text-sm', 'ml-3 text-sm'],
-    subsub: ['pl-4 pr-4 py-2.5', 'w-5 text-sm', 'ml-3 text-xs'],
-    relatorio: ['pl-6 pr-4 py-2', 'w-5 text-xs', 'ml-3 text-xs'],
-};
-
-function LigacaoDoMenu({ l, nivel, aberta, aoClicar }: { l: Ligacao; nivel: Nivel; aberta: boolean; aoClicar: () => void }) {
-    const [caixa, icone, rotulo] = FORMA[nivel];
-
-    return (
-        <a
-            href={l.url}
-            onClick={aoClicar}
-            aria-current={l.activo ? 'page' : undefined}
-            className={cls('flex items-center transition', caixa, l.activo ? `bg-blue-700 border-l-4 border-${l.barra}` : l.hover)}
-        >
-            <i className={cls(l.marca ? 'fab' : 'fas', l.icone, icone, 'text-' + l.cor)} aria-hidden="true" />
-            {aberta && <span className={cls(rotulo, l.forte && 'font-semibold')}>{l.prefixo ? l.prefixo + ' ' : ''}{l.rotulo}</span>}
-        </a>
-    );
-}
-
-function Entradas({ entradas, nivel, aberta, aoClicar }: { entradas: Entrada[]; nivel: Nivel; aberta: boolean; aoClicar: () => void }) {
-    return (
-        <>
-            {entradas.map((e, i) => {
-                if (eSeparador(e)) return <div key={i} className="my-2 border-t border-blue-700/50" />;
-                if (eTitulo(e)) return aberta ? <div key={i} className="px-4 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-blue-300/70">{e.titulo}</div> : null;
-                if (eSub(e)) return <SubGrupo key={e.sub.chave} g={e.sub} aberta={aberta} aoClicar={aoClicar} />;
-                if (eLigacao(e)) return <LigacaoDoMenu key={e.url} l={e} nivel={e.relatorio ? 'relatorio' : nivel} aberta={aberta} aoClicar={aoClicar} />;
-                return null;
-            })}
-        </>
-    );
-}
-
-/**
- * ABRIR E FECHAR COM ALTURA — o que o `x-collapse` do Alpine fazia.
- *
- * As ligações ficam sempre no DOM (a grelha anima de 0fr para 1fr); fechado,
- * o bloco fica `inert`: nem o Tab nem o leitor de ecrã entram lá.
- */
-function Dobra({ aberto, className, children }: { aberto: boolean; className: string; children: ReactNode }) {
-    return (
-        <div className={cls('grid transition-[grid-template-rows] duration-300 ease-out', aberto ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')} inert={!aberto}>
-            <div className={cls('overflow-hidden', className)}>{children}</div>
-        </div>
-    );
-}
-
-function GrupoDoMenu({ g, aberta, aoClicar }: { g: Grupo; aberta: boolean; aoClicar: () => void }) {
-    const [aberto, porAberto] = useState(g.aberto);
-
-    return (
-        <div className="mt-6">
-            <button type="button" onClick={() => porAberto((v) => !v)} aria-expanded={aberto} className="group flex w-full items-center justify-between px-4 py-3 transition hover:bg-blue-700/50">
-                <div className="flex items-center">
-                    <i className={cls('fas', g.icone, 'w-6', 'text-' + g.cor)} aria-hidden="true" />
-                    {aberta && <span className={cls('ml-3', !g.leve && 'font-semibold text-white')}>{g.rotulo}</span>}
-                </div>
-                {aberta && <i className={cls('fas text-xs text-blue-300 transition-transform duration-200', aberto ? 'fa-chevron-down' : 'fa-chevron-right')} aria-hidden="true" />}
-            </button>
-            <Dobra aberto={aberto} className="bg-blue-900/30">
-                <Entradas entradas={g.entradas} nivel="sub" aberta={aberta} aoClicar={aoClicar} />
-            </Dobra>
-        </div>
-    );
-}
-
-function SubGrupo({ g, aberta, aoClicar }: { g: Grupo; aberta: boolean; aoClicar: () => void }) {
-    const [aberto, porAberto] = useState(g.aberto);
-
-    return (
-        <div className="ml-8 border-l-2 border-blue-700/30">
-            <button type="button" onClick={() => porAberto((v) => !v)} aria-expanded={aberto} className="group flex w-full items-center justify-between py-2.5 pr-4 transition hover:bg-blue-700/30">
-                <div className="flex items-center">
-                    <i className={cls('fas', g.icone, 'w-5 text-sm', 'text-' + g.cor)} aria-hidden="true" />
-                    {aberta && <span className="ml-3 text-sm font-semibold">{g.prefixo ? g.prefixo + ' ' : ''}{g.rotulo}</span>}
-                </div>
-                {aberta && <i className={cls('fas text-xs text-blue-300 transition-transform duration-200', aberto ? 'fa-chevron-down' : 'fa-chevron-right')} aria-hidden="true" />}
-            </button>
-            <Dobra aberto={aberto} className="bg-blue-900/20">
-                <Entradas entradas={g.entradas} nivel="subsub" aberta={aberta} aoClicar={aoClicar} />
-            </Dobra>
-        </div>
-    );
-}
-
-/** Uma ligação de topo com as suas dependentes, sem abrir e fechar (Notificações). */
-function GrupoSimples({ g, aberta, aoClicar }: { g: Grupo; aberta: boolean; aoClicar: () => void }) {
-    return (
-        <div className="mt-6">
-            <a href={g.url ?? '#'} onClick={aoClicar} className={cls('flex items-center px-4 py-3 transition', g.activo ? 'border-l-4 border-yellow-400 bg-blue-700' : 'hover:bg-blue-700/50')}>
-                <i className={cls('fas', g.icone, 'w-5 text-xl', 'text-' + g.cor)} aria-hidden="true" />
-                {aberta && <span className="ml-3 font-semibold text-white">{g.rotulo}</span>}
-            </a>
-            <Entradas entradas={g.entradas} nivel="sub" aberta={aberta} aoClicar={aoClicar} />
-        </div>
-    );
-}

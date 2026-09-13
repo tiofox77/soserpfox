@@ -10684,5 +10684,17 @@
     "à espera": "waiting",
     "… e mais :n venda hoje|… e mais :n vendas hoje": "… and :n more sale today|… and :n more sales today",
     "Guardado com sucesso.": "Saved successfully.",
-    "Resetar": "Reset"
+    "Resetar": "Reset",
+    "Procurar no menu…": "Search the menu…",
+    "Procurar no menu": "Search the menu",
+    ":n no menu": ":n in the menu",
+    "Nada no menu com «:termo».": "Nothing in the menu matches «:termo».",
+    "Procurar categoria…": "Search category…",
+    "Procurar categoria": "Search category",
+    "Categorias anteriores": "Previous categories",
+    "Mais categorias": "More categories",
+    "Nenhuma categoria com «:procura».": "No category matches «:procura».",
+    "Desconto em percentagem": "Percentage discount",
+    "Desconto em kwanzas": "Discount in kwanzas",
+    "O sistema foi actualizado. A página vai recarregar.": "The system has been updated. The page will reload."
 }

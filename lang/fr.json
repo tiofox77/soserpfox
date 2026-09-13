@@ -10684,5 +10684,17 @@
     "à espera": "en attente",
     "… e mais :n venda hoje|… e mais :n vendas hoje": "… et :n autre vente aujourd'hui|… et :n autres ventes aujourd'hui",
     "Guardado com sucesso.": "Enregistré avec succès.",
-    "Resetar": "Réinitialiser"
+    "Resetar": "Réinitialiser",
+    "Procurar no menu…": "Rechercher dans le menu…",
+    "Procurar no menu": "Rechercher dans le menu",
+    ":n no menu": ":n dans le menu",
+    "Nada no menu com «:termo».": "Rien dans le menu ne correspond à «:termo».",
+    "Procurar categoria…": "Rechercher une catégorie…",
+    "Procurar categoria": "Rechercher une catégorie",
+    "Categorias anteriores": "Catégories précédentes",
+    "Mais categorias": "Plus de catégories",
+    "Nenhuma categoria com «:procura».": "Aucune catégorie ne correspond à «:procura».",
+    "Desconto em percentagem": "Remise en pourcentage",
+    "Desconto em kwanzas": "Remise en kwanzas",
+    "O sistema foi actualizado. A página vai recarregar.": "Le système a été mis à jour. La page va se recharger."
 }
