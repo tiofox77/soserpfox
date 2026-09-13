@@ -54,6 +54,63 @@ class InvoicingListController extends Controller
         'clients'    => ['name', 'nif', 'email', 'phone', 'address', 'type', 'tax_regime'],
     ];
 
+    /*
+     * A PERMISSÃO DE CADA ÁREA — `{prefixo}.view|create|edit|delete`.
+     *
+     * Esta API (a da app móvel) só autenticava: um caixa lia todas as facturas,
+     * recibos e turnos da empresa, e mudava a taxa do IVA — que é de onde o
+     * TaxResolver tira o imposto das vendas seguintes —, o NIF de um cliente, ou
+     * apagava armazéns (auditoria de segurança de 2026-09-13). As permissões
+     * são as mesmas dos ecrãs React de cada área.
+     */
+    private array $permissoes = [
+        'sales-invoices'     => 'invoicing.sales.invoices',
+        'purchase-invoices'  => 'invoicing.purchases.invoices',
+        'sales-proformas'    => 'invoicing.sales.proformas',
+        'purchase-proformas' => 'invoicing.purchases.proformas',
+        'receipts'           => 'invoicing.receipts',
+        'credit-notes'       => 'invoicing.credit-notes',
+        'debit-notes'        => 'invoicing.debit-notes',
+        'advances'           => 'invoicing.advances',
+        'suppliers'          => 'invoicing.suppliers',
+        'brands'             => 'invoicing.brands',
+        'categories'         => 'invoicing.categories',
+        'warehouses'         => 'invoicing.warehouses',
+        'series'             => 'invoicing.series',
+        'taxes'              => 'invoicing.taxes',
+        'product-batches'    => 'invoicing.product-batches',
+        'clients'            => 'invoicing.clients',
+        'products'           => 'invoicing.products',
+    ];
+
+    /** As áreas de documentos: cada um vê os que emitiu, salvo `invoicing.documents.all`. */
+    private const DO_AUTOR = ['sales-invoices', 'purchase-invoices', 'sales-proformas', 'purchase-proformas', 'receipts', 'credit-notes', 'debit-notes', 'advances'];
+
+    private function exigir(string $area, string $accao): void
+    {
+        $u = auth()->user();
+
+        if ($area === 'shifts') {
+            // Os turnos de todos são do relatório de todos.
+            abort_unless($u?->can('invoicing.pos.reports.all'), 403, __('Sem permissão para esta operação.'));
+
+            return;
+        }
+
+        $prefixo = $this->permissoes[$area] ?? null;
+        abort_unless($prefixo && $u?->can("{$prefixo}.{$accao}"), 403, __('Sem permissão para esta operação.'));
+    }
+
+    /** O `created_by` só existe em algumas tabelas; nas outras não há autor a filtrar. */
+    private function doAutor($query, string $area, string $table)
+    {
+        if (in_array($area, self::DO_AUTOR, true) && Schema::hasColumn($table, 'created_by')) {
+            escopoDoAutor($query);
+        }
+
+        return $query;
+    }
+
     // area => [tabela de itens, chave estrangeira]
     private array $itemTables = [
         'sales-invoices'     => ['invoicing_sales_invoice_items', 'sales_invoice_id'],
@@ -71,12 +128,15 @@ class InvoicingListController extends Controller
             return response()->json(['error' => 'No active tenant'], 403);
         }
 
+        // A permissão ANTES de tudo: nem a existência da área se diz a quem não pode.
+        $this->exigir($area, 'view');
+
         $table = $this->tables[$area] ?? null;
         if (!$table || !Schema::hasTable($table)) {
             return response()->json(['data' => [], 'total' => 0, 'area' => $area]);
         }
 
-        $rows = DB::table($table)
+        $rows = $this->doAutor(DB::table($table), $area, $table)
             ->where('tenant_id', $tenantId)
             ->orderByDesc('id')
             ->limit(200)
@@ -140,6 +200,9 @@ class InvoicingListController extends Controller
             return response()->json(['error' => 'No active tenant'], 403);
         }
 
+        // Totais de vendas da empresa inteira: é o painel da facturação.
+        abort_unless(auth()->user()?->can('invoicing.dashboard.view'), 403, __('Sem permissão para esta operação.'));
+
         $count = function (string $table) use ($t): int {
             return Schema::hasTable($table) ? (int) DB::table($table)->where('tenant_id', $t)->count() : 0;
         };
@@ -189,16 +252,22 @@ class InvoicingListController extends Controller
         if (!$t) {
             return response()->json(['error' => 'No active tenant'], 403);
         }
+        $this->exigir($area, 'view');
+
         $table = $this->tables[$area] ?? null;
         if (!$table || !Schema::hasTable($table)) {
             return response()->json(['error' => 'Área inválida'], 404);
         }
 
-        $row = DB::table($table)->where('tenant_id', $t)->where('id', $id)->first();
+        $row = $this->doAutor(DB::table($table), $area, $table)->where('tenant_id', $t)->where('id', $id)->first();
         if (!$row) {
             return response()->json(['error' => 'Não encontrado'], 404);
         }
-        $record = (array) $row;
+        // A linha crua levava tudo o que a tabela tem — no cliente, o hash da
+        // senha do portal e o remember_token. Credenciais nunca saem daqui.
+        $record = collect((array) $row)
+            ->reject(fn ($v, $coluna) => preg_match('/password|remember_token|token|secret|pin_hash|api_key|private_key|hash_control/i', (string) $coluna))
+            ->all();
 
         if (!empty($record['client_id'])) {
             $record['_client_name'] = DB::table('invoicing_clients')->where('id', $record['client_id'])->value('name');
@@ -236,6 +305,8 @@ class InvoicingListController extends Controller
         $model = $this->models[$area] ?? null;
         if (!$model) return response()->json(['error' => 'Área não editável'], 422);
 
+        $this->exigir($area, 'create');
+
         $request->validate(['name' => 'required|string|max:255']);
         $data = $this->payload($request, $area, $tenantId);
 
@@ -244,7 +315,10 @@ class InvoicingListController extends Controller
             $obj->forceFill($data);
             $obj->save();
         } catch (\Throwable $e) {
-            return response()->json(['error' => $e->getMessage()], 422);
+            // A mensagem da base (SQL, nomes de colunas) não sai para o cliente.
+            report($e);
+
+            return response()->json(['error' => __('Não foi possível gravar.')], 422);
         }
         return response()->json(['id' => $obj->id, 'ok' => true], 201);
     }
@@ -256,6 +330,8 @@ class InvoicingListController extends Controller
         $model = $this->models[$area] ?? null;
         if (!$model) return response()->json(['error' => 'Área não editável'], 422);
 
+        $this->exigir($area, 'edit');
+
         $obj = $model::where('tenant_id', $tenantId)->find($id);
         if (!$obj) return response()->json(['error' => 'Não encontrado'], 404);
 
@@ -265,7 +341,9 @@ class InvoicingListController extends Controller
             $obj->forceFill(collect($request->only($fields))->all());
             $obj->save();
         } catch (\Throwable $e) {
-            return response()->json(['error' => $e->getMessage()], 422);
+            report($e);
+
+            return response()->json(['error' => __('Não foi possível gravar.')], 422);
         }
         return response()->json(['ok' => true]);
     }
@@ -276,6 +354,8 @@ class InvoicingListController extends Controller
         if (!$tenantId) return response()->json(['error' => 'No active tenant'], 403);
         $model = $this->models[$area] ?? null;
         if (!$model) return response()->json(['error' => 'Área não editável'], 422);
+
+        $this->exigir($area, 'delete');
 
         $obj = $model::where('tenant_id', $tenantId)->find($id);
         if (!$obj) return response()->json(['error' => 'Não encontrado'], 404);

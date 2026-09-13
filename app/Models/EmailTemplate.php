@@ -33,8 +33,12 @@ class EmailTemplate extends Model
 
         foreach ($data as $key => $value) {
             $placeholder = '{' . $key . '}';
+            $value = is_scalar($value) || $value === null ? (string) $value : '';
             $subject = str_replace($placeholder, $value, $subject);
-            $bodyHtml = str_replace($placeholder, $value, $bodyHtml);
+            // No HTML, o valor é TEXTO: um nome com «<script>» ou «<a href>» não
+            // vira marcação no email. `false` não re-escapa quem já chega
+            // escapado (AvisosDeSubscricao faz o seu próprio e()).
+            $bodyHtml = str_replace($placeholder, e($value, false), $bodyHtml);
             if ($bodyText) {
                 $bodyText = str_replace($placeholder, $value, $bodyText);
             }
@@ -57,31 +61,22 @@ class EmailTemplate extends Model
      */
     protected function wrapInLayout(string $content, string $subject): string
     {
-        // Criar um arquivo temporário com o conteúdo
-        $tempViewName = 'emails.temp_' . md5($content . time());
-        $tempViewPath = resource_path('views/emails/temp_' . md5($content . time()) . '.blade.php');
-        
-        // Criar conteúdo do template temporário que estende o layout
-        $tempContent = "@extends('emails.layout')\n\n@section('content')\n" . $content . "\n@endsection";
-        
-        // Salvar arquivo temporário
-        file_put_contents($tempViewPath, $tempContent);
-        
+        /*
+         * NUNCA SE COMPILA O CORPO COMO BLADE.
+         *
+         * Escrevia-se o corpo — já com os valores do pedido lá dentro — num
+         * ficheiro temporário `.blade.php` e compilava-se: o nome de uma empresa
+         * registada com «{{ system('id') }}» corria código no servidor. O corpo
+         * é DADO: vai para uma vista fixa que o imprime tal e qual.
+         */
         try {
-            // Renderizar usando Blade
-            $rendered = view($tempViewName, [
+            return view('emails.com-conteudo', [
                 'subject' => $subject,
+                'conteudo' => $content,
             ])->render();
-            
-            // Deletar arquivo temporário
-            @unlink($tempViewPath);
-            
-            return $rendered;
-        } catch (\Exception $e) {
-            // Deletar arquivo temporário em caso de erro
-            @unlink($tempViewPath);
-            
-            // Fallback: renderização manual
+        } catch (\Throwable $e) {
+            report($e);
+
             return $this->manualWrapInLayout($content, $subject);
         }
     }
