@@ -245,6 +245,8 @@ export const ecras: Record<string, Ecra> = {
      * O SALÃO. Os PRODUTOS e o BALCÃO são os da facturação — o ecrã completo
      * em vez da cópia reduzida que o salão tinha. Estes são só dele.
      */
+    'salao/agendar': () =>
+        import('./salao/Agendar'),
     'salao/painel': () =>
         import('./salao/Painel'),
     'salao/marcacoes': () =>

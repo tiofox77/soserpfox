@@ -3233,8 +3233,23 @@ Route::middleware(['auth', 'tenant.module:salon'])->prefix('salon')->name('salon
         ->get('/settings', \App\Support\EcraReact::pagina('salao/definicoes', 'Definições do Salão'))->name('settings');
 });
 
-// Salon Booking Online (Public) - Landing Page Customizada
-Route::get('/agendar/{slug}', \App\Livewire\Salon\SalonBookingOnline::class)->name('salon.booking.online');
+/*
+ * A PÁGINA PÚBLICA DO SALÃO — a montra e a marcação online.
+ *
+ * Sem sessão de empresa: quem manda é o SLUG. As acções escrevem na base a
+ * partir da rua, e por isso vão com travão de tráfego.
+ */
+Route::get('/agendar/{slug}', [\App\Http\Controllers\Salon\AgendamentoOnlineController::class, 'pagina'])->name('salon.booking.online');
+Route::prefix('api/publico/salao/{slug}')->name('salon.publico.')
+    ->middleware('throttle:60,1')
+    ->controller(\App\Http\Controllers\Salon\AgendamentoOnlineController::class)
+    ->group(function () {
+        Route::get('/horarios', 'horarios')->name('horarios');
+        Route::post('/entrar', 'entrar')->name('entrar');
+        Route::post('/registar', 'registar')->name('registar');
+        Route::post('/sair', 'sair')->name('sair');
+        Route::post('/marcar', 'marcar')->name('marcar');
+    });
 
 // Menu online do restaurante (público) — a carta que o cliente abre no
 // telemóvel. A segunda forma leva o código da mesa, e é a que vai no QR

@@ -83,16 +83,11 @@ class EcrasDoSalaoEmReactTest extends TenantTestCase
         }
     }
 
-    /** O Livewire do salão foi-se — só a página pública de marcação ficou. */
-    public function test_so_a_pagina_publica_continua_em_livewire(): void
+    /** O Livewire do salão foi-se todo — a página pública de marcação também já é React. */
+    public function test_ja_nao_ha_livewire_no_salao(): void
     {
-        $restantes = array_values(array_diff(
-            scandir(app_path('Livewire/Salon')) ?: [],
-            ['.', '..'],
-        ));
-
-        $this->assertSame(['SalonBookingOnline.php'], $restantes,
-            'A página de marcação online é a única do salão sem sessão — e por isso a única que fica.');
+        $this->assertDirectoryDoesNotExist(app_path('Livewire/Salon'));
+        $this->assertFileExists(resource_path('js/ecras/salao/Agendar.tsx'));
     }
 
     /* ─── O painel ─────────────────────────────────────────────────────── */
