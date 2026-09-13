@@ -244,6 +244,7 @@
             background-position: right center;
         }
     </style>
+    @include('partials.react-animacoes')
 </head>
 <body class="bg-gray-50">
     <div x-data="{ sidebarOpen: true }" class="flex h-screen overflow-hidden">

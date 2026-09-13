@@ -176,7 +176,7 @@ function Accao({ i, gradiente, icone, titulo, nota, aTrabalhar = false, onClick 
             type="button"
             onClick={onClick}
             disabled={aTrabalhar}
-            className={cls('cascata group bg-gradient-to-br p-6 text-left text-white shadow-lg disabled:opacity-70', gradiente, RAIO_GRANDE, TRANSICAO, TOQUE, FOCO)}
+            className={cls('entra group bg-gradient-to-br p-6 text-left text-white shadow-lg disabled:opacity-70', gradiente, RAIO_GRANDE, TRANSICAO, TOQUE, FOCO)}
             style={cascata(i)}
         >
             <i className={cls('fas mb-3 block text-3xl icon-float', aTrabalhar ? 'fa-circle-notch fa-spin' : icone)} aria-hidden="true" />

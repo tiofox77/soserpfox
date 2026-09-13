@@ -142,7 +142,7 @@ export default function Empresas() {
                             aria-pressed={aceso}
                             onClick={() => mexer('estado', aceso ? '' : e.chave)}
                             className={cls(
-                                'cascata border-2 p-3 text-left', RAIO, TRANSICAO, FOCO,
+                                'entra border-2 p-3 text-left', RAIO, TRANSICAO, FOCO,
                                 'hover:-translate-y-0.5 hover:shadow-md',
                                 aceso ? e.aceso : 'border-slate-200 bg-white',
                             )}

@@ -99,7 +99,7 @@ export default function ModelosDeEmail() {
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {d.modelos.map((m, i) => (
-                                    <tr key={m.id} className={cls('cascata hover:bg-indigo-50/40', TRANSICAO)} style={cascata(i)}>
+                                    <tr key={m.id} className={cls('entra hover:bg-indigo-50/40', TRANSICAO)} style={cascata(i)}>
                                         <td className="px-5 py-3">
                                             <p className="font-bold text-slate-900">{m.nome}</p>
                                             {m.descricao && <p className="mt-1 text-xs text-slate-500">{m.descricao}</p>}

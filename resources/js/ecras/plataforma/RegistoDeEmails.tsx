@@ -141,7 +141,7 @@ export default function RegistoDeEmails() {
                                     const e = ESTADO(l.estado);
 
                                     return (
-                                        <tr key={l.id} className={cls('cascata hover:bg-slate-50', TRANSICAO)} style={cascata(i)}>
+                                        <tr key={l.id} className={cls('entra hover:bg-slate-50', TRANSICAO)} style={cascata(i)}>
                                             <td className="whitespace-nowrap px-5 py-3 text-xs tabular-nums text-slate-600">{dataHora(l.criado_em)}</td>
                                             <td className="px-5 py-3">
                                                 <span className="block font-medium text-slate-900">{l.para}</span>

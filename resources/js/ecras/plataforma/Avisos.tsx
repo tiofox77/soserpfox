@@ -91,7 +91,7 @@ export default function Avisos() {
                     const publico = d.opcoes.publicos.find((p) => p.valor === m.publico)?.rotulo ?? m.publico;
 
                     return (
-                        <article key={m.id} className={cls('cascata border-b border-slate-100 p-5 last:border-0 hover:bg-slate-50/60', TRANSICAO)} style={cascata(i)}>
+                        <article key={m.id} className={cls('entra border-b border-slate-100 p-5 last:border-0 hover:bg-slate-50/60', TRANSICAO)} style={cascata(i)}>
                             <div className="flex flex-wrap items-start gap-4">
                                 <span className={cls('grid h-10 w-10 flex-none place-items-center', RAIO, e.fundo)}>
                                     <i className={cls('fas icon-float', e.icone)} aria-hidden="true" />

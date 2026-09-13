@@ -89,7 +89,7 @@ export default function Scripts() {
                     ) : (
                         <ul className="max-h-[36rem] space-y-2 overflow-y-auto pr-1">
                             {d.scripts.map((s, i) => (
-                                <li key={s.nome} className={cls('cascata border-2 p-3', RAIO, TRANSICAO, escolhido === s.nome ? 'border-cyan-500 bg-cyan-50' : 'border-slate-200 hover:border-cyan-300 hover:bg-slate-50')} style={cascata(i)}>
+                                <li key={s.nome} className={cls('entra border-2 p-3', RAIO, TRANSICAO, escolhido === s.nome ? 'border-cyan-500 bg-cyan-50' : 'border-slate-200 hover:border-cyan-300 hover:bg-slate-50')} style={cascata(i)}>
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0">
                                             <p className="truncate font-mono text-sm font-bold text-slate-900"><i className="fab fa-php mr-2 text-indigo-500" aria-hidden="true" />{s.nome}</p>

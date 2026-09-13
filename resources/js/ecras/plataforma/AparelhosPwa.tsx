@@ -123,7 +123,7 @@ export default function AparelhosPwa() {
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {d.aparelhos.map((a, i) => (
-                                    <tr key={a.id} className={cls('cascata', TRANSICAO, a.atrasado ? 'bg-red-50/40 hover:bg-red-50' : 'hover:bg-slate-50')} style={cascata(i)}>
+                                    <tr key={a.id} className={cls('entra', TRANSICAO, a.atrasado ? 'bg-red-50/40 hover:bg-red-50' : 'hover:bg-slate-50')} style={cascata(i)}>
                                         <td className="px-4 py-3">
                                             <p className="font-bold text-slate-800">{a.empresa ?? t('(empresa apagada)')}</p>
                                             <p className="font-mono text-[11px] text-slate-400" title={a.aparelho}>{a.aparelho.length > 14 ? `${a.aparelho.slice(0, 13)}…` : a.aparelho}</p>
@@ -172,7 +172,7 @@ export default function AparelhosPwa() {
                     <p className="mt-0.5 text-xs text-slate-500">{t('Pagam pelo módulo e não estão a usar o ponto de venda offline. Vale uma chamada.')}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                         {d.com_modulo_sem_aparelho.map((e, i) => (
-                            <span key={e.id} className="cascata rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600" style={cascata(i)}>{e.nome}</span>
+                            <span key={e.id} className="entra rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600" style={cascata(i)}>{e.nome}</span>
                         ))}
                     </div>
                 </section>

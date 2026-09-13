@@ -247,7 +247,7 @@ export default function Comandos() {
                         {d.historico.length === 0 ? <SemNada icone="fa-clock-rotate-left" titulo={t('Nenhuma execucao registrada')} frase={t('Comece executando um comando ou seeder')} /> : (
                             <ul className="space-y-2">
                                 {d.historico.map((h, i) => (
-                                    <li key={`${h.executed_at}-${i}`} className={cls('cascata border p-3', RAIO, h.success ? 'border-emerald-200 bg-emerald-50/50' : 'border-red-200 bg-red-50/50')} style={cascata(i)}>
+                                    <li key={`${h.executed_at}-${i}`} className={cls('entra border p-3', RAIO, h.success ? 'border-emerald-200 bg-emerald-50/50' : 'border-red-200 bg-red-50/50')} style={cascata(i)}>
                                         <div className="flex flex-wrap items-center justify-between gap-2">
                                             <span className="font-semibold text-slate-800">
                                                 <i className={cls('fas mr-2', h.success ? 'fa-circle-check text-emerald-600' : 'fa-circle-xmark text-red-600')} aria-hidden="true" />{h.command_name}

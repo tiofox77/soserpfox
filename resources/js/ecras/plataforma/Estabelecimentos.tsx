@@ -65,7 +65,7 @@ export default function Estabelecimentos() {
                         type="button"
                         onClick={() => porFiltros((f) => ({ ...f, estado: e.chave, pagina: 1 }))}
                         aria-pressed={filtros.estado === e.chave}
-                        className={cls('cascata card-hover border bg-white p-5 text-left shadow-sm', RAIO_GRANDE, TRANSICAO, TOQUE, FOCO,
+                        className={cls('entra card-hover border bg-white p-5 text-left shadow-sm', RAIO_GRANDE, TRANSICAO, TOQUE, FOCO,
                             filtros.estado === e.chave ? e.aceso : 'border-slate-200 hover:border-slate-300')}
                         style={cascata(i)}
                     >
@@ -108,7 +108,7 @@ export default function Estabelecimentos() {
                                     const e = estados.find((x) => x.chave === p.estado) ?? estados[0]!;
 
                                     return (
-                                        <tr key={p.id} className={cls('cascata hover:bg-orange-50/40', TRANSICAO)} style={cascata(i)}>
+                                        <tr key={p.id} className={cls('entra hover:bg-orange-50/40', TRANSICAO)} style={cascata(i)}>
                                             <td className="px-5 py-3">
                                                 <b className="block text-slate-900">{p.empresa ?? '—'}</b>
                                                 <span className="text-xs text-slate-500">{p.pedido_por ?? '—'} · {dataHora(p.pedido_em)}</span>

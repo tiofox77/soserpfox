@@ -382,7 +382,7 @@ export default function Analitica() {
                                         {d.ao_vivo.por_acao.map((e, i) => (
                                             <div
                                                 key={e.nome ?? i}
-                                                className={cls(CARTAO, 'cascata p-3 text-center')}
+                                                className={cls(CARTAO, 'entra p-3 text-center')}
                                                 style={cascata(i)}
                                             >
                                                 <p className="truncate text-xs text-slate-500">{e.nome ?? '—'}</p>
@@ -550,7 +550,7 @@ export default function Analitica() {
                                             <li
                                                 key={e.id}
                                                 className={cls(
-                                                    'cascata flex items-center gap-3 border-l-4 p-2', RAIO, TRANSICAO,
+                                                    'entra flex items-center gap-3 border-l-4 p-2', RAIO, TRANSICAO,
                                                     'hover:bg-slate-50',
                                                     BORDA[tipo.cor],
                                                 )}
@@ -641,7 +641,7 @@ function QuemEstaAgora({ agora }: { agora: { visitantes: number; paginas: Array<
                                 {agora.paginas.map((p, i) => (
                                     <span
                                         key={p.pagina}
-                                        className={cls('cascata bg-white/10 px-2.5 py-1 text-xs font-medium', RAIO)}
+                                        className={cls('entra bg-white/10 px-2.5 py-1 text-xs font-medium', RAIO)}
                                         style={cascata(i)}
                                     >
                                         {p.pagina}
@@ -802,7 +802,7 @@ function Funil({ degraus }: { degraus: Array<{ degrau: string; quantos: number; 
                     const largura = maximo > 0 ? (d.quantos / maximo) * 100 : 0;
 
                     return (
-                        <div key={d.degrau} className="cascata" style={cascata(i)}>
+                        <div key={d.degrau} className="entra" style={cascata(i)}>
                             <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
                                 <span className="flex items-center gap-2 font-bold text-slate-700">
                                     <i className={cls('fas', d.icone, CORES_DO_FUNIL[i])} aria-hidden="true" />
@@ -905,7 +905,7 @@ function Percurso({ visitante, aoFechar }: { visitante: string | null; aoFechar:
                     ) : (
                         <ol className="ml-3 space-y-4 border-l-2 border-slate-200">
                             {percurso.data.passos.map((p, i) => (
-                                <li key={p.id} className="cascata relative pl-6" style={cascata(i)}>
+                                <li key={p.id} className="entra relative pl-6" style={cascata(i)}>
                                     <span className={cls(
                                         'absolute -left-[7px] top-1.5 h-3 w-3 rounded-full ring-2 ring-white',
                                         PONTO_DO_PASSO[p.tipo] ?? 'bg-slate-400',
@@ -992,7 +992,7 @@ function Barras({ linhas, cor, monospace = false, vazio }: {
             {linhas.map((l, i) => (
                 <div
                     key={`${l.rotulo}-${i}`}
-                    className={cls(CARTAO, 'cascata p-2', TRANSICAO, 'hover:shadow-sm')}
+                    className={cls(CARTAO, 'entra p-2', TRANSICAO, 'hover:shadow-sm')}
                     style={cascata(i)}
                 >
                     <div className="mb-1 flex items-center justify-between gap-2">
@@ -1085,7 +1085,7 @@ function Tabela({ cabecalhos, linhas, vazio }: {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                     {linhas.map((linha, i) => (
-                        <tr key={i} className={cls('cascata', TRANSICAO, 'hover:bg-indigo-50/40')} style={cascata(i)}>
+                        <tr key={i} className={cls('entra', TRANSICAO, 'hover:bg-indigo-50/40')} style={cascata(i)}>
                             {linha.map((celula, j) => (
                                 <td key={j} className="px-3 py-2 align-middle">{celula}</td>
                             ))}

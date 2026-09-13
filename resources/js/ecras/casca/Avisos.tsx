@@ -42,7 +42,7 @@ export default function Avisos() {
                     const c = tom(a.cor);
 
                     return (
-                        <div key={a.id} className={cls('cascata flex items-start gap-4 px-6 py-4', a.dispensada && 'bg-gray-50/60')} style={cascata(i)}>
+                        <div key={a.id} className={cls('entra flex items-start gap-4 px-6 py-4', a.dispensada && 'bg-gray-50/60')} style={cascata(i)}>
                             <span className={cls('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', c.suave, a.dispensada && 'opacity-60')}>
                                 <i className={cls('fas', a.icone, c.icone)} aria-hidden="true" />
                             </span>

@@ -117,7 +117,7 @@ export default function Licenciamento() {
                                             const s = SITUACAO(i.situacao);
 
                                             return (
-                                                <tr key={i.id} className={cls('cascata hover:bg-slate-50', TRANSICAO)} style={cascata(n)}>
+                                                <tr key={i.id} className={cls('entra hover:bg-slate-50', TRANSICAO)} style={cascata(n)}>
                                                     <td className="px-4 py-3">
                                                         <p className="font-semibold text-slate-900">{i.empresa}</p>
                                                         <p className="font-mono text-xs text-slate-400" title={i.maquina ?? undefined}>{i.maquina ? `${i.maquina.slice(0, 16)}…` : t('licença flutuante')}</p>
@@ -156,7 +156,7 @@ export default function Licenciamento() {
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
                                         {d.pedidos.map((p, n) => (
-                                            <tr key={p.id} className={cls('cascata hover:bg-slate-50', TRANSICAO, p.estado === 'pendente' && 'bg-amber-50/40')} style={cascata(n)}>
+                                            <tr key={p.id} className={cls('entra hover:bg-slate-50', TRANSICAO, p.estado === 'pendente' && 'bg-amber-50/40')} style={cascata(n)}>
                                                 <td className="px-4 py-3"><p className="font-semibold text-slate-900">{p.empresa}</p><p className="text-xs text-slate-500">NIF {p.nif ?? '—'} · {dataHora(p.pedido_em)}</p></td>
                                                 <td className="px-4 py-3 text-slate-700">{p.responsavel ?? '—'}<p className="text-xs text-slate-400">{p.email ?? p.telefone ?? ''}</p></td>
                                                 <td className="px-4 py-3 text-slate-700">{p.utilizadores ?? '—'}</td>

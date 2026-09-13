@@ -113,7 +113,7 @@ export default function Actualizacoes() {
                     ) : (
                         <ul className="space-y-3">
                             {lista.map((r, i) => (
-                                <li key={r.tag_name} className={cls('cascata border-2 p-4', RAIO, r.is_newer ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-slate-50')} style={cascata(i)}>
+                                <li key={r.tag_name} className={cls('entra border-2 p-4', RAIO, r.is_newer ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-slate-50')} style={cascata(i)}>
                                     <div className="flex flex-wrap items-start justify-between gap-3">
                                         <div>
                                             <p className="flex flex-wrap items-center gap-2 font-bold text-slate-900">

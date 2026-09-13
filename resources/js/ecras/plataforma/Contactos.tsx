@@ -121,7 +121,7 @@ export default function Contactos() {
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {d.mensagens.map((m, i) => (
-                                    <tr key={m.id} className={cls('cascata hover:bg-slate-50', TRANSICAO, m.estado === 'new' && 'bg-red-50/40')} style={cascata(i)}>
+                                    <tr key={m.id} className={cls('entra hover:bg-slate-50', TRANSICAO, m.estado === 'new' && 'bg-red-50/40')} style={cascata(i)}>
                                         <td className="px-5 py-3 font-semibold text-slate-800">{m.nome}</td>
                                         <td className="px-5 py-3"><a className="text-cyan-700 hover:underline" href={`mailto:${m.email}`}>{m.email}</a></td>
                                         <td className="px-5 py-3 text-slate-600">{m.telefone ? <a className="hover:text-cyan-700" href={`tel:${m.telefone}`}>{m.telefone}</a> : '—'}</td>

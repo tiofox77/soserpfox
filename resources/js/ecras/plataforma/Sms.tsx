@@ -389,7 +389,7 @@ function Historico({ tipos }: { tipos: string[] }) {
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {lista.data.registos.map((r, i) => (
-                                    <tr key={r.id} className="cascata hover:bg-slate-50" style={cascata(i)}>
+                                    <tr key={r.id} className="entra hover:bg-slate-50" style={cascata(i)}>
                                         <td className="whitespace-nowrap px-3 py-2 text-xs text-slate-500">{r.enviado_em}</td>
                                         <td className="whitespace-nowrap px-3 py-2 font-mono text-xs">{r.destino}</td>
                                         <td className="max-w-md px-3 py-2">

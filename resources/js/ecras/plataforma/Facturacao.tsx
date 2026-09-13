@@ -212,7 +212,7 @@ function Pedidos({ pedidos, aoFazer }: { pedidos: PedidoPendente[]; aoFazer: (m:
             <AvisoDeErro erro={aprovar.error} />
 
             {pedidos.map((p, i) => (
-                <article key={p.id} className={cls('cascata border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-5', RAIO)} style={cascata(i)}>
+                <article key={p.id} className={cls('entra border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-5', RAIO)} style={cascata(i)}>
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div className="min-w-0 flex-1 space-y-3">
                             <div className="flex items-center gap-3">
@@ -755,7 +755,7 @@ function Facturas({ opcoes, aoFazer }: { opcoes: FacturacaoDaPlataforma['opcoes'
                         const estado = ESTADOS_DA_FACTURA().find((e) => e.valor === x.estado);
 
                         return (
-                            <article key={x.id} className={cls(CARTAO, 'cascata flex flex-wrap items-center justify-between gap-3 p-4', TRANSICAO, 'hover:shadow-md')} style={cascata(i)}>
+                            <article key={x.id} className={cls(CARTAO, 'entra flex flex-wrap items-center justify-between gap-3 p-4', TRANSICAO, 'hover:shadow-md')} style={cascata(i)}>
                                 <div className="flex min-w-0 items-center gap-3">
                                     <span className={cls('grid h-10 w-10 shrink-0 place-items-center rounded-lg text-white bg-gradient-to-br', estado?.fundo ?? 'from-slate-400 to-slate-500')}>
                                         <i className="fas fa-file-invoice" aria-hidden="true" />

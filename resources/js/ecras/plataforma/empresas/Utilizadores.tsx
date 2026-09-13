@@ -110,7 +110,7 @@ export function Utilizadores({ id, aoFechar }: { id: number; aoFechar: () => voi
                             {d.utilizadores.map((u, i) => (
                                 <li
                                     key={u.id}
-                                    className={cls('cascata flex flex-wrap items-center gap-3 bg-slate-50 p-3', RAIO, TRANSICAO, 'hover:bg-slate-100')}
+                                    className={cls('entra flex flex-wrap items-center gap-3 bg-slate-50 p-3', RAIO, TRANSICAO, 'hover:bg-slate-100')}
                                     style={cascata(i)}
                                 >
                                     <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-orange-400 to-red-500 text-sm font-bold text-white">
