@@ -109,9 +109,11 @@ class AGTHelper
             $errors[] = "Data de entrada no sistema ausente";
         }
         
-        // Validar Totais
+        // Validar Totais. GrossTotal é líquido + imposto; a retenção na fonte
+        // NÃO entra — já vive fora dele (total = GrossTotal − retenção). Tirá-la
+        // aqui dava «Totais inconsistentes» a todas as facturas com IRT.
         if (isset($document->gross_total, $document->net_total, $document->tax_payable)) {
-            $calculated = round($document->net_total + $document->tax_payable - ($document->irt_amount ?? 0), 2);
+            $calculated = round($document->net_total + $document->tax_payable, 2);
             if (abs($document->gross_total - $calculated) > 0.02) {
                 $errors[] = "Totais inconsistentes: GrossTotal={$document->gross_total} vs Calculado={$calculated}";
             }

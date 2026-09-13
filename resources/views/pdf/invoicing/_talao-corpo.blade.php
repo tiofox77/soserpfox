@@ -148,10 +148,12 @@
                 $taxRate = $settings->default_tax_rate ?? 14;
                 $irtRate = $settings->default_irt_rate ?? 6.5;
                 
-                // Calcular valores de serviços para IRT
+                // A retenção é a que ficou GRAVADA na venda — o total gravado já
+                // vem sem ela. Recalculá-la aqui e tirá-la outra vez ao total
+                // descontava o IRT duas vezes no «TOTAL GERAL».
                 $servicosTotal = $invoice->items->filter(fn($i) => str_starts_with($i->description ?? '', '[SERVIÇO]'))->sum('subtotal');
-                $irtAmount = $servicosTotal * ($irtRate / 100);
-                $hasServices = $servicosTotal > 0;
+                $irtAmount = \App\Support\TotaisDoPapel::retencao($invoice);
+                $hasServices = $irtAmount > 0;
             @endphp
             <div class="text-xs mb-3 pb-3 border-t-2 border-gray-400 pt-2 space-y-1">
                 <div class="font-bold mb-1">RESUMO FISCAL:</div>
@@ -186,15 +188,17 @@
                     <span>Retenção IRT ({{ number_format($irtRate, 1) }}%):</span>
                     <span>-{{ number_format($irtAmount, 2) }} Kz</span>
                 </div>
+                @if($servicosTotal > 0)
                 <div class="text-[9px] text-purple-600 pl-2">
                     Base serviços: {{ number_format($servicosTotal, 2) }} Kz
                 </div>
                 @endif
-                
+                @endif
+
                 {{-- Total Geral --}}
                 <div class="flex justify-between font-bold text-base border-t-2 border-gray-900 pt-1 mt-1">
                     <span>TOTAL GERAL:</span>
-                    <span>{{ number_format($invoice->total - $irtAmount, 2) }} Kz</span>
+                    <span>{{ number_format(\App\Support\TotaisDoPapel::aPagar($invoice), 2) }} Kz</span>
                 </div>
                 
                 @if($hasServices)

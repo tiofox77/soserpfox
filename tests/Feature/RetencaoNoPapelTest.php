@@ -75,6 +75,34 @@ class RetencaoNoPapelTest extends TenantTestCase
         $this->assertStringContainsString(numberToWords(2150, 'AOA'), $html, 'o extenso diz o valor a pagar');
     }
 
+    public function test_o_talao_nao_desconta_a_retencao_duas_vezes(): void
+    {
+        $f = $this->facturaDeServico();
+        // O POS antigo marcava as linhas de serviço assim — era por aí que o
+        // talão recalculava a retenção e a tirava outra vez ao total.
+        $f->items()->update(['description' => '[SERVIÇO] Montagem']);
+
+        $texto = preg_replace('/\s+/', ' ', strip_tags($this->get('/invoicing/sales/invoices/' . $f->id . '/talao')->assertOk()->getContent()));
+
+        $this->assertStringContainsString('Retenção IRT (6.5%): -130.00 Kz', $texto);
+        $this->assertStringContainsString('TOTAL GERAL: 2,150.00 Kz', $texto, 'o total geral é o total gravado');
+        $this->assertStringNotContainsString('2,020.00', $texto, 'a retenção saía duas vezes');
+    }
+
+    public function test_a_conformidade_agt_nao_desconta_a_retencao_do_gross_total(): void
+    {
+        $f = $this->facturaDeServico();
+
+        $this->assertEqualsWithDelta((float) $f->net_total + (float) $f->tax_payable, (float) $f->gross_total, 0.01);
+
+        $erros = \App\Helpers\AGTHelper::validateAGT($f)['errors'];
+
+        $this->assertEmpty(
+            array_filter($erros, fn ($e) => str_contains($e, 'Totais inconsistentes')),
+            'a retenção saía do GrossTotal outra vez: ' . implode(' | ', $erros),
+        );
+    }
+
     public function test_a_proforma_de_servico_tambem(): void
     {
         $produto = $this->produtoComStock(50, 1000);
@@ -101,9 +129,17 @@ class RetencaoNoPapelTest extends TenantTestCase
     public function test_nenhum_modelo_volta_a_descontar_a_retencao(): void
     {
         foreach (glob(resource_path('views/pdf/invoicing/*.blade.php')) as $modelo) {
+            $conteudo = file_get_contents($modelo);
+
             $this->assertDoesNotMatchRegularExpression(
                 '/->total\s*\??\?*\s*0?\s*\)?\s*-\s*\(?\s*\$\w+->irt_amount/',
-                file_get_contents($modelo),
+                $conteudo,
+                basename($modelo) . ' volta a descontar a retenção a um total que já a leva'
+            );
+            // E a variante com a retenção numa variável ($irtAmount, $retencao…).
+            $this->assertDoesNotMatchRegularExpression(
+                '/->total\s*-\s*\$(irt|reten)\w*/i',
+                $conteudo,
                 basename($modelo) . ' volta a descontar a retenção a um total que já a leva'
             );
         }
