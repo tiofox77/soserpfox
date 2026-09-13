@@ -13,7 +13,7 @@ use Illuminate\Console\Command;
  */
 class DumpDatabase extends Command
 {
-    protected $signature = 'db:dump';
+    protected $signature = 'db:dump {--destino= : caminho absoluto do .sql.gz, dentro de storage/ (o instantâneo do deploy usa-o)}';
     protected $description = 'Gera storage/app/db-dump/soserp_prod.sql.gz (exclui tabelas transitórias)';
 
     public function handle(): int
@@ -25,11 +25,23 @@ class DumpDatabase extends Command
             return 1;
         }
 
-        $dir = storage_path('app/db-dump');
+        $file = storage_path('app/db-dump/soserp_prod.sql.gz');
+
+        // O instantâneo do deploy guarda a cópia na sua pasta. Só dentro de
+        // storage/: é o que fica fora do docroot.
+        if ($destino = $this->option('destino')) {
+            $destino = str_replace('\\', '/', (string) $destino);
+            if (!str_starts_with($destino, str_replace('\\', '/', storage_path()) . '/') || str_contains($destino, '..') || !str_ends_with($destino, '.sql.gz')) {
+                $this->error('--destino tem de ser um .sql.gz dentro de storage/.');
+                return 1;
+            }
+            $file = $destino;
+        }
+
+        $dir = dirname($file);
         if (!is_dir($dir)) {
             @mkdir($dir, 0755, true);
         }
-        $file = $dir . '/soserp_prod.sql.gz';
         $errFile = $dir . '/dump.err';
         @unlink($file);
         @unlink($errFile);
@@ -64,7 +76,7 @@ class DumpDatabase extends Command
         }
 
         @unlink($errFile);
-        $this->info('OK: storage/app/db-dump/soserp_prod.sql.gz (' . round($size / 1048576, 2) . ' MB)');
+        $this->info('OK: ' . $file . ' (' . round($size / 1048576, 2) . ' MB)');
         return 0;
     }
 }

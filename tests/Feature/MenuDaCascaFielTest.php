@@ -220,7 +220,11 @@ class MenuDaCascaFielTest extends TenantTestCase
 
         $this->assertFileExists($ficheiro, 'Falta a gravação — corre com GRAVAR_MENU=1 uma vez, com o menu de sempre.');
 
-        $gravado = json_decode(file_get_contents($ficheiro), true);
+        // A versão do rodapé muda a cada deploy (config/changelog.php) — a
+        // gravação guarda a forma do menu, não o número do dia em que se gravou.
+        $semVersao = fn (array $m) => json_decode(preg_replace('/v\d{4}\.\d{2}\.\d{2}\.\d+/', 'v<versao>', json_encode($m)), true);
+        $gravado = $semVersao(json_decode(file_get_contents($ficheiro), true));
+        $menu = $semVersao($menu);
 
         $this->assertSame($gravado['nav'], $menu['nav'], 'O menu lateral deixou de ser o que era.');
         $this->assertSame($gravado['rodape'], $menu['rodape'], 'O rodapé da barra lateral deixou de ser o que era.');

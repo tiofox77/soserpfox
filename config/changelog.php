@@ -19,9 +19,44 @@ return [
     // O PWA JÁ NÃO DEPENDE DISTO: o aquecimento do cache das páginas usava este
     // valor como chave e passou a usar a assinatura da versão do próprio PWA
     // (resources/js/pwa/aquecer.ts), que muda sozinha quando os ficheiros mudam.
-    'current' => '2026.08.19.1',
+    'current' => '2026.09.13.1',
 
     'releases' => [
+
+        [
+            'version'      => '2026.09.13.1',
+            'date'         => '2026-09-13',
+            'type'         => 'major',
+            'title'        => 'O sistema inteiro num ecrã novo — mais rápido, com os mesmos campos, e as contas certas',
+            'features'     => [
+                ['produto' => 'web', 'texto' => 'Todos os módulos passam a ter ecrãs novos, mais rápidos: facturação, POS, stock, tesouraria, contabilidade, RH, hotel, restaurante, salão, oficina, eventos, CRM, compras, inventário e projectos — e também a minha conta, os utilizadores, a empresa, o suporte, as notificações e o painel da plataforma. Os endereços de sempre continuam a funcionar.'],
+                ['produto' => 'web', 'texto' => 'Os ecrãs abrem sem recarregar a página inteira, com os cartões, as animações e os ícones de antes — e os campos de todos os formulários e janelas mantêm-se.'],
+                ['produto' => 'ambos', 'texto' => 'Sempre que se cria, guarda ou apaga alguma coisa aparece um aviso no canto superior direito — verde quando correu bem, vermelho com o motivo quando não.'],
+                ['produto' => 'pwa', 'texto' => 'O modo offline foi reescrito: um só ecrã para vender, facturar e fechar o turno sem rede, e a sincronização passa a esperar pela actualização do aparelho antes de enviar — acabaram as vendas que subiam antes de o catálogo estar pronto.'],
+                ['produto' => 'web', 'texto' => 'As páginas públicas (entrada, registo, portal do cliente, carta do restaurante e marcações do salão) passam também para o ecrã novo.'],
+                ['produto' => 'web', 'texto' => 'Os ícones escolhem-se de uma galeria, em vez de se escrever o código.'],
+            ],
+            'improvements' => [
+                ['produto' => 'web', 'texto' => 'Os 24 relatórios da facturação num ecrã só, e cinco listas de documentos com os mesmos filtros, colunas e botões.'],
+                ['produto' => 'web', 'texto' => 'A factura, a proforma e a factura de compra mostram o resumo à direita enquanto se preenche, com os três descontos e o armazém já escolhido.'],
+                ['produto' => 'web', 'texto' => 'A taxa do IVA e a retenção na fonte passam a sair do catálogo de impostos da empresa, e não de um número escrito à mão.'],
+                ['produto' => 'web', 'texto' => 'A contabilidade fica completa: diários, centros de custo, períodos, moedas, reconciliação, orçamentos com o realizado e imobilizado.'],
+                ['produto' => 'web', 'texto' => 'Stock: filtro por existência, e o mapa em papel e em Excel.'],
+            ],
+            'fixes'        => [
+                ['produto' => 'ambos', 'texto' => 'CRÍTICO: nas facturas de serviço com retenção IRT, o «Total a Pagar» do PDF e do talão descontava a retenção duas vezes (2.150 Kz apareciam como 2.020). O documento passa a mostrar o total antes da retenção, a retenção e o valor a pagar certos.'],
+                ['produto' => 'ambos', 'texto' => 'No POS, o desconto em percentagem chegava à factura como kwanzas: 10% num talão de 5.000 Kz saía como 10 Kz de desconto.'],
+                ['produto' => 'web', 'texto' => 'A nota de crédito feita no POS entra no turno, e o dinheiro esperado no fecho de caixa passa a bater certo.'],
+                ['produto' => 'web', 'texto' => 'A verificação de conformidade AGT deixava de acusar «totais inconsistentes» em todas as facturas com retenção.'],
+                ['produto' => 'web', 'texto' => 'Um rascunho deixa de contar como dívida no painel e no «por receber».'],
+                ['produto' => 'web', 'texto' => 'Várias páginas que davam erro 500 (portal do cliente, alguns PDF, gravar equipamento nos eventos) e o ecrã de ordens de manutenção do hotel, que nunca chegava a gravar.'],
+                ['produto' => 'web', 'texto' => 'A unidade do artigo deixava de se trocar sozinha ao abrir a ficha.'],
+            ],
+            'security'     => [
+                ['produto' => 'web', 'texto' => 'Todas as páginas dos módulos passam a pedir a permissão certa (mais de 130 rotas não pediam nenhuma), e os modelos do hotel, da oficina e do salão ficam presos à empresa.'],
+                ['produto' => 'web', 'texto' => 'O regime fiscal da empresa só se muda com uma confirmação escrita, e a carta pública do restaurante deixa de levar no HTML os preços escondidos.'],
+            ],
+        ],
 
         [
             'version'      => '2026.08.18.1',

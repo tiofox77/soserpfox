@@ -76,6 +76,14 @@ class MaintenanceController extends Controller
         // como «not found» e o view:cache não resolve (é só Blade). Tem de ser
         // por HTTP: o OPcache do CLI e o do php-fpm são separados.
         'deploy:opcache-reset',
+        // O deploy por pacote e o caminho de volta (App\Support\Deploy\Pacote):
+        // o instantâneo guarda o que o pacote vai tocar e a base de dados; o
+        // aplicar recusa sem ele; o restaurar só diz o que faria sem
+        // --confirmar, e só toca na base de dados com --bd.
+        'deploy:instantaneo',
+        'deploy:aplicar',
+        'deploy:restaurar',
+        'deploy:instantaneos',
         'optimize:clear',
         'config:clear',
         'cache:clear',
