@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\Cache;
  */
 class SitemapController extends Controller
 {
-    public const CHAVE = 'sitemap.xml.v2';
+    public const CHAVE = 'sitemap.xml.v3';
 
     public function index(): Response
     {
