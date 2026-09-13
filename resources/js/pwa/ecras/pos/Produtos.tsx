@@ -13,7 +13,7 @@ import type { ControloDoPos } from './usePos';
  */
 export function ColunaDosProdutos({ pos }: { pos: ControloDoPos }) {
     return (
-        <section className="lg:col-span-7 xl:col-span-8 bg-slate-100 lg:h-full lg:flex lg:flex-col lg:overflow-hidden">
+        <section className="min-w-0 bg-slate-100 lg:h-full lg:flex lg:flex-col lg:overflow-hidden">
             <BarraDoPos pos={pos} />
             <GrelhaDeProdutos pos={pos} />
         </section>
@@ -149,7 +149,7 @@ function GrelhaDeProdutos({ pos }: { pos: ControloDoPos }) {
                  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 320) pos.carregarMaisSeHouver();
              }}>
             {/* A chave pela categoria: trocar de categoria refaz a grelha com um aparecer suave. */}
-            <div key={pos.categoria ?? '__todos'} className="pwa-aparece grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5">
+            <div key={pos.categoria ?? '__todos'} className="pwa-aparece grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] 2xl:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-2.5">
                 {pos.visiveis.map((p) => (
                     <CartaoDoArtigo key={String(p.id)} p={p} qtd={quantidadeNoCarrinho(pos.carrinho, p)} aoTocar={pos.adicionar} />
                 ))}
@@ -176,7 +176,7 @@ function GrelhaDeProdutos({ pos }: { pos: ControloDoPos }) {
 
             {/* Enquanto a base não responde: o esqueleto dos cartões (divs, não botões — não se tocam). */}
             {!pos.catalogoCarregado && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5" aria-hidden="true">
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] 2xl:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-2.5" aria-hidden="true">
                     {Array.from({ length: 8 }, (_, i) => (
                         <div key={i} className="bg-white rounded-2xl shadow-sm p-2.5 border border-gray-100 animate-pulse">
                             <div className="w-full h-20 sm:h-24 rounded-xl bg-slate-100 mb-2" />

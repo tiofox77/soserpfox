@@ -43,9 +43,14 @@ export function Pos() {
               o fundo do ecrã fica escondido por baixo dela; `dvh` acompanha-a. E os
               116px eram um número mágico que já não batia: o cabeçalho tem 60 e a
               barra de navegação de baixo 77, portanto os últimos 21px da coluna
-              ficavam por baixo dela e não se chegava lá.
+              ficavam por baixo dela e não se chegava lá. O cabeçalho já não tem
+              altura fixa (a faixa do estado empurra-o): lê-se de `--pwa-topo`.
+
+              O carrinho tem largura própria (22 a 28 rem) e os artigos ficam com o
+              resto, em colunas que saem do espaço: em 12 colunas fixas, a 2560 px
+              o carrinho ocupava 820 px e os artigos ficavam em cinco cartões pequenos.
             */}
-            <div className="lg:grid lg:grid-cols-12 lg:h-[calc(100dvh-137px)]">
+            <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(22rem,26rem)] 2xl:grid-cols-[minmax(0,1fr)_28rem] lg:h-[calc(100dvh_-_var(--pwa-topo,60px)_-_77px)]">
                 <ColunaDosProdutos pos={pos} />
 
                 {/* No ecrã largo o carrinho é a coluna da direita. Se não couber na
@@ -53,7 +58,7 @@ export function Pos() {
                     «Finalizar» nunca fica cortado. */}
                 {largo && (
                     <aside aria-label={t('Carrinho')}
-                           className="lg:col-span-5 xl:col-span-4 h-full min-h-0 bg-white flex flex-col border-l border-gray-200 overflow-y-auto">
+                           className="h-full min-h-0 bg-white flex flex-col border-l border-gray-200 overflow-y-auto">
                         <Carrinho pos={pos} />
                     </aside>
                 )}

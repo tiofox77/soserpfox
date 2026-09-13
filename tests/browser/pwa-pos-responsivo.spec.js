@@ -24,9 +24,13 @@ const TAMANHOS = [
     { nome: 'telemóvel pequeno', w: 360, h: 800 },
     { nome: 'telemóvel', w: 390, h: 844 },
     { nome: 'telemóvel grande', w: 430, h: 932 },
+    { nome: 'tablet pequeno', w: 768, h: 1024 },
     { nome: 'tablet', w: 820, h: 1180 },
+    { nome: 'tablet deitado', w: 1024, h: 768 },
+    { nome: 'portátil pequeno', w: 1280, h: 720 },
     { nome: 'portátil', w: 1366, h: 768 },
     { nome: 'ecrã grande', w: 1920, h: 1080 },
+    { nome: 'monitor 2K', w: 2560, h: 1440 },
 ];
 
 for (const t of TAMANHOS) {
@@ -129,6 +133,10 @@ for (const t of TAMANHOS) {
                 larguraDeLayout: window.innerWidth,
             };
         });
+
+        if (process.env.FOTOS) {
+            await page.screenshot({ path: `${process.env.FOTOS}/pwa-pos-${t.w}x${t.h}.png` });
+        }
 
         expect(m.semCartoes, 'os artigos têm de aparecer').toBe(false);
         expect(m.tapadoPelaBarra, 'a barra de pesquisa não pode tapar os cartões').toBe(0);

@@ -148,6 +148,9 @@ function Balcao({ o }: { o: Opcoes }) {
 
     // Os modais.
     const [pagar, porPagar] = useState(false);
+    /** No telemóvel o carrinho é uma folha que sobe de baixo (ver BarraDoCarrinho). */
+    const [folhaDoCarrinho, porFolhaDoCarrinho] = useState(false);
+    const aoLado = useLarguraMinima(768);
     const [escolherCliente, porEscolherCliente] = useState(false);
     const [aPerguntarPreco, porAPerguntarPreco] = useState<ArtigoDoPos | null>(null);
     /** O psicotrópico à espera de alguém responder. */
@@ -177,15 +180,28 @@ function Balcao({ o }: { o: Opcoes }) {
             if (!corpo.current) return;
 
             const topo = corpo.current.getBoundingClientRect().top + window.scrollY;
+            // A folga de baixo é o padding do contentor da página, que muda com
+            // o tamanho do ecrã (12, 16 ou 24 px). Com 16 fixos, a 1024×768 o
+            // «Finalizar» ficava 11 px abaixo da janela.
+            const main = document.getElementById('app-main');
+            const folga = main ? parseFloat(getComputedStyle(main).paddingBottom) || 16 : 16;
+            // No telemóvel a barra do carrinho fica presa em baixo.
+            const barra = window.innerWidth < 768 ? 76 : 0;
 
-            // 16px de folga em baixo, para o balcão não colar ao rodapé.
-            porAltura(Math.max(360, window.innerHeight - topo - 16));
+            porAltura(Math.max(300, window.innerHeight - topo - folga - barra));
         }
 
         medir();
         window.addEventListener('resize', medir);
+        // O topo do balcão também muda sem a janela mudar (a faixa quebra
+        // linha, um aviso aparece): mede-se quando o que está por cima cresce.
+        const observador = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(medir) : null;
+        if (corpo.current?.parentElement) observador?.observe(corpo.current.parentElement);
 
-        return () => window.removeEventListener('resize', medir);
+        return () => {
+            window.removeEventListener('resize', medir);
+            observador?.disconnect();
+        };
     }, []);
 
     /* ─── O espelho do carrinho ───────────────────────────────────────────
@@ -514,7 +530,7 @@ function Balcao({ o }: { o: Opcoes }) {
                 sempre no mesmo sítio, em qualquer ecrã. */}
             <div
                 ref={corpo}
-                className="grid min-h-0 gap-3 lg:grid-cols-[1fr_minmax(340px,26rem)]"
+                className="grid min-h-0 gap-3 md:grid-cols-[minmax(0,1fr)_18.5rem] xl:grid-cols-[minmax(0,1fr)_minmax(340px,26rem)]"
                 style={altura ? { height: `${altura}px` } : { minHeight: '32rem' }}
             >
                 <Catalogo
@@ -535,7 +551,7 @@ function Balcao({ o }: { o: Opcoes }) {
                     aoEscolher={escolher}
                 />
 
-                <Carrinho
+                {aoLado && <Carrinho
                     linhas={linhas}
                     cliente={cliente}
                     subtotal={subtotal}
@@ -551,8 +567,64 @@ function Balcao({ o }: { o: Opcoes }) {
                     aoEscolherCliente={() => porEscolherCliente(true)}
                     aoPagar={() => porPagar(true)}
                     podeVender={o.permissoes.pode_vender}
-                />
+                />}
             </div>
+
+            {/* O TELEMÓVEL: o catálogo no ecrã inteiro, e o carrinho numa barra
+                presa em baixo que abre uma folha. Empilhados na mesma altura, o
+                catálogo mostrava uma fila de artigos e o carrinho ficava
+                espremido, com o «Finalizar Venda» cortado em baixo. */}
+            {!aoLado && (
+                <BarraDoCarrinho
+                    pecas={linhas.reduce((n, l) => n + l.quantidade, 0)}
+                    total={base}
+                    podeVender={o.permissoes.pode_vender}
+                    aoAbrir={() => porFolhaDoCarrinho(true)}
+                    aoPagar={() => porPagar(true)}
+                />
+            )}
+            {!aoLado && folhaDoCarrinho && (
+                <div className="animate-fade-in fixed inset-0 z-40 bg-slate-900/40" onClick={() => porFolhaDoCarrinho(false)}>
+                    <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={t('Carrinho')}
+                        onClick={(e) => e.stopPropagation()}
+                        className="animate-scale-in absolute inset-x-0 bottom-0 top-8 flex flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl"
+                    >
+                        <div className="relative flex items-center justify-center border-b border-slate-200 py-3">
+                            <span className="h-1.5 w-10 rounded-full bg-slate-300" aria-hidden="true" />
+                            <button
+                                type="button"
+                                onClick={() => porFolhaDoCarrinho(false)}
+                                aria-label={t('Fechar')}
+                                className={cls('absolute right-2 top-1.5 grid h-9 w-9 place-items-center text-slate-500 hover:bg-slate-100', RAIO, FOCO)}
+                            >
+                                <i className="fas fa-xmark" aria-hidden="true" />
+                            </button>
+                        </div>
+                        <div className="flex min-h-0 flex-1 flex-col">
+                            <Carrinho
+                                linhas={linhas}
+                                cliente={cliente}
+                                subtotal={subtotal}
+                                desconto={desconto}
+                                porDesconto={porDesconto}
+                                descontoTipo={descontoTipo}
+                                porDescontoTipo={porDescontoTipo}
+                                descontoValor={descontoValor}
+                                base={base}
+                                aoMudarQuantidade={mudarQuantidade}
+                                aoTirar={tirar}
+                                aoLimpar={limpar}
+                                aoEscolherCliente={() => porEscolherCliente(true)}
+                                aoPagar={() => { porFolhaDoCarrinho(false); porPagar(true); }}
+                                podeVender={o.permissoes.pode_vender}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* ─── Os modais ─────────────────────────────────────────────── */}
 
@@ -693,16 +765,16 @@ function Faixa({
     return (
         <div
             className={cls(
-                'flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 px-5 py-3 text-white shadow-lg',
+                'flex items-center justify-between gap-2 bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 px-3 py-2 text-white shadow-lg sm:flex-wrap sm:gap-3 sm:px-5 sm:py-3',
                 RAIO,
             )}
         >
             <div className="flex items-center gap-3">
-                <div className="grid h-11 w-11 place-items-center rounded-xl bg-white/20 backdrop-blur-sm">
+                <div className="hidden h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/20 backdrop-blur-sm sm:grid">
                     <i className="fas fa-cash-register icon-float text-xl" aria-hidden="true" />
                 </div>
                 <div>
-                    <h1 className="text-lg font-bold leading-tight">{t('Ponto de Venda')}</h1>
+                    <h1 className="text-base font-bold leading-tight sm:text-lg">{t('Ponto de Venda')}</h1>
                     <p className="text-xs text-indigo-100">
                         {t('Turno :numero', { numero: turno.numero })}
                         {turno.aberto_em && ` · ${t('aberto às :hora', { hora: turno.aberto_em.slice(11, 16) })}`}
@@ -710,11 +782,11 @@ function Faixa({
                 </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 text-xs">
+            <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 text-xs">
                 {armazem.nome && (
-                    <span className="inline-flex items-center gap-2 rounded-lg bg-white/15 px-3 py-1.5 font-semibold backdrop-blur-sm">
-                        <i className="fas fa-warehouse" aria-hidden="true" />
-                        {armazem.nome}
+                    <span className="inline-flex min-w-0 max-w-[45vw] items-center gap-2 rounded-lg bg-white/15 px-2.5 py-1.5 font-semibold backdrop-blur-sm sm:max-w-none sm:px-3" title={armazem.nome}>
+                        <i className="fas fa-warehouse shrink-0" aria-hidden="true" />
+                        <span className="truncate">{armazem.nome}</span>
                     </span>
                 )}
                 {/* Os atalhos à vista: ao balcão o rato é o caminho mais lento. */}
@@ -816,7 +888,10 @@ function Catalogo({
                         </p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
+                    // As colunas saem do ESPAÇO do catálogo, não da largura da
+                    // janela: com a barra lateral aberta a 1024 px eram 4 colunas
+                    // em 300 px (cartões de 59 px), e a 2560 eram 5 de 352 px.
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-2.5 sm:grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] 2xl:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))]">
                         {artigos.map((a, i) => (
                             <CartaoDeArtigo
                                 key={a.id}
@@ -1469,7 +1544,7 @@ function Carrinho({
 
                 {/* O IMPOSTO É DO SERVIDOR. Este ecrã mostra a base; o total com
                     imposto sai no modal de pagamento, calculado por quem manda. */}
-                <p className="mb-3 text-center text-[11px] text-slate-400">
+                <p className="mb-3 text-center text-[11px] text-slate-400 [@media(max-height:820px)]:hidden">
                     {pecas > 0
                         ? t(':n peças no carrinho · o imposto é somado ao pagar', { n: pecas })
                         : t('o imposto é somado ao pagar')}
@@ -1504,5 +1579,77 @@ function Carrinho({
                 </div>
             </div>
         </aside>
+    );
+}
+
+/** Verdadeiro enquanto a janela tiver pelo menos `px` de largura. */
+function useLarguraMinima(px: number): boolean {
+    const consulta = `(min-width: ${px}px)`;
+    const [cumpre, porCumpre] = useState(() => typeof window === 'undefined' || !window.matchMedia || window.matchMedia(consulta).matches);
+
+    useEffect(() => {
+        if (!window.matchMedia) return;
+        const mq = window.matchMedia(consulta);
+        const mudar = () => porCumpre(mq.matches);
+        mudar();
+        mq.addEventListener?.('change', mudar);
+
+        return () => mq.removeEventListener?.('change', mudar);
+    }, [consulta]);
+
+    return cumpre;
+}
+
+/**
+ * A BARRA DO CARRINHO NO TELEMÓVEL — presa em baixo, sempre à vista.
+ *
+ * Quantas peças, quanto se paga, e os dois gestos que importam: ver o
+ * carrinho e fechar a venda. O «Finalizar» não depende de rolar nem de abrir
+ * nada, que é a regra do balcão em qualquer ecrã.
+ */
+function BarraDoCarrinho({ pecas, total, podeVender, aoAbrir, aoPagar }: {
+    pecas: number;
+    total: number;
+    podeVender: boolean;
+    aoAbrir: () => void;
+    aoPagar: () => void;
+}) {
+    return (
+        <div
+            className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-2 border-t border-slate-200 bg-white/95 px-3 py-2.5 shadow-[0_-8px_24px_-12px_rgba(15,23,42,.35)] backdrop-blur"
+            style={{ paddingBottom: 'max(0.625rem, env(safe-area-inset-bottom))' }}
+        >
+            <button
+                type="button"
+                onClick={aoAbrir}
+                aria-label={t('Ver o carrinho')}
+                className={cls('relative flex min-w-0 flex-1 items-center gap-3 border border-slate-200 bg-slate-50 px-3 py-2 text-left transition active:scale-[.98]', RAIO, FOCO)}
+            >
+                <span className="relative grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-indigo-100 text-indigo-700">
+                    <i className="fas fa-basket-shopping" aria-hidden="true" />
+                    {pecas > 0 && (
+                        <span className="absolute -right-1.5 -top-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold text-white">{pecas}</span>
+                    )}
+                </span>
+                <span className="min-w-0">
+                    <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">{t('A pagar')}</span>
+                    <span className="block truncate text-lg font-bold tabular-nums text-indigo-700">{kz(total)}</span>
+                </span>
+            </button>
+            <button
+                type="button"
+                onClick={aoPagar}
+                disabled={pecas === 0 || !podeVender}
+                className={cls(
+                    'inline-flex h-14 shrink-0 items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 px-4 text-sm font-bold text-white shadow-lg transition active:scale-95',
+                    'disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-300 disabled:shadow-none',
+                    RAIO,
+                    FOCO,
+                )}
+            >
+                <i className="fas fa-circle-check" aria-hidden="true" />
+                {t('Finalizar')}
+            </button>
+        </div>
     );
 }

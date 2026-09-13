@@ -31,6 +31,7 @@ type Props = { tickets: string; melhorias: string };
 export default function Suporte({ tickets, melhorias }: Props) {
     const [escondido, porEscondido] = useState(lerEscondido);
     const [aberto, porAberto] = useState(false);
+    const [abertoNoBalcao, porAbertoNoBalcao] = useState(false);
     const [separador, porSeparador] = useState<'tickets' | 'melhorias'>('tickets');
     const caixa = useRef<HTMLDivElement>(null);
     const fechar = useCallback(() => porAberto(false), []);
@@ -48,10 +49,17 @@ export default function Suporte({ tickets, melhorias }: Props) {
         try { localStorage.removeItem(CHAVE); } catch { /* idem */ }
     };
 
-    if (escondido) {
+    // NO BALCÃO O BOTÃO NÃO PODE ESTAR NO CANTO: é lá que fica o «Finalizar
+    // Venda», e o círculo tapava-o do telemóvel ao monitor grande. Começa
+    // como puxador, a meio da borda; quem precisar abre-o (e o suporte está
+    // no menu). O que se escolheu à mão continua a valer nas outras páginas.
+    const noBalcao = typeof document !== 'undefined'
+        && !!document.querySelector('[data-ecra="facturacao/pos"], [data-ecra^="restaurante/pos"], [data-ecra^="restaurant/pos"]');
+
+    if (escondido || (noBalcao && !abertoNoBalcao)) {
         return (
-            <button type="button" onClick={mostrar} title={t('Mostrar o suporte')} aria-label={t('Mostrar o suporte')}
-                className={cls('animate-fade-in fixed bottom-6 right-0 z-50 rounded-l-lg bg-purple-600/70 px-1.5 py-3 text-white shadow-lg transition hover:bg-purple-600 hover:pr-3', FOCO)}>
+            <button type="button" onClick={noBalcao ? () => { porAbertoNoBalcao(true); porEscondido(false); } : mostrar} title={t('Mostrar o suporte')} aria-label={t('Mostrar o suporte')}
+                className={cls('animate-fade-in fixed right-0 z-50', noBalcao ? 'top-1/2 -translate-y-1/2' : 'bottom-6', ' rounded-l-lg bg-purple-600/70 px-1.5 py-3 text-white shadow-lg transition hover:bg-purple-600 hover:pr-3', FOCO)}>
                 <i className="fas fa-life-ring text-xs" aria-hidden="true" />
             </button>
         );
