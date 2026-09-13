@@ -1,20 +1,14 @@
 /**
  * Os gráficos do painel de facturação.
  *
- * PORQUE VIVE NUM FICHEIRO E NÃO NO BLADE. Isto estava num `<script>` dentro
- * da página. Numa navegação por `wire:navigate` — que é como a barra lateral
- * navega — o Livewire troca o corpo da página e um script em linha NÃO volta a
- * correr. Medido: chegando ao painel pela barra lateral, os cinco gráficos
- * ficavam em branco, sem erro nenhum à vista. Só recarregando a página é que
- * apareciam, e quase ninguém recarrega.
+ * PORQUE VIVE NUM FICHEIRO E NÃO NO BLADE. Nasceu num `<script>` dentro da
+ * página do painel em Livewire, que a navegação da barra lateral não voltava
+ * a correr. Hoje o painel é React: daqui usa-se o PDF e o CSV (ver
+ * `ecras/facturacao/Painel.tsx`), e o desenho só corre se a página tiver os
+ * nós de dados.
  *
- * Tentou-se `@script` e `@assets` do Livewire; nem um nem outro correram nesta
- * navegação. O que corre sempre é um ficheiro carregado pelo layout com os
- * ouvintes presos ao `document` — o mesmo caminho do gerador de PDF.
- *
- * OS DADOS VÊM DO DOM, não de dentro do script: três nós JSON que o Livewire
- * volta a escrever a cada mudança de período. Assim trocar de semana para ano
- * muda mesmo a linha do gráfico, e não só os números dos cartões.
+ * OS DADOS VÊM DO DOM, não de dentro do script: três nós JSON que a página
+ * escreve.
  */
 (function () {
     'use strict';
@@ -234,15 +228,6 @@
     if (document.readyState !== 'loading') desenharTudo();
     else document.addEventListener('DOMContentLoaded', desenharTudo);
 
-    // A barra lateral navega sem recarregar a página.
-    document.addEventListener('livewire:navigated', desenharTudo);
-
-    // Trocar de período troca o HTML: redesenhar com os dados novos.
-    document.addEventListener('livewire:initialized', function () {
-        window.Livewire.hook('morph.updated', function () {
-            requestAnimationFrame(desenharTudo);
-        });
-    });
 
     // ── Exportar ───────────────────────────────────────────────────────
 

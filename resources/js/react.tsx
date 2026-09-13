@@ -110,11 +110,3 @@ if (lingua() === 'pt') {
 } else {
     void carregarDicionario().then(montarTudo);
 }
-
-/*
- * O `wire:navigate` troca o corpo da página sem recarregar, e o
- * DOMContentLoaded não volta a disparar — foi assim que a escada de desenho
- * dos gráficos teve de nascer. Aqui não é preciso escada nenhuma: o Livewire
- * avisa quando acabou de trocar, e nós montamos o que aparecer de novo.
- */
-document.addEventListener('livewire:navigated', montarTudo);

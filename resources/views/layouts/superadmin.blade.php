@@ -25,8 +25,6 @@
     <!-- Toastr CSS -->
     <link rel="stylesheet" href="/vendor/css/toastr.min.css">
     
-    @livewireStyles
-    
     <style>
         [x-cloak] { display: none !important; }
         
@@ -394,7 +392,7 @@
         </div>
     </div>
 
-    @livewireScripts
+    @include('partials.alpine')
     
     <!-- jQuery (required for Toastr) -->
     <script src="/vendor/js/jquery.min.js"></script>
@@ -415,28 +413,6 @@
             "hideMethod": "fadeOut"
         };
 
-        // Configuração global do Livewire
-        document.addEventListener('livewire:init', () => {
-            // Listener para notificações de sucesso
-            Livewire.on('success', (event) => {
-                toastr.success(event.message || event[0].message || 'Operação realizada com sucesso!');
-            });
-            
-            // Listener para notificações de erro
-            Livewire.on('error', (event) => {
-                toastr.error(event.message || event[0].message || 'Ocorreu um erro!');
-            });
-            
-            // Listener para notificações de aviso
-            Livewire.on('warning', (event) => {
-                toastr.warning(event.message || event[0].message || 'Atenção!');
-            });
-            
-            // Listener para notificações de informação
-            Livewire.on('info', (event) => {
-                toastr.info(event.message || event[0].message || 'Informação!');
-            });
-        });
 
         // Mostrar flash messages
         @if(session()->has('message'))

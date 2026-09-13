@@ -15,87 +15,33 @@ use Tests\TenantTestCase;
 class PaineisDosModulosTest extends TenantTestCase
 {
     /**
-     * OS GRÁFICOS DESENHAM-SE DEPOIS DE O LIVEWIRE TROCAR O CANVAS.
+     * NENHUM PAINEL EM BLADE DESENHA GRÁFICOS — os painéis são React.
      *
-     * Medido no browser: chegando ao painel do salão ou da tesouraria pela
-     * barra lateral, o gráfico ficava em branco. O `<script>` volta a correr e
-     * até era chamado — mas o Livewire monta o componente A SEGUIR e troca o
-     * `<canvas>`, deitando fora aquele onde se acabara de desenhar.
+     * Eram nove painéis em Blade com gráficos em <canvas>, todos com o mesmo
+     * defeito: pela barra lateral (a navegação do Livewire) o gráfico ficava em
+     * branco, porque o componente trocava o <canvas> depois do desenho. Nasceu
+     * para isso um sítio único de «quando desenhar» (`partials/graficos`), com a
+     * escada de desenhos. Os painéis passaram a React — lá os gráficos são SVG e
+     * não há canvas nenhum a trocar — e, sem Livewire, o partial saiu também.
+     *
+     * Fica o travão: um painel novo em Blade a desenhar num <canvas> é um passo
+     * para trás, e voltava a precisar de tudo o que se apagou.
      *
      * @test
      */
-    public function o_desenho_dos_graficos_espera_pelo_livewire(): void
+    public function nenhum_painel_em_blade_desenha_graficos(): void
     {
-        $base = file_get_contents(resource_path('views/partials/graficos.blade.php'));
+        $this->assertFileDoesNotExist(resource_path('views/partials/graficos.blade.php'));
 
-        $this->assertStringContainsString('window.sosDesenhar', $base,
-            'um sítio único para dizer quando desenhar');
-
-        $this->assertStringContainsString("addEventListener('livewire:navigated'", $base,
-            'pela barra lateral não há recarregamento: é aqui que se desenha');
-
-        $this->assertStringContainsString("morph.updated", $base,
-            'trocar de dia ou de período troca o HTML: desenhar outra vez');
-
-        $this->assertStringContainsString('window.SOS_ESCADA', $base,
-            'nao ha um instante certo: desenha-se varias vezes enquanto a pagina assenta');
-
-        // A chamada, nao a palavra: o comentario explica porque nao se usa.
-        $this->assertStringNotContainsString('requestAnimationFrame(', $base,
-            'o rAF nao corre num separador em segundo plano');
-
-        $this->assertStringContainsString('anterior.destroy()', $base,
-            'desenhar duas vezes no mesmo canvas da "Canvas is already in use"');
-
-        $this->assertStringContainsString('window.sosGrafico', $base,
-            'os new Chart a mao tambem tem de destruir o anterior');
-
-        // E nenhum painel escreve `new Chart` a mao: um deles sem destruir o
-        // anterior rebentava a funcao a meio e deixava os seguintes em branco.
-        foreach (glob(resource_path('views/livewire/*/dashboard*.blade.php')) as $v) {
-            if (! str_contains(file_get_contents($v), 'partials.graficos')) { continue; }
-
-            $this->assertStringNotContainsString('new Chart(', file_get_contents($v),
-                basename(dirname($v)) . ': usar sosGrafico(), que destroi o anterior');
+        $comCanvas = [];
+        $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(resource_path('views'), \FilesystemIterator::SKIP_DOTS));
+        foreach ($it as $v) {
+            if (str_ends_with($v->getFilename(), '.blade.php') && preg_match('/partials\.graficos|new Chart\(/', file_get_contents($v->getPathname()))) {
+                $comCanvas[] = $v->getFilename();
+            }
         }
 
-        /*
-         * E JÁ NÃO HÁ NENHUM.
-         *
-         * Eram nove painéis em Blade com gráficos — os cinco perguntados mais a
-         * contabilidade, o CRM, o inventário e o restaurante, todos com o mesmo
-         * defeito do DOMContentLoaded. A conta foi baixando à medida que os
-         * módulos passaram para React (lá os gráficos são componentes em SVG e
-         * não há canvas nenhum para o Livewire trocar), e a CONTABILIDADE era o
-         * último. Com ele, a lista fechou.
-         *
-         * O QUE ISTO GUARDA MUDOU DE SINAL, e é de propósito. Era um piso — «o
-         * varrimento tem de encontrar painéis» — para o ensaio não passar por
-         * vazio. Agora é um TRAVÃO: um painel novo em Blade a desenhar gráficos
-         * é um passo para trás na migração, e nasceria com as três armadilhas
-         * que as verificações acima descrevem. O `partials/graficos.blade.php`
-         * ficou sem quem o inclua; as verificações dele ficam porque é a
-         * referência escrita de como se desenha num canvas que o Livewire troca.
-         */
-        $comGraficos = array_filter(
-            array_merge(
-                glob(resource_path('views/livewire/*/dashboard*.blade.php')),
-                glob(resource_path('views/livewire/*/dashboard/dashboard.blade.php'))
-            ),
-            fn ($v) => str_contains(file_get_contents($v), 'partials.graficos')
-        );
-
-        $this->assertSame([], array_map('basename', $comGraficos),
-            'nenhum painel em Blade desenha gráficos: os painéis são React');
-
-        // E se algum voltar, tem de o fazer bem: pela barra lateral o
-        // DOMContentLoaded já passou, e o quando-desenhar tem um sítio só.
-        foreach ($comGraficos as $vista) {
-            $this->assertStringNotContainsString('DOMContentLoaded', file_get_contents($vista),
-                basename(dirname($vista)) . ': o DOMContentLoaded já passou quando se chega por wire:navigate');
-            $this->assertStringContainsString('sosDesenhar', file_get_contents($vista),
-                basename(dirname($vista)) . ': usa o sítio único do quando desenhar');
-        }
+        $this->assertSame([], $comCanvas, 'os gráficos dos painéis são componentes React');
     }
 
     /**

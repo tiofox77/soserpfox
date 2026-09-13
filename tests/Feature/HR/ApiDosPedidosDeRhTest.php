@@ -593,4 +593,43 @@ class ApiDosPedidosDeRhTest extends TenantTestCase
         $this->assertNotNull($v->paid_date);
         $this->assertSame($this->user->id, (int) $v->paid_by);
     }
+
+    /**
+     * OS PDF DAS HORAS EXTRAS, DOS ADIANTAMENTOS E DOS DESCONTOS ABREM.
+     *
+     * As três vistas viviam na pasta do Livewire e foram apagadas com os
+     * componentes — o ecrã em React continuava a oferecer o botão, e o botão
+     * dava erro 500.
+     *
+     * @test
+     */
+    public function os_pdf_dos_pedidos_abrem(): void
+    {
+        $this->comPermissoes('hr.overtime.view', 'hr.advances.view', 'hr.discounts.view');
+
+        $h = Overtime::create([
+            'tenant_id' => $this->tenant->id, 'employee_id' => $this->funcionario()->id,
+            'overtime_number' => 'HE-' . substr((string) (microtime(true) * 10000), -7),
+            'date' => now()->toDateString(), 'total_hours' => 3, 'hourly_rate' => 1000,
+            'overtime_rate' => 1250, 'total_amount' => 3750, 'status' => 'approved',
+        ]);
+        $a = SalaryAdvance::create([
+            'tenant_id' => $this->tenant->id, 'employee_id' => $this->funcionario()->id,
+            'advance_number' => 'ADI-' . substr((string) (microtime(true) * 10000), -7),
+            'requested_amount' => 50000, 'base_salary' => 200000, 'max_allowed' => 100000,
+            'installments' => 2, 'request_date' => now()->toDateString(), 'reason' => 'Saúde.', 'status' => 'pending',
+        ]);
+        $d = SalaryDiscount::create([
+            'tenant_id' => $this->tenant->id, 'employee_id' => $this->funcionario()->id,
+            'discount_type' => 'dano', 'request_date' => now()->toDateString(), 'amount' => 10000,
+            'installments' => 1, 'installment_amount' => 10000, 'remaining_installments' => 1,
+            'reason' => 'Uma coisa qualquer.', 'status' => 'approved',
+        ]);
+
+        foreach ([route('hr.overtime.pdf', $h->id), route('hr.advances.pdf', $a->id), route('hr.salary-discounts.pdf', $d->id)] as $morada) {
+            $r = $this->get($morada);
+            $r->assertOk();
+            $this->assertStringContainsString('application/pdf', (string) $r->headers->get('Content-Type'), $morada);
+        }
+    }
 }

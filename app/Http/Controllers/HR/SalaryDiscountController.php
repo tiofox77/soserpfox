@@ -15,7 +15,7 @@ class SalaryDiscountController extends Controller
     {
         $discount = SalaryDiscount::with(['employee', 'approvedBy'])->findOrFail($id);
         
-        $pdf = Pdf::loadView('livewire.hr.discounts.pdf', compact('discount'));
+        $pdf = Pdf::loadView('hr.pdf.discounts', compact('discount'));
         $pdf->setPaper('a4', 'portrait');
         
         $filename = 'desconto-' . $discount->id . '.pdf';

@@ -162,7 +162,7 @@ Route::middleware(['auth'])->group(function () {
         session()->forget('casca_react');
 
         return redirect()->back(fallback: route('home'));
-    })->name('casca.livewire');
+    })->name('casca.blade');
 
     /*
      * O DICIONÁRIO DOS ECRÃS EM REACT.

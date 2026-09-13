@@ -16,7 +16,7 @@ class SalaryAdvanceController extends Controller
         $advance = SalaryAdvance::with(['employee', 'approvedBy', 'paidBy'])->findOrFail($id);
         
         // Gerar PDF
-        $pdf = Pdf::loadView('livewire.hr.advances.pdf', compact('advance'));
+        $pdf = Pdf::loadView('hr.pdf.advances', compact('advance'));
         
         // Configurar PDF
         $pdf->setPaper('a4', 'portrait');

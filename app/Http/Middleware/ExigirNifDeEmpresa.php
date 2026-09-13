@@ -36,7 +36,6 @@ class ExigirNifDeEmpresa
         'invoicing/pos',      // não se para a caixa
         'invoicing/offline',
         'api',
-        'livewire',
         'maintenance',
         'sw.js',
         'pwa',

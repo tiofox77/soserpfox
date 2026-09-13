@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Livewire\POS\POSSystem;
 use App\Models\Invoicing\InvoicingSettings;
 use App\Models\Product;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**

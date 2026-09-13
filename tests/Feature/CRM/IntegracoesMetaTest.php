@@ -5,7 +5,6 @@ namespace Tests\Feature\CRM;
 use App\Livewire\CRM\IntegracoesMeta;
 use App\Models\CRM\MetaIntegration;
 use Illuminate\Support\Facades\DB;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**

@@ -14,7 +14,7 @@ class OvertimeController extends Controller
             ->where('tenant_id', auth()->user()->activeTenantId())
             ->findOrFail($id);
         
-        $pdf = Pdf::loadView('livewire.hr.overtime.pdf', compact('overtime'));
+        $pdf = Pdf::loadView('hr.pdf.overtime', compact('overtime'));
         $pdf->setPaper('a4', 'portrait');
         
         $filename = 'horas-extras-' . $overtime->overtime_number . '.pdf';

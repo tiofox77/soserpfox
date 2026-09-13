@@ -25,32 +25,6 @@ class IdentifyTenant
         $user = auth()->user();
         $tenant = null;
 
-        // Pedidos do Livewire: resolução curta e obrigatória.
-        //
-        // Isto SALTAVA a identificação por completo. Como este middleware é o
-        // único sítio do caminho web que chama setPermissionsTeamId(), uma
-        // acção Livewire corria com a equipa de permissões por omissão —
-        // users.tenant_id — e não com a empresa activa da sessão. Quem
-        // pertencesse a duas empresas e trocasse para a segunda executava lá as
-        // acções com as permissões da PRIMEIRA: comprovado a gravar stock numa
-        // empresa onde o utilizador não tinha permissão nenhuma. O simétrico
-        // também acontecia — 403 indevido a quem só tinha a permissão na
-        // empresa activa.
-        //
-        // O caminho curto não repete a descoberta por subdomínio (numa acção
-        // Livewire a empresa já foi escolhida e está na sessão) nem reescreve a
-        // sessão. Faz o essencial: confirmar que o utilizador pertence mesmo à
-        // empresa da sessão e fixar o contexto.
-        if ($request->is('livewire/*') || $request->is('livewire-update')) {
-            $tenant = $this->daSessao($user);
-
-            if ($tenant) {
-                $this->fixarContexto($request, $tenant);
-            }
-
-            return $next($request);
-        }
-
         // Tentar identificar tenant por subdomínio
         $host = $request->getHost();
         $subdomain = explode('.', $host)[0];

@@ -27,8 +27,6 @@
         .btn-press:hover { filter: brightness(1.04); }
         .btn-press:active { transform: scale(.96); }
 
-        /* wire:loading global — leve fade na própria zona de loading */
-        [wire\:loading].animate-pop { animation: modalScaleIn .18s ease-out both; }
 
         /* Linhas de tabela e cartões: entram em cascata, não de repente.
            O atraso vem de uma variável posta na linha (--i), para a segunda

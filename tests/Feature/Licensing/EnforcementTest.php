@@ -63,11 +63,11 @@ class EnforcementTest extends TenantTestCase
         $this->assertStringContainsString('/licenca', $resp->headers->get('Location'));
     }
 
-    public function test_bloqueada_no_livewire_da_423(): void
+    public function test_bloqueada_num_pedido_json_da_423(): void
     {
         $resp = $this->correr(
             new LicenseState(LicenseState::BLOQUEADA, false, 'expirada'),
-            ['X-Livewire' => '1']
+            ['Accept' => 'application/json']
         );
         $this->assertSame(423, $resp->getStatusCode());
     }

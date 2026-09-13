@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -16,73 +15,51 @@ use Tests\TenantTestCase;
 class ModuleScreensRenderTest extends TenantTestCase
 {
     /**
-     * NENHUM MÓDULO DE NEGÓCIO TEM LIVEWIRE — e é isso que aqui se guarda.
+     * NÃO HÁ LIVEWIRE NENHUM — e é isso que aqui se guarda.
      *
      * Este ensaio montava, um a um, todos os componentes Livewire dos módulos de
-     * negócio: era a rede que apanhava o erro 500 ao abrir a página, a classe de
-     * defeito mais comum e mais cara deste projeto. Apanhou uma classe de
-     * categoria que não existia, um `@php(...)` de uma linha que rebentava a
-     * compilação do Blade, e vistas a usar variáveis que o componente nunca
-     * passava.
+     * negócio: era a rede que apanhava o erro 500 ao abrir a página. Apanhou uma
+     * classe de categoria que não existia, um `@php(...)` de uma linha que
+     * rebentava a compilação do Blade, e vistas a usar variáveis que o
+     * componente nunca passava.
      *
-     * A LISTA ENCOLHEU ATÉ ZERO, e o seu próprio comentário já o antecipava. A
-     * oficina, o salão, o hotel e o restaurante passaram a React; depois os
-     * eventos, o CRM, os projetos, as compras e o inventário; e a CONTABILIDADE
-     * foi a última, em 2026-09-12. Cada ecrã que passou levou o seu ensaio de
-     * fumo próprio, morada a morada (`EcrasD…EmReactTest`), e um ensaio que
-     * passa por não ter dados nenhuns não diz nada — o PHPUnit recusa-o à cara,
-     * e bem.
+     * A LISTA ENCOLHEU ATÉ ZERO: primeiro os módulos de negócio (a contabilidade
+     * foi a última, a 2026-09-12), depois a barra do topo, o painel da
+     * plataforma, o portal do cliente, o registo, a instalação, a carta do
+     * restaurante e a marcação do salão (2026-09-13). Com o último componente
+     * saiu também o pacote, e o Alpine passou a vir do disco.
      *
-     * O QUE ISTO GUARDA MUDOU DE SINAL: era uma rede, é um TRAVÃO. Um componente
-     * novo num módulo de negócio é um passo para trás na migração, e este ensaio
-     * fá-lo notar no minuto em que nascer — se voltar a haver, volta a haver
-     * lista, e a rede monta-se outra vez.
-     *
-     * Fica de fora o que NÃO é ecrã de módulo de negócio e continua em Livewire
-     * de propósito: a barra do topo (avisos, mensagens, notificações, relógio da
-     * subscrição, troca de empresa), o portal do cliente (que corre no guarda
-     * `client`), o assistente de registo, o de instalação, e o painel da
-     * plataforma.
+     * O QUE ISTO GUARDA É UM TRAVÃO: um componente, uma directiva ou o pacote
+     * de volta são um passo para trás, e este ensaio fá-lo notar no minuto em
+     * que nascerem. Cada ecrã em React tem o seu ensaio de fumo próprio.
      */
-    public function test_nenhum_modulo_de_negocio_tem_livewire(): void
+    public function test_nao_ha_livewire_nenhum(): void
     {
         $raiz = dirname(__DIR__, 2);
 
-        $sobras = [];
+        $this->assertDirectoryDoesNotExist("{$raiz}/app/Livewire");
+        $this->assertDirectoryDoesNotExist("{$raiz}/resources/views/livewire");
+        $this->assertArrayNotHasKey('livewire/livewire', json_decode(file_get_contents("{$raiz}/composer.json"), true)['require']);
 
-        foreach ([
-            'Accounting', 'CRM', 'Compras', 'Events', 'Hotel', 'Inventario',
-            'Invoicing', 'POS', 'Projetos', 'Rh', 'Treasury', 'Users', 'Workshop',
-        ] as $modulo) {
-            foreach (glob("{$raiz}/app/Livewire/{$modulo}/*.php") as $ficheiro) {
-                $sobras[] = $modulo.'/'.basename($ficheiro);
+        $comLivewire = [];
+        $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator("{$raiz}/resources/views", \FilesystemIterator::SKIP_DOTS));
+        foreach ($it as $ficheiro) {
+            if (! str_ends_with($ficheiro->getFilename(), '.blade.php')) {
+                continue;
+            }
+            $conteudo = file_get_contents($ficheiro->getPathname());
+            if (preg_match('/@livewire|<livewire:|wire:(model|click|navigate|submit|loading|init)/', $conteudo)) {
+                $comLivewire[] = str_replace($raiz.DIRECTORY_SEPARATOR, '', $ficheiro->getPathname());
             }
         }
 
-        $this->assertSame([], $sobras,
-            'um ecrã de módulo de negócio em Livewire é um passo para trás: os ecrãs são React');
+        $this->assertSame([], $comLivewire, 'vistas que ainda falam com o Livewire');
+    }
 
-        /*
-         * E SE ALGUM VOLTAR, monta-se — que é o que esta rede fazia. O laço fica
-         * porque é ele que apanha o 500 ao abrir, e não a contagem.
-         */
-        foreach ($sobras as $sobra) {
-            [$modulo, $ficheiro] = explode('/', $sobra);
-            $classe = "App\\Livewire\\{$modulo}\\".basename($ficheiro, '.php');
-
-            if (! class_exists($classe)) {
-                continue;
-            }
-
-            $mount = method_exists($classe, 'mount') ? new \ReflectionMethod($classe, 'mount') : null;
-
-            // Os que exigem parâmetro de rota têm teste próprio abaixo.
-            if ($mount && collect($mount->getParameters())->contains(fn ($p) => ! $p->isOptional())) {
-                continue;
-            }
-
-            $this->assertNotEmpty(Livewire::test($classe)->html(), $sobra.': não renderiza');
-        }
+    /** Os dois layouts carregam o Alpine do disco, sem o qual a barra lateral não abre. */
+    public function test_o_layout_traz_o_alpine(): void
+    {
+        $this->get('/home')->assertOk()->assertSee('/vendor/js/alpine.min.js', false)->assertDontSee('livewire.js', false);
     }
 
     /**

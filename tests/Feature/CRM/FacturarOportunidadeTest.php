@@ -7,7 +7,6 @@ use App\Models\Client;
 use App\Models\CRM\Opportunity;
 use App\Models\CRM\Stage;
 use App\Services\CRM\FacturarOportunidade;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**

@@ -44,7 +44,7 @@ class VerificarLicenca
         // Integridade dos ficheiros PHP: o serviço `soserp-integridade` levanta
         // esta flag se algum ficheiro da app foi adulterado. Bloqueia tudo.
         if (is_file(storage_path('app/integridade-falha.flag'))) {
-            if ($this->ehLivewireOuJson($request)) {
+            if ($this->ehJson($request)) {
                 return response()->json(['message' => 'Integridade dos ficheiros comprometida.'], 423);
             }
 
@@ -60,8 +60,8 @@ class VerificarLicenca
         $estado = $this->licencas->estado();
 
         if ($estado->bloqueiaTudo()) {
-            if ($this->ehLivewireOuJson($request)) {
-                // 423 Locked: o cliente Livewire trata como recarregar/parar.
+            if ($this->ehJson($request)) {
+                // 423 Locked: o ecrã percebe que tem de parar.
                 return response()->json(['message' => $estado->motivo], 423);
             }
 
@@ -79,7 +79,7 @@ class VerificarLicenca
             if ($request->is('setup')) {
                 return $next($request);
             }
-            if ($this->ehLivewireOuJson($request)) {
+            if ($this->ehJson($request)) {
                 return response()->json(['message' => 'Configuração inicial necessária.'], 409);
             }
 
@@ -92,8 +92,8 @@ class VerificarLicenca
         return $next($request);
     }
 
-    private function ehLivewireOuJson(Request $request): bool
+    private function ehJson(Request $request): bool
     {
-        return $request->hasHeader('X-Livewire') || $request->ajax() || $request->expectsJson();
+        return $request->ajax() || $request->expectsJson();
     }
 }

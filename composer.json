@@ -15,7 +15,6 @@
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
         "laravel/ui": "^4.6",
-        "livewire/livewire": "^3.6",
         "maatwebsite/excel": "^1.1",
         "paragonie/sodium_compat": "^2.5",
         "phpoffice/phpspreadsheet": "^5.1",

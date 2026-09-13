@@ -171,58 +171,14 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        // Sessão expirada em pedidos Livewire/AJAX/JSON: devolver 419 JSON em vez do
-        // 302→/login (HTML). O fetch do Livewire segue o redirect e receberia a página
-        // de login em HTML, tentando interpretá-la como snapshot JSON — o componente
-        // "congela" sem erro visível (o sintoma "trava o sistema" no POS). Um 419 limpo
-        // é detetado no cliente (layouts/app.blade.php) e trata a recuperação da sessão.
+        // Sessão expirada em pedidos AJAX/JSON: devolver 419 JSON em vez do 302→/login
+        // (HTML). Um fetch que segue o redirect recebia a página de login em HTML e
+        // tentava lê-la como JSON — o ecrã "congela" sem erro visível. Um 419 limpo é
+        // detetado no cliente (os ecrãs React e o keep-alive do layout).
         $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, \Illuminate\Http\Request $request) {
-            if ($request->hasHeader('X-Livewire') || $request->ajax() || $request->expectsJson()) {
+            if ($request->ajax() || $request->expectsJson()) {
                 return response()->json(['message' => 'Sessão expirada'], 419);
             }
         });
 
-        // Separador aberto de ANTES de um deploy.
-        //
-        // O Livewire valida o snapshot do componente contra o código actual. Se
-        // as propriedades mudaram entretanto — e mudam a cada deploy — o
-        // snapshot que o separador tem em memória deixa de bater certo e o
-        // utilizador leva um 500 com "corrupt data", que não lhe diz nada e não
-        // lhe dá saída nenhuma.
-        //
-        // 409 e não 419: a sessão está boa, o que está velho é a página. O 419
-        // mostra o ecrã de "sessão terminada" com botão de login, e mandar
-        // alguém iniciar sessão outra vez quando ela nunca caiu é pior do que o
-        // erro. O cliente trata o 409 recarregando a página no mesmo sítio.
-        $exceptions->render(function (\Livewire\Mechanisms\HandleComponents\CorruptComponentPayloadException $e, \Illuminate\Http\Request $request) {
-            if ($request->hasHeader('X-Livewire') || $request->ajax() || $request->expectsJson()) {
-                return response()->json([
-                    'message' => 'A página está desactualizada. Vai ser recarregada.',
-                ], 409);
-            }
-        });
-
-        // Método que "desaparece" depois de um deploy: AUTO-CURA DO OPCACHE.
-        //
-        // Um `wire:click="create"` a dar «Public method [create] not found» quase
-        // sempre não é bug — é o OPcache a correr uma compilação ANTIGA da classe,
-        // de antes de o método existir (o ficheiro em disco está certo, o cache de
-        // código é que não; ver App\Support\AutoCuraOpcache e [[deployment]]).
-        //
-        // Repõe-se o OPcache (no máximo uma vez por minuto) e, SÓ se realmente se
-        // repôs agora, manda-se recarregar com o mesmo 409 do caso acima: a página
-        // volta recompilada do disco e o método aparece. Se a reposição foi travada
-        // pela janela — ou seja, já se tentou há pouco e continua a falhar — então é
-        // bug genuíno: não se manda recarregar (evita o ciclo de recargas) e o erro
-        // segue para o 500 normal, visível. É rede de segurança; a prevenção é
-        // correr `deploy:opcache-reset` no fecho de cada deploy de classes PHP.
-        $exceptions->render(function (\Livewire\Exceptions\MethodNotFoundException $e, \Illuminate\Http\Request $request) {
-            $repos = \App\Support\AutoCuraOpcache::talvezRepor();
-
-            if ($repos && ($request->hasHeader('X-Livewire') || $request->ajax() || $request->expectsJson())) {
-                return response()->json([
-                    'message' => 'A página está desactualizada. Vai ser recarregada.',
-                ], 409);
-            }
-        });
     })->create();

@@ -65,20 +65,10 @@
     <!-- Font Awesome CDN -->
     <link rel="stylesheet" href="/vendor/css/fontawesome.min.css">
     
-    <!-- Livewire Styles -->
-    @livewireStyles
-    
     <style>
         [x-cloak] { display: none !important; }
 
-        /* Disable transitions/animations during SPA navigation morph */
-        body.is-navigating *:not(.spa-progress) {
-            transition-duration: 0s !important;
-            animation-duration: 0s !important;
-            animation-delay: 0s !important;
-        }
-
-        /* SPA Navigation Progress Bar */
+        /* A barra de progresso de quem muda de página (ver o fim do layout). */
         .spa-progress {
             position: fixed;
             top: 0;
@@ -469,7 +459,10 @@
             sidebarOpen: window.innerWidth >= 1024,
             isMobile: window.innerWidth < 768,
             isTablet: window.innerWidth >= 768 && window.innerWidth < 1024,
-            firstLoad: true,
+            {{-- A entrada em cascata da barra lateral só na primeira página da
+                 sessão do separador: sem a navegação do Livewire, cada página
+                 é um carregamento novo, e a cascata a cada clique cansa. --}}
+            firstLoad: (() => { try { const ja = sessionStorage.getItem('casca-vista'); sessionStorage.setItem('casca-vista', '1'); return !ja; } catch (e) { return true; } })(),
             init() {
                 this.handleResize();
                 window.addEventListener('resize', () => this.handleResize());
@@ -505,13 +498,13 @@
             {{-- A CASCA EM REACT, em ensaio: a barra lateral inteira sai do
                  ecra `casca`, com o mesmo MenuDaCasca. Liga-se por sessão em
                  /casca/novo-ecra e desliga-se em /casca/ecra-de-sempre. A
-                 barra do topo fica em Blade — tem componentes Livewire. --}}
+                 barra do topo fica em Blade, com as peças em React. --}}
             <x-ecra-react nome="casca" class="flex flex-none" :props="[
                 'menu' => $menuDaCasca,
                 'logo' => app_logo(),
                 'nome' => app_name(),
                 'csrf' => csrf_token(),
-                'voltar' => route('casca.livewire'),
+                'voltar' => route('casca.blade'),
             ]" />
             @else
             <aside id="app-sidebar" :class="{
@@ -647,22 +640,6 @@
             </aside>
             @endif
 
-            <!-- Add wire:navigate to all internal sidebar links (runs before Livewire boots) -->
-            <script>
-                (function() {
-                    function addWireNavigate() {
-                        document.querySelectorAll('#sidebar-menu a[href], aside a[href]').forEach(function(link) {
-                            if (!link.href || !link.href.startsWith(window.location.origin)) return;
-                            if (link.closest('form')) return;
-                            if (link.getAttribute('href') === '#') return;
-                            if (link.hasAttribute('wire:navigate')) return;
-                            link.setAttribute('wire:navigate', '');
-                        });
-                    }
-                    addWireNavigate();
-                    document.addEventListener('livewire:navigated', addWireNavigate);
-                })();
-            </script>
 
             <!-- Main Content -->
             <div class="flex-1 flex flex-col overflow-hidden" :class="{ 'ml-0': isMobile }">
@@ -776,16 +753,15 @@
          Em português não emite nada — as chaves são o texto português. --}}
     @include('partials.js-traducoes')
 
-    <!-- Livewire Scripts (já inclui Alpine.js V3) -->
-    @livewireScripts
+    @include('partials.alpine')
     
     <!-- Toastr CDN -->
     <link rel="stylesheet" href="/vendor/css/toastr.min.css">
     <script src="/vendor/js/jquery.min.js"></script>
     <script src="/vendor/js/toastr.min.js"></script>
 
-    {{-- Máscara de dinheiro (1.234,56) nos inputs de preço/valores. Delegada,
-         sobrevive aos re-render do Livewire. --}}
+    {{-- Máscara de dinheiro (1.234,56) nos inputs de preço/valores. Delegada:
+         apanha também os campos que um ecrã desenha depois de a página abrir. --}}
     <script src="{{ asset('js/mascara-dinheiro.js') }}?v=2" defer></script>
 
     <script>
@@ -797,14 +773,13 @@
             "timeOut": "3000"
         };
 
-        // Configuração global do Livewire - Listeners para notificações
-        document.addEventListener('livewire:init', () => {
+        (function () {
             // ── Recuperação de sessão expirada — sem freeze, sem perder a venda ──
-            // Problema: quando a sessão morre por inatividade, um pedido Livewire volta
-            // como 419/401 (ver bootstrap/app.php). O comportamento antigo (reload cego)
-            // perdia a venda em curso no POS. Agora: numa página POS mostra-se um overlay
-            // claro (o carrinho fica guardado no cliente e é restaurado após novo login);
-            // noutras páginas faz-se apenas um reload suave.
+            // Quando a sessão morre por inatividade, o keep-alive dá por isso. O
+            // comportamento antigo (reload cego) perdia a venda em curso no POS.
+            // Numa página POS mostra-se um overlay claro (o carrinho fica guardado
+            // no cliente e é restaurado após novo login); nas outras faz-se só um
+            // reload suave.
             window.__sessionDeadShown = false;
             window.sosSessionDead = function (reason) {
                 if (window.__sessionDeadShown) return;
@@ -838,29 +813,6 @@
                 document.body.appendChild(o);
             })();
 
-            Livewire.hook('request', ({ fail }) => {
-                fail(({ status, preventDefault }) => {
-                    // 419 = CSRF/página expirada · 401 = sessão terminada (bootstrap/app.php)
-                    if (status === 419 || status === 401) {
-                        preventDefault();                 // impede o Livewire de interpretar a resposta (evita o freeze)
-                        window.sosSessionDead('livewire-' + status);
-                        return;
-                    }
-
-                    // 409 = separador aberto de antes de um deploy: o snapshot do
-                    // componente já não bate certo com o código (ver bootstrap/app.php).
-                    // A sessão está boa — recarrega-se a página no mesmo sítio, em vez
-                    // de mostrar um 500 que não diz nada nem dá saída.
-                    if (status === 409) {
-                        preventDefault();
-
-                        if (!window.__sosRecarregando) {
-                            window.__sosRecarregando = true;
-                            window.location.reload();
-                        }
-                    }
-                });
-            });
 
             // ── Keep-alive robusto (5 min) + ping ao voltar a ficar visível ──
             // Mantém o cookie de sessão vivo com o separador aberto e reage a sleep/lock
@@ -885,83 +837,7 @@
             setInterval(function () { if (!document.hidden) window.sosKeepAlive(); }, 5 * 60 * 1000);
             document.addEventListener('visibilitychange', function () { if (!document.hidden) window.sosKeepAlive(); });
 
-            // Listener para notificações de sucesso
-            Livewire.on('success', (event) => {
-                toastr.success(event.message || event[0].message || 'Operação realizada com sucesso!');
-            });
-            
-            // Listener para notificações de erro
-            Livewire.on('error', (event) => {
-                toastr.error(event.message || event[0].message || 'Ocorreu um erro!');
-            });
-            
-            // Listener para notificações de aviso
-            Livewire.on('warning', (event) => {
-                toastr.warning(event.message || event[0].message || 'Atenção!');
-            });
-            
-            // Listener para notificações de informação
-            Livewire.on('info', (event) => {
-                toastr.info(event.message || event[0].message || 'Informação!');
-            });
-            
-            // ── Auto-focus no primeiro campo com erro de validação ───────────
-            // Disparar via $this->dispatch('focus-first-error', field: 'name')
-            // a partir de qualquer componente Livewire após captar uma
-            // ValidationException. Faz scroll suave + foco no input correspondente.
-            Livewire.on('focus-first-error', (event) => {
-                const data = event[0] || event;
-                const field = data.field || data;
-                if (!field || typeof field !== 'string') return;
-
-                // Pequeno delay para o DOM atualizar (mensagens de erro renderizadas)
-                setTimeout(() => {
-                    // Procura inputs com wire:model="<field>" ou variantes (.live, .blur, etc.)
-                    const selectors = [
-                        `[wire\\:model="${field}"]`,
-                        `[wire\\:model\\.live="${field}"]`,
-                        `[wire\\:model\\.blur="${field}"]`,
-                        `[wire\\:model\\.lazy="${field}"]`,
-                        `[wire\\:model\\.defer="${field}"]`,
-                        `[name="${field}"]`,
-                        `#${field}`,
-                    ];
-                    let el = null;
-                    for (const sel of selectors) {
-                        try { el = document.querySelector(sel); } catch (e) { el = null; }
-                        if (el) break;
-                    }
-                    if (!el) return;
-                    try {
-                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        el.focus({ preventScroll: true });
-                        // Realce visual breve
-                        el.classList.add('ring-2', 'ring-red-500');
-                        setTimeout(() => el.classList.remove('ring-2', 'ring-red-500'), 2000);
-                    } catch (e) {}
-                }, 80);
-            });
-
-            // Listener único para notificações (evita duplicação) - Mantido para compatibilidade
-            Livewire.on('notify', (event) => {
-                const data = event[0] || event;
-                const type = data.type || 'info';
-                const message = data.message || 'Notificação';
-                
-                // Prevenir duplicação
-                toastr.remove();
-                
-                if (type === 'success') {
-                    toastr.success(message);
-                } else if (type === 'error') {
-                    toastr.error(message);
-                } else if (type === 'warning') {
-                    toastr.warning(message);
-                } else {
-                    toastr.info(message);
-                }
-            });
-        });
+        })();
     </script>
     
     <!-- Sidebar Scroll Memory -->
@@ -989,73 +865,47 @@
                 });
             }
 
-            // On initial page load
-            document.addEventListener('DOMContentLoaded', function() {
-                initSidebarScroll();
-            });
-
-            // After SPA navigation: restore sidebar scroll
-            document.addEventListener('livewire:navigated', function() {
-                initSidebarScroll();
-            });
+            document.addEventListener('DOMContentLoaded', initSidebarScroll);
         })();
     </script>
     
-    <!-- SPA Navigation Progress Bar -->
+    {{--
+        A BARRA DE PROGRESSO DE QUEM MUDA DE PÁGINA.
+
+        Era da navegação do Livewire. Agora cada ligação é uma página nova, e a
+        barra corre do clique até o browser trocar de página — quem está numa
+        rede fraca vê que o clique foi ouvido, em vez de carregar outra vez.
+    --}}
     <div id="spa-progress" class="spa-progress" style="width: 0%;"></div>
-    
-    <!-- SPA Navigation (wire:navigate) - Progress Bar & Transition Control -->
     <script>
-        (function() {
+        (function () {
             const bar = document.getElementById('spa-progress');
-            let progressInterval;
-            
-            // Show progress bar + disable transitions on navigation start
-            document.addEventListener('livewire:navigate:start', () => {
-                // Disable all transitions during morph to prevent visual glitches
-                document.body.classList.add('is-navigating');
-                
-                // Save sidebar scroll position
-                const sidebarMenu = document.getElementById('sidebar-menu');
-                if (sidebarMenu) {
-                    localStorage.setItem('sidebar-scroll-position', sidebarMenu.scrollTop);
-                }
-                
-                // Progress bar
+            let relogio;
+
+            const comecar = () => {
                 bar.classList.remove('done');
-                bar.style.width = '0%';
                 let w = 0;
-                clearInterval(progressInterval);
-                progressInterval = setInterval(() => {
-                    w += (95 - w) * 0.1;
+                clearInterval(relogio);
+                relogio = setInterval(() => {
+                    w += (95 - w) * 0.08;
                     bar.style.width = w + '%';
-                    if (w >= 94) clearInterval(progressInterval);
+                    if (w >= 94) clearInterval(relogio);
                 }, 80);
-            });
-            
-            // Complete progress bar + re-enable transitions after morph
-            document.addEventListener('livewire:navigated', () => {
-                clearInterval(progressInterval);
-                bar.style.width = '100%';
-                bar.classList.add('done');
-                setTimeout(() => { bar.style.width = '0%'; bar.classList.remove('done'); }, 500);
-                
-                // Re-enable transitions after morph completes (next frame)
-                requestAnimationFrame(() => {
-                    requestAnimationFrame(() => {
-                        document.body.classList.remove('is-navigating');
-                    });
-                });
+            };
+
+            document.addEventListener('click', (e) => {
+                const a = e.target.closest && e.target.closest('a[href]');
+                if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                if (a.target && a.target !== '_self') return;
+                if (a.hasAttribute('download') || a.origin !== location.origin) return;
+                if (a.getAttribute('href').startsWith('#') || (a.pathname === location.pathname && a.search === location.search && a.hash)) return;
+                comecar();
             });
 
-            // Close mobile sidebar on SPA navigation
-            document.addEventListener('livewire:navigate:start', () => {
-                if (window.innerWidth < 768) {
-                    const wrapper = document.querySelector('[x-data]');
-                    if (wrapper && wrapper._x_dataStack) {
-                        wrapper._x_dataStack[0].sidebarOpen = false;
-                    }
-                }
+            // Voltar atrás pela cache do browser: a barra não pode ficar a meio.
+            window.addEventListener('pageshow', () => {
+                clearInterval(relogio);
+                bar.style.width = '0%';
             });
         })();
     </script>
@@ -1069,9 +919,7 @@
     --}}
     <script src="/js/pdf-do-documento.js?v={{ filemtime(public_path('js/pdf-do-documento.js')) }}" defer></script>
 
-    {{-- Os gráficos do painel de facturação. Fora do Blade porque um
-         script em linha não volta a correr numa navegação do Livewire, e
-         quem chegasse ao painel pela barra lateral via tudo em branco. --}}
+    {{-- Os gráficos do painel de facturação, num ficheiro que o browser guarda. --}}
     <script src="/js/painel-facturacao.js?v={{ filemtime(public_path('js/painel-facturacao.js')) }}" defer></script>
 
     {{-- OS ECRÃS EM REACT. O bloco vive num partial porque o painel da

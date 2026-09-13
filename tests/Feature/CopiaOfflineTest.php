@@ -7,7 +7,6 @@ use App\Models\Invoicing\SalesInvoice;
 use App\Models\Invoicing\SalesProforma;
 use App\Models\Product;
 use App\Services\POS\ImportacaoDeCopiaOffline;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**

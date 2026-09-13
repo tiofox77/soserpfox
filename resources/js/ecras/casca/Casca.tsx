@@ -12,13 +12,11 @@ import { t } from '@/i18n';
  * sempre desenha. Este ecrã só sabe a forma: abrir e fechar grupos, encolher
  * a barra, o menu do utilizador.
  *
- * A BARRA DO TOPO fica no Blade enquanto a migração durar: é lá que vivem o
- * selector de empresa, o contador da subscrição e as notificações, que são
- * componentes Livewire. O botão de encolher, que está lá, fala com esta
- * barra por um evento na janela.
+ * A BARRA DO TOPO fica no Blade: é lá que vivem o selector de empresa, o
+ * contador da subscrição e as notificações (peças em React). O botão de
+ * encolher, que está lá, fala com esta barra por um evento na janela.
  *
- * As ligações levam `wire:navigate`: o Alpine apanha-as ao entrarem no DOM,
- * e a navegação é a mesma que a do menu de sempre.
+ * As ligações são ligações: cada uma abre a página, como o menu de sempre.
  */
 
 const CHAVE_DE_ABERTA = 'casca:aberta';
@@ -128,7 +126,7 @@ export default function Casca({ menu, logo, nome, csrf, voltar }: PropsDaCasca) 
 
                 {/* Suporte */}
                 <div className="mt-auto border-t border-blue-700 pt-4">
-                    <a href={menu.suporte.url} {...{ 'wire:navigate': '' }} onClick={fechar} className={cls('group flex items-center px-4 py-3 transition', menu.suporte.activo ? 'border-l-4 border-purple-400 bg-blue-700' : 'hover:bg-blue-700/50')}>
+                    <a href={menu.suporte.url} onClick={fechar} className={cls('group flex items-center px-4 py-3 transition', menu.suporte.activo ? 'border-l-4 border-purple-400 bg-blue-700' : 'hover:bg-blue-700/50')}>
                         <i className="fas fa-life-ring text-2xl text-purple-400" aria-hidden="true" />
                         {aberta && <span className="ml-3 font-semibold text-white">{menu.suporte.rotulo}</span>}
                         {aberta && <span className="ml-auto rounded-full bg-purple-500 px-2 py-1 text-xs">{menu.suporte.extra}</span>}
@@ -206,7 +204,6 @@ function LigacaoDoMenu({ l, nivel, aberta, aoClicar }: { l: Ligacao; nivel: Nive
     return (
         <a
             href={l.url}
-            {...{ 'wire:navigate': '' }}
             onClick={aoClicar}
             aria-current={l.activo ? 'page' : undefined}
             className={cls('flex items-center transition', caixa, l.activo ? `bg-blue-700 border-l-4 border-${l.barra}` : l.hover)}
@@ -277,7 +274,7 @@ function SubGrupo({ g, aberta, aoClicar }: { g: Grupo; aberta: boolean; aoClicar
 function GrupoSimples({ g, aberta, aoClicar }: { g: Grupo; aberta: boolean; aoClicar: () => void }) {
     return (
         <div className="mt-6">
-            <a href={g.url ?? '#'} {...{ 'wire:navigate': '' }} onClick={aoClicar} className={cls('flex items-center px-4 py-3 transition', g.activo ? 'border-l-4 border-yellow-400 bg-blue-700' : 'hover:bg-blue-700/50')}>
+            <a href={g.url ?? '#'} onClick={aoClicar} className={cls('flex items-center px-4 py-3 transition', g.activo ? 'border-l-4 border-yellow-400 bg-blue-700' : 'hover:bg-blue-700/50')}>
                 <i className={cls('fas', g.icone, 'w-5 text-xl', 'text-' + g.cor)} aria-hidden="true" />
                 {aberta && <span className="ml-3 font-semibold text-white">{g.rotulo}</span>}
             </a>

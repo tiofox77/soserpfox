@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\Invoicing\InvoicingSettings;
 use App\Models\Invoicing\SalesInvoice;
 use Illuminate\Support\Facades\Schema;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**

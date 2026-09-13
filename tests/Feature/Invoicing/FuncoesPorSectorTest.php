@@ -7,7 +7,6 @@ use App\Models\Invoicing\InvoicingSettings;
 use App\Models\Invoicing\ProductBatch;
 use App\Models\Invoicing\Stock;
 use App\Models\Product;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
