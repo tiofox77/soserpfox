@@ -366,6 +366,8 @@ export const restaurante = {
         confirmar: (id: number) => api.criar<Recado>(`${R}/comandas/${id}/confirmar`, {}),
         despachar: (id: number) => api.criar<Recado>(`${R}/comandas/${id}/despachar`, {}),
         libertarMesa: (id: number) => api.criar<Recado>(`${R}/comandas/${id}/libertar-mesa`, {}),
+        /** A comanda inteira — só aceite quando não tem artigos vivos nem nada facturado. */
+        anularComanda: (id: number) => api.criar<Recado>(`${R}/comandas/${id}/anular`, {}),
         transferir: (id: number, table_id: number) => api.criar<Recado>(`${R}/comandas/${id}/transferir`, { table_id }),
         juntar: (id: number, target_order_id: number) =>
             api.criar<Recado & { order_id: number }>(`${R}/comandas/${id}/juntar`, { target_order_id }),

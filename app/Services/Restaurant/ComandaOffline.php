@@ -114,7 +114,34 @@ class ComandaOffline
             ->first();
 
         if ($jaExiste) {
-            return $jaExiste;
+            // ANULADA VAZIA NOUTRO POSTO, E O TABLET AINDA TINHA ARTIGOS.
+            //
+            // Juntar artigos a uma comanda anulada punha comida na conta de
+            // uma comanda que ninguém vê; recusar perdia-os. Reabre-se, ao
+            // balcão se a mesa entretanto foi ocupada, e diz-se porquê.
+            $anuladaVazia = $jaExiste->status === 'cancelled'
+                && str_contains((string) $jaExiste->notes, RestaurantOrderService::MARCA_ANULADA_VAZIA);
+
+            if ($anuladaVazia && (!empty($dados['items']) || !empty($dados['checkout']))) {
+                $mesaLivre = $jaExiste->table_id && $this->mesaEstaLivre((int) $jaExiste->table_id, $tenantId);
+
+                $jaExiste->update([
+                    'status' => 'draft',
+                    'closed_at' => null,
+                    'closed_by' => null,
+                    'table_id' => $mesaLivre ? $jaExiste->table_id : null,
+                    'channel' => $mesaLivre ? $jaExiste->channel : 'counter',
+                    'notes' => trim(str_replace(RestaurantOrderService::MARCA_ANULADA_VAZIA, '[reaberta: chegaram artigos depois de anulada vazia]', (string) $jaExiste->notes)),
+                ]);
+
+                if ($mesaLivre) {
+                    DiningTable::withoutGlobalScopes()->where('tenant_id', $tenantId)->whereKey($jaExiste->table_id)->update(['status' => 'occupied']);
+                }
+
+                $avisos[] = 'Esta comanda tinha sido anulada vazia noutro posto e chegaram artigos dela — foi reaberta' . ($mesaLivre ? '.' : ' ao balcão.');
+            }
+
+            return $jaExiste->fresh();
         }
 
         $mesaId = $dados['table_id'] ?? null;

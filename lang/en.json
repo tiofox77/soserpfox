@@ -10696,5 +10696,12 @@
     "Nenhuma categoria com «:procura».": "No category matches «:procura».",
     "Desconto em percentagem": "Percentage discount",
     "Desconto em kwanzas": "Discount in kwanzas",
-    "O sistema foi actualizado. A página vai recarregar.": "The system has been updated. The page will reload."
+    "O sistema foi actualizado. A página vai recarregar.": "The system has been updated. The page will reload.",
+    "Anular comanda": "Cancel order",
+    "Anular a comanda :n?": "Cancel order :n?",
+    "Não tem artigos nem nada facturado": "It has no items and nothing invoiced",
+    "A comanda fica anulada e a mesa :m volta a ficar livre para os outros postos.": "The order is cancelled and table :m becomes free again for the other stations.",
+    "A comanda fica anulada.": "The order is cancelled.",
+    "Comanda :numero anulada. A mesa ficou livre.": "Order :numero cancelled. The table is free.",
+    "Ver o carrinho": "View cart"
 }

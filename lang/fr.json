@@ -10696,5 +10696,12 @@
     "Nenhuma categoria com «:procura».": "Aucune catégorie ne correspond à «:procura».",
     "Desconto em percentagem": "Remise en pourcentage",
     "Desconto em kwanzas": "Remise en kwanzas",
-    "O sistema foi actualizado. A página vai recarregar.": "Le système a été mis à jour. La page va se recharger."
+    "O sistema foi actualizado. A página vai recarregar.": "Le système a été mis à jour. La page va se recharger.",
+    "Anular comanda": "Annuler la commande",
+    "Anular a comanda :n?": "Annuler la commande :n ?",
+    "Não tem artigos nem nada facturado": "Elle n'a aucun article ni rien de facturé",
+    "A comanda fica anulada e a mesa :m volta a ficar livre para os outros postos.": "La commande est annulée et la table :m redevient libre pour les autres postes.",
+    "A comanda fica anulada.": "La commande est annulée.",
+    "Comanda :numero anulada. A mesa ficou livre.": "Commande :numero annulée. La table est libre.",
+    "Ver o carrinho": "Voir le panier"
 }

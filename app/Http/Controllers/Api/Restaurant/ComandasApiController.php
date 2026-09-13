@@ -420,6 +420,20 @@ class ComandasApiController extends Controller
         return response()->json(['message' => __('Saiu para o cliente.')]);
     }
 
+    /** Anular a comanda inteira — só quando está vazia (ver RestaurantOrderService::cancelEmpty). */
+    public function anular(Request $request, int $id): JsonResponse
+    {
+        $this->exigir($request, 'restaurant.orders.cancel');
+
+        try {
+            $comanda = $this->comandas->cancelEmpty($this->comanda($id), activeTenantId(), $request->user()?->id);
+        } catch (\Throwable $e) {
+            $this->recusa($e);
+        }
+
+        return response()->json(['message' => __('Comanda :numero anulada. A mesa ficou livre.', ['numero' => $comanda->order_number])]);
+    }
+
     public function libertarMesa(Request $request, int $id): JsonResponse
     {
         $this->exigir($request, 'restaurant.floor.manage');

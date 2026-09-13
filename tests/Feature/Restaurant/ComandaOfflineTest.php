@@ -545,4 +545,76 @@ class ComandaOfflineTest extends TenantTestCase
             'em limpeza com comanda' => ['cleaning', true, 'occupied'],
         ];
     }
+
+    // ── Anular a comanda vazia ───────────────────────────────────────
+
+    private function comandaVaziaNaMesa(?string $uuid = null): Order
+    {
+        return app(\App\Services\Restaurant\RestaurantOrderService::class)->open([
+            'venue_id' => $this->sala->id,
+            'table_id' => $this->mesa->id,
+            'guest_count' => 2,
+            'local_uuid' => $uuid ?? (string) Str::uuid(),
+        ], $this->tenant->id, $this->user->id);
+    }
+
+    /**
+     * A COMANDA QUE NUNCA TEVE NADA ANULA-SE, E A MESA FICA LIVRE.
+     *
+     * Não havia forma de a fechar: não há nada para facturar, nem artigos para
+     * anular um a um. A mesa ficava ocupada em todos os postos.
+     */
+    public function test_a_comanda_vazia_anula_se_e_a_mesa_fica_livre(): void
+    {
+        $this->comPermissoes('restaurant.orders.cancel');
+        $comanda = $this->comandaVaziaNaMesa();
+        $this->assertNotSame('available', $this->mesa->fresh()->status);
+
+        $this->postJson("/api/v1/invoicing/react/restaurant/comandas/{$comanda->id}/anular")->assertOk();
+
+        $this->assertSame('cancelled', $comanda->fresh()->status);
+        $this->assertSame('available', $this->mesa->fresh()->status);
+    }
+
+    public function test_uma_comanda_com_artigos_nao_se_anula_inteira(): void
+    {
+        $this->comPermissoes('restaurant.orders.cancel');
+        $comanda = Order::withoutGlobalScopes()->find($this->enviar($this->comanda())->assertStatus(201)->json('id'));
+
+        $this->postJson("/api/v1/invoicing/react/restaurant/comandas/{$comanda->id}/anular")->assertStatus(422);
+
+        $this->assertNotSame('cancelled', $comanda->fresh()->status, 'os artigos anulam-se um a um, com registo');
+    }
+
+    public function test_sem_permissao_de_anular_a_porta_esta_fechada(): void
+    {
+        $comanda = $this->comandaVaziaNaMesa();
+
+        $this->postJson("/api/v1/invoicing/react/restaurant/comandas/{$comanda->id}/anular")->assertForbidden();
+
+        $this->assertNotSame('cancelled', $comanda->fresh()->status);
+    }
+
+    /**
+     * ANULADA VAZIA NOUTRO POSTO, E O TABLET AINDA TINHA ARTIGOS POR SUBIR.
+     *
+     * A reposição reencontra a comanda pelo identificador. Juntar artigos a uma
+     * comanda anulada punha comida numa conta que ninguém vê; recusar perdia-a.
+     * Reabre-se, e diz-se porquê.
+     */
+    public function test_chegam_artigos_de_uma_comanda_anulada_vazia_e_ela_reabre(): void
+    {
+        $uuid = (string) Str::uuid();
+        $comanda = $this->comandaVaziaNaMesa($uuid);
+        app(\App\Services\Restaurant\RestaurantOrderService::class)->cancelEmpty($comanda, $this->tenant->id, $this->user->id);
+
+        $resposta = $this->enviar($this->comanda(['local_uuid' => $uuid]))->assertStatus(201);
+
+        $reaberta = Order::withoutGlobalScopes()->find($resposta->json('id'));
+        $this->assertSame($comanda->id, $reaberta->id, 'a mesma comanda, pelo mesmo identificador');
+        $this->assertNotSame('cancelled', $reaberta->status);
+        $this->assertCount(1, $reaberta->items, 'os artigos do tablet não se perderam');
+        $this->assertStringContainsString('reaberta', $reaberta->notes);
+        $this->assertNotEmpty($resposta->json('avisos'));
+    }
 }

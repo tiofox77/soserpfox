@@ -1173,6 +1173,7 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::post('/{id}/confirmar', [$c, 'confirmar'])->whereNumber('id')->name('confirmar');
             Route::post('/{id}/despachar', [$c, 'despachar'])->whereNumber('id')->name('despachar');
             Route::post('/{id}/libertar-mesa', [$c, 'libertarMesa'])->whereNumber('id')->name('libertar-mesa');
+            Route::post('/{id}/anular', [$c, 'anular'])->whereNumber('id')->name('anular');
             Route::post('/{id}/transferir', [$c, 'transferir'])->whereNumber('id')->name('transferir');
             Route::post('/{id}/juntar', [$c, 'juntar'])->whereNumber('id')->name('juntar');
             Route::post('/{id}/fechar', [$c, 'fechar'])->whereNumber('id')->name('fechar');

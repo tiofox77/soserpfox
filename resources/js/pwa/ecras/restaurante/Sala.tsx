@@ -192,40 +192,6 @@ export function Sala({
                 </div>
             )}
 
-            {/* ============ ÚLTIMAS CONTAS ============
-                Para reimprimir. A primeira impressão falha mais do que se pensa —
-                papel a acabar, impressora desligada — e o talão provisório passa a
-                definitivo assim que a comanda sobe. Sem isto, o cliente que volta
-                a pedir a factura ficava sem ela. */}
-            {contasFechadas.length > 0 && (
-                <div className="space-y-2 pwa-entra">
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                        <i className="fas fa-receipt mr-1" aria-hidden="true" />{t('Últimas contas')}
-                    </p>
-                    <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar">
-                        {contasFechadas.map((x) => (
-                            <div key={x.local_uuid} className="shrink-0 min-w-[190px] bg-white rounded-2xl shadow-sm border border-slate-200 p-3">
-                                <div className="flex items-start justify-between gap-2">
-                                    <div className="min-w-0">
-                                        <p className={`text-[10px] font-bold truncate transition-colors ${x._invoice_number ? 'text-emerald-600' : 'text-amber-600'}`}>
-                                            <i className={`fas ${x._invoice_number ? 'fa-circle-check' : 'fa-clock'} mr-1`} aria-hidden="true" />
-                                            {x._invoice_number || t('Por sincronizar')}
-                                        </p>
-                                        <p className="text-sm font-black text-slate-800 tabular-nums">{dinheiro(x.total)} Kz</p>
-                                        <p className="text-[10px] text-slate-400">{nomeDaMesa(x.table_id, todasAsMesas ?? [])}</p>
-                                    </div>
-                                    <button type="button" onClick={() => void imprimirTalao(x.local_uuid)}
-                                            title={t('Imprimir talão')} aria-label={t('Imprimir talão')}
-                                            className="pwa-toque shrink-0 h-9 w-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors">
-                                        <i className="fas fa-print" aria-hidden="true" />
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
             {/* ============ A PLANTA ============ */}
             {mesas === null && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2.5" aria-hidden="true">
@@ -298,6 +264,44 @@ export function Sala({
                         })}
                     </div>
                 </>
+            )}
+
+            {/* ============ ÚLTIMAS CONTAS ============
+                Para reimprimir. A primeira impressão falha mais do que se pensa —
+                papel a acabar, impressora desligada — e o talão provisório passa a
+                definitivo assim que a comanda sobe. Sem isto, o cliente que volta
+                a pedir a factura ficava sem ela.
+
+                POR BAIXO DA PLANTA, e não por cima: o que se faz nesta página é
+                sentar gente e abrir mesas. Com as contas em cima, as mesas desciam
+                meio ecrã a cada conta fechada e o dedo acertava no sítio errado. */}
+            {contasFechadas.length > 0 && (
+                <div className="space-y-2 pwa-entra">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                        <i className="fas fa-receipt mr-1" aria-hidden="true" />{t('Últimas contas')}
+                    </p>
+                    <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar">
+                        {contasFechadas.map((x) => (
+                            <div key={x.local_uuid} className="shrink-0 min-w-[190px] bg-white rounded-2xl shadow-sm border border-slate-200 p-3">
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                        <p className={`text-[10px] font-bold truncate transition-colors ${x._invoice_number ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                            <i className={`fas ${x._invoice_number ? 'fa-circle-check' : 'fa-clock'} mr-1`} aria-hidden="true" />
+                                            {x._invoice_number || t('Por sincronizar')}
+                                        </p>
+                                        <p className="text-sm font-black text-slate-800 tabular-nums">{dinheiro(x.total)} Kz</p>
+                                        <p className="text-[10px] text-slate-400">{nomeDaMesa(x.table_id, todasAsMesas ?? [])}</p>
+                                    </div>
+                                    <button type="button" onClick={() => void imprimirTalao(x.local_uuid)}
+                                            title={t('Imprimir talão')} aria-label={t('Imprimir talão')}
+                                            className="pwa-toque shrink-0 h-9 w-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors">
+                                        <i className="fas fa-print" aria-hidden="true" />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             )}
 
             {/* Sala por montar.

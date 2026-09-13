@@ -317,6 +317,71 @@ class RestaurantOrderService
         });
     }
 
+    /** A marca que a anulação deixa nas notas — é por ela que a sincronização a reconhece. */
+    public const MARCA_ANULADA_VAZIA = '[anulada vazia]';
+
+    /**
+     * ANULAR UMA COMANDA QUE NUNCA TEVE NADA.
+     *
+     * Alguém sentou uma mesa e a comanda ficou aberta, vazia: os clientes
+     * foram-se, ou foi um engano, ou outro posto abriu a mesma mesa. Não havia
+     * forma de a fechar — só se facturava (não há nada para facturar) ou se
+     * anulava artigo a artigo (não há artigos) — e a mesa ficava ocupada para
+     * sempre, em todos os postos.
+     *
+     * SÓ SE ANULA O QUE NÃO SE PODE PERDER NADA: aberta, sem nenhum artigo vivo
+     * (os anulados um a um contam como já tratados, e deixaram o seu registo)
+     * e sem nada facturado. A mesa só fica livre se não houver outra comanda
+     * aberta nela. Fica o acontecimento na história da comanda.
+     *
+     * E SE UM TABLET AINDA TINHA ARTIGOS POR SUBIR? A comanda anulada leva a
+     * marca nas notas, e a reposição offline, ao reencontrá-la pelo
+     * identificador, reabre-a em vez de juntar artigos a uma comanda anulada
+     * (ver ComandaOffline::abrir).
+     */
+    public function cancelEmpty(Order $order, int $tenantId, ?int $userId): Order
+    {
+        return DB::transaction(function () use ($order, $tenantId, $userId) {
+            $order = Order::withoutGlobalScopes()->where('tenant_id', $tenantId)->lockForUpdate()->findOrFail($order->id);
+
+            if (!in_array($order->status, Order::OPEN_STATUSES, true)) {
+                throw new InvalidArgumentException('Só se anula uma comanda que ainda está aberta.');
+            }
+
+            $itens = OrderItem::withoutGlobalScopes()->where('tenant_id', $tenantId)->where('order_id', $order->id);
+
+            if ((clone $itens)->where('billed_quantity', '>', 0)->exists()) {
+                throw new InvalidArgumentException('A comanda já tem artigos facturados e não pode ser anulada.');
+            }
+
+            if ((clone $itens)->where('kitchen_status', '!=', 'voided')->exists()) {
+                throw new InvalidArgumentException('A comanda tem artigos. Anule-os um a um (fica o registo de cada um) antes de anular a comanda.');
+            }
+
+            $mesa = $order->table_id;
+
+            $order->update([
+                'status' => 'cancelled',
+                'closed_at' => now(),
+                'closed_by' => $userId,
+                'notes' => trim(($order->notes ?? '') . ' ' . self::MARCA_ANULADA_VAZIA),
+            ]);
+
+            if ($mesa) {
+                $outra = Order::withoutGlobalScopes()->where('tenant_id', $tenantId)->where('table_id', $mesa)
+                    ->whereIn('status', Order::OPEN_STATUSES)->lockForUpdate()->exists();
+
+                if (!$outra) {
+                    DiningTable::withoutGlobalScopes()->where('tenant_id', $tenantId)->whereKey($mesa)->update(['status' => 'available']);
+                }
+            }
+
+            $this->event($order, 'order_cancelled_empty', null, ['table_id' => $mesa], $userId);
+
+            return $order->fresh(['table', 'items']);
+        });
+    }
+
     public function releaseTable(Order $order, int $tenantId, ?int $userId): void
     {
         if ($order->tenant_id !== $tenantId || $order->status !== 'billed' || !$order->table_id) {

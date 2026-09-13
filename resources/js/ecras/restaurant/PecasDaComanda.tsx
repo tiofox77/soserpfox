@@ -244,6 +244,7 @@ export function PainelDaComanda({
     const cache = useQueryClient();
 
     const [aTransferir, porATransferir] = useState(false);
+    const [aAnularComanda, porAAnularComanda] = useState(false);
     const [aJuntar, porAJuntar] = useState(false);
     const [aAnular, porAAnular] = useState<number | null>(null);
     const [motivo, porMotivo] = useState('');
@@ -286,6 +287,10 @@ export function PainelDaComanda({
     const confirmar = useMutation({ mutationFn: () => comAviso(() => restaurante.comandas.confirmar(id)) });
     const despachar = useMutation({ mutationFn: () => comAviso(() => restaurante.comandas.despachar(id)) });
     const libertar = useMutation({ mutationFn: () => comAviso(() => restaurante.comandas.libertarMesa(id)) });
+    const anularComanda = useMutation({
+        mutationFn: () => comAviso(() => restaurante.comandas.anularComanda(id)),
+        onSuccess: () => porAAnularComanda(false),
+    });
 
     const transferir = useMutation({
         mutationFn: (mesa: number) => comAviso(() => restaurante.comandas.transferir(id, mesa)),
@@ -307,6 +312,8 @@ export function PainelDaComanda({
     const c = f.comanda;
     const porFacturar = f.artigos.filter((a) => a.por_facturar > 0.0001);
     const podeFacturar = ['ready', 'served', 'partially_billed'].includes(c.estado) && porFacturar.length > 0;
+    // Vazia: nenhum artigo vivo (os anulados já têm o seu registo) e nada facturado.
+    const vazia = f.artigos.every((a) => a.estado_na_cozinha === 'voided') && f.artigos.every((a) => a.facturada <= 0);
 
     return (
         <div className={cls('flex min-h-0 flex-col gap-3', compacto && 'h-full')}>
@@ -451,6 +458,14 @@ export function PainelDaComanda({
                             {t('Juntar a outra')}
                         </Botao>
                     )}
+
+                    {/* A comanda que nunca teve nada: sem isto a mesa ficava
+                        ocupada para sempre, em todos os postos. */}
+                    {vazia && opcoes.permissoes.pode_anular && (
+                        <Botao cor="perigo" icone="fa-ban" onClick={() => porAAnularComanda(true)}>
+                            {t('Anular comanda')}
+                        </Botao>
+                    )}
                 </div>
             )}
 
@@ -459,6 +474,32 @@ export function PainelDaComanda({
                     {t('Mesa limpa')}
                 </Botao>
             )}
+
+            {/* ─── Anular a comanda vazia ─── */}
+            <Modal
+                aberto={aAnularComanda}
+                aoFechar={() => porAAnularComanda(false)}
+                titulo={t('Anular a comanda :n?', { n: c.numero })}
+                subtitulo={t('Não tem artigos nem nada facturado')}
+                icone="fa-ban"
+                cor="perigo"
+                largura="sm"
+                rodape={
+                    <div className="flex justify-end gap-2">
+                        <Botao cor="neutra" onClick={() => porAAnularComanda(false)}>{t('Cancelar')}</Botao>
+                        <Botao cor="perigo" tom="solida" icone="fa-ban" aTrabalhar={anularComanda.isPending} onClick={() => anularComanda.mutate()}>
+                            {t('Anular comanda')}
+                        </Botao>
+                    </div>
+                }
+            >
+                <p className="text-sm text-slate-700">
+                    {c.mesa
+                        ? t('A comanda fica anulada e a mesa :m volta a ficar livre para os outros postos.', { m: c.mesa })
+                        : t('A comanda fica anulada.')}
+                </p>
+                <AvisoDeErro erro={anularComanda.error} />
+            </Modal>
 
             {/* ─── Mudar de mesa ─── */}
             <Modal
