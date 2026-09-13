@@ -16,18 +16,18 @@ use Tests\TenantTestCase;
 class TraducoesTest extends TenantTestCase
 {
     /*
-     * O CRACHÁ «Novo» DO MENU LATERAL, tal como sai desenhado.
+     * O CRACHÁ «Novo» DO MENU LATERAL, tal como a página o entrega à casca.
      *
      * Serve de sonda da língua porque diz três coisas diferentes nas três, e
      * porque se mede na MARCAÇÃO: procurar a palavra solta apanhava-a dentro
      * do dicionário que a página leva embutido (as chaves são portuguesas) e
-     * dizia que a página fala português quando fala inglês. Foi assim que o
-     * `LoteMenuLinguaTest` descobriu que precisava de limpar o dicionário
-     * antes de olhar para o HTML.
+     * dizia que a página fala português quando fala inglês. A barra lateral é
+     * hoje o ecrã `casca` em React: o crachá vai nas props, já traduzido pelo
+     * servidor, como `"extra":"…"` escapado no atributo.
      */
-    private const EM_PORTUGUES = '>Novo</span>';
-    private const EM_INGLES = '>New</span>';
-    private const EM_FRANCES = '>Nouveau</span>';
+    private const EM_PORTUGUES = '&quot;extra&quot;:&quot;Novo&quot;';
+    private const EM_INGLES = '&quot;extra&quot;:&quot;New&quot;';
+    private const EM_FRANCES = '&quot;extra&quot;:&quot;Nouveau&quot;';
 
     protected function setUp(): void
     {

@@ -8,12 +8,16 @@ use Tests\TenantTestCase;
 /**
  * O MENU LATERAL NÃO MUDA SEM SE DAR POR ISSO.
  *
- * O menu saiu de 1.500 linhas de Blade para o `MenuDaCasca`, que o Blade e o
- * ecrã em React passam a desenhar. Antes da mudança gravou-se o que o menu
- * de sempre mostrava a dois utilizadores — um vulgar com todas as permissões
- * e todos os módulos, e o super admin da plataforma — e este ensaio compara
- * o menu de hoje com essa gravação: as mesmas ligações, com os mesmos textos,
- * pela mesma ordem, com o mesmo acesso.
+ * O menu saiu de 1.500 linhas de Blade para o `MenuDaCasca`. Antes da mudança
+ * gravou-se o que o menu de sempre mostrava a dois utilizadores — um vulgar
+ * com todas as permissões e todos os módulos, e o super admin da plataforma —
+ * e este ensaio compara o menu de hoje com essa gravação: as mesmas ligações,
+ * com os mesmos textos, pela mesma ordem, com o mesmo acesso.
+ *
+ * A barra lateral é hoje só o ecrã `casca`, em React (a de Blade saiu em
+ * 2026-09-13). O que se compara é o que a PÁGINA lhe entrega nas props, lido
+ * na mesma sequência em que a barra de Blade o desenhava: um cabeçalho, uma
+ * ligação, um botão de grupo, e por aí fora.
  *
  * Para voltar a gravar (só quando a mudança no menu é deliberada):
  *   GRAVAR_MENU=1 php artisan test --filter=MenuDaCascaFielTest
@@ -125,35 +129,79 @@ class MenuDaCascaFielTest extends TenantTestCase
 
         $r->assertOk();
 
-        $dom = new \DOMDocument();
-        libxml_use_internal_errors(true);
-        $dom->loadHTML('<?xml encoding="utf-8" ?>' . $r->getContent());
-        libxml_clear_errors();
+        preg_match('/data-peca="casca"\s+data-props="([^"]*)"/', $r->getContent(), $m);
+        $this->assertNotEmpty($m, 'a página não montou a casca');
+        $menu = json_decode(html_entity_decode($m[1], ENT_QUOTES), true)['menu'];
 
-        $x = new \DOMXPath($dom);
         $origem = rtrim(config('app.url'), '/');
+        $texto = fn (string $t) => trim(preg_replace('/\s+/u', ' ', $t));
+        $a = fn (array $e) => array_filter([
+            'tag' => 'a',
+            'href' => str_replace($origem, '', $e['url']),
+            'texto' => $texto((isset($e['prefixo']) ? $e['prefixo'].' ' : '').$e['rotulo']),
+            'activo' => ! empty($e['activo']) ? true : null,
+        ], fn ($v) => $v !== null);
 
-        $linha = function (\DOMElement $e) use ($origem) {
-            $texto = trim(preg_replace('/\s+/u', ' ', $e->textContent));
-            $classe = $e->getAttribute('class');
+        $nav = [['tag' => 'p', 'texto' => __('Menu Principal')]];
 
-            return array_filter([
-                'tag' => $e->tagName,
-                'href' => $e->tagName === 'a' ? str_replace($origem, '', $e->getAttribute('href')) : null,
-                'texto' => $texto,
-                'activo' => str_contains($classe, 'border-l-4') ? true : null,
-            ], fn ($v) => $v !== null);
-        };
-
-        $nav = [];
-        foreach ($x->query('//nav[@id="sidebar-menu"]//*[self::a or self::button or self::p]') as $e) {
-            $nav[] = $linha($e);
+        foreach ($menu['principal'] as $e) {
+            $nav[] = $a($e);
         }
 
-        $rodape = [];
-        foreach ($x->query('//aside[@id="app-sidebar"]//*[self::a or self::button][not(ancestor::nav)]') as $e) {
-            $rodape[] = $linha($e);
+        foreach ($menu['grupos'] as $g) {
+            if ($g['simples']) {
+                $nav[] = $a($g);
+                foreach ($g['entradas'] as $e) {
+                    $nav[] = $a($e);
+                }
+                continue;
+            }
+
+            $nav[] = ['tag' => 'button', 'texto' => $texto($g['rotulo'])];
+
+            foreach ($g['entradas'] as $e) {
+                if (isset($e['separador'])) {
+                    continue;
+                }
+                if (isset($e['sub'])) {
+                    $sub = $e['sub'];
+                    $nav[] = ['tag' => 'button', 'texto' => $texto((isset($sub['prefixo']) ? $sub['prefixo'].' ' : '').$sub['rotulo'])];
+                    foreach ($sub['entradas'] as $se) {
+                        if (isset($se['titulo']) || isset($se['separador'])) {
+                            continue;
+                        }
+                        $nav[] = $a($se);
+                    }
+                    continue;
+                }
+                $nav[] = $a($e);
+            }
         }
+
+        foreach ($menu['superadmin'] as $seccao) {
+            $nav[] = ['tag' => 'p', 'texto' => $seccao['titulo']];
+            foreach ($seccao['entradas'] as $e) {
+                $nav[] = $a($e);
+            }
+        }
+
+        $u = $menu['utilizador'];
+        $rodape = [
+            // O botão de fechar do telemóvel.
+            ['tag' => 'button', 'texto' => ''],
+            array_filter([
+                'tag' => 'a',
+                'href' => str_replace($origem, '', $menu['suporte']['url']),
+                'texto' => $texto($menu['suporte']['rotulo'].' '.$menu['suporte']['extra']),
+                'activo' => ! empty($menu['suporte']['activo']) ? true : null,
+            ], fn ($v) => $v !== null),
+            ['tag' => 'button', 'texto' => $texto($u['nome'].' '.$u['papel'])],
+        ];
+        foreach ($u['ligacoes'] as $l) {
+            $rodape[] = ['tag' => 'a', 'href' => str_replace($origem, '', $l['url']), 'texto' => $texto($l['rotulo'])];
+        }
+        $rodape[] = ['tag' => 'a', 'href' => str_replace($origem, '', $u['atualizacoes']['url']), 'texto' => $texto($u['atualizacoes']['rotulo'].' '.$u['atualizacoes']['versao'])];
+        $rodape[] = ['tag' => 'button', 'texto' => __('Sair')];
 
         return ['nav' => $nav, 'rodape' => $rodape];
     }

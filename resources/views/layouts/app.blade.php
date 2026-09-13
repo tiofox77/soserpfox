@@ -65,8 +65,21 @@
     <!-- Font Awesome CDN -->
     <link rel="stylesheet" href="/vendor/css/fontawesome.min.css">
     
+    <script>
+        // A barra lateral lembra-se de estar encolhida: o lugar reservado para
+        // ela tem de o saber ANTES de o React a desenhar.
+        try { if (localStorage.getItem('casca:aberta') === '0') document.documentElement.dataset.casca = 'fechada'; } catch (e) {}
+    </script>
     <style>
         [x-cloak] { display: none !important; }
+
+        /* O LUGAR DA BARRA LATERAL enquanto o React não a desenha. */
+        @media (min-width: 768px) {
+            .casca-lugar:not(:has(aside)) { width: 5rem; background: linear-gradient(to bottom, #1e3a8a, #1e40af); }
+        }
+        @media (min-width: 1024px) {
+            html:not([data-casca="fechada"]) .casca-lugar:not(:has(aside)) { width: 16rem; }
+        }
 
         /* A barra de progresso de quem muda de página (ver o fim do layout). */
         .spa-progress {
@@ -480,166 +493,22 @@
             closeMobileSidebar() {
                 if (this.isMobile) this.sidebarOpen = false;
             }
-        }" class="flex h-screen overflow-hidden">
-            <!-- Mobile Backdrop -->
-            <div x-show="sidebarOpen && isMobile"
-                 x-transition:enter="transition-opacity ease-out duration-300"
-                 x-transition:enter-start="opacity-0"
-                 x-transition:enter-end="opacity-100"
-                 x-transition:leave="transition-opacity ease-in duration-200"
-                 x-transition:leave-start="opacity-100"
-                 x-transition:leave-end="opacity-0"
-                 @click="sidebarOpen = false"
-                 class="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
-                 x-cloak></div>
+        }" @casca:estado.window="sidebarOpen = $event.detail.aberta" class="flex h-screen overflow-hidden">
+            {{--
+                A BARRA LATERAL — o ecrã `casca`, em React.
 
-            <!-- Sidebar -->
-            @if(session('casca_react'))
-            {{-- A CASCA EM REACT, em ensaio: a barra lateral inteira sai do
-                 ecra `casca`, com o mesmo MenuDaCasca. Liga-se por sessão em
-                 /casca/novo-ecra e desliga-se em /casca/ecra-de-sempre. A
-                 barra do topo fica em Blade, com as peças em React. --}}
-            <x-ecra-react nome="casca" class="flex flex-none" :props="[
+                O menu sai do MenuDaCasca (quem vê o quê, por que ordem); o ecrã
+                sabe a forma: abrir e fechar grupos, encolher, o menu do
+                utilizador, o véu no telemóvel. Até o JavaScript chegar, o lugar
+                fica com a largura e a cor da barra (ver `.casca-lugar`), para a
+                página não saltar para o lado quando ela aparece.
+            --}}
+            <x-ecra-react nome="casca" :esqueleto="false" class="casca-lugar flex flex-none" :props="[
                 'menu' => $menuDaCasca,
                 'logo' => app_logo(),
                 'nome' => app_name(),
                 'csrf' => csrf_token(),
-                'voltar' => route('casca.blade'),
             ]" />
-            @else
-            <aside id="app-sidebar" :class="{
-                    'first-load': firstLoad,
-                    'w-64': sidebarOpen,
-                    'w-20': !sidebarOpen && !isMobile,
-                    'w-0 -translate-x-full': !sidebarOpen && isMobile,
-                    'w-64 translate-x-0': sidebarOpen && isMobile,
-                    'fixed inset-y-0 left-0 z-50': isMobile
-                }" class="bg-gradient-to-b from-blue-900 to-blue-800 text-white transition-[width,transform] duration-300 flex flex-col shadow-2xl overflow-hidden">
-                <!-- Logo -->
-                <div class="flex items-center justify-between p-4 border-b border-blue-700 logo-container">
-                    <div class="flex items-center justify-center" :class="sidebarOpen ? 'w-full' : ''">
-                        @if(app_logo())
-                            <img src="{{ app_logo() }}" 
-                                 alt="{{ app_name() }}" 
-                                 style="max-height: 4rem; max-width: 200px;"
-                                 class="w-auto object-contain transition-[height,width] duration-300"
-                                 :class="sidebarOpen ? 'h-16' : 'h-12 w-12'">
-                        @else
-                            <div :class="sidebarOpen ? 'w-12 h-12' : 'w-10 h-10'" class="bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center shadow-lg transition-[width,height] duration-300">
-                                <i class="fas fa-crown text-white transition-[font-size] duration-300" :class="sidebarOpen ? 'text-2xl' : 'text-xl'"></i>
-                            </div>
-                        @endif
-                    </div>
-                    <!-- Close button on mobile -->
-                    <button @click="sidebarOpen = false" x-show="isMobile" class="text-blue-300 hover:text-white transition ml-2 p-1">
-                        <i class="fas fa-times text-lg"></i>
-                    </button>
-                </div>
-
-                <!-- Menu -->
-                <nav id="sidebar-menu" class="flex-1 overflow-y-auto py-4">
-                    {{-- O menu vem do MenuDaCasca — o mesmo que o ecrã em React desenha.
-                         Uma ligação nova entra lá, não aqui. --}}
-                    @include('partials.casca.menu', ['menu' => $menuDaCasca])
-                </nav>
-
-                <!-- Easter Egg: FOX Friendly -->
-                @php
-                    $tenant = auth()->user()->activeTenant();
-                    $subscription = $tenant ? $tenant->activeSubscription : null;
-                    $plan = $subscription ? $subscription->plan : null;
-                    $isFoxFriendly = $plan && str_contains(strtolower($plan->slug), 'fox');
-                @endphp
-                
-                @if($isFoxFriendly)
-                <div class="border-t border-blue-700 px-4 py-3">
-                    <div x-data="{ foxHover: false }" 
-                         @mouseenter="foxHover = true" 
-                         @mouseleave="foxHover = false"
-                         class="relative cursor-help">
-                        <div class="flex items-center justify-center">
-                            <div class="text-3xl transition-transform duration-300" 
-                                 :class="foxHover ? 'scale-125' : 'scale-100'"
-                                 style="animation: foxFloat 3s ease-in-out infinite;">
-                                🦊
-                            </div>
-                        </div>
-                        <div x-show="foxHover && sidebarOpen" 
-                             x-transition
-                             class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs rounded-lg shadow-lg whitespace-nowrap">
-                            <div class="font-bold">🦊 FOX Friendly Active!</div>
-                            <div class="text-xs opacity-90">3 meses grátis • Todos os módulos</div>
-                            <div class="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
-                                <div class="border-4 border-transparent border-t-red-500"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                @endif
-
-                <!-- Suporte Menu -->
-                <div class="mt-auto border-t border-blue-700 pt-4">
-                    <a href="{{ route('support.tickets') }}" 
-                       class="flex items-center px-4 py-3 {{ request()->routeIs('support.*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition group">
-                        <i class="fas fa-life-ring text-2xl text-purple-400"></i>
-                        <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">{{ __('Suporte') }}</span>
-                        <span x-show="sidebarOpen" class="ml-auto text-xs bg-purple-500 px-2 py-1 rounded-full">{{ __('Novo') }}</span>
-                    </a>
-                </div>
-
-                <!-- User Menu -->
-                <div class="border-t border-blue-700 p-4">
-                    <div x-data="{ open: false }" class="relative">
-                        <button @click="open = !open" class="flex items-center w-full text-left hover:bg-blue-700/50 rounded-lg p-2 transition">
-                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-lg">
-                                <i class="fas fa-user text-white"></i>
-                            </div>
-                            <div x-show="sidebarOpen" class="ml-3 flex-1">
-                                <p class="text-sm font-medium">{{ Auth::user()->name }}</p>
-                                <p class="text-xs text-blue-300">{{ auth()->user()->isSuperAdmin() ? 'Super Admin' : 'Utilizador' }}</p>
-                            </div>
-                            <i x-show="sidebarOpen" class="fas fa-chevron-up text-sm" :class="open ? '' : 'rotate-180'"></i>
-                        </button>
-                        
-                        <div x-show="open" @click.away="open = false" x-cloak
-                             class="absolute bottom-full left-0 mb-2 w-full bg-white rounded-lg shadow-xl py-2">
-                            <a href="{{ route('my-account') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                <i class="fas fa-user-circle mr-2 text-blue-600"></i> Minha Conta
-                            </a>
-                            {{-- Os dados da empresa — NIF, morada e regime fiscal —
-                                 são de quem a gere. O link deixou de aparecer a
-                                 quem a página recusa. --}}
-                            @can('settings.view')
-                            <a href="{{ route('company.profile') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                <i class="fas fa-building mr-2 text-indigo-600"></i> Dados da Empresa
-                            </a>
-                            @endcan
-                            @if(auth()->user()->canManageAccount())
-                                <a href="{{ route('my-account') }}?tab=companies" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                    <i class="fas fa-building mr-2 text-purple-600"></i> Minhas Empresas
-                                </a>
-                                <a href="{{ route('my-account') }}?tab=plan" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                    <i class="fas fa-crown mr-2 text-yellow-600"></i> Meu Plano
-                                </a>
-                            @endif
-                            <div class="border-t border-gray-200 my-1"></div>
-                            <a href="{{ route('changelog') }}" class="flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                <span><i class="fas fa-rocket mr-2 text-indigo-600"></i> Atualizações</span>
-                                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">v{{ config('changelog.current', '1.0') }}</span>
-                            </a>
-                            <div class="border-t border-gray-200 my-1"></div>
-                            <form method="POST" action="{{ route('logout') }}">
-                                @csrf
-                                <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
-                                    <i class="fas fa-sign-out-alt mr-2"></i> Sair
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </aside>
-            @endif
-
 
             <!-- Main Content -->
             <div class="flex-1 flex flex-col overflow-hidden" :class="{ 'ml-0': isMobile }">
@@ -677,7 +546,7 @@
                             @endif
                             
                             <!-- Easter Egg: Fox Paw in Header (FOX Friendly Only) -->
-                            @if($isFoxFriendly ?? false)
+                            @if($menuDaCasca['fox'] ?? false)
                                 <div class="ml-3 hidden sm:block" 
                                      x-data="{ showFoxMessage: false }"
                                      @mouseenter="showFoxMessage = true"
@@ -840,34 +709,6 @@
         })();
     </script>
     
-    <!-- Sidebar Scroll Memory -->
-    <script>
-        (function() {
-            const scrollKey = 'sidebar-scroll-position';
-
-            function initSidebarScroll() {
-                const sidebarMenu = document.getElementById('sidebar-menu');
-                if (!sidebarMenu) return;
-
-                // Restaurar posição do scroll
-                const saved = localStorage.getItem(scrollKey);
-                if (saved !== null) {
-                    sidebarMenu.scrollTop = parseInt(saved, 10);
-                }
-
-                // Salvar posição do scroll (debounced)
-                let scrollTimeout;
-                sidebarMenu.addEventListener('scroll', function() {
-                    clearTimeout(scrollTimeout);
-                    scrollTimeout = setTimeout(function() {
-                        localStorage.setItem(scrollKey, sidebarMenu.scrollTop);
-                    }, 100);
-                });
-            }
-
-            document.addEventListener('DOMContentLoaded', initSidebarScroll);
-        })();
-    </script>
     
     {{--
         A BARRA DE PROGRESSO DE QUEM MUDA DE PÁGINA.

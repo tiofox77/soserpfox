@@ -47,7 +47,8 @@ return [
                  */
                 [
                     'nome'     => 'Casca, menu e barra do topo',
-                    'blade'    => 'resources/views/layouts/app.blade.php',
+                    // A barra de Blade vivia no layout e neste partial; saiu em 2026-09-13.
+                    'blade'    => 'resources/views/partials/casca/menu.blade.php',
                     'react'    => 'ecras/casca/Casca.tsx',
                 ],
             ],

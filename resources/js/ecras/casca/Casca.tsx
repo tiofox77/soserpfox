@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { eLigacao, eSeparador, eSub, eTitulo, type Entrada, type Grupo, type Ligacao, type PropsDaCasca } from '@/api/casca';
 import { cls } from '@/ui/tokens';
@@ -9,7 +9,7 @@ import { t } from '@/i18n';
  *
  * O menu não se decide aqui: vem do `MenuDaCasca`, no servidor, já com as
  * permissões e o "está activo" resolvidos — os mesmos dados que o Blade de
- * sempre desenha. Este ecrã só sabe a forma: abrir e fechar grupos, encolher
+ * desenhava. Este ecrã só sabe a forma: abrir e fechar grupos, encolher
  * a barra, o menu do utilizador.
  *
  * A BARRA DO TOPO fica no Blade: é lá que vivem o selector de empresa, o
@@ -20,9 +20,24 @@ import { t } from '@/i18n';
  */
 
 const CHAVE_DE_ABERTA = 'casca:aberta';
+const CHAVE_DO_SCROLL = 'sidebar-scroll-position';
 const LARGURA_TABLET = 1024;
 
-export default function Casca({ menu, logo, nome, csrf, voltar }: PropsDaCasca) {
+/**
+ * A entrada em cascata só na primeira página do separador: cada ligação abre
+ * uma página nova, e a cascata a cada clique cansava.
+ */
+function primeiraPagina(): boolean {
+    try {
+        const ja = sessionStorage.getItem('casca:cascata');
+        sessionStorage.setItem('casca:cascata', '1');
+        return !ja;
+    } catch {
+        return false;
+    }
+}
+
+export default function Casca({ menu, logo, nome, csrf }: PropsDaCasca) {
     const [aberta, porAberta] = useState<boolean>(() => {
         if (window.innerWidth < LARGURA_TABLET) return false;
         try {
@@ -33,6 +48,40 @@ export default function Casca({ menu, logo, nome, csrf, voltar }: PropsDaCasca) 
     });
     const [movel, porMovel] = useState(window.innerWidth < 768);
     const [menuDoUtilizador, porMenuDoUtilizador] = useState(false);
+    const [cascata, porCascata] = useState(primeiraPagina);
+    const lista = useRef<HTMLElement>(null);
+
+    useEffect(() => {
+        if (!cascata) return;
+        const relogio = window.setTimeout(() => porCascata(false), 1200);
+        return () => window.clearTimeout(relogio);
+    }, [cascata]);
+
+    /* O botão do topo mostra a seta certa: o layout ouve este aviso. */
+    useEffect(() => {
+        window.dispatchEvent(new CustomEvent('casca:estado', { detail: { aberta } }));
+    }, [aberta]);
+
+    /* O menu é comprido: volta-se a abrir onde se estava. */
+    useEffect(() => {
+        const nav = lista.current;
+        if (!nav) return;
+        try {
+            const guardado = localStorage.getItem(CHAVE_DO_SCROLL);
+            if (guardado !== null) nav.scrollTop = parseInt(guardado, 10);
+        } catch {
+            /* sem armazenamento, começa-se do topo */
+        }
+        let relogio = 0;
+        const aoRolar = () => {
+            window.clearTimeout(relogio);
+            relogio = window.setTimeout(() => {
+                try { localStorage.setItem(CHAVE_DO_SCROLL, String(nav.scrollTop)); } catch { /* sem memória */ }
+            }, 100);
+        };
+        nav.addEventListener('scroll', aoRolar, { passive: true });
+        return () => { nav.removeEventListener('scroll', aoRolar); window.clearTimeout(relogio); };
+    }, []);
 
     /* O botão de encolher está na barra do topo, em Blade: fala por evento. */
     useEffect(() => {
@@ -66,19 +115,20 @@ export default function Casca({ menu, logo, nome, csrf, voltar }: PropsDaCasca) 
     return (
         <>
             {/* Véu no telemóvel. */}
-            {aberta && movel && <div onClick={() => porAberta(false)} className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden" aria-hidden="true" />}
+            {aberta && movel && <div onClick={() => porAberta(false)} className="animate-fade-in fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden" aria-hidden="true" />}
 
             <aside
                 id="app-sidebar"
                 data-aberta={aberta ? '1' : '0'}
                 className={cls(
                     'flex flex-col overflow-hidden bg-gradient-to-b from-blue-900 to-blue-800 text-white shadow-2xl transition-[width,transform] duration-300',
+                    cascata && 'first-load',
                     movel ? 'fixed inset-y-0 left-0 z-50' : '',
                     aberta ? 'w-64 translate-x-0' : movel ? 'w-0 -translate-x-full' : 'w-20',
                 )}
             >
                 {/* Logótipo */}
-                <div className="flex items-center justify-between border-b border-blue-700 p-4">
+                <div className="logo-container flex items-center justify-between border-b border-blue-700 p-4">
                     <div className={cls('flex items-center justify-center', aberta && 'w-full')}>
                         {logo ? (
                             <img src={logo} alt={nome} style={{ maxHeight: '4rem', maxWidth: 200 }} className={cls('w-auto object-contain transition-[height,width] duration-300', aberta ? 'h-16' : 'h-12 w-12')} />
@@ -96,7 +146,7 @@ export default function Casca({ menu, logo, nome, csrf, voltar }: PropsDaCasca) 
                 </div>
 
                 {/* O menu */}
-                <nav id="sidebar-menu" aria-label={t('Menu principal')} className="flex-1 overflow-y-auto py-4">
+                <nav ref={lista} id="sidebar-menu" aria-label={t('Menu principal')} className="flex-1 overflow-y-auto py-4">
                     <Titulo aberta={aberta} primeiro>{t('Menu Principal')}</Titulo>
 
                     {menu.principal.map((l) => <LigacaoDoMenu key={l.url} l={l} nivel="topo" aberta={aberta} aoClicar={fechar} />)}
@@ -149,7 +199,7 @@ export default function Casca({ menu, logo, nome, csrf, voltar }: PropsDaCasca) 
                     </button>
 
                     {menuDoUtilizador && (
-                        <div className="absolute bottom-full left-4 right-4 mb-2 rounded-lg bg-white py-2 shadow-xl" onMouseLeave={() => porMenuDoUtilizador(false)}>
+                        <div className="animate-scale-in absolute bottom-full left-4 right-4 mb-2 rounded-lg bg-white py-2 shadow-xl" onMouseLeave={() => porMenuDoUtilizador(false)}>
                             {menu.utilizador.ligacoes.map((l) => (
                                 <a key={l.url} href={l.url} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                     <i className={cls('fas mr-2', l.icone, 'text-' + l.cor)} aria-hidden="true" /> {l.rotulo}
@@ -161,10 +211,7 @@ export default function Casca({ menu, logo, nome, csrf, voltar }: PropsDaCasca) 
                                 <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700">{menu.utilizador.atualizacoes.versao}</span>
                             </a>
                             <div className="my-1 border-t border-gray-200" />
-                            {/* Voltar à casca de sempre, enquanto as duas convivem. */}
-                            <a href={voltar} className="block px-4 py-2 text-xs text-gray-500 hover:bg-gray-100">
-                                <i className="fas fa-rotate-left mr-2" aria-hidden="true" /> {t('Ecrã de sempre')}
-                            </a>
+
                             <form method="POST" action={menu.utilizador.sair}>
                                 <input type="hidden" name="_token" value={csrf} />
                                 <button type="submit" className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-100">
@@ -228,6 +275,20 @@ function Entradas({ entradas, nivel, aberta, aoClicar }: { entradas: Entrada[]; 
     );
 }
 
+/**
+ * ABRIR E FECHAR COM ALTURA — o que o `x-collapse` do Alpine fazia.
+ *
+ * As ligações ficam sempre no DOM (a grelha anima de 0fr para 1fr); fechado,
+ * o bloco fica `inert`: nem o Tab nem o leitor de ecrã entram lá.
+ */
+function Dobra({ aberto, className, children }: { aberto: boolean; className: string; children: ReactNode }) {
+    return (
+        <div className={cls('grid transition-[grid-template-rows] duration-300 ease-out', aberto ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')} inert={!aberto}>
+            <div className={cls('overflow-hidden', className)}>{children}</div>
+        </div>
+    );
+}
+
 function GrupoDoMenu({ g, aberta, aoClicar }: { g: Grupo; aberta: boolean; aoClicar: () => void }) {
     const [aberto, porAberto] = useState(g.aberto);
 
@@ -240,11 +301,9 @@ function GrupoDoMenu({ g, aberta, aoClicar }: { g: Grupo; aberta: boolean; aoCli
                 </div>
                 {aberta && <i className={cls('fas text-xs text-blue-300 transition-transform duration-200', aberto ? 'fa-chevron-down' : 'fa-chevron-right')} aria-hidden="true" />}
             </button>
-            {aberto && (
-                <div className="bg-blue-900/30">
-                    <Entradas entradas={g.entradas} nivel="sub" aberta={aberta} aoClicar={aoClicar} />
-                </div>
-            )}
+            <Dobra aberto={aberto} className="bg-blue-900/30">
+                <Entradas entradas={g.entradas} nivel="sub" aberta={aberta} aoClicar={aoClicar} />
+            </Dobra>
         </div>
     );
 }
@@ -261,11 +320,9 @@ function SubGrupo({ g, aberta, aoClicar }: { g: Grupo; aberta: boolean; aoClicar
                 </div>
                 {aberta && <i className={cls('fas text-xs text-blue-300 transition-transform duration-200', aberto ? 'fa-chevron-down' : 'fa-chevron-right')} aria-hidden="true" />}
             </button>
-            {aberto && (
-                <div className="bg-blue-900/20">
-                    <Entradas entradas={g.entradas} nivel="subsub" aberta={aberta} aoClicar={aoClicar} />
-                </div>
-            )}
+            <Dobra aberto={aberto} className="bg-blue-900/20">
+                <Entradas entradas={g.entradas} nivel="subsub" aberta={aberta} aoClicar={aoClicar} />
+            </Dobra>
         </div>
     );
 }

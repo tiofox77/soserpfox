@@ -148,23 +148,6 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/my-account', \App\Support\EcraReact::pagina('conta/minha-conta', 'A Minha Conta'))->name('my-account');
 
     /*
-     * A CASCA EM REACT, em ensaio. Não é uma página: é um interruptor de
-     * sessão que troca a barra lateral de sempre pela nova, em todos os
-     * ecrãs, só para quem o ligou. O menu é o mesmo (MenuDaCasca).
-     */
-    Route::get('/casca/novo-ecra', function () {
-        session(['casca_react' => true]);
-
-        return redirect()->back(fallback: route('home'));
-    })->name('casca.react');
-
-    Route::get('/casca/ecra-de-sempre', function () {
-        session()->forget('casca_react');
-
-        return redirect()->back(fallback: route('home'));
-    })->name('casca.blade');
-
-    /*
      * O DICIONÁRIO DOS ECRÃS EM REACT.
      *
      * O mesmo `lang/{lingua}.json` do Blade, servido uma vez a quem trabalha

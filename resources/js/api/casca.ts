@@ -57,7 +57,6 @@ export type PropsDaCasca = {
     logo: string | null;
     nome: string;
     csrf: string;
-    voltar: string;
 };
 
 export const eLigacao = (e: Entrada): e is Ligacao => 'url' in e && 'rotulo' in e;

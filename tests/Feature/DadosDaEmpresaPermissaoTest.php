@@ -180,10 +180,20 @@ class DadosDaEmpresaPermissaoTest extends TenantTestCase
     public function test_o_menu_esconde_o_link_a_quem_nao_pode(): void
     {
         $this->actingAs($this->user);
-        $this->get(route('home'))->assertDontSee(route('company.profile'));
+        $this->assertNotContains(route('company.profile'), $this->ligacoesDoUtilizador());
 
         $this->comPermissoes('settings.view');
         $this->actingAs($this->user->fresh());
-        $this->get(route('home'))->assertSee(route('company.profile'));
+        $this->assertContains(route('company.profile'), $this->ligacoesDoUtilizador());
+    }
+
+    /** As ligações do menu do utilizador que a página entrega à casca. */
+    private function ligacoesDoUtilizador(): array
+    {
+        $html = $this->get(route('home'))->assertOk()->getContent();
+        preg_match('/data-peca="casca"\s+data-props="([^"]*)"/', $html, $m);
+        $props = json_decode(html_entity_decode($m[1] ?? '{}', ENT_QUOTES), true);
+
+        return array_column($props['menu']['utilizador']['ligacoes'] ?? [], 'url');
     }
 }
