@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { pos, type ClienteDoPos } from '@/api/pos';
-import { catalogos } from '@/api/catalogos';
 import { ErroDaApi } from '@/api/cliente';
 import { t } from '@/i18n';
 import { Botao } from '@/ui/Botao';
@@ -17,9 +16,9 @@ import { FOCO, RAIO, cls } from '@/ui/tokens';
  * clique a mais com o cliente à frente: aqui a criação é um separador do
  * mesmo modal, e volta-se atrás sem perder a procura.
  *
- * O CLIENTE NASCE PELA PORTA DOS CATÁLOGOS, a mesma da ficha de clientes.
- * Um cliente criado ao balcão por um caminho próprio acabaria com metade dos
- * campos que os outros têm — e é o mesmo cliente.
+ * O CLIENTE NASCE PELA PORTA DO BALCÃO (`POST /pos/clientes`). Chamava a dos
+ * catálogos com `clientes`, um catálogo que não existe, e dava 404 a toda a
+ * gente; a ficha de clientes exige NIF, que ao balcão é opcional.
  */
 export function ModalDeCliente({
     aberto,
@@ -55,6 +54,7 @@ export function ModalDeCliente({
         >
             {aCriar ? (
                 <NovoCliente
+                    procura={procura}
                     aoVoltar={() => porACriar(false)}
                     aoCriado={(c) => {
                         porACriar(false);
@@ -159,33 +159,33 @@ export function ModalDeCliente({
  * dezenas de «999999999». Sem NIF, a venda sai como Consumidor Final.
  */
 function NovoCliente({
+    procura,
     aoVoltar,
     aoCriado,
 }: {
+    procura: string;
     aoVoltar: () => void;
     aoCriado: (c: ClienteDoPos) => void;
 }) {
-    const [nome, porNome] = useState('');
-    const [nif, porNif] = useState('');
+    // O que se escreveu na procura já é meio caminho: números vão para o NIF,
+    // o resto para o nome — como no balcão de sempre.
+    const termo = procura.trim();
+    const soNumeros = /^\d+$/.test(termo);
+    const [nome, porNome] = useState(termo && !soNumeros ? termo : '');
+    const [nif, porNif] = useState(soNumeros ? termo : '');
     const [telefone, porTelefone] = useState('');
     const [email, porEmail] = useState('');
     const [erros, porErros] = useState<Record<string, string[]>>({});
 
     const criar = useMutation({
         mutationFn: () =>
-            catalogos.criar('clientes', {
-                name: nome,
-                nif: nif || null,
-                phone: telefone || null,
-                email: email || null,
-                type: 'pessoa_singular',
-                is_active: true,
+            pos.criarCliente({
+                name: nome.trim(),
+                nif: nif.trim() || null,
+                phone: telefone.trim() || null,
+                email: email.trim() || null,
             }),
-        onSuccess: (r) => {
-            const criado = r as unknown as { id: number };
-
-            aoCriado({ id: criado.id, nome, nif: nif || null, telefone: telefone || null, email: email || null });
-        },
+        onSuccess: (r) => aoCriado(r.data),
         onError: (e) => {
             porErros(e instanceof ErroDaApi ? (e.erros ?? {}) : {});
         },

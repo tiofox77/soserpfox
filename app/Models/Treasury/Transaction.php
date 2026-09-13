@@ -59,8 +59,15 @@ class Transaction extends Model
      * (`TRX-AAAA-####`), tira-se o MAIOR sufixo numérico (CAST, não a última
      * linha por id) e soma-se 1. Os números antigos/uniqid são ignorados e já
      * não envenenam a sequência.
+     *
+     * O `$desvio` é para quem tenta outra vez depois de um 1062. Dentro de uma
+     * transacção da base (a venda do POS é uma só), o MySQL em REPEATABLE READ
+     * lê sempre a mesma fotografia: a linha que outro posto acabou de gravar
+     * NÃO se vê, o maior continua o mesmo, e as seis tentativas calculavam o
+     * MESMO número — a venda rebentava (erro #77 em produção, 2026-09-13).
+     * Cada tentativa anda uma casa para a frente.
      */
-    public static function gerarNumero(int $tenantId, string $prefixo = 'TRX'): string
+    public static function gerarNumero(int $tenantId, string $prefixo = 'TRX', int $desvio = 0): string
     {
         $ano = date('Y');
         $inicio = "{$prefixo}-{$ano}-";
@@ -71,7 +78,7 @@ class Transaction extends Model
             ->orderByRaw('CAST(SUBSTRING_INDEX(transaction_number, "-", -1) AS UNSIGNED) DESC')
             ->value('transaction_number');
 
-        $seq = $ultimo ? ((int) substr($ultimo, strrpos($ultimo, '-') + 1)) + 1 : 1;
+        $seq = ($ultimo ? ((int) substr($ultimo, strrpos($ultimo, '-') + 1)) + 1 : 1) + max(0, $desvio);
 
         return $inicio . str_pad((string) $seq, 4, '0', STR_PAD_LEFT);
     }
@@ -89,12 +96,13 @@ class Transaction extends Model
         $tenantId = (int) ($attrs['tenant_id'] ?? activeTenantId());
 
         for ($tentativa = 0; $tentativa < 6; $tentativa++) {
-            $attrs['transaction_number'] = static::gerarNumero($tenantId, $prefixo);
+            $attrs['transaction_number'] = static::gerarNumero($tenantId, $prefixo, $tentativa);
             try {
                 return static::create($attrs);
             } catch (QueryException $e) {
-                // 23000/1062 = entrada duplicada: tentar o número seguinte.
-                if (($e->getCode() === '23000' || str_contains($e->getMessage(), '1062')) && $tentativa < 5) {
+                // 23000/1062 = entrada duplicada: tentar o número seguinte. A
+                // última também continua — é o recurso de baixo que a apanha.
+                if ($e->getCode() === '23000' || str_contains($e->getMessage(), '1062')) {
                     usleep(random_int(1000, 6000));
                     continue;
                 }

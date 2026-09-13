@@ -63,13 +63,19 @@ class PosApiController extends Controller
      * Vende quem tem a permissão de vender no POS, quem entra no POS (era a
      * regra de sempre) ou quem pode emitir facturas.
      */
-    public static function podeVenderAoBalcao(?\Illuminate\Contracts\Auth\Authenticatable $utilizador): bool
+    public static function podeVenderAoBalcao(?\Illuminate\Contracts\Auth\Authenticatable $utilizador, ?string $modulo = null): bool
     {
         if (! $utilizador) {
             return false;
         }
 
-        foreach (['invoicing.pos.sell', 'invoicing.pos.access', 'invoicing.sales.invoices.create'] as $permissao) {
+        $permissoes = ['invoicing.pos.sell', 'invoicing.pos.access', 'invoicing.sales.invoices.create'];
+
+        if ($modulo === 'salon') {
+            array_push($permissoes, 'salon.pos.sell', 'salon.pos.access');
+        }
+
+        foreach ($permissoes as $permissao) {
             if ($utilizador->can($permissao)) {
                 return true;
             }
@@ -181,6 +187,32 @@ class PosApiController extends Controller
     }
 
     /** O turno aberto DESTE operador, que é o que manda no ecrã. */
+    /**
+     * O BALCÃO DO SALÃO É ESTE MESMO ECRÃ — com os serviços.
+     *
+     * Quando o salão passou a React, `/salon/pos` ficou a apontar para o POS
+     * da facturação, que esconde (e recusa) tudo o que é de um módulo. O
+     * salão deixou de ter onde vender um corte de cabelo. O `modulo=salon`
+     * devolve o separador dos serviços; só vale para uma empresa com o módulo
+     * e para quem entra no POS do salão — escrito à mão no pedido, não abre
+     * nada a mais.
+     */
+    private function moduloDoBalcao(Request $request, int $tenantId): ?string
+    {
+        if ($request->input('modulo') !== 'salon') {
+            return null;
+        }
+
+        $empresa = \App\Models\Tenant::find($tenantId);
+        $eu = $request->user();
+
+        if (! $empresa?->hasModule('salon') || ! $eu) {
+            return null;
+        }
+
+        return $eu->can('salon.pos.access') || $eu->can('salon.pos.sell') ? 'salon' : null;
+    }
+
     private function turnoAberto(int $tenantId): ?PosShift
     {
         return PosShift::where('tenant_id', $tenantId)
@@ -220,7 +252,26 @@ class PosApiController extends Controller
             fn () => $this->categoriasDoBalcao($tenantId)
         );
 
+        $modulo = $this->moduloDoBalcao($request, $tenantId);
+
         return response()->json([
+            'modulo' => $modulo,
+
+            // As categorias dos serviços do salão vivem no JSON do serviço, não
+            // na coluna — a contagem sai de ServiceCategory::comContagens.
+            'categorias_de_servicos' => $modulo === 'salon'
+                ? \App\Models\Salon\ServiceCategory::comContagens(
+                    \App\Models\Salon\ServiceCategory::where('tenant_id', $tenantId)->where('is_active', true)
+                        ->orderBy('order')->orderBy('name')->get(['id', 'name', 'icon', 'color']),
+                    $tenantId,
+                )->map(fn ($c) => [
+                    'id' => (int) $c->id,
+                    'ids' => [(int) $c->id],
+                    'nome' => $c->name,
+                    'artigos' => (int) $c->services_count,
+                ])->values()
+                : [],
+
             /*
              * O TURNO MANDA. Sem turno aberto não se vende — o ecrã de sempre
              * mandava a pessoa para os Turnos de Caixa, e é a mesma regra.
@@ -288,7 +339,7 @@ class PosApiController extends Controller
             ],
 
             'permissoes' => [
-                'pode_vender' => self::podeVenderAoBalcao($request->user()),
+                'pode_vender' => self::podeVenderAoBalcao($request->user(), $modulo),
                 'pode_criar_cliente' => ClientApiController::podeCriarCliente($request->user()),
                 // Mudar o preço ao balcão é outra permissão: nem toda a gente
                 // que vende pode dar desconto pela mão.
@@ -318,7 +369,13 @@ class PosApiController extends Controller
             // gravada duas vezes — ver categoriasDoBalcao).
             'categoria' => ['nullable', 'string', 'regex:/^\d+(,\d+){0,49}$/'],
             'armazem' => ['nullable', 'integer'],
+            'modulo' => ['nullable', 'string', 'in:salon'],
+            'tipo' => ['nullable', 'string', 'in:servicos,produtos'],
         ]);
+
+        if (($filtros['tipo'] ?? null) === 'servicos' && $this->moduloDoBalcao($request, $tenantId) === 'salon') {
+            return $this->servicosDoSalao($tenantId, $filtros);
+        }
 
         $armazemId = $filtros['armazem'] ?? $this->armazem($tenantId)['id'];
         $definicoes = InvoicingSettings::forTenant($tenantId);
@@ -420,6 +477,45 @@ class PosApiController extends Controller
                     'controlado' => (bool) $p->is_controlled,
                 ];
             })->values(),
+        ]);
+    }
+
+    /**
+     * OS SERVIÇOS DO SALÃO, no formato da grelha.
+     *
+     * Um serviço não tem stock nem código de barras; a categoria vem do JSON
+     * (`daCategoria`), porque a coluna `category_id` está sempre a nulo nos
+     * serviços do salão.
+     */
+    private function servicosDoSalao(int $tenantId, array $filtros): JsonResponse
+    {
+        $q = \App\Models\Salon\Service::where('tenant_id', $tenantId)->where('is_active', true);
+
+        if ($procura = ($filtros['procura'] ?? null)) {
+            $q->where(fn ($w) => $w->where('name', 'like', "%{$procura}%")->orWhere('sku', 'like', "%{$procura}%"));
+        }
+
+        if ($categoria = ($filtros['categoria'] ?? null)) {
+            $q->daCategoria((int) explode(',', (string) $categoria)[0]);
+        }
+
+        return response()->json([
+            'data' => $q->orderBy('name')->limit(80)->get()->map(fn ($s) => [
+                'id' => (int) $s->id,
+                'nome' => $s->name,
+                'codigo' => $s->sku,
+                'codigo_de_barras' => null,
+                'unidade' => $s->unit ?: 'UN',
+                'servico' => true,
+                'preco' => round((float) $s->price, 2),
+                'pergunta_preco' => (bool) $s->preco_no_pos,
+                'imagem' => $this->enderecoDaImagem($s->featured_image),
+                'stock' => null,
+                'categoria_id' => $s->category_id ? (int) $s->category_id : null,
+                'duracao' => (int) $s->duration,
+                'receita' => false,
+                'controlado' => false,
+            ])->values(),
         ]);
     }
 
@@ -559,6 +655,79 @@ class PosApiController extends Controller
     }
 
     /**
+     * O CLIENTE RÁPIDO DO BALCÃO.
+     *
+     * O ecrã React chamava a porta dos catálogos com `clientes` — um catálogo
+     * que não existe — e a criação dava 404 a toda a gente, Super Admin
+     * incluído (auditoria de 2026-09-13). A ficha de clientes também não
+     * serve: exige NIF, e ao balcão o cliente ou o dá ou não o dá.
+     *
+     * São as regras do balcão em Livewire: nome obrigatório, NIF opcional; um
+     * NIF que já está na empresa devolve esse cliente em vez de o duplicar; e
+     * os NIF genéricos (999999999…) não identificam ninguém — ficam nulos.
+     */
+    public function criarCliente(Request $request): JsonResponse
+    {
+        $tenantId = (int) activeTenantId();
+
+        abort_unless($tenantId, 403, __('Sem empresa activa.'));
+        abort_unless(
+            ClientApiController::podeCriarCliente($request->user()),
+            403,
+            __('Não tem permissão para criar clientes.'),
+        );
+
+        $dados = $request->validate([
+            'name' => ['required', 'string', 'min:2', 'max:255'],
+            'nif' => ['nullable', 'string', 'max:30'],
+            'phone' => ['nullable', 'string', 'max:40'],
+            'email' => ['nullable', 'email', 'max:150'],
+        ], [], ['name' => __('nome'), 'nif' => 'NIF', 'phone' => __('telefone'), 'email' => __('email')]);
+
+        $nif = preg_replace('/\s+/', '', (string) ($dados['nif'] ?? ''));
+
+        if (in_array($nif, ['999999999', '999999998', '000000000'], true)) {
+            $nif = '';
+        }
+
+        $resposta = fn (Client $c, bool $existente) => response()->json([
+            'data' => [
+                'id' => (int) $c->id,
+                'nome' => $c->name,
+                'nif' => $c->nif,
+                'telefone' => $c->phone,
+                'email' => $c->email,
+            ],
+            'existente' => $existente,
+            'message' => $existente
+                ? __('Cliente já existente seleccionado: :cliente', ['cliente' => $c->name])
+                : __('Cliente criado e seleccionado: :cliente', ['cliente' => $c->name]),
+        ], $existente ? 200 : 201);
+
+        if ($nif !== '') {
+            $existente = Client::where('tenant_id', $tenantId)->where('nif', $nif)->first();
+
+            if ($existente) {
+                return $resposta($existente, true);
+            }
+        }
+
+        $cliente = Client::create([
+            'tenant_id' => $tenantId,
+            'type' => 'pessoa_fisica',
+            'name' => trim($dados['name']),
+            'nif' => $nif !== '' ? $nif : null,
+            'phone' => $dados['phone'] ?? null,
+            'email' => $dados['email'] ?? null,
+            'country' => \App\Support\Geografia::PAIS_PADRAO,
+            'is_active' => true,
+            'is_iva_subject' => true,
+        ]);
+
+        return $resposta($cliente, false);
+    }
+
+    /**
      * FECHAR A VENDA — pela porta do `PosSaleService`.
      *
      * O `local_uuid` vem do ecrã, um por tentativa de venda. Não é burocracia
@@ -574,8 +743,10 @@ class PosApiController extends Controller
         $tenantId = (int) activeTenantId();
 
         abort_unless($tenantId, 403, __('Sem empresa activa.'));
+        $modulo = $this->moduloDoBalcao($request, $tenantId);
+
         abort_unless(
-            self::podeVenderAoBalcao($request->user()),
+            self::podeVenderAoBalcao($request->user(), $modulo),
             403,
             __('Sem permissão para vender.')
         );
@@ -621,6 +792,8 @@ class PosApiController extends Controller
         $deModulo = Product::where('tenant_id', $tenantId)
             ->whereIn('id', collect($dados['items'])->pluck('product_id')->filter()->all())
             ->whereNotNull('module')
+            // No balcão do salão, os serviços do salão são o que se vende.
+            ->when($modulo, fn ($q) => $q->where('module', '!=', $modulo))
             ->get(['name', 'module']);
 
         if ($deModulo->isNotEmpty()) {

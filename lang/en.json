@@ -10703,5 +10703,7 @@
     "A comanda fica anulada e a mesa :m volta a ficar livre para os outros postos.": "The order is cancelled and table :m becomes free again for the other stations.",
     "A comanda fica anulada.": "The order is cancelled.",
     "Comanda :numero anulada. A mesa ficou livre.": "Order :numero cancelled. The table is free.",
-    "Ver o carrinho": "View cart"
+    "Ver o carrinho": "View cart",
+    "O que vender": "What to sell",
+    "Não tem permissão para criar clientes.": "You do not have permission to create customers."
 }

@@ -19,10 +19,34 @@ return [
     // O PWA JÁ NÃO DEPENDE DISTO: o aquecimento do cache das páginas usava este
     // valor como chave e passou a usar a assinatura da versão do próprio PWA
     // (resources/js/pwa/aquecer.ts), que muda sozinha quando os ficheiros mudam.
-    'current' => '2026.09.13.1',
+    'current' => '2026.09.13.9',
 
     'releases' => [
 
+        [
+            'version'      => '2026.09.13.9',
+            'date'         => '2026-09-13',
+            'type'         => 'patch',
+            'title'        => 'Correcções do primeiro dia: o caixa vende, o salão cobra serviços e o balcão cabe em qualquer ecrã',
+            'features'     => [
+                ['produto' => 'web', 'texto' => 'O POS do salão volta a ter o separador dos serviços, com as categorias e a duração de cada serviço, ao lado dos produtos.'],
+                ['produto' => 'web', 'texto' => 'Uma comanda vazia do restaurante pode ser anulada, e a mesa fica livre para os outros postos.'],
+            ],
+            'improvements' => [
+                ['produto' => 'ambos', 'texto' => 'O balcão ajusta-se do monitor grande ao telemóvel: as colunas seguem o espaço e o botão de finalizar fica sempre à vista.'],
+                ['produto' => 'pwa', 'texto' => 'As últimas contas do restaurante passam para baixo das mesas.'],
+            ],
+            'fixes'        => [
+                ['produto' => 'web', 'texto' => 'O papel «Caixa» voltava a ter o «Finalizar venda» cinzento em todas as empresas.'],
+                ['produto' => 'web', 'texto' => 'Criar um cliente rápido no POS dava erro a toda a gente; volta a funcionar com o NIF opcional, e um NIF que já existe escolhe esse cliente.'],
+                ['produto' => 'web', 'texto' => 'Dois postos a vender no mesmo segundo podiam fazer falhar a venda com «entrada duplicada» no movimento de tesouraria.'],
+                ['produto' => 'web', 'texto' => 'Um serviço do catálogo vendido no POS leva o imposto e o código do próprio serviço, e não o imposto por omissão.'],
+                ['produto' => 'pwa', 'texto' => 'Os documentos já emitidos deixam de se poder apagar no aparelho.'],
+            ],
+            'security'     => [
+                ['produto' => 'web', 'texto' => 'Quem edita utilizadores sem gerir papéis já não dá a si próprio (nem a um convidado) um papel com mais permissões do que as suas, nem mexe na senha, no PIN ou no estado de quem tem mais.'],
+            ],
+        ],
         [
             'version'      => '2026.09.13.1',
             'date'         => '2026-09-13',

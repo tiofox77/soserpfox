@@ -57,6 +57,70 @@ class NumeroTransacaoTest extends TenantTestCase
         $this->assertSame("TRX-{$ano}-0002", $nova->transaction_number);
     }
 
+    /**
+     * ERRO #77 EM PRODUÇÃO: dois postos a vender ao mesmo tempo.
+     *
+     * Dentro da transacção da venda a leitura é uma fotografia: o número que o
+     * outro posto gravou não se vê, e as seis tentativas davam o mesmo. Aqui a
+     * fotografia simula-se com um gerador que nunca vê a linha que já existe.
+     */
+    public function test_o_movimento_passa_mesmo_quando_a_leitura_esta_atrasada(): void
+    {
+        $ano = date('Y');
+        $this->tx("TRX-{$ano}-0001");
+
+        $atrasado = new class extends \App\Services\Treasury\TreasuryMovementService {
+            protected function numeroDaTentativa(int $tenantId, int $tentativa): string
+            {
+                // O maior que a fotografia vê é nenhum: começa em 0001.
+                return 'TRX-' . date('Y') . '-' . str_pad((string) (1 + $tentativa), 4, '0', STR_PAD_LEFT);
+            }
+        };
+
+        $t = $atrasado->post($this->dados());
+
+        $this->assertSame("TRX-{$ano}-0002", $t->transaction_number);
+    }
+
+    public function test_se_todas_as_tentativas_chocam_o_recurso_final_grava_na_mesma(): void
+    {
+        $ano = date('Y');
+        $this->tx("TRX-{$ano}-0001");
+
+        $cego = new class extends \App\Services\Treasury\TreasuryMovementService {
+            protected function numeroDaTentativa(int $tenantId, int $tentativa): string
+            {
+                return 'TRX-' . date('Y') . '-0001';
+            }
+        };
+
+        $t = $cego->post($this->dados());
+
+        $this->assertStringStartsWith("TRX-{$ano}-", $t->transaction_number);
+        $this->assertNotSame("TRX-{$ano}-0001", $t->transaction_number);
+    }
+
+    public function test_o_desvio_anda_casas_para_a_frente(): void
+    {
+        $ano = date('Y');
+        $this->tx("TRX-{$ano}-0007");
+
+        $this->assertSame("TRX-{$ano}-0010", Transaction::gerarNumero($this->tenant->id, 'TRX', 2));
+    }
+
+    private function dados(): array
+    {
+        return [
+            'tenant_id' => $this->tenant->id,
+            'user_id' => $this->user->id,
+            'type' => 'income',
+            'amount' => 50,
+            'currency' => 'AOA',
+            'transaction_date' => now()->toDateString(),
+            'status' => 'pending',
+        ];
+    }
+
     public function test_criar_gera_sequencial_sem_colisao(): void
     {
         $ano = date('Y');

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Category;
+use App\Models\Client;
 use App\Models\Invoicing\PosShift;
 use App\Models\Product;
 use App\Models\Invoicing\SalesInvoice;
@@ -253,8 +254,107 @@ class ApiDoPosParaReactTest extends TenantTestCase
 
         // E o cliente rápido do balcão, que o POS de sempre também não negava.
         $this->getJson(self::RAIZ . '/opcoes')->assertJsonPath('permissoes.pode_criar_cliente', true);
-        $criar = $this->postJson('/api/v1/invoicing/react/clients', ['name' => 'Cliente do Balcão']);
-        $this->assertNotSame(403, $criar->status(), 'o caixa passa a porta de criar cliente (o resto é validação)');
+        $this->postJson(self::RAIZ . '/clientes', ['name' => 'Cliente do Balcão'])
+            ->assertCreated()
+            ->assertJsonPath('data.nome', 'Cliente do Balcão')
+            ->assertJsonPath('data.nif', null);
+    }
+
+    /**
+     * O CLIENTE RÁPIDO NASCE AO BALCÃO.
+     *
+     * O React chamava o catálogo `clientes`, que não existe: 404 para toda a
+     * gente. Nome obrigatório, NIF opcional, e o NIF genérico não identifica.
+     *
+     * @test
+     */
+    public function o_cliente_rapido_nasce_sem_nif_e_nao_se_duplica_pelo_nif(): void
+    {
+        $this->comPermissoes('invoicing.pos.access');
+
+        $this->postJson(self::RAIZ . '/clientes', ['name' => ''])->assertStatus(422)->assertJsonValidationErrors('name');
+
+        $maria = $this->postJson(self::RAIZ . '/clientes', ['name' => 'Maria da Esquina', 'nif' => '999999999'])
+            ->assertCreated()->json('data');
+        $this->assertNull($maria['nif'], 'o NIF genérico fica nulo');
+        $this->assertSame('AO', Client::find($maria['id'])->country);
+
+        $joao = $this->postJson(self::RAIZ . '/clientes', ['name' => 'João', 'nif' => '5417000001', 'phone' => '923000000'])
+            ->assertCreated()->json('data');
+
+        $this->postJson(self::RAIZ . '/clientes', ['name' => 'Outro nome', 'nif' => '5417000001'])
+            ->assertOk()
+            ->assertJsonPath('existente', true)
+            ->assertJsonPath('data.id', $joao['id']);
+
+        $this->assertSame(1, Client::where('tenant_id', $this->tenant->id)->where('nif', '5417000001')->count());
+    }
+
+    /**
+     * O BALCÃO DO SALÃO VENDE SERVIÇOS.
+     *
+     * `/salon/pos` passou a abrir o POS da facturação, que esconde e recusa o
+     * que é de um módulo: o salão ficou sem onde cobrar um corte de cabelo.
+     *
+     * @test
+     */
+    public function o_balcao_do_salao_mostra_e_vende_os_servicos(): void
+    {
+        $this->comModulo('salon');
+        $this->comPermissoes('salon.pos.access', 'salon.pos.sell');
+        $this->turno();
+
+        $categoria = \App\Models\Salon\ServiceCategory::create([
+            'tenant_id' => $this->tenant->id, 'name' => 'Cabelo', 'slug' => 'cabelo-' . uniqid(), 'is_active' => true,
+        ]);
+        $corte = \App\Models\Salon\Service::create(['tenant_id' => $this->tenant->id, 'name' => 'Corte', 'price' => 5000, 'is_active' => true]);
+        $corte->updateSalonData(['category_id' => $categoria->id, 'duration' => 45]);
+
+        // Fora do salão, o serviço não aparece e não se vende.
+        $this->assertNotContains($corte->id, collect($this->getJson(self::RAIZ . '/artigos')->json('data'))->pluck('id'));
+
+        $o = $this->getJson(self::RAIZ . '/opcoes?modulo=salon')->assertOk()
+            ->assertJsonPath('modulo', 'salon')
+            ->assertJsonPath('permissoes.pode_vender', true);
+        $this->assertSame(1, collect($o->json('categorias_de_servicos'))->firstWhere('id', $categoria->id)['artigos']);
+
+        $servicos = $this->getJson(self::RAIZ . '/artigos?modulo=salon&tipo=servicos&categoria=' . $categoria->id)->assertOk()->json('data');
+        $this->assertSame([$corte->id], collect($servicos)->pluck('id')->all());
+        $this->assertSame(45, $servicos[0]['duracao']);
+
+        $venda = [
+            'local_uuid' => (string) \Illuminate\Support\Str::uuid(),
+            'payment_method' => 'cash',
+            'amount_received' => 10000,
+            'items' => [[
+                'product_id' => $corte->id, 'product_name' => 'Corte', 'quantity' => 1,
+                'unit_price' => 5000, 'is_service' => true, 'unit' => 'UN',
+            ]],
+        ];
+
+        // Sem dizer que é o salão, a porta da facturação recusa o serviço.
+        $this->postJson(self::RAIZ . '/vender', $venda)->assertForbidden();
+
+        $this->postJson(self::RAIZ . '/vender', $venda + ['modulo' => 'salon'])->assertSuccessful();
+
+        $linha = \App\Models\Invoicing\SalesInvoiceItem::where('product_id', $corte->id)->first();
+        $this->assertNotNull($linha, 'a linha leva o serviço do catálogo');
+    }
+
+    /** @test */
+    public function sem_o_modulo_o_pedido_do_salao_nao_abre_nada(): void
+    {
+        $this->comPermissoes('invoicing.pos.access', 'salon.pos.access');
+
+        $this->getJson(self::RAIZ . '/opcoes?modulo=salon')->assertOk()->assertJsonPath('modulo', null);
+    }
+
+    /** @test */
+    public function sem_permissao_o_cliente_rapido_nao_nasce(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.view');
+
+        $this->postJson(self::RAIZ . '/clientes', ['name' => 'Intruso'])->assertForbidden();
     }
 
     /** @test */

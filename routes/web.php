@@ -2100,6 +2100,7 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::get('/pos/opcoes', [\App\Http\Controllers\Api\Invoicing\PosApiController::class, 'opcoes'])->name('pos.opcoes');
         Route::get('/pos/artigos', [\App\Http\Controllers\Api\Invoicing\PosApiController::class, 'artigos'])->name('pos.artigos');
         Route::get('/pos/clientes', [\App\Http\Controllers\Api\Invoicing\PosApiController::class, 'clientes'])->name('pos.clientes');
+        Route::post('/pos/clientes', [\App\Http\Controllers\Api\Invoicing\PosApiController::class, 'criarCliente'])->name('pos.clientes.criar');
         /*
          * O QUE ESTE CÓDIGO DE BARRAS É.
          *
@@ -3213,7 +3214,7 @@ Route::middleware(['auth', 'tenant.module:salon'])->prefix('salon')->name('salon
     Route::middleware('permission:salon.products.view')
         ->get('/products', \App\Support\EcraReact::pagina('facturacao/produtos', 'Produtos do Salão'))->name('products');
     Route::middleware('permission:salon.pos.access')
-        ->get('/pos', \App\Support\EcraReact::pagina('facturacao/pos', 'POS - Salão de Beleza'))->name('pos');
+        ->get('/pos', \App\Support\EcraReact::pagina('facturacao/pos', 'POS - Salão de Beleza', ['modulo' => 'salon']))->name('pos');
     Route::middleware('permission:salon.reports.view')
         ->get('/reports/time', \App\Support\EcraReact::pagina('salao/tempos', 'Relatório de Tempos'))->name('reports.time');
     Route::middleware('permission:salon.settings.view')

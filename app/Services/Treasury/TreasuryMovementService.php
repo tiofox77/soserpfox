@@ -64,8 +64,8 @@ class TreasuryMovementService
         // gravada e apanha o número seguinte, em vez de rebentar com 1062.
         for ($tentativa = 0; $tentativa < 6; $tentativa++) {
             try {
-                return DB::transaction(function () use ($data, $tenantId) {
-                    $data['transaction_number'] = Transaction::gerarNumero($tenantId);
+                return DB::transaction(function () use ($data, $tenantId, $tentativa) {
+                    $data['transaction_number'] = $this->numeroDaTentativa($tenantId, $tentativa);
                     $transaction = Transaction::withoutGlobalScopes()->create($data);
                     if (($transaction->status ?? 'completed') === 'completed') {
                         $this->apply($transaction, 1);
@@ -73,7 +73,9 @@ class TreasuryMovementService
                     return $transaction;
                 });
             } catch (\Illuminate\Database\QueryException $e) {
-                if (($e->getCode() === '23000' || str_contains($e->getMessage(), '1062')) && $tentativa < 5) {
+                // A última tentativa também continua: rebentar aqui deixava o
+                // recurso de baixo por alcançar, e a venda inteira caía.
+                if ($e->getCode() === '23000' || str_contains($e->getMessage(), '1062')) {
                     usleep(random_int(1000, 6000));
                     continue;
                 }
@@ -90,6 +92,18 @@ class TreasuryMovementService
             }
             return $transaction;
         });
+    }
+
+    /**
+     * O número da tentativa N: o maior visível + 1 + N.
+     *
+     * Dentro da transacção da venda a leitura é uma fotografia (REPEATABLE
+     * READ): o número que outro posto acabou de gravar não se vê, e recalcular
+     * dava sempre o mesmo. Ver Transaction::gerarNumero.
+     */
+    protected function numeroDaTentativa(int $tenantId, int $tentativa): string
+    {
+        return Transaction::gerarNumero($tenantId, 'TRX', $tentativa);
     }
 
     public function apply(Transaction $transaction, int $direction): void

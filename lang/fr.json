@@ -10703,5 +10703,7 @@
     "A comanda fica anulada e a mesa :m volta a ficar livre para os outros postos.": "La commande est annulée et la table :m redevient libre pour les autres postes.",
     "A comanda fica anulada.": "La commande est annulée.",
     "Comanda :numero anulada. A mesa ficou livre.": "Commande :numero annulée. La table est libre.",
-    "Ver o carrinho": "Voir le panier"
+    "Ver o carrinho": "Voir le panier",
+    "O que vender": "Que vendre",
+    "Não tem permissão para criar clientes.": "Vous n'avez pas la permission de créer des clients."
 }

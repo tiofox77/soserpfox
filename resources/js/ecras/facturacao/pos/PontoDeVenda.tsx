@@ -66,12 +66,17 @@ export type LinhaDoCarrinho = {
  * Agora vem do servidor, nas opções, que é quem sabe a empresa activa e quem
  * está a vender.
  */
-function chaveDoCarrinho(dono: { empresa: number; operador: number }): string {
-    return `pos_carrinho_t${dono.empresa}_u${dono.operador}`;
+function chaveDoCarrinho(dono: { empresa: number; operador: number }, modulo: string | null = null): string {
+    // O carrinho do salão não se mistura com o do balcão da facturação.
+    return `pos_carrinho_t${dono.empresa}_u${dono.operador}${modulo ? `_${modulo}` : ''}`;
 }
 
-export default function PontoDeVenda() {
-    const opcoes = useQuery({ queryKey: ['pos', 'opcoes'], queryFn: pos.opcoes, staleTime: 60_000 });
+/**
+ * `modulo="salon"` é o balcão do salão (`/salon/pos`): o mesmo ecrã, com o
+ * separador dos serviços à frente — o POS do salão em Livewire tinha os dois.
+ */
+export default function PontoDeVenda({ modulo = null }: { modulo?: string | null }) {
+    const opcoes = useQuery({ queryKey: ['pos', 'opcoes', modulo], queryFn: () => pos.opcoes(modulo), staleTime: 60_000 });
 
     if (opcoes.isPending) return <Carregando linhas={10} />;
 
@@ -127,8 +132,16 @@ type Opcoes = NonNullable<ReturnType<typeof pos.opcoes> extends Promise<infer T>
 
 function Balcao({ o }: { o: Opcoes }) {
     const [procura, porProcura] = useState('');
+    const salao = o.modulo === 'salon';
+    /** No salão: os serviços ou os produtos. Fora dele há só produtos. */
+    const [tipo, porTipoCru] = useState<'servicos' | 'produtos'>(salao ? 'servicos' : 'produtos');
     /** Os `ids` da categoria escolhida, separados por vírgula — ver CategoriaDoPos. */
     const [categoria, porCategoria] = useState<string | null>(null);
+    // As categorias dos serviços e as dos produtos são listas diferentes.
+    const porTipo = useCallback((novo: 'servicos' | 'produtos') => {
+        porTipoCru(novo);
+        porCategoria(null);
+    }, []);
     const [todasAsCategorias, porTodasAsCategorias] = useState(false);
     const [linhas, porLinhas] = useState<LinhaDoCarrinho[]>([]);
     const [cliente, porCliente] = useState<ClienteDoPos | null>(null);
@@ -212,7 +225,7 @@ function Balcao({ o }: { o: Opcoes }) {
      */
     useEffect(() => {
         try {
-            const guardado = localStorage.getItem(chaveDoCarrinho(o.dono_do_carrinho));
+            const guardado = localStorage.getItem(chaveDoCarrinho(o.dono_do_carrinho, o.modulo));
 
             if (guardado) {
                 const { itens } = JSON.parse(guardado) as { itens?: LinhaDoCarrinho[] };
@@ -230,9 +243,9 @@ function Balcao({ o }: { o: Opcoes }) {
     useEffect(() => {
         try {
             if (linhas.length > 0) {
-                localStorage.setItem(chaveDoCarrinho(o.dono_do_carrinho), JSON.stringify({ ts: Date.now(), itens: linhas }));
+                localStorage.setItem(chaveDoCarrinho(o.dono_do_carrinho, o.modulo), JSON.stringify({ ts: Date.now(), itens: linhas }));
             } else {
-                localStorage.removeItem(chaveDoCarrinho(o.dono_do_carrinho));
+                localStorage.removeItem(chaveDoCarrinho(o.dono_do_carrinho, o.modulo));
             }
         } catch {
             /* idem */
@@ -242,8 +255,9 @@ function Balcao({ o }: { o: Opcoes }) {
     /* ─── Os artigos ──────────────────────────────────────────────────── */
 
     const artigos = useQuery({
-        queryKey: ['pos', 'artigos', procura, categoria, o.armazem.id],
-        queryFn: () => pos.artigos({ procura, categoria, armazem: o.armazem.id }),
+        queryKey: ['pos', 'artigos', procura, categoria, o.armazem.id, o.modulo, tipo],
+        queryFn: () =>
+            pos.artigos({ procura, categoria, armazem: o.armazem.id, ...(salao ? { modulo: o.modulo, tipo } : {}) }),
         placeholderData: keepPreviousData,
         staleTime: 15_000,
     });
@@ -257,9 +271,10 @@ function Balcao({ o }: { o: Opcoes }) {
      * única com artigos para fora do carrossel — havia que arrastar para a
      * encontrar. As vazias continuam a poder ver-se, mas atrás de um botão.
      */
-    const comArtigos = useMemo(() => o.categorias.filter((c) => c.artigos > 0), [o.categorias]);
-    const vazias = o.categorias.length - comArtigos.length;
-    const categoriasAMostrar = todasAsCategorias ? o.categorias : comArtigos;
+    const categoriasDoTipo = salao && tipo === 'servicos' ? o.categorias_de_servicos : o.categorias;
+    const comArtigos = useMemo(() => categoriasDoTipo.filter((c) => c.artigos > 0), [categoriasDoTipo]);
+    const vazias = categoriasDoTipo.length - comArtigos.length;
+    const categoriasAMostrar = todasAsCategorias ? categoriasDoTipo : comArtigos;
 
     /* ─── O carrinho ──────────────────────────────────────────────────── */
 
@@ -534,6 +549,7 @@ function Balcao({ o }: { o: Opcoes }) {
                 style={altura ? { height: `${altura}px` } : { minHeight: '32rem' }}
             >
                 <Catalogo
+                    separadores={salao ? { tipo, porTipo } : null}
                     procura={procura}
                     porProcura={porProcura}
                     caixaDeProcura={caixaDeProcura}
@@ -705,6 +721,7 @@ function Balcao({ o }: { o: Opcoes }) {
                     vender.mutate({
                         // Um por tentativa: é o que torna a venda idempotente.
                         local_uuid: identificadorDaVenda(),
+                        modulo: o.modulo,
                         client_id: cliente?.id ?? null,
                         payment_method: p.payment_method,
                         payments: p.payments,
@@ -715,7 +732,7 @@ function Balcao({ o }: { o: Opcoes }) {
                         discount_value: descontoTipo === 'valor' ? descontoValor : 0,
                         notes: p.notes,
                         items: linhas.map((l) => ({
-                            product_id: l.servico ? null : l.id,
+                            product_id: l.id,
                             product_name: l.nome,
                             quantity: l.quantidade,
                             unit_price: l.preco,
@@ -799,6 +816,7 @@ function Faixa({
 }
 
 function Catalogo({
+    separadores,
     procura,
     porProcura,
     caixaDeProcura,
@@ -830,6 +848,7 @@ function Catalogo({
     aCarregar: boolean;
     linhas: LinhaDoCarrinho[];
     aoEscolher: (a: ArtigoDoPos) => void;
+    separadores: { tipo: 'servicos' | 'produtos'; porTipo: (t: 'servicos' | 'produtos') => void } | null;
 }) {
     const noCarrinho = useMemo(() => new Map(linhas.map((l) => [l.id, l.quantidade])), [linhas]);
 
@@ -838,6 +857,39 @@ function Catalogo({
             {/* A PROCURA. Grande de propósito: é o campo mais usado do ecrã, e
                 é aqui que o leitor de código de barras escreve. */}
             <form onSubmit={aoSubmeter} className="border-b border-slate-200 bg-slate-50 p-3">
+                {separadores && (
+                    <div role="tablist" aria-label={t('O que vender')} className={cls('mb-2.5 grid grid-cols-2 gap-1 bg-slate-200/70 p-1', RAIO)}>
+                        {(
+                            [
+                                { valor: 'servicos', rotulo: t('Serviços'), icone: 'fa-spa' },
+                                { valor: 'produtos', rotulo: t('Produtos'), icone: 'fa-box' },
+                            ] as const
+                        ).map((s) => {
+                            const activo = separadores.tipo === s.valor;
+
+                            return (
+                                <button
+                                    key={s.valor}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={activo}
+                                    onClick={() => separadores.porTipo(s.valor)}
+                                    className={cls(
+                                        'flex items-center justify-center gap-2 py-2 text-sm font-semibold transition-all duration-200',
+                                        activo
+                                            ? 'bg-gradient-to-r from-pink-500 to-fuchsia-600 text-white shadow-md'
+                                            : 'text-slate-600 hover:bg-white/80 hover:text-slate-900',
+                                        RAIO,
+                                        FOCO,
+                                    )}
+                                >
+                                    <i className={cls('fas', s.icone, activo && 'animate-pulse')} aria-hidden="true" />
+                                    {s.rotulo}
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
                 <div className="relative">
                     <i
                         className="fas fa-barcode pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-lg text-slate-400"
@@ -1310,7 +1362,9 @@ function CartaoDeArtigo({
             </p>
 
             <div className="mt-1.5">
-                {a.stock === null ? (
+                {a.duracao ? (
+                    <Etiqueta cor="neutra" icone="fa-clock">{t(':n min', { n: a.duracao })}</Etiqueta>
+                ) : a.stock === null ? (
                     <Etiqueta cor="neutra" icone="fa-infinity">{t('sem gestão')}</Etiqueta>
                 ) : semStock ? (
                     <Etiqueta cor="perigo" icone="fa-ban">{t('esgotado')}</Etiqueta>

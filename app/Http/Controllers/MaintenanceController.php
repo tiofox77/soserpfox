@@ -105,6 +105,10 @@ class MaintenanceController extends Controller
         'permissions:sync-product-batches',
         'permissions:sync-pos-reports',
         'permissions:sync-quotes',
+        // As permissões que o código pede e que faltavam em produção (RH, guias,
+        // painéis, apagar do hotel e da oficina). A seco por omissão; escreve com
+        // --aplicar. Ver App\Console\Commands\AlinharPermissoes.
+        'permissoes:alinhar',
         'permissoes:conceder',
         // Liga um módulo a um tenant (ou a todos). Serve para dar acesso à
         // empresa de ensaio (#96) e reproduzir um ecrã de módulo em produção

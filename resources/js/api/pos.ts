@@ -21,6 +21,8 @@ export type ArtigoDoPos = {
     /** Nulo em serviços e em artigos sem gestão de stock: esses vendem-se sempre. */
     stock: number | null;
     categoria_id: number | null;
+    /** Só nos serviços do salão: quanto tempo leva, em minutos. */
+    duracao?: number;
 
     /**
      * O QUE O BALCÃO TEM DE SABER ANTES DE FECHAR A VENDA.
@@ -48,6 +50,9 @@ export type ClienteDoPos = {
 };
 
 export type OpcoesDoPos = {
+    /** `salon` no balcão do salão: há o separador dos serviços. */
+    modulo: 'salon' | null;
+    categorias_de_servicos: CategoriaDoPos[];
     /** Sem turno aberto não se vende. O ecrã manda a pessoa abrir um. */
     turno: { id: number; numero: string; aberto_em: string | null; abertura: number } | null;
     rota_dos_turnos: string;
@@ -110,15 +115,25 @@ export type LeituraDeCodigo =
     | { estado: 'encontrado'; artigo: ArtigoDoPos };
 
 export const pos = {
-    opcoes: () => api.ler<OpcoesDoPos>('/pos/opcoes'),
+    opcoes: (modulo?: string | null) => api.ler<OpcoesDoPos>('/pos/opcoes', modulo ? { modulo } : undefined),
 
     porCodigo: (codigo: string) => api.ler<LeituraDeCodigo>('/pos/por-codigo', { codigo }),
 
     /** `categoria`: os `ids` da categoria, separados por vírgula. */
-    artigos: (filtros: { procura?: string; categoria?: string | null; armazem?: number | null }) =>
+    artigos: (filtros: {
+        procura?: string;
+        categoria?: string | null;
+        armazem?: number | null;
+        modulo?: string | null;
+        tipo?: 'servicos' | 'produtos';
+    }) =>
         api.ler<{ data: ArtigoDoPos[] }>('/pos/artigos', filtros),
 
     clientes: (procura: string) => api.ler<{ data: ClienteDoPos[] }>('/pos/clientes', { procura }),
+
+    /** O cliente rápido: NIF opcional, e um NIF que já existe devolve esse cliente. */
+    criarCliente: (dados: { name: string; nif: string | null; phone: string | null; email: string | null }) =>
+        api.criar<{ data: ClienteDoPos; existente: boolean; message: string }>('/pos/clientes', dados),
 
     /**
      * FECHAR A VENDA.
