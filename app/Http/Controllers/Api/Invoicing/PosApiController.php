@@ -50,6 +50,35 @@ class PosApiController extends Controller
     private const MONTANTES_RAPIDOS = [1000, 2000, 5000, 10000, 20000, 50000, 100000];
 
     /**
+     * QUEM PODE FECHAR UMA VENDA AO BALCÃO.
+     *
+     * O balcão em Livewire não perguntava nada: quem entrava no POS vendia. O
+     * ecrã novo passou a exigir `invoicing.sales.invoices.create` — a
+     * permissão de EMITIR FACTURAS no editor — e o papel «Caixa», que é quem
+     * está ao balcão, não a tem: tem `invoicing.pos.access` e
+     * `invoicing.pos.sell`. Em todas as empresas os caixas ficaram com o botão
+     * «Finalizar Venda» cinzento, e só o administrador vendia (Farmácia Luk
+     * Simões, 2026-09-13).
+     *
+     * Vende quem tem a permissão de vender no POS, quem entra no POS (era a
+     * regra de sempre) ou quem pode emitir facturas.
+     */
+    public static function podeVenderAoBalcao(?\Illuminate\Contracts\Auth\Authenticatable $utilizador): bool
+    {
+        if (! $utilizador) {
+            return false;
+        }
+
+        foreach (['invoicing.pos.sell', 'invoicing.pos.access', 'invoicing.sales.invoices.create'] as $permissao) {
+            if ($utilizador->can($permissao)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * O ARMAZÉM DE ONDE SAI A MERCADORIA.
      *
      * O padrão da empresa; se não houver nenhum marcado, o primeiro activo —
@@ -259,8 +288,8 @@ class PosApiController extends Controller
             ],
 
             'permissoes' => [
-                'pode_vender' => (bool) $request->user()?->can('invoicing.sales.invoices.create'),
-                'pode_criar_cliente' => (bool) $request->user()?->can('invoicing.clients.create'),
+                'pode_vender' => self::podeVenderAoBalcao($request->user()),
+                'pode_criar_cliente' => ClientApiController::podeCriarCliente($request->user()),
                 // Mudar o preço ao balcão é outra permissão: nem toda a gente
                 // que vende pode dar desconto pela mão.
                 'pode_mudar_preco' => (bool) $request->user()?->can('invoicing.products.edit'),
@@ -546,7 +575,7 @@ class PosApiController extends Controller
 
         abort_unless($tenantId, 403, __('Sem empresa activa.'));
         abort_unless(
-            $request->user()?->can('invoicing.sales.invoices.create'),
+            self::podeVenderAoBalcao($request->user()),
             403,
             __('Sem permissão para vender.')
         );

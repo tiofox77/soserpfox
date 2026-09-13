@@ -237,6 +237,27 @@ class ApiDoPosParaReactTest extends TenantTestCase
     /* ─── A venda ─────────────────────────────────────────────────────── */
 
     /** @test */
+    public function o_caixa_vende_com_as_permissoes_do_balcao(): void
+    {
+        // O papel «Caixa»: entra no POS e vende no POS, mas não emite facturas
+        // no editor. Ficou com o «Finalizar Venda» cinzento em todas as
+        // empresas quando o balcão passou a React (Farmácia Luk Simões).
+        $this->comPermissoes('invoicing.pos.access', 'invoicing.pos.sell');
+        $this->turno();
+        $a = $this->artigo();
+
+        $this->getJson(self::RAIZ . '/opcoes')->assertOk()->assertJsonPath('permissoes.pode_vender', true);
+        $this->postJson(self::RAIZ . '/vender', $this->venda($a))->assertSuccessful();
+
+        $this->assertSame(1, SalesInvoice::where('tenant_id', $this->tenant->id)->count());
+
+        // E o cliente rápido do balcão, que o POS de sempre também não negava.
+        $this->getJson(self::RAIZ . '/opcoes')->assertJsonPath('permissoes.pode_criar_cliente', true);
+        $criar = $this->postJson('/api/v1/invoicing/react/clients', ['name' => 'Cliente do Balcão']);
+        $this->assertNotSame(403, $criar->status(), 'o caixa passa a porta de criar cliente (o resto é validação)');
+    }
+
+    /** @test */
     public function sem_permissao_de_vender_a_porta_esta_fechada(): void
     {
         $this->turno();

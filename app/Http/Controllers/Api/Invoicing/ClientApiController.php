@@ -89,7 +89,10 @@ class ClientApiController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $this->exigir($request, 'invoicing.clients.create');
+        // Criar um cliente: quem cria clientes (`invoicing.clients.create`, ou
+        // `customers.create`, o nome que o mapa de papéis dá ao Vendedor) e quem
+        // vende ao balcão — o cliente rápido do POS de sempre não pedia nada.
+        abort_unless(self::podeCriarCliente($request->user()), 403, __('Sem permissão para esta operação.'));
 
         $cliente = Client::create(array_merge(
             $this->validar($request),
@@ -345,6 +348,15 @@ class ClientApiController extends Controller
         }
 
         return $mapa;
+    }
+
+    public static function podeCriarCliente(?\Illuminate\Contracts\Auth\Authenticatable $utilizador): bool
+    {
+        return $utilizador !== null && (
+            $utilizador->can('invoicing.clients.create')
+            || $utilizador->can('customers.create')
+            || PosApiController::podeVenderAoBalcao($utilizador)
+        );
     }
 
     private function exigir(Request $request, string $permissao): void
