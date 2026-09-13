@@ -286,6 +286,26 @@ class ApiDoEmissorParaReactTest extends TenantTestCase
             ->assertOk()->assertJsonPath('criar_parte.pode', true);
     }
 
+    /**
+     * NUMA PROFORMA DE COMPRA A LINHA PROPÕE O CUSTO.
+     *
+     * O editor enchia o preço com o de venda do artigo — o fornecedor não nos
+     * vende pelo nosso preço de venda. A proposta de venda fica como estava.
+     *
+     * @test
+     */
+    public function a_proforma_de_compra_propoe_o_custo_e_a_de_venda_o_preco(): void
+    {
+        $this->comPermissoes('invoicing.sales.proformas.view', 'invoicing.purchases.proformas.view');
+        $artigo = $this->artigo(['price' => 1500, 'cost' => 900]);
+
+        $compra = $this->getJson($this->rota('proformas-compra', '/opcoes'))->assertOk()->assertJsonPath('preco', 'custo');
+        $this->assertSame(900.0, (float) collect($compra->json('artigos'))->firstWhere('id', $artigo->id)['price']);
+
+        $venda = $this->getJson($this->rota('proformas-venda', '/opcoes'))->assertOk()->assertJsonPath('preco', 'venda');
+        $this->assertSame(1500.0, (float) collect($venda->json('artigos'))->firstWhere('id', $artigo->id)['price']);
+    }
+
     /* ─── Os campos que a migração tinha deixado para trás ────────────── */
 
     /**

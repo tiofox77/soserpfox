@@ -55,6 +55,8 @@ export type OpcoesDoEmissor = {
     parte: string;
     rota: string;
     partes: Array<{ id: number; name: string; nif: string | null }>;
+    /** Que preço o `price` dos artigos é: o de venda, ou o custo numa proforma de compra. */
+    preco: 'venda' | 'custo';
     artigos: Array<{ id: number; name: string; code: string | null; price: number; unit: string; type: string }>;
     armazens: Array<{ id: number; name: string }>;
     armazem_padrao: number | null;

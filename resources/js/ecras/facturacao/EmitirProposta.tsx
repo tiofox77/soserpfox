@@ -271,7 +271,8 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
                 if (j !== i) return l;
 
                 if (campo === 'product_id') {
-                    // Escolher o artigo traz o preço dele — que se pode mudar.
+                    // Escolher o artigo traz o preço dele — que se pode mudar. O
+                    // servidor já o resolveu: custo numa proforma de compra.
                     const artigo = o.artigos.find((a) => String(a.id) === valor);
 
                     return {
@@ -444,6 +445,7 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
                             {/* O selector com procura, ao lado da linha em
                                 branco — como o editor de sempre tinha. */}
                             <EscolhaDeArtigo
+                                preco={o.preco}
                                 catalogo={o.artigos}
                                 aoEscolher={(a) => porLinhas((ls) => juntarArtigo(ls, { ...LINHA_NOVA }, a))}
                             />

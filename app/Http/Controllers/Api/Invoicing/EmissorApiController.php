@@ -102,11 +102,24 @@ class EmissorApiController extends Controller
             'partes' => $partes,
             // O `type` vai junto porque é ele que decide se o armazém é
             // obrigatório: um documento só de serviços dispensa-o.
+            // O `price` é o PREÇO QUE A LINHA PROPÕE: numa proposta de venda o
+            // preço de venda, numa proforma de compra o CUSTO — o fornecedor
+            // não nos vende pelo nosso preço de venda. O `preco` diz qual é,
+            // para o modal de procura (que lê o catálogo inteiro) propor o mesmo.
+            'preco' => $editor['parte_id'] === 'supplier_id' ? 'custo' : 'venda',
             'artigos' => Product::where('tenant_id', activeTenantId())
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->limit(500)
-                ->get(['id', 'name', 'code', 'price', 'unit', 'type']),
+                ->get(['id', 'name', 'code', 'price', 'cost', 'unit', 'type'])
+                ->map(fn (Product $a) => [
+                    'id' => $a->id,
+                    'name' => $a->name,
+                    'code' => $a->code,
+                    'price' => round((float) ($editor['parte_id'] === 'supplier_id' ? $a->cost : $a->price), 2),
+                    'unit' => $a->unit,
+                    'type' => $a->type,
+                ])->values(),
 
             'armazens' => Warehouse::where('tenant_id', activeTenantId())
                 ->where('is_active', true)->orderBy('name')->get(['id', 'name']),
