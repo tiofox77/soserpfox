@@ -47,7 +47,11 @@ if ($git('status --porcelain --untracked-files=no')) {
 $commit = trim((string) shell_exec('git rev-parse --short HEAD'));
 
 // ── 1. candidatos ─────────────────────────────────────────────────────────
-$candidatos = array_values(array_filter($git('ls-files'), fn ($f) => Pacote::caminhoPermitido($f) && is_file($f)));
+// As fontes TypeScript não correm no servidor: vai o que o Vite construiu.
+$candidatos = array_values(array_filter(
+    $git('ls-files'),
+    fn ($f) => Pacote::caminhoPermitido($f) && is_file($f) && ! str_starts_with($f, 'resources/js/'),
+));
 
 foreach (['public/build', 'public/react', 'public/pwa-app'] as $construido) {
     if (! is_dir($construido)) {
