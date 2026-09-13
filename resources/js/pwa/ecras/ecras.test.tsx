@@ -7,6 +7,7 @@ import { ContextoDoPwa } from '../contexto';
 import { db } from '../motor/base';
 import type { PropsDoPwa } from '../tipos';
 import { Dialogos } from '../ui/Dialogos';
+import { Documentos } from './Documentos';
 import { NovoDocumento } from './NovoDocumento';
 import { Pos } from './Pos';
 
@@ -162,5 +163,22 @@ describe('o novo documento', () => {
             return c!;
         });
         expect(parseFloat(pct.value)).toBe(6.5);
+    });
+});
+
+describe('a lista dos documentos', () => {
+    it('um documento não se apaga no aparelho — nem o emitido, nem o por enviar', async () => {
+        await db.draft_documents.bulkPut([
+            { local_uuid: 'd_1', doc_type: 'FT', client_name: 'Cliente Emitido', items: [], total: 1140, created_at: new Date().toISOString(), _synced: 1, _server_number: 'FT A/1' },
+            { local_uuid: 'd_2', doc_type: 'proforma', client_name: 'Cliente Pendente', items: [], total: 570, created_at: new Date().toISOString(), _synced: 0 },
+        ]);
+
+        desenhar(<Documentos />);
+
+        await screen.findByText('Cliente Emitido');
+        await screen.findByText('Cliente Pendente');
+
+        expect(screen.queryByRole('button', { name: /apagar|eliminar/i })).toBeNull();
+        expect(document.querySelector('.fa-trash')).toBeNull();
     });
 });

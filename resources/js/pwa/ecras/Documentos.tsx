@@ -4,12 +4,12 @@ import { t, tn, tPartes } from '@/i18n';
 
 import { usePwa } from '../contexto';
 import { dataCurta, dinheiro, hora, useAccao, useBaseViva, useEstadoDoMotor } from '../ganchos';
-import { db, type Registo } from '../motor/base';
+import { type Registo } from '../motor/base';
 import { getDrafts, imprimirDocumento, partilharPdf } from '../motor/documentos';
 import { sync } from '../motor/sincronizar';
 import { arredondar2, numero } from '../motor/util';
 import { contasDoDocumento } from '../papel/molde';
-import { avisar, confirmar, Nota } from '../ui/Dialogos';
+import { avisar, Nota } from '../ui/Dialogos';
 
 /**
  * OS DOCUMENTOS FEITOS NESTE APARELHO — factura, factura-recibo, proforma.
@@ -116,21 +116,15 @@ export function Documentos() {
         }
     };
 
-    const remover = async (d: Registo) => {
-        const ok = await confirmar(t('Apagar este documento da lista local?'), {
-            texto: d._synced
-                ? t('Se já foi emitido, continua no servidor — um documento fiscal não se apaga.')
-                // Por enviar: o trabalho está na fila, e a fila não lê esta lista.
-                // Dizê-lo evita que alguém apague a pensar que anulou uma venda.
-                : `${t('Se já foi emitido, continua no servidor — um documento fiscal não se apaga.')}\n\n${t('Ainda não foi enviado: continua na fila e sobe na mesma quando houver rede.')}`,
-            sim: t('Apagar'),
-            perigo: true,
-            icone: 'fa-trash',
-        });
-        if (!ok) return;
-
-        await db.draft_documents.where('local_uuid').equals(d.local_uuid).delete();
-    };
+    /*
+     * UM DOCUMENTO NÃO SE APAGA NO APARELHO.
+     *
+     * Havia um lixo em cada cartão que o tirava da lista local. Não anulava
+     * nada — o emitido continuava no servidor e o por enviar continuava na
+     * fila — mas quem carregava julgava ter apagado uma factura, e o aparelho
+     * deixava de mostrar um documento que existe. Documentos corrigem-se com
+     * nota de crédito, no servidor, como a lei manda.
+     */
 
     const FILTROS: { chave: FiltroDoTipo; rotulo: string; activo: string }[] = [
         { chave: 'all', rotulo: t('Todos'), activo: 'bg-blue-600 text-white shadow-blue-600/30' },
@@ -225,10 +219,6 @@ export function Documentos() {
                                             </span>
                                         )}
                                     </div>
-                                    <button type="button" onClick={() => void remover(d)} aria-label={t('Apagar da lista local')} title={t('Apagar da lista local')}
-                                            className="pwa-toque w-8 h-8 -mt-1 -mr-1 rounded-lg flex items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 text-xs transition">
-                                        <i className="fas fa-trash" aria-hidden="true" />
-                                    </button>
                                 </div>
 
                                 <p className="font-semibold text-sm text-slate-800 truncate">{d.client_name || t('Consumidor Final')}</p>
