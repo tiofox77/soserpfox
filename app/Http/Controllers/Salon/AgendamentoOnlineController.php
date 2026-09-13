@@ -55,6 +55,7 @@ class AgendamentoOnlineController extends Controller
             'props' => ['slug' => $slug, 'cliente' => $cliente ? $servico->paraACliente($cliente) : null] + $dados,
             'titulo' => $d->salon_name ? $d->salon_name . ' — ' . __('Marcação online') : __('Agendar'),
             'canonico' => \App\Support\DadosEstruturados::raiz() . '/agendar/' . $slug,
+            'robots' => \App\Support\CasaPublica::temConteudo($d->salon_description, $d->welcome_message) ? null : 'noindex, follow',
             'dadosEstruturados' => \App\Support\CasaPublica::dadosEstruturados('BeautySalon', \App\Support\DadosEstruturados::raiz() . '/agendar/' . $slug, (int) $d->tenant_id, [
                 'nome' => (string) ($d->salon_name ?: \App\Models\Tenant::find($d->tenant_id)?->name),
                 'descricao' => $d->salon_description,

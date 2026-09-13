@@ -3176,6 +3176,7 @@ Route::get('/hotel/booking/{slug}', function (string $slug) {
         'descricao' => $d->meta_description ?: ($d->hotel_description ?: ''),
         'imagem' => $d->cover_url ?: $d->logo_url,
         'canonico' => \App\Support\DadosEstruturados::raiz() . '/hotel/booking/' . $slug,
+        'robots' => \App\Support\CasaPublica::temConteudo($d->meta_description, $d->hotel_description) ? null : 'noindex, follow',
         'dadosEstruturados' => \App\Support\CasaPublica::dadosEstruturados('Hotel', \App\Support\DadosEstruturados::raiz() . '/hotel/booking/' . $slug, (int) $d->tenant_id, [
             'nome' => (string) ($d->hotel_name ?: \App\Models\Tenant::find($d->tenant_id)?->name),
             'descricao' => $d->hotel_description,

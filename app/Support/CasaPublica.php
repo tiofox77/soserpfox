@@ -35,6 +35,28 @@ final class CasaPublica
         return self::$vistas["{$tenantId}:{$modulo}"] ??= (bool) Tenant::find($tenantId)?->hasModule($modulo);
     }
 
+    /**
+     * UMA PÁGINA QUE NINGUÉM PREENCHEU NÃO SE INDEXA.
+     *
+     * A marcação do salão e as reservas do hotel nascem LIGADAS, com o nome por
+     * omissão: em produção o sitemap levava um «Meu Hotel» sem uma linha de
+     * texto. Página fina é o que o Google castiga no site inteiro. Conta como
+     * preenchida a casa que escreveu a sua descrição; até lá a página abre (há
+     * quem a partilhe à mão) mas diz `noindex, follow` e fica fora do sitemap.
+     * A carta do restaurante não precisa: publicá-la já é um acto deliberado,
+     * e os pratos são o conteúdo.
+     */
+    public static function temConteudo(?string ...$textos): bool
+    {
+        foreach ($textos as $t) {
+            if (filled(trim((string) $t))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /** Para os ensaios: a memória é por pedido, e um ensaio faz vários. */
     public static function esquecer(): void
     {
@@ -64,7 +86,7 @@ final class CasaPublica
         SalonSettings::withoutGlobalScopes()
             ->where('online_booking_enabled', true)->whereNotNull('booking_slug')
             ->get()
-            ->filter(fn ($d) => self::aberta((int) $d->tenant_id, 'salon'))
+            ->filter(fn ($d) => self::aberta((int) $d->tenant_id, 'salon') && self::temConteudo($d->salon_description, $d->welcome_message))
             ->each(fn ($d) => $paginas->push([
                 'loc' => DadosEstruturados::raiz() . '/agendar/' . $d->booking_slug,
                 'lastmod' => $d->updated_at,
@@ -75,7 +97,7 @@ final class CasaPublica
         HotelSettings::withoutGlobalScopes()
             ->where('online_booking_enabled', true)->whereNotNull('booking_slug')
             ->get()
-            ->filter(fn ($d) => self::aberta((int) $d->tenant_id, 'hotel'))
+            ->filter(fn ($d) => self::aberta((int) $d->tenant_id, 'hotel') && self::temConteudo($d->meta_description, $d->hotel_description))
             ->each(fn ($d) => $paginas->push([
                 'loc' => DadosEstruturados::raiz() . '/hotel/booking/' . $d->booking_slug,
                 'lastmod' => $d->updated_at,

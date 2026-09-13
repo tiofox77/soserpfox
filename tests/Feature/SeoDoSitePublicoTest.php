@@ -138,6 +138,29 @@ class SeoDoSitePublicoTest extends TenantTestCase
         $this->assertArrayNotHasKey('telephone', $casa, 'sem contacto público, não se inventa');
     }
 
+    /** O «Meu Hotel» que nasceu ligado e ninguém preencheu não é página de pesquisa. */
+    public function test_o_hotel_por_preencher_abre_mas_nao_se_indexa(): void
+    {
+        $this->comModulo('hotel');
+
+        $d = \App\Models\Hotel\HotelSettings::create([
+            'tenant_id' => $this->tenant->id, 'hotel_name' => 'Meu Hotel',
+            'booking_slug' => 'meu-hotel-' . uniqid(), 'online_booking_enabled' => true,
+        ]);
+        $url = DadosEstruturados::raiz() . '/hotel/booking/' . $d->booking_slug;
+
+        $this->get('/hotel/booking/' . $d->booking_slug)->assertOk()
+            ->assertSee('<meta name="robots" content="noindex, follow">', false);
+        $this->assertNotContains($url, $this->enderecosDoSitemap());
+
+        $d->update(['hotel_description' => 'Doze quartos de frente para o mar, na ilha de Luanda.']);
+        Cache::forget(\App\Http\Controllers\SitemapController::CHAVE);
+
+        $this->get('/hotel/booking/' . $d->booking_slug)->assertOk()
+            ->assertSee('<meta name="robots" content="index, follow, max-image-preview:large">', false);
+        $this->assertContains($url, $this->enderecosDoSitemap());
+    }
+
     public function test_as_paginas_que_nao_respondem_a_uma_pesquisa_dizem_noindex(): void
     {
         $this->get('/offline')->assertOk()->assertSee('<meta name="robots" content="noindex, nofollow">', false);
