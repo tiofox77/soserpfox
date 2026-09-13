@@ -195,7 +195,7 @@ class RelatoriosApiController extends Controller
             ], ';');
 
             foreach ($eventos as $e) {
-                fputcsv($saida, [
+                fputcsv($saida, array_map([\App\Support\CelulaSegura::class, 'texto'], [
                     $e->event_number,
                     $e->name,
                     $e->client?->name ?? '',
@@ -206,7 +206,7 @@ class RelatoriosApiController extends Controller
                     $e->end_date?->format('d/m/Y H:i'),
                     (int) $e->expected_attendees,
                     number_format((float) $e->total_value, 2, ',', ''),
-                ], ';');
+                ]), ';');
             }
 
             fclose($saida);

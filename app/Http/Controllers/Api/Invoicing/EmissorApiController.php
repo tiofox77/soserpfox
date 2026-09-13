@@ -301,8 +301,9 @@ class EmissorApiController extends Controller
         $def = TiposDeDocumento::um($tipo);
         $editor = TiposDeDocumento::editaveis()[$tipo];
         $dados = $request->validate([
-            'parte_id' => ['required', 'integer'],
-            'warehouse_id' => ['nullable', 'integer'],
+            // Da EMPRESA: o cliente ou o fornecedor, conforme o documento.
+            'parte_id' => ['required', 'integer', \Illuminate\Validation\Rule::exists($editor['parte_id'] === 'supplier_id' ? 'invoicing_suppliers' : 'invoicing_clients', 'id')->where('tenant_id', activeTenantId())],
+            'warehouse_id' => ['nullable', 'integer', \Illuminate\Validation\Rule::exists('invoicing_warehouses', 'id')->where('tenant_id', activeTenantId())],
             'data' => ['required', 'date'],
             'valido_ate' => ['nullable', 'date', 'after_or_equal:data'],
             'notas' => ['nullable', 'string', 'max:2000'],

@@ -20,6 +20,25 @@ class ForgotPasswordController extends Controller
 
     use SendsPasswordResetEmails;
 
+    public function __construct()
+    {
+        // Sem travão pedia-se o email de recuperação sem fim (auditoria de 2026-09-13).
+        $this->middleware('throttle:5,1')->only('sendResetLinkEmail');
+    }
+
+    /*
+     * A MESMA RESPOSTA EXISTA OU NÃO A CONTA. «Não encontramos esse email»
+     * dizia a quem perguntasse que emails têm conta no sistema.
+     */
+    protected function sendResetLinkFailedResponse(\Illuminate\Http\Request $request, $response)
+    {
+        if ($response === \Illuminate\Support\Facades\Password::INVALID_USER) {
+            return $this->sendResetLinkResponse($request, \Illuminate\Support\Facades\Password::RESET_LINK_SENT);
+        }
+
+        return back()->withInput($request->only('email'))->withErrors(['email' => trans($response)]);
+    }
+
     /** Pedir o link — o ecrã `entrada/recuperar-senha`; o `status` chega nos recados. */
     public function showLinkRequestForm()
     {

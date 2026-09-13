@@ -169,7 +169,9 @@ return [
     |
     */
 
-    'secure' => env('SESSION_SECURE_COOKIE'),
+    // Sem SESSION_SECURE_COOKIE no .env, segue o APP_URL: um site https não manda
+    // o cookie da sessão por http (auditoria de segurança de 2026-09-13).
+    'secure' => env('SESSION_SECURE_COOKIE', str_starts_with((string) env('APP_URL', ''), 'https://')),
 
     /*
     |--------------------------------------------------------------------------

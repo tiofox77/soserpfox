@@ -15,6 +15,15 @@ use Tests\TenantTestCase;
  */
 class RascunhoOfflineSoVendasTest extends TenantTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // A API do PWA pede permissão desde 2026-09-13 (AutorizaApiDoPwa): o
+        // utilizador do ensaio é um caixa a sério, não um membro sem papel.
+        $this->comPermissoesDoPwa();
+    }
+
     private function enviar(string $tipo)
     {
         return $this->actingAs($this->user)->postJson('/api/v1/invoicing/drafts', [

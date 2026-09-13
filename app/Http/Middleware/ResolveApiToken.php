@@ -22,7 +22,22 @@ class ResolveApiToken
         if ($bearer) {
             // Autenticacao por TOKEN (app movel)
             $token = ApiToken::where('token', ApiToken::hashToken($bearer))->first();
-            if (!$token || !$token->user) {
+
+            /*
+             * O TOKEN CADUCA. Nunca caducava e não se revogava ao desactivar a
+             * conta: um funcionário despedido continuava com a API no telemóvel
+             * (auditoria de segurança de 2026-09-13). Vale 180 dias desde que
+             * nasceu, e cai ao fim de 30 dias sem uso. Conta desactivada: o
+             * token apaga-se.
+             */
+            $caducado = $token && ($token->created_at?->lt(now()->subDays(180))
+                || ($token->last_used_at ?? $token->created_at)?->lt(now()->subDays(30)));
+
+            if (!$token || !$token->user || $caducado || !$token->user->is_active) {
+                if ($token && ($caducado || ($token->user && !$token->user->is_active))) {
+                    $token->delete();
+                }
+
                 return response()->json(['message' => 'Token inválido ou expirado.'], 401);
             }
             $user = $token->user;
@@ -43,6 +58,13 @@ class ResolveApiToken
         // Sem token → exigir sessao web (PWA). Este middleware e o UNICO gate
         // (nao usamos o 'auth' nas rotas para evitar reordenacao de prioridade).
         if (Auth::check()) {
+            // A sessão de uma conta desactivada termina aqui também.
+            if (Auth::user()->getAttribute('is_active') !== null && !Auth::user()->is_active) {
+                Auth::guard('web')->logout();
+
+                return response()->json(['message' => __('A sua conta está desactivada.')], 401);
+            }
+
             return $next($request);
         }
 

@@ -361,7 +361,7 @@ class ProductApiController extends Controller
 
         $caminho = $ficheiro->storeAs(
             'products/' . $artigo->id,
-            'featured_' . Str::slug($artigo->name) . '.' . $ficheiro->getClientOriginalExtension(),
+            'featured_' . Str::slug($artigo->name) . '.' . $ficheiro->extension(),
             'public'
         );
 
@@ -429,7 +429,7 @@ class ProductApiController extends Controller
              */
             $galeria[] = $ficheiro->storeAs(
                 'products/' . $artigo->id . '/gallery',
-                Str::lower(Str::random(16)) . '.' . $ficheiro->getClientOriginalExtension(),
+                Str::lower(Str::random(16)) . '.' . $ficheiro->extension(),
                 'public'
             );
         }
@@ -735,7 +735,7 @@ class ProductApiController extends Controller
             'price' => ['required', 'numeric', 'min:0'],
             'cost' => ['nullable', 'numeric', 'min:0'],
             'unit' => ['required', 'string', 'max:20'],
-            'category_id' => ['required', 'integer', 'exists:invoicing_categories,id'],
+            'category_id' => ['required', 'integer', \Illuminate\Validation\Rule::exists('invoicing_categories', 'id')->where('tenant_id', activeTenantId())],
 
             /*
              * A MARCA E O FORNECEDOR CONFIRMAM-SE CONTRA ESTA EMPRESA.
@@ -751,7 +751,7 @@ class ProductApiController extends Controller
             'supplier_id' => ['nullable', 'integer', Rule::exists('invoicing_suppliers', 'id')
                 ->where('tenant_id', activeTenantId())->whereNull('deleted_at')],
             'tax_type' => ['required', 'in:iva,isento'],
-            'tax_rate_id' => ['required_if:tax_type,iva', 'nullable', 'integer', 'exists:invoicing_taxes,id'],
+            'tax_rate_id' => ['required_if:tax_type,iva', 'nullable', 'integer', \Illuminate\Validation\Rule::exists('invoicing_taxes', 'id')->where('tenant_id', activeTenantId())],
             'exemption_reason' => ['required_if:tax_type,isento', 'nullable', 'string', 'max:255'],
             'manage_stock' => ['nullable', 'boolean'],
             // Trabalhos à medida: o preço escreve-se na hora, no POS.

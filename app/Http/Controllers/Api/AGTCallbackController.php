@@ -68,13 +68,26 @@ class AGTCallbackController extends Controller
             ], 200);
         }
 
-        // Processar resultado
-        $this->processResult($submission, $payload, $resultCode);
+        /*
+         * O CORPO DO CALLBACK NÃO DECIDE NADA.
+         *
+         * Esta porta não tem autenticação, assinatura nem lista de IPs da AGT (e
+         * a AGT ainda não a activou). Quem soubesse um `requestID` — e os
+         * funcionários da empresa vêem-nos no ecrã da AGT — marcava como
+         * VALIDADO um documento que a AGT rejeitou (auditoria de segurança de
+         * 2026-09-13). Fica registado; o estado verdadeiro continua a vir da
+         * consulta que o próprio sistema faz à AGT (obterEstado), que é
+         * autenticada. Quando a AGT publicar como assina o callback, verifica-se
+         * a assinatura e volta a usar-se o `processResult`.
+         */
+        Log::info('AGT Callback registado sem alterar o estado (sem assinatura verificável).', [
+            'requestID' => $requestID, 'submission' => $submission->id, 'resultCode' => $resultCode,
+        ]);
 
         return response()->json([
-            'status' => 'ok',
-            'message' => 'Callback processado com sucesso',
-        ], 200);
+            'status' => 'received',
+            'message' => 'Callback registado',
+        ], 202);
     }
 
     private function processResult(AGTSubmission $submission, array $payload, ?string $resultCode): void

@@ -38,7 +38,7 @@ class QuoteController extends Controller
             $modelo = $this->modeloDoOrcamento($quote);
 
             $pdf = $modelo
-                ? Pdf::loadHTML(app(RenderizadorDeProposta::class)->render($modelo, $quote, $tenant))
+                ? Pdf::loadHTML(tap(app(RenderizadorDeProposta::class), fn ($r) => $r->paraPdf = true)->render($modelo, $quote, $tenant))
                 : Pdf::loadView('pdf.invoicing.quote', [
                     'paraPdf' => true,
                     'quote' => $quote,
@@ -49,7 +49,8 @@ class QuoteController extends Controller
             $pdf->setPaper('A4', 'portrait');
             $pdf->setOptions([
                 'isHtml5ParserEnabled' => true,
-                'isRemoteEnabled' => true,
+                // Nada de ir buscar endereços de fora: as imagens são do disco (auditoria de 2026-09-13).
+                'isRemoteEnabled' => false,
                 'defaultFont' => 'Arial'
             ]);
 
@@ -85,7 +86,9 @@ class QuoteController extends Controller
             ->get();
 
         if ($modelo = $this->modeloDoOrcamento($quote)) {
-            return response(app(RenderizadorDeProposta::class)->render($modelo, $quote, $tenant));
+            // Uma página feita de conteúdo dos utilizadores não corre scripts, mesmo que algum escape à limpeza.
+            return response(app(RenderizadorDeProposta::class)->render($modelo, $quote, $tenant))
+                ->header('Content-Security-Policy', "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; font-src 'self' data:; sandbox");
         }
 
         return view('pdf.invoicing.quote', [
@@ -103,12 +106,12 @@ class QuoteController extends Controller
     {
         $modelo = QuoteTemplate::where('tenant_id', activeTenantId())->findOrFail($id);
 
-        $html = app(RenderizadorDeProposta::class)
+        $html = tap(app(RenderizadorDeProposta::class), fn ($r) => $r->paraPdf = true)
             ->renderExemplo($modelo, \App\Models\Tenant::find(activeTenantId()));
 
         $pdf = Pdf::loadHTML($html);
         $pdf->setPaper('A4', 'portrait');
-        $pdf->setOptions(['isHtml5ParserEnabled' => true, 'isRemoteEnabled' => true, 'defaultFont' => 'Arial']);
+        $pdf->setOptions(['isHtml5ParserEnabled' => true, 'isRemoteEnabled' => false, 'defaultFont' => 'Arial']);
 
         return $pdf->stream('modelo_' . \Str::slug($modelo->nome) . '.pdf');
     }

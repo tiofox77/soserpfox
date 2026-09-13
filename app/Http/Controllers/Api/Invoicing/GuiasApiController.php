@@ -86,7 +86,8 @@ class GuiasApiController extends Controller
 
     public function guardar(Request $request, EmissorDeGuias $emissor): JsonResponse
     {
-        $this->exigir($request);
+        // Emitir, comunicar à AGT e anular pediam só VER (auditoria de 2026-09-13).
+        $this->exigir($request, ['invoicing.transport-guides.create', 'invoicing.sales.invoices.create']);
 
         $dados = $request->validate($emissor->regras() + [
             'linhas' => ['required', 'array', 'min:1'],
@@ -115,7 +116,7 @@ class GuiasApiController extends Controller
 
     public function comunicar(Request $request, EmissorDeGuias $emissor, int $id): JsonResponse
     {
-        $this->exigir($request);
+        $this->exigir($request, ['invoicing.transport-guides.create', 'invoicing.sales.invoices.create']);
 
         $g = TransportGuide::where('tenant_id', activeTenantId())->findOrFail($id);
         $r = $emissor->comunicar($g);
@@ -125,7 +126,7 @@ class GuiasApiController extends Controller
 
     public function anular(Request $request, EmissorDeGuias $emissor, int $id): JsonResponse
     {
-        $this->exigir($request);
+        $this->exigir($request, ['invoicing.transport-guides.delete', 'invoicing.transport-guides.edit']);
 
         $g = TransportGuide::where('tenant_id', activeTenantId())->findOrFail($id);
         $emissor->anular($g);
@@ -155,8 +156,9 @@ class GuiasApiController extends Controller
         ];
     }
 
-    private function exigir(Request $request): void
+    /** @param list<string>|null $permissoes as da acção; sem elas, as de ver */
+    private function exigir(Request $request, ?array $permissoes = null): void
     {
-        abort_unless($request->user()?->canAny(self::PERMISSOES), 403, __('Sem permissão para esta operação.'));
+        abort_unless($request->user()?->canAny($permissoes ?? self::PERMISSOES), 403, __('Sem permissão para esta operação.'));
     }
 }

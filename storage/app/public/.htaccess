@@ -18,3 +18,12 @@
 <IfModule mod_php.c>
     php_flag engine off
 </IfModule>
+
+# O tipo é o que o servidor diz, e um SVG não corre scripts: um «GIF» com HTML
+# dentro não pode ser lido pelo browser como página.
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    <FilesMatch "\.(?i:svgz?)$">
+        Header set Content-Security-Policy "default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox"
+    </FilesMatch>
+</IfModule>

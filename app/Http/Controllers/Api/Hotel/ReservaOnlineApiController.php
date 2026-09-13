@@ -117,6 +117,7 @@ class ReservaOnlineApiController extends Controller
         ]);
 
         $this->garantirJanela($d, $dados['de']);
+        $this->estadaRazoavel($dados['de'], $dados['ate']);
 
         $tipos = RoomType::withoutGlobalScopes()
             ->where('tenant_id', $d->tenant_id)
@@ -159,12 +160,23 @@ class ReservaOnlineApiController extends Controller
             'senha' => ['nullable', 'string', 'max:100'],
         ]);
 
-        $numero = preg_replace('/[^0-9]/', '', $dados['telefone']);
+        /*
+         * O TELEFONE INTEIRO, E COM TRAVÃO.
+         *
+         * Guardavam-se só os dígitos e procurava-se `LIKE %…%`: «------» dava
+         * `%%` e devolvia o primeiro cliente da empresa (a lista de clientes da
+         * facturação inteira, não só hóspedes), e meio número percorria-a
+         * (auditoria de segurança de 2026-09-13).
+         */
+        $chave = 'hotel-publico:' . $d->tenant_id . ':' . preg_replace('/[^0-9]/', '', $dados['telefone']) . '|' . $request->ip();
 
-        $cliente = Client::withoutGlobalScopes()
-            ->where('tenant_id', $d->tenant_id)
-            ->where(fn ($q) => $q->where('phone', 'like', "%{$numero}%")->orWhere('mobile', 'like', "%{$numero}%"))
-            ->first();
+        if (\Illuminate\Support\Facades\RateLimiter::tooManyAttempts($chave, 5)) {
+            throw ValidationException::withMessages(['telefone' => __('Demasiadas tentativas. Tente de novo daqui a pouco.')]);
+        }
+
+        \Illuminate\Support\Facades\RateLimiter::hit($chave, 300);
+
+        $cliente = $this->clientePeloTelefone((int) $d->tenant_id, $dados['telefone']);
 
         if (! $cliente) {
             throw ValidationException::withMessages([
@@ -184,6 +196,9 @@ class ReservaOnlineApiController extends Controller
             }
         }
 
+        \Illuminate\Support\Facades\RateLimiter::clear($chave);
+        $this->entrou($request, $d, $cliente);
+
         return response()->json(['hospede' => $this->hospede($cliente)]);
     }
 
@@ -198,12 +213,7 @@ class ReservaOnlineApiController extends Controller
             'senha' => ['nullable', 'string', 'min:4', 'max:100'],
         ]);
 
-        $numero = preg_replace('/[^0-9]/', '', $dados['telefone']);
-
-        $existe = Client::withoutGlobalScopes()
-            ->where('tenant_id', $d->tenant_id)
-            ->where(fn ($q) => $q->where('phone', 'like', "%{$numero}%")->orWhere('mobile', 'like', "%{$numero}%"))
-            ->exists();
+        $existe = $this->clientePeloTelefone((int) $d->tenant_id, $dados['telefone']) !== null;
 
         if ($existe) {
             throw ValidationException::withMessages([
@@ -228,6 +238,8 @@ class ReservaOnlineApiController extends Controller
             $cliente->definirSenhaDeReservas($dados['senha']);
         }
 
+        $this->entrou($request, $d, $cliente);
+
         return response()->json(['hospede' => $this->hospede($cliente->fresh())], 201);
     }
 
@@ -250,6 +262,7 @@ class ReservaOnlineApiController extends Controller
         ]);
 
         $this->garantirJanela($d, $dados['de']);
+        $this->estadaRazoavel($dados['de'], $dados['ate']);
 
         $tipo = RoomType::withoutGlobalScopes()
             ->where('tenant_id', $d->tenant_id)
@@ -275,6 +288,30 @@ class ReservaOnlineApiController extends Controller
         $preco = $this->tarifas->precoDaEstada(
             $d->tenant_id, $tipo->id, $dados['de'], $dados['ate'], (float) $tipo->base_price
         );
+
+        /*
+         * A FICHA É A DE QUEM ENTROU NESTE SEPARADOR.
+         *
+         * `hospede_id` era um número qualquer: sem sessão, ligava a reserva a
+         * qualquer cliente e mudava-lhe o email — as facturas dele passavam a
+         * ir para o atacante (auditoria de segurança de 2026-09-13).
+         */
+        if (! empty($dados['hospede_id']) && (int) $dados['hospede_id'] !== (int) session($this->chaveDaSessao($d))) {
+            throw ValidationException::withMessages(['hospede_id' => __('Entre outra vez na sua ficha para reservar com ela.')]);
+        }
+
+        // Reservas pendentes da página: até três por telefone. Cada uma ocupa
+        // um quarto até a casa a confirmar — e sem tecto bloqueava-se o hotel.
+        $telefoneDaReserva = ! empty($dados['hospede_id'])
+            ? (string) Client::withoutGlobalScopes()->where('tenant_id', $d->tenant_id)->whereKey($dados['hospede_id'])->value('phone')
+            : (string) $dados['telefone'];
+        $clienteDoTelefone = $this->clientePeloTelefone((int) $d->tenant_id, $telefoneDaReserva);
+
+        if ($clienteDoTelefone && Reservation::withoutGlobalScopes()->where('tenant_id', $d->tenant_id)
+            ->where('client_id', $clienteDoTelefone->id)->where('source', 'website')
+            ->where('status', Reservation::STATUS_PENDING)->count() >= 3) {
+            throw ValidationException::withMessages(['telefone' => __('Já tem três reservas por confirmar. A casa entra em contacto consigo antes de fazer mais.')]);
+        }
 
         $reserva = DB::transaction(function () use ($d, $dados, $tipo, $quarto, $preco) {
             $cliente = $this->hospedeDaReserva($d->tenant_id, $dados);
@@ -412,30 +449,36 @@ class ReservaOnlineApiController extends Controller
 
             abort_unless($cliente, 422, __('Essa ficha não é desta casa.'));
 
-            if (! empty($dados['email'] ?? null) && $dados['email'] !== $cliente->email) {
+            // Só se preenche o que falta: uma página pública não muda o email
+            // para onde vão as facturas de um cliente.
+            if (! empty($dados['email'] ?? null) && blank($cliente->email)) {
                 $cliente->update(['email' => $dados['email']]);
             }
 
             return $cliente;
         }
 
-        $cliente = Client::withoutGlobalScopes()->firstOrCreate(
-            ['tenant_id' => $tenantId, 'phone' => $dados['telefone']],
-            [
-                'name' => $dados['nome'],
-                'email' => $dados['email'] ?? null,
-                'type' => 'pessoa_fisica',
-                'country' => \App\Support\Geografia::PAIS_PADRAO,
-                'is_active' => true,
-            ]
-        );
+        $existente = $this->clientePeloTelefone($tenantId, $dados['telefone']);
 
-        $cliente->update([
+        if ($existente) {
+            // Uma ficha com este telefone já existe: não se lhe muda o nome nem
+            // o email (quem sabe o telefone de alguém não é esse alguém).
+            if (! empty($dados['email'] ?? null) && blank($existente->email)) {
+                $existente->update(['email' => $dados['email']]);
+            }
+
+            return $existente;
+        }
+
+        return Client::withoutGlobalScopes()->create([
+            'tenant_id' => $tenantId,
+            'phone' => $dados['telefone'],
             'name' => $dados['nome'],
-            'email' => ($dados['email'] ?? null) ?: $cliente->email,
+            'email' => $dados['email'] ?? null,
+            'type' => 'pessoa_fisica',
+            'country' => \App\Support\Geografia::PAIS_PADRAO,
+            'is_active' => true,
         ]);
-
-        return $cliente;
     }
 
     private function tipo(RoomType $t): array
@@ -455,6 +498,56 @@ class ReservaOnlineApiController extends Controller
                 ])->values(),
             'fotos' => collect($t->images ?? [])->map(fn ($f) => \Storage::url($f))->values(),
         ];
+    }
+
+    /** Uma estada da página pública: no máximo 60 noites (cada noite custa consultas de tarifa). */
+    private function estadaRazoavel(string $de, string $ate): void
+    {
+        if (Carbon::parse($de)->diffInDays(Carbon::parse($ate)) > 60) {
+            throw ValidationException::withMessages(['ate' => __('Pela página reserva-se até 60 noites. Para mais, fale com a casa.')]);
+        }
+    }
+
+    private function chaveDaSessao(HotelSettings $d): string
+    {
+        return 'hotel-publico.' . $d->tenant_id . '.hospede';
+    }
+
+    private function entrou(Request $request, HotelSettings $d, Client $cliente): void
+    {
+        $request->session()->regenerate();
+        session([$this->chaveDaSessao($d) => $cliente->id]);
+    }
+
+    /**
+     * A ficha com ESTE telefone — pelos dígitos, com 9 no mínimo, e igual (o
+     * indicativo +244 à frente conta como o mesmo número).
+     */
+    private function clientePeloTelefone(int $tenantId, ?string $telefone): ?Client
+    {
+        $numero = preg_replace('/[^0-9]/', '', (string) $telefone);
+
+        if (strlen($numero) < 9) {
+            return null;
+        }
+
+        $fim = substr($numero, -9);
+
+        return Client::withoutGlobalScopes()
+            ->where('tenant_id', $tenantId)
+            ->where(fn ($q) => $q->where('phone', 'like', "%{$fim}")->orWhere('mobile', 'like', "%{$fim}"))
+            ->get()
+            ->first(function (Client $c) use ($numero, $fim) {
+                foreach ([$c->phone, $c->mobile] as $guardado) {
+                    $digitos = preg_replace('/[^0-9]/', '', (string) $guardado);
+
+                    if ($digitos !== '' && substr($digitos, -9) === $fim && (str_ends_with($digitos, $numero) || str_ends_with($numero, $digitos))) {
+                        return true;
+                    }
+                }
+
+                return false;
+            });
     }
 
     private function hospede(Client $c): array

@@ -28,6 +28,9 @@ class FacturarOportunidadeTest extends TenantTestCase
     {
         parent::setUp();
 
+        // A API do CRM confere o módulo (ModuloDaApi).
+        $this->comModulo('crm');
+
         $this->comPermissoes('crm.view', 'crm.opportunities.view', 'crm.opportunities.manage',
             'invoicing.sales.invoices.create', 'invoicing.sales.invoices.view');
     }

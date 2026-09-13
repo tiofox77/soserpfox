@@ -470,6 +470,23 @@ class DocumentosApiController extends Controller
             ], 422);
         }
 
+        /*
+         * UM DOCUMENTO FISCAL EMITIDO NÃO SE APAGA — anula-se.
+         *
+         * As notas de crédito e de débito nascem `issued`, assinadas e enviadas
+         * à AGT, e só se recusava apagar as convertidas e as anuladas: apagar
+         * uma nota tirava-a do SAF-T (buraco na numeração) e deixava creditar a
+         * mesma factura outra vez, com o dinheiro devolvido duas vezes
+         * (auditoria de segurança de 2026-09-13).
+         */
+        $assinado = filled($d->getAttribute('saft_hash')) || filled($d->getAttribute('hash'))
+            || filled($d->getAttribute('agt_status')) || $d->getAttribute('status') === 'issued';
+
+        if ($assinado) {
+            return response()->json([
+                'message' => __('Este documento já foi emitido e assinado: não se elimina, anula-se.'),
+            ], 422);
+        }
         $d->delete();
 
         return response()->json(['message' => __('Documento eliminado.')]);

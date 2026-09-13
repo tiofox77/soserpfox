@@ -265,9 +265,9 @@ class CompraApiController extends Controller
 
     private function registarPedido(Request $request, EmissorDeCompras $emissor, ?PurchaseInvoice $existente): JsonResponse
     {        $dados = $request->validate([
-            'supplier_id' => ['required', 'integer', 'exists:invoicing_suppliers,id'],
+            'supplier_id' => ['required', 'integer', \Illuminate\Validation\Rule::exists('invoicing_suppliers', 'id')->where('tenant_id', activeTenantId())],
             // A compra dá entrada de stock: o armazém é sempre obrigatório.
-            'warehouse_id' => ['required', 'integer', 'exists:invoicing_warehouses,id'],
+            'warehouse_id' => ['required', 'integer', \Illuminate\Validation\Rule::exists('invoicing_warehouses', 'id')->where('tenant_id', activeTenantId())],
             'invoice_date' => ['required', 'date'],
             'due_date' => ['nullable', 'date', 'after_or_equal:invoice_date'],
             'is_service' => ['nullable', 'boolean'],

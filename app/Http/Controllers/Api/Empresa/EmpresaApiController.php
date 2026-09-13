@@ -297,7 +297,7 @@ class EmpresaApiController extends Controller
 
         $caminho = $request->file('logo')->storeAs(
             'tenants/'.$t->id,
-            'logo.'.$request->file('logo')->getClientOriginalExtension(),
+            'logo.'.$request->file('logo')->extension(),
             'public',
         );
 

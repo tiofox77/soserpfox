@@ -261,7 +261,7 @@ class ClientApiController extends Controller
         // A que lá estava sai: são um logótipo, não um histórico deles.
         $this->apagarFicheiro($cliente->logo);
 
-        $extensao = $request->file('logotipo')->getClientOriginalExtension();
+        $extensao = $request->file('logotipo')->extension();
         $nome = 'logo_' . Str::slug($cliente->name) . '.' . $extensao;
 
         $cliente->update([

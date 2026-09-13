@@ -457,7 +457,7 @@ class OrdensApiController extends Controller
 
         $dados = $request->validate([
             'ficheiros' => ['required', 'array', 'max:10'],
-            'ficheiros.*' => ['file', 'max:10240'],
+            'ficheiros.*' => ['file', 'max:10240', 'mimes:jpg,jpeg,png,webp,gif,heic,pdf,doc,docx,xls,xlsx,odt,ods,txt,csv'],
             'categoria' => ['required', Rule::in(array_keys(OrdensDeServico::CATEGORIAS_DE_ANEXO))],
             'descricao' => ['nullable', 'string', 'max:500'],
         ]);
@@ -465,7 +465,7 @@ class OrdensApiController extends Controller
         $quantos = 0;
 
         foreach ($dados['ficheiros'] as $ficheiro) {
-            $nome = time() . '_' . uniqid() . '.' . $ficheiro->getClientOriginalExtension();
+            $nome = time() . '_' . uniqid() . '.' . $ficheiro->extension();
             $caminho = $ficheiro->storeAs("workshop/attachments/{$ordem->id}", $nome, 'public');
 
             WorkOrderAttachment::create([

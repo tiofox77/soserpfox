@@ -64,7 +64,17 @@ export function PinEsquecido() {
     // Só se volta para dentro do próprio site: um `voltar` para fora seria uma
     // porta aberta a quem quisesse desviar o operador.
     const pedido = new URLSearchParams(window.location.search).get('voltar') || '';
-    const voltar = pedido.startsWith('/') && !pedido.startsWith('//') ? pedido : rotas.entrada;
+    // «/\evil.com» e «/%09/evil.com» passavam o «começa por /» e o browser levava-os para fora:
+    // a morada resolve-se e tem de ficar na mesma origem.
+    const voltar = (() => {
+        try {
+            const destino = new URL(pedido, window.location.origin);
+
+            return pedido.startsWith('/') && destino.origin === window.location.origin ? destino.pathname + destino.search : rotas.entrada;
+        } catch {
+            return rotas.entrada;
+        }
+    })();
 
     useEffect(() => {
         let vivo = true;

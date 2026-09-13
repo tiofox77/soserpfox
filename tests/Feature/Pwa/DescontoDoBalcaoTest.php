@@ -30,6 +30,10 @@ class DescontoDoBalcaoTest extends TenantTestCase
     {
         parent::setUp();
 
+        // A API do PWA pede permissão desde 2026-09-13 (AutorizaApiDoPwa): o
+        // utilizador do ensaio é um caixa a sério, não um membro sem papel.
+        $this->comPermissoesDoPwa();
+
         $this->comModulo('invoicing');
 
         $this->artigo = Product::create([

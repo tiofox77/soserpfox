@@ -337,7 +337,22 @@ class DefinicoesApiController extends Controller
             'from_name' => ['nullable', 'string'],
         ]);
 
-        $senha = $this->segredoEfectivo('smtp_password', $dados['smtp_password'] ?? null);
+        /*
+         * A SENHA GUARDADA SÓ VAI PARA O SERVIDOR GUARDADO.
+         *
+         * Com o campo vazio usava-se a senha gravada — mesmo que o anfitrião
+         * tivesse sido trocado por um servidor do próprio utilizador, que a
+         * recebia em claro no login SMTP. E com `notifications.send`, quem não
+         * pode ver a senha ficava com ela (auditoria de segurança de 2026-09-13).
+         */
+        $guardadas = $this->definicoes();
+        $mesmoServidor = strcasecmp(trim($dados['smtp_host']), trim((string) $guardadas->smtp_host)) === 0
+            && (int) $dados['smtp_port'] === (int) $guardadas->smtp_port
+            && trim((string) ($dados['smtp_username'] ?? '')) === trim((string) $guardadas->smtp_username);
+
+        $senha = filled(trim((string) ($dados['smtp_password'] ?? '')))
+            ? $dados['smtp_password']
+            : ($mesmoServidor ? $guardadas->smtp_password : null);
 
         if (blank($senha)) {
             $this->recusa(__('Escreva a senha do SMTP antes de testar — não há nenhuma guardada.'));
@@ -385,7 +400,8 @@ class DefinicoesApiController extends Controller
         } catch (\Throwable $e) {
             \Log::error('Teste de SMTP falhou', ['host' => $dados['smtp_host'], 'erro' => $e->getMessage()]);
 
-            $this->recusa(__('Erro ao testar o SMTP: :erro', ['erro' => $e->getMessage()]));
+            // A mensagem da biblioteca diz que portas respondem num endereço interno: fica no registo.
+            $this->recusa(__('Não foi possível enviar pelo SMTP indicado. Confirme o servidor, a porta, o utilizador e a senha.'));
         }
     }
 

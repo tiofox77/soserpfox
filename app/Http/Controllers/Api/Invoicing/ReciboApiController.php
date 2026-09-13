@@ -150,8 +150,8 @@ class ReciboApiController extends Controller
 
         $dados = $request->validate([
             'type' => ['required', 'in:sale,purchase'],
-            'client_id' => ['required_if:type,sale', 'nullable', 'integer'],
-            'supplier_id' => ['required_if:type,purchase', 'nullable', 'integer'],
+            'client_id' => ['required_if:type,sale', 'nullable', 'integer', \Illuminate\Validation\Rule::exists('invoicing_clients', 'id')->where('tenant_id', activeTenantId())],
+            'supplier_id' => ['required_if:type,purchase', 'nullable', 'integer', \Illuminate\Validation\Rule::exists('invoicing_suppliers', 'id')->where('tenant_id', activeTenantId())],
             'invoice_id' => ['nullable', 'integer'],
             'payment_date' => ['required', 'date'],
             'payment_method' => ['required', 'string', 'max:30'],

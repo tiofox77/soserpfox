@@ -237,6 +237,9 @@ class PerfilDoNegocioTest extends TenantTestCase
         // A marca está no artigo e é dela que o POS depende.
         $this->assertTrue((bool) $p->fresh()->is_controlled);
 
+        // A sincronização do PWA pede a permissão do balcão (AutorizaApiDoPwa).
+        $this->comPermissoesDoPwa();
+
         $doAparelho = collect(
             $this->getJson('/api/v1/invoicing/sync')->assertOk()->json('data.products')
         )->firstWhere('id', $p->id);

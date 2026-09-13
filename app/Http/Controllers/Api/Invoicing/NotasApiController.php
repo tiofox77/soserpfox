@@ -126,7 +126,7 @@ class NotasApiController extends Controller
         $this->exigir($request, $tipo, 'create');
 
         $dados = $request->validate([
-            'client_id' => ['required', 'integer'],
+            'client_id' => ['required', 'integer', \Illuminate\Validation\Rule::exists('invoicing_clients', 'id')->where('tenant_id', activeTenantId())],
             'invoice_id' => ['nullable', 'integer'],
             'issue_date' => ['required', 'date'],
             'due_date' => ['nullable', 'date'],

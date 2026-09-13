@@ -42,6 +42,9 @@ class PeriodosMoedasEAnaliticaTest extends TenantTestCase
             'accounting.currencies.view', 'accounting.currencies.manage',
             'accounting.analytics.view', 'accounting.cost-centers.manage',
         );
+
+        // As moedas e os câmbios são da plataforma: quem os escreve é o dono dela.
+        $this->user->forceFill(['is_super_admin' => true])->save();
     }
 
     private function periodo(array $extra = []): Period

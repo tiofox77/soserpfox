@@ -15,6 +15,19 @@
     RewriteCond $1 !^index\.php$ [NC]
     RewriteRule ^(.*\.(?:php[0-9]?|phtml|phar|phps|pht|pl|py|cgi|sh|asp|aspx|jsp))$ - [NC,F,L]
 
+    # OS DOCUMENTOS DO RH NÃO SE SERVEM DIRECTAMENTE.
+    #
+    # BI, passaporte, registo criminal e os anexos dos pedidos (atestados) viviam
+    # em /storage/tenants/{empresa}/employees/{id}/documentos/bi.pdf — um endereço
+    # que se adivinha, aberto a quem não tem sessão (auditoria de 2026-09-13).
+    # Abrem-se pela API, com a permissão do RH.
+    RewriteRule ^storage/tenants/[0-9]+/(employees/[0-9]+/documentos|rh)/ - [NC,F,L]
+
+    # NADA QUE O BROWSER CORRA SAI DO /storage: páginas, scripts e XML não são
+    # imagens nem documentos de ninguém, e servidos do próprio domínio corriam
+    # na sessão de quem os abrisse.
+    RewriteRule ^storage/.*\.(?:s?html?|xhtml|js|mjs|xml|xsl|swf)$ - [NC,F,L]
+
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]

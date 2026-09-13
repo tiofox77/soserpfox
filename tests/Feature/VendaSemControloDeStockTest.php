@@ -14,6 +14,15 @@ use Tests\TenantTestCase;
  */
 class VendaSemControloDeStockTest extends TenantTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // A API do PWA pede permissão desde 2026-09-13 (AutorizaApiDoPwa): o
+        // utilizador do ensaio é um caixa a sério, não um membro sem papel.
+        $this->comPermissoesDoPwa();
+    }
+
     private function produtoSemControlo(): Product
     {
         return Product::create([

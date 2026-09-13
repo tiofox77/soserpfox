@@ -27,6 +27,10 @@ class ReporPinSemRedeTest extends TenantTestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // A API do PWA pede permissão desde 2026-09-13 (AutorizaApiDoPwa): o
+        // utilizador do ensaio é um caixa a sério, não um membro sem papel.
+        $this->comPermissoesDoPwa();
         // O utilizador da bancada precisa de PIN para aparecer na lista dos
         // funcionários que vai para o aparelho.
         $this->user->definirPinPos('5927');

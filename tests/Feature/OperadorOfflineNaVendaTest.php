@@ -13,6 +13,15 @@ use Tests\TenantTestCase;
  */
 class OperadorOfflineNaVendaTest extends TenantTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // A API do PWA pede permissão desde 2026-09-13 (AutorizaApiDoPwa): o
+        // utilizador do ensaio é um caixa a sério, não um membro sem papel.
+        $this->comPermissoesDoPwa();
+    }
+
     private function funcionarioB(): User
     {
         $b = User::create([
@@ -23,7 +32,7 @@ class OperadorOfflineNaVendaTest extends TenantTestCase
             'is_active' => true,
         ]);
         $b->tenants()->syncWithoutDetaching([$this->tenant->id]);
-        return $b;
+        return $this->operadorDoPwa($b);
     }
 
     private function itens(): array
@@ -93,5 +102,29 @@ class OperadorOfflineNaVendaTest extends TenantTestCase
 
         $shift = PosShift::where('tenant_id', $this->tenant->id)->latest('id')->first();
         $this->assertSame($b->id, (int) $shift->user_id);
+    }
+
+    public function test_o_fecho_offline_fica_no_operador_do_pin_e_nao_na_sessao(): void
+    {
+        $b = $this->funcionarioB();
+
+        $this->actingAs($this->user)->postJson('/api/v1/invoicing/pos/shift/open', [
+            'local_uuid' => 'turno-b-fecho',
+            'operator_id' => $b->id,
+            'operator_email' => $b->email,
+            'opening_balance' => 0,
+        ])->assertSuccessful();
+
+        $this->actingAs($this->user)->postJson('/api/v1/invoicing/pos/shift/close', [
+            'local_uuid' => 'turno-b-fechado',
+            'operator_id' => $b->id,
+            'operator_email' => $b->email,
+            'actual_cash' => 0,
+        ])->assertSuccessful();
+
+        $shift = PosShift::where('tenant_id', $this->tenant->id)->latest('id')->firstOrFail();
+        $this->assertSame('closed', $shift->status);
+        $this->assertSame($b->id, (int) $shift->closed_by);
+        $this->assertNotSame($this->user->id, (int) $shift->closed_by);
     }
 }

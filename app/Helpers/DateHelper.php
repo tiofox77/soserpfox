@@ -29,7 +29,19 @@ class DateHelper
         }
 
         try {
-            return Carbon::parse($iso)->setTimezone(config('app.timezone'));
+            $data = Carbon::parse($iso)->setTimezone(config('app.timezone'));
+
+            // NO FUTURO NÃO. A data do aparelho é a data da factura: um relógio
+            // adiantado (ou um pedido escrito à mão) punha documentos fiscais
+            // em datas que ainda não chegaram. Até dez minutos é folga de
+            // relógio; mais do que isso vale o agora do servidor.
+            if ($data->greaterThan(now()->addMinutes(10))) {
+                \Illuminate\Support\Facades\Log::warning('Data do aparelho no futuro substituída pela do servidor.', ['recebida' => (string) $iso]);
+
+                return now();
+            }
+
+            return $data;
         } catch (\Throwable) {
             // Um carimbo ilegível não pode fazer perder a venda que o traz:
             // quem chama decide o que usar em vez dele, normalmente o now().

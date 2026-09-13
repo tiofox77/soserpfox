@@ -72,6 +72,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // estavam no grupo web pela mesma razão.
         $middleware->appendToGroup('web', \App\Http\Middleware\RecordLastLogin::class);
 
+        // Uma conta desactivada é terminada no pedido seguinte (ver o middleware).
+        $middleware->appendToGroup('web', \App\Http\Middleware\SaiQuemFoiDesactivado::class);
+
         // Empresa com NIF de pessoa singular leva ao ecrã onde se corrige.
         // No grupo web e depois do RecordLastLogin, pela mesma razão: precisa
         // da sessão de pé para saber qual é a empresa activa.
@@ -176,6 +179,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => \App\Http\Middleware\CheckPermission::class,
             'tenant.active' => \App\Http\Middleware\CheckTenantActive::class,
             'api.token' => \App\Http\Middleware\ResolveApiToken::class,
+            'pwa.api' => \App\Http\Middleware\AutorizaApiDoPwa::class,
             // A porta de cada ecra do PWA, com a mesma regra que desenha o menu.
             'pwa' => \App\Http\Middleware\EntradaDoPwa::class,
         ]);

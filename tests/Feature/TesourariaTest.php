@@ -415,6 +415,8 @@ class TesourariaTest extends TenantTestCase
         // partilhada por todas as empresas: criar ou renomear um banco muda-o
         // para toda a gente, e por isso as três escritas pedem a de apagar.
         $this->comPermissoes('treasury.banks.view', 'treasury.banks.delete');
+        // E a lista é da PLATAFORMA: só o dono dela escreve (auditoria de 2026-09-13).
+        $this->user->forceFill(['is_super_admin' => true])->save();
 
         $r = $this->postJson($this->catalogo('bancos'), [
             'name' => $nome = 'BFA Teste ' . uniqid(),
@@ -433,6 +435,8 @@ class TesourariaTest extends TenantTestCase
     public function test_eliminar_banco_avisa_o_utilizador(): void
     {
         $this->comPermissoes('treasury.banks.view', 'treasury.banks.delete');
+        // E a lista é da PLATAFORMA: só o dono dela escreve (auditoria de 2026-09-13).
+        $this->user->forceFill(['is_super_admin' => true])->save();
 
         $banco = Bank::create(['name' => 'Banco X', 'code' => 'BX-' . uniqid(), 'country' => 'AO']);
 

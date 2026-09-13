@@ -46,6 +46,56 @@ class PapeisApiController extends Controller
         );
     }
 
+    /**
+     * NINGUÉM SOBE NA ESCADA PELAS PRÓPRIAS MÃOS — também pelos papéis.
+     *
+     * Quem tinha `users.roles.manage` ou `users.permissions` criava um papel
+     * com `users.manage` e dava-o a si próprio, ou tirava os papéis ao dono da
+     * empresa (auditoria de segurança de 2026-09-13). A mesma regra do ecrã
+     * de utilizadores: sem `users.manage`, só se dá o que se tem, e não se
+     * mexe em quem tem mais.
+     *
+     * @return array<string, true>
+     */
+    private function permissoesNaEmpresa(int $userId, int $empresaId): array
+    {
+        $viaPapel = \Illuminate\Support\Facades\DB::table('model_has_roles as mr')
+            ->join('role_has_permissions as rp', 'rp.role_id', '=', 'mr.role_id')
+            ->join('permissions as p', 'p.id', '=', 'rp.permission_id')
+            ->where('mr.model_type', User::class)->where('mr.model_id', $userId)->where('mr.tenant_id', $empresaId)
+            ->pluck('p.name');
+
+        $directas = \Illuminate\Support\Facades\DB::table('model_has_permissions as mp')
+            ->join('permissions as p', 'p.id', '=', 'mp.permission_id')
+            ->where('mp.model_type', User::class)->where('mp.model_id', $userId)->where('mp.tenant_id', $empresaId)
+            ->pluck('p.name');
+
+        return $viaPapel->merge($directas)->unique()->mapWithKeys(fn ($n) => [$n => true])->all();
+    }
+
+    private function gereTudo(Request $request, int $empresaId): bool
+    {
+        $eu = $request->user();
+
+        return (bool) $eu?->is_super_admin || isset($this->permissoesNaEmpresa((int) $eu->id, $empresaId)['users.manage']);
+    }
+
+    /** @param iterable<string> $nomes */
+    private function soOQueTenho(Request $request, int $empresaId, iterable $nomes): void
+    {
+        if ($this->gereTudo($request, $empresaId)) {
+            return;
+        }
+
+        $minhas = $this->permissoesNaEmpresa((int) $request->user()->id, $empresaId);
+
+        foreach ($nomes as $nome) {
+            if (! isset($minhas[$nome])) {
+                $this->recusa(__('Não pode dar a permissão «:p»: você próprio não a tem.', ['p' => $nome]));
+            }
+        }
+    }
+
     private function recusa(string $mensagem): never
     {
         throw ValidationException::withMessages(['geral' => [$mensagem]]);
@@ -200,6 +250,8 @@ class PapeisApiController extends Controller
 
         setPermissionsTeamId($tenantId);
 
+        $this->soOQueTenho($request, (int) $tenantId, \Spatie\Permission\Models\Permission::whereIn('id', $dados['permissoes'] ?? [])->pluck('name'));
+
         $papel = $id ? $this->daCasa($id) : new Role(['guard_name' => 'web']);
 
         $papel->fill([
@@ -313,6 +365,22 @@ class PapeisApiController extends Controller
         setPermissionsTeamId($tenantId);
 
         $papeis = Role::whereIn('id', $dados['papeis'])->where('tenant_id', $tenantId)->get();
+
+        if (! $this->gereTudo($request, (int) $tenantId)) {
+            if ((int) $u->id === (int) $request->user()->id) {
+                $this->recusa(__('Não pode mudar os seus próprios papéis.'));
+            }
+
+            // Quem tem mais do que eu não se mexe, nem para lhe tirar papéis.
+            $minhas = $this->permissoesNaEmpresa((int) $request->user()->id, (int) $tenantId);
+            $dele = $this->permissoesNaEmpresa((int) $u->id, (int) $tenantId);
+
+            if ($u->is_super_admin || array_diff_key($dele, $minhas) !== []) {
+                $this->recusa(__('Não pode alterar um utilizador com permissões que você não tem.'));
+            }
+
+            $this->soOQueTenho($request, (int) $tenantId, $papeis->flatMap(fn ($p) => $p->permissions->pluck('name')));
+        }
 
         /*
          * `syncRoles` só mexe nos papéis da equipa activa — o `setPermissionsTeamId`

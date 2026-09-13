@@ -22,6 +22,9 @@ class RenderizadorDeProposta
     private array $variaveis = [];
     private int $numeroDeSeccao = 0;
 
+    /** Para o PDF as imagens lêem-se do disco; no browser, pelo endereço. */
+    public bool $paraPdf = false;
+
     public function render(QuoteTemplate $modelo, ?SalesQuote $orcamento, ?Tenant $empresa = null): string
     {
         $empresa = $empresa ?: ($orcamento?->tenant ?: Tenant::find($modelo->tenant_id));
@@ -149,7 +152,7 @@ class RenderizadorDeProposta
 
     private function texto(array $b): string
     {
-        return '<div style="margin:0 0 14px;line-height:1.65">' . $this->v($b['html'] ?? '', false) . '</div>';
+        return '<div style="margin:0 0 14px;line-height:1.65">' . \App\Support\HtmlSeguro::limpar($this->v($b['html'] ?? '', false)) . '</div>';
     }
 
     private function campoLivre(array $b, ?SalesQuote $q, string $cor): string
@@ -295,7 +298,7 @@ class RenderizadorDeProposta
         // têm de sair no papel.
         $html = trim((string) ($q->terms ?? '')) !== ''
             ? nl2br(e($q->terms))
-            : $this->v($b['html'] ?? '', false);
+            : \App\Support\HtmlSeguro::limpar($this->v($b['html'] ?? '', false));
 
         $titulo = '';
         if (!empty($b['titulo'])) {
@@ -333,8 +336,26 @@ class RenderizadorDeProposta
         $largura = max(10, min(100, (int) ($b['largura'] ?? 100)));
         $legenda = trim((string) ($b['legenda'] ?? ''));
 
+        /*
+         * SÓ IMAGENS DA PRÓPRIA EMPRESA.
+         *
+         * Um endereço qualquer punha o gerador de PDF a visitá-lo — incluindo a
+         * rede interna do servidor (auditoria de segurança de 2026-09-13). As
+         * imagens do /storage continuam, e para o PDF lêem-se do disco.
+         */
+        $caminho = parse_url($url, PHP_URL_PATH) ?: '';
+        $local = str_starts_with($caminho, '/storage/') ? public_path(ltrim($caminho, '/')) : null;
+        $mesmoSite = ! parse_url($url, PHP_URL_HOST) || parse_url($url, PHP_URL_HOST) === parse_url((string) config('app.url'), PHP_URL_HOST);
+
+        if (! $local || ! $mesmoSite || str_contains($caminho, '..') || ! is_file($local)) {
+            return '<div style="border:1px dashed #cbd5e1;background:#f8fafc;color:#94a3b8;padding:26px;'
+                . 'text-align:center;font-size:11px;margin:0 0 14px">Imagem indisponível</div>';
+        }
+
+        $src = $this->paraPdf ? $local : $caminho;
+
         return '<div style="text-align:center;margin:0 0 14px">'
-            . '<img src="' . e($url) . '" style="width:' . $largura . '%">'
+            . '<img src="' . e($src) . '" style="width:' . $largura . '%">'
             . ($legenda !== '' ? '<div style="font-size:10px;color:#6b7280;margin-top:5px">' . e($legenda) . '</div>' : '')
             . '</div>';
     }
@@ -377,7 +398,15 @@ class RenderizadorDeProposta
             return '';
         }
 
-        $saida = strtr($texto, $this->variaveis);
+        /*
+         * NUM TEXTO QUE É HTML, O VALOR DA VARIÁVEL É TEXTO.
+         *
+         * `{{cliente.nome}}` entrava cru num bloco que sai sem escapar: um
+         * cliente registado na marcação online do salão com o nome
+         * «<img src=x onerror=…>» corria código no ecrã de quem pré-visualizasse
+         * a proposta (auditoria de segurança de 2026-09-13).
+         */
+        $saida = strtr($texto, $escapar ? $this->variaveis : array_map(fn ($valor) => e((string) $valor), $this->variaveis));
 
         // Uma variável escrita à mão que não existe fica visível em vez de ir
         // parar ao PDF do cliente: melhor um risco no ecrã do que "{{cliete.nome}}"

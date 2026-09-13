@@ -19,6 +19,15 @@ use Tests\TenantTestCase;
  */
 class PosNaoVendeArtigosDeModuloTest extends TenantTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // A API do PWA pede permissão desde 2026-09-13 (AutorizaApiDoPwa): o
+        // utilizador do ensaio é um caixa a sério, não um membro sem papel.
+        $this->comPermissoesDoPwa();
+    }
+
     private const RAIZ = '/api/v1/invoicing/react/pos';
 
     private function servicoDeSalao(): Product

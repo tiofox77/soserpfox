@@ -182,7 +182,8 @@ class CatalogoApiController extends Controller
                 ? GaleriaDeIcones::grupos()
                 : null,
             'permissoes' => [
-                'pode_escrever' => (bool) $request->user()?->can($def['permissoes']['criar']),
+                'pode_escrever' => (bool) $request->user()?->can($def['permissoes']['criar'])
+                    && (empty($def['partilhado']) || (bool) $request->user()?->isPlatformSuperAdmin()),
             ],
             'voltar' => $def['rota'],
         ]);
@@ -221,6 +222,7 @@ class CatalogoApiController extends Controller
     {
         $def = $this->definicao($tipo);
         $this->exigir($request, $def['permissoes']['criar']);
+        $this->soAPlataformaEscreveNoPartilhado($request, $def);
 
         $tenantId = activeTenantId();
         $dados = $this->validar($request, $def, null, $tenantId);
@@ -254,6 +256,7 @@ class CatalogoApiController extends Controller
     {
         $def = $this->definicao($tipo);
         $this->exigir($request, $def['permissoes']['editar']);
+        $this->soAPlataformaEscreveNoPartilhado($request, $def);
 
         $tenantId = activeTenantId();
         $m = $this->encontrar($def, $tenantId, $id);
@@ -272,6 +275,7 @@ class CatalogoApiController extends Controller
     {
         $def = $this->definicao($tipo);
         $this->exigir($request, $def['permissoes']['apagar']);
+        $this->soAPlataformaEscreveNoPartilhado($request, $def);
 
         $m = $this->encontrar($def, activeTenantId(), $id);
 
@@ -294,6 +298,7 @@ class CatalogoApiController extends Controller
     {
         $def = $this->definicao($tipo);
         $this->exigir($request, $def['permissoes']['editar']);
+        $this->soAPlataformaEscreveNoPartilhado($request, $def);
 
         abort_unless(in_array($accao, ['activar', 'padrao'], true) && ! empty($def['accoes'][$accao]), 404);
 
@@ -583,6 +588,7 @@ class CatalogoApiController extends Controller
     {
         $def = $this->definicao($tipo);
         $this->exigir($request, $def['permissoes']['editar']);
+        $this->soAPlataformaEscreveNoPartilhado($request, $def);
         abort_unless(! empty($def['accoes']['logotipo']), 404);
 
         $request->validate(['logotipo' => ['required', 'image', 'max:2048']]);
@@ -596,7 +602,7 @@ class CatalogoApiController extends Controller
 
         $pasta = $raiz . '/' . $m->id;
         $nome = $prefixo . '_' . Str::slug((string) $m->{$def['nome'] ?? 'name'}) . '.'
-            . $request->file('logotipo')->getClientOriginalExtension();
+            . $request->file('logotipo')->extension();
 
         if ($m->{$coluna} && Storage::disk('public')->exists($m->{$coluna})) {
             Storage::disk('public')->delete($m->{$coluna});
@@ -631,7 +637,7 @@ class CatalogoApiController extends Controller
         foreach ($request->file('imagens') as $ficheiro) {
             $caminhos[] = $ficheiro->storeAs(
                 $galeria['pasta'] . '/' . $m->id,
-                uniqid('img_') . '.' . $ficheiro->getClientOriginalExtension(),
+                uniqid('img_') . '.' . $ficheiro->extension(),
                 'public'
             );
         }
@@ -677,6 +683,7 @@ class CatalogoApiController extends Controller
     {
         $def = $this->definicao($tipo);
         $this->exigir($request, $def['permissoes']['editar']);
+        $this->soAPlataformaEscreveNoPartilhado($request, $def);
         abort_unless(! empty($def['accoes']['galeria']), 404, __('Aqui não há galeria.'));
 
         $tenantId = activeTenantId();
@@ -747,6 +754,24 @@ class CatalogoApiController extends Controller
     private static function traduzidas(array $opcoes): array
     {
         return array_map(fn ($o) => array_merge($o, ['rotulo' => __($o['rotulo'])]), $opcoes);
+    }
+
+    /**
+     * UMA LISTA PARTILHADA É DA PLATAFORMA.
+     *
+     * Os bancos não têm `tenant_id`: são os mesmos para todas as empresas. A
+     * permissão `treasury.banks.delete` é de cada empresa, e com ela qualquer
+     * administrador renomeava ou apagava um banco para toda a gente
+     * (auditoria de segurança de 2026-09-13). Escrever numa lista partilhada
+     * é do dono da plataforma.
+     */
+    private function soAPlataformaEscreveNoPartilhado(Request $request, array $def): void
+    {
+        abort_if(
+            ! empty($def['partilhado']) && ! $request->user()?->isPlatformSuperAdmin(),
+            403,
+            __('Esta lista é partilhada por todas as empresas: só a plataforma a altera.'),
+        );
     }
 
     private function exigir(Request $request, string $permissao): void

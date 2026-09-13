@@ -48,8 +48,33 @@ class TransferenciaDeStock
      *
      * @throws DomainException
      */
+    /**
+     * OS ARTIGOS TÊM DE SER DESTA EMPRESA.
+     *
+     * `Product::find` não tem escopo de empresa: um ajuste com o id de um artigo
+     * de outra casa devolvia o nome e o código dele, criava-lhe stock aqui, e a
+     * transferência entre empresas copiava-lhe o preço e o custo (auditoria de
+     * segurança de 2026-09-13).
+     */
+    private function soArtigosDaEmpresa(array $itens, int $tenantId): void
+    {
+        $ids = collect($itens)->pluck('product_id')->filter()->map(fn ($i) => (int) $i)->unique();
+
+        if ($ids->isEmpty()) {
+            return;
+        }
+
+        $daEmpresa = Product::where('tenant_id', $tenantId)->whereIn('id', $ids)->count();
+
+        if ($daEmpresa !== $ids->count()) {
+            throw new DomainException(__('Há artigos que não são desta empresa.'));
+        }
+    }
+
     public function entreArmazens(int $de, int $para, array $itens, ?string $notas, int $tenantId, ?int $userId): array
     {
+        $this->soArtigosDaEmpresa($itens, $tenantId);
+
         $itens = $this->linhasComProduto($itens);
 
         if (empty($itens)) {
@@ -168,6 +193,8 @@ class TransferenciaDeStock
      */
     public function ajustarEmLote(int $armazemId, string $tipo, string $motivo, array $itens, int $tenantId, ?int $userId): array
     {
+        $this->soArtigosDaEmpresa($itens, $tenantId);
+
         $itens = $this->linhasComProduto($itens);
 
         if (empty($itens)) {
@@ -267,6 +294,8 @@ class TransferenciaDeStock
      */
     public function entreEmpresas(int $deArmazem, int $paraTenant, int $paraArmazem, array $itens, ?string $notas, int $tenantId, User $utilizador): array
     {
+        $this->soArtigosDaEmpresa($itens, $tenantId);
+
         $itens = $this->linhasComProduto($itens);
 
         if (! $deArmazem) {

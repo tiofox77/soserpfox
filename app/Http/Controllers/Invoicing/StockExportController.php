@@ -79,7 +79,10 @@ class StockExportController extends Controller
                 (float) $l['custo'],
                 (float) $l['valor'],
             ] as $i => $valor) {
-                $pagina->setCellValue([$i + 1, $linha], $valor);
+                // O nome e o código são TEXTO: um «=…» não vira fórmula.
+                is_string($valor)
+                    ? $pagina->setCellValueExplicit([$i + 1, $linha], $valor, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING)
+                    : $pagina->setCellValue([$i + 1, $linha], $valor);
             }
 
             $linha++;

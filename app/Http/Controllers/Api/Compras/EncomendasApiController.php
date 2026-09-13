@@ -220,7 +220,7 @@ class EncomendasApiController extends Controller
             'entrega_prevista' => ['nullable', 'date'],
             'notas' => ['nullable', 'string', 'max:2000'],
             'linhas' => ['required', 'array', 'min:1'],
-            'linhas.*.product_id' => ['nullable', 'integer'],
+            'linhas.*.product_id' => ['nullable', 'integer', \Illuminate\Validation\Rule::exists('invoicing_products', 'id')->where('tenant_id', $tenantId)],
             'linhas.*.descricao' => ['required', 'string', 'max:255'],
             'linhas.*.quantidade' => ['required', 'numeric', 'min:0.0001'],
             'linhas.*.preco_unitario' => ['required', 'numeric', 'min:0'],

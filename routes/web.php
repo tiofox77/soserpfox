@@ -185,12 +185,10 @@ Route::middleware(['web', 'auth'])
     ->get('/keep-alive', fn() => response()->noContent())
     ->name('keep-alive');
 
-// ⚠️ ENDPOINT ONE-SHOT: provisionamento da empresa
-// FARMACIA MEDICAL CONNECT SERVICE, LDA. Remover após primeiro uso.
-Route::get(
-    '/setup/seed/medical-connect/{token}',
-    \App\Http\Controllers\Setup\SeedMedicalConnectController::class
-)->name('setup.seed.medical-connect');
+// O endpoint único de provisionamento da Medical Connect saiu (auditoria de
+// segurança de 2026-09-13): tinha o segredo escrito no código e criava
+// empresa e utilizadores por um GET. Já foi usado; o controlador fica no
+// histórico do git.
 
 /*
  * OS UTILIZADORES, OS PAPÉIS E OS CONVITES.
@@ -635,7 +633,7 @@ Route::middleware(['auth'])->prefix('invoicing/offline')->name('invoicing.offlin
 
 // API Auth (token Bearer) — app móvel
 Route::prefix('api/v1/auth')->group(function () {
-    Route::post('/login', [\App\Http\Controllers\Api\AuthController::class, 'login'])->name('api.auth.login');
+    Route::post('/login', [\App\Http\Controllers\Api\AuthController::class, 'login'])->middleware('throttle:20,1')->name('api.auth.login');
     Route::middleware('api.token')->group(function () {
         Route::get('/me', [\App\Http\Controllers\Api\AuthController::class, 'me'])->name('api.auth.me');
         Route::post('/logout', [\App\Http\Controllers\Api\AuthController::class, 'logout'])->name('api.auth.logout');
@@ -646,39 +644,46 @@ Route::prefix('api/v1/auth')->group(function () {
 // 'subscription' DEPOIS de 'api.token': sem isto, a app móvel com token Bearer
 // contornava o CheckSubscription por completo e um tenant com subscrição
 // expirada continuava a faturar pelo telemóvel.
-Route::middleware(['api.token', 'subscription'])->prefix('api/v1/restaurant')->name('api.restaurant.')->group(function () {
-    Route::get('/snapshot', [\App\Http\Controllers\Api\RestaurantController::class, 'snapshot']);
-    Route::post('/orders', [\App\Http\Controllers\Api\RestaurantController::class, 'open']);
-    Route::post('/orders/{order}/items', [\App\Http\Controllers\Api\RestaurantController::class, 'add']);
-    Route::post('/orders/{order}/confirm', [\App\Http\Controllers\Api\RestaurantController::class, 'confirm']);
-    Route::post('/orders/{order}/transfer', [\App\Http\Controllers\Api\RestaurantController::class, 'transfer']);
-    Route::post('/orders/{order}/merge', [\App\Http\Controllers\Api\RestaurantController::class, 'merge']);
-    Route::post('/orders/{order}/items/{item}/void', [\App\Http\Controllers\Api\RestaurantController::class, 'voidItem']);
-    Route::post('/orders/{order}/checkout', [\App\Http\Controllers\Api\RestaurantController::class, 'checkout']);
+//
+// SEM PERMISSÕES ATÉ 2026-09-13: qualquer membro da empresa anulava um artigo
+// já produzido (sai da conta e vai para desperdício — a fraude clássica do
+// empregado), juntava contas e fechava-as. Agora as mesmas permissões da API
+// React das comandas, e o módulo.
+Route::middleware(['api.token', 'subscription', 'tenant.module:restaurant'])->prefix('api/v1/restaurant')->name('api.restaurant.')->group(function () {
+    Route::get('/snapshot', [\App\Http\Controllers\Api\RestaurantController::class, 'snapshot'])->middleware('permission:restaurant.orders.view|restaurant.floor.view');
+    Route::post('/orders', [\App\Http\Controllers\Api\RestaurantController::class, 'open'])->middleware('permission:restaurant.orders.create|restaurant.checkout.charge');
+    Route::post('/orders/{order}/items', [\App\Http\Controllers\Api\RestaurantController::class, 'add'])->middleware('permission:restaurant.orders.edit|restaurant.checkout.charge');
+    Route::post('/orders/{order}/confirm', [\App\Http\Controllers\Api\RestaurantController::class, 'confirm'])->middleware('permission:restaurant.orders.edit|restaurant.checkout.charge');
+    Route::post('/orders/{order}/transfer', [\App\Http\Controllers\Api\RestaurantController::class, 'transfer'])->middleware('permission:restaurant.orders.transfer');
+    Route::post('/orders/{order}/merge', [\App\Http\Controllers\Api\RestaurantController::class, 'merge'])->middleware('permission:restaurant.orders.split');
+    Route::post('/orders/{order}/items/{item}/void', [\App\Http\Controllers\Api\RestaurantController::class, 'voidItem'])->middleware('permission:restaurant.orders.cancel');
+    Route::post('/orders/{order}/checkout', [\App\Http\Controllers\Api\RestaurantController::class, 'checkout'])->middleware('permission:restaurant.checkout.charge');
 
     // A comanda feita sem rede, reposta de uma vez: mesa, artigos, cozinha e
     // recebimento. As rotas acima encadeiam-se por id do servidor e por isso
     // não servem offline — ver ComandaOfflineController.
     Route::post('/offline/comanda', [\App\Http\Controllers\Api\Restaurant\ComandaOfflineController::class, 'store'])
+        ->middleware('permission:restaurant.orders.create|restaurant.orders.edit|restaurant.checkout.charge')
         ->name('offline.comanda');
 });
 
 Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->name('api.invoicing.')->group(function () {
     Route::get('/ping', [\App\Http\Controllers\Api\Invoicing\SyncController::class, 'ping'])->name('ping');
-    Route::get('/sync', [\App\Http\Controllers\Api\Invoicing\SyncController::class, 'index'])->name('sync');
-    Route::get('/diagnose', [\App\Http\Controllers\Api\Invoicing\SyncController::class, 'diagnose'])->name('diagnose');
-    Route::post('/clients', [\App\Http\Controllers\Api\Invoicing\ClientController::class, 'store'])->name('clients.store');
-    Route::post('/drafts', [\App\Http\Controllers\Api\Invoicing\DraftController::class, 'store'])->name('drafts.store');
-    Route::post('/pos/sale', [\App\Http\Controllers\Api\Invoicing\PosSaleController::class, 'store'])->name('pos.sale.store');
+    // A permissão de cada porta, para a sessão E para o operador indicado — ver AutorizaApiDoPwa.
+    Route::get('/sync', [\App\Http\Controllers\Api\Invoicing\SyncController::class, 'index'])->middleware('pwa.api:ler')->name('sync');
+    Route::get('/diagnose', [\App\Http\Controllers\Api\Invoicing\SyncController::class, 'diagnose'])->middleware('pwa.api:ler')->name('diagnose');
+    Route::post('/clients', [\App\Http\Controllers\Api\Invoicing\ClientController::class, 'store'])->middleware('pwa.api:cliente')->name('clients.store');
+    Route::post('/drafts', [\App\Http\Controllers\Api\Invoicing\DraftController::class, 'store'])->middleware('pwa.api:emitir')->name('drafts.store');
+    Route::post('/pos/sale', [\App\Http\Controllers\Api\Invoicing\PosSaleController::class, 'store'])->middleware('pwa.api:vender')->name('pos.sale.store');
     // Um PIN de turno reposto no aparelho sem rede, autorizado por um gestor
     // ao balcão. Chega pela fila; o servidor confirma quem pode e regista.
     // Com `auth` explícito: o grupo não o tem, e aqui mexe-se em credenciais.
     Route::post('/pin/repor', \App\Http\Controllers\Api\Invoicing\ReporPinController::class)
         ->middleware('auth')->name('pin.repor');
     // Turno POS (abertura/fecho offline → sincronizado quando online)
-    Route::get('/pos/shift', [\App\Http\Controllers\Api\Invoicing\PosShiftController::class, 'status'])->name('pos.shift.status');
-    Route::post('/pos/shift/open', [\App\Http\Controllers\Api\Invoicing\PosShiftController::class, 'open'])->name('pos.shift.open');
-    Route::post('/pos/shift/close', [\App\Http\Controllers\Api\Invoicing\PosShiftController::class, 'close'])->name('pos.shift.close');
+    Route::get('/pos/shift', [\App\Http\Controllers\Api\Invoicing\PosShiftController::class, 'status'])->middleware('pwa.api:ler')->name('pos.shift.status');
+    Route::post('/pos/shift/open', [\App\Http\Controllers\Api\Invoicing\PosShiftController::class, 'open'])->middleware('pwa.api:vender')->name('pos.shift.open');
+    Route::post('/pos/shift/close', [\App\Http\Controllers\Api\Invoicing\PosShiftController::class, 'close'])->middleware('pwa.api:vender')->name('pos.shift.close');
     // Listagem genérica (read-only) das áreas de faturação para a app móvel
     Route::get('/list/{area}', [\App\Http\Controllers\Api\Invoicing\InvoicingListController::class, 'index'])->name('list');
     Route::get('/dashboard-stats', [\App\Http\Controllers\Api\Invoicing\InvoicingListController::class, 'dashboard'])->name('dashboard-stats');
@@ -695,7 +700,8 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
      * móvel, que tem outra forma e outros compromissos. A permissão é
      * verificada em cada controlador — o grupo autentica, não autoriza.
      */
-    Route::prefix('react')->name('react.')->group(function () {
+    // O módulo de cada área (hotel, RH, restaurante…) confere-se aqui — ver ModuloDaApi.
+    Route::prefix('react')->name('react.')->middleware(\App\Http\Middleware\ModuloDaApi::class)->group(function () {
         Route::get('/sales-invoices', [\App\Http\Controllers\Api\Invoicing\SalesInvoiceApiController::class, 'index'])
             ->name('sales-invoices.index');
         // Apagar um RASCUNHO — nunca um documento fiscal emitido, que se
@@ -878,6 +884,9 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             ->whereNumber('id')->where('tipo', '[a-z_]+')->name('rh.funcionarios.documento');
         Route::delete('/rh/funcionarios/{id}/documentos/{tipo}', [\App\Http\Controllers\Api\Hr\FuncionariosApiController::class, 'apagarDocumento'])
             ->whereNumber('id')->where('tipo', '[a-z_]+')->name('rh.funcionarios.documento.apagar');
+        // Abrir o documento: pela sessão e com a permissão, nunca pelo /storage.
+        Route::get('/rh/funcionarios/{id}/documentos/{tipo}', [\App\Http\Controllers\Api\Hr\FuncionariosApiController::class, 'abrirDocumento'])
+            ->whereNumber('id')->where('tipo', '[a-z_]+')->name('rh.funcionarios.documento.abrir');
 
         /*
          * OS SEIS PEDIDOS — férias, licenças, horas extras, turno nocturno,
@@ -902,6 +911,7 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::post('/{id}/pagar', [$c, 'pagar'])->whereNumber('id')->name('pagar');
             Route::post('/{id}/cancelar', [$c, 'cancelar'])->whereNumber('id')->name('cancelar');
             Route::post('/{id}/anexo', [$c, 'anexo'])->whereNumber('id')->name('anexo');
+            Route::get('/{id}/anexo', [$c, 'abrirAnexo'])->whereNumber('id')->name('anexo.abrir');
         });
 
         /*

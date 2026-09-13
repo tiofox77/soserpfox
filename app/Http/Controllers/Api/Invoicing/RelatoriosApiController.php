@@ -151,7 +151,7 @@ class RelatoriosApiController extends Controller
             'percentagem' => number_format((float) $v, 1, ',', ''),
             'inteiro', 'dias' => (string) (int) round((float) $v),
             'data' => preg_match('/^(\d{4})-(\d{2})-(\d{2})/', (string) $v, $m) ? "{$m[3]}/{$m[2]}/{$m[1]}" : (string) $v,
-            default => is_scalar($v) ? (string) $v : json_encode($v, JSON_UNESCAPED_UNICODE),
+            default => \App\Support\CelulaSegura::texto(is_scalar($v) ? (string) $v : json_encode($v, JSON_UNESCAPED_UNICODE)),
         };
     }
 

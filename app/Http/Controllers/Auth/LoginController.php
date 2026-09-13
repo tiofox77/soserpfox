@@ -71,6 +71,16 @@ class LoginController extends Controller
      */
     protected function authenticated(\Illuminate\Http\Request $request, $user)
     {
+        // Uma conta desactivada entrava na mesma: o `is_active` não estava em
+        // lado nenhum da autenticação (auditoria de segurança de 2026-09-13).
+        if (! $user->is_active) {
+            $this->guard()->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            throw \Illuminate\Validation\ValidationException::withMessages(['email' => [__('A sua conta está desactivada.')]]);
+        }
+
         if ($request->boolean('pwa')) {
             return redirect()->route('invoicing.offline.pos');
         }

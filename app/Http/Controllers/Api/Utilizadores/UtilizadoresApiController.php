@@ -151,6 +151,34 @@ class UtilizadoresApiController extends Controller
         );
     }
 
+    /**
+     * A CONTA É UMA SÓ, AS EMPRESAS SÃO VÁRIAS.
+     *
+     * A senha, o email e o estado vivem na conta, e a conta pode trabalhar
+     * noutras empresas. Um gestor da empresa A mudava a senha de alguém que é
+     * caixa em A e DONO da empresa B — e entrava em B com ela (auditoria de
+     * segurança de 2026-09-13). Quem a pessoa tem noutras casas que o editor
+     * não gere, e o super administrador da plataforma, só se tocam na empresa
+     * activa: a ligação a esta empresa, nunca a conta.
+     */
+    private function contaForaDoMeuAlcance(Request $request, User $alvo): bool
+    {
+        $eu = $request->user();
+
+        if ($eu?->is_super_admin) {
+            return false;
+        }
+
+        if ($alvo->is_super_admin) {
+            return true;
+        }
+
+        $geridas = $this->minhasEmpresas($request)->pluck('id')->map(fn ($i) => (int) $i)->all();
+
+        return DB::table('tenant_user')->where('user_id', $alvo->id)
+            ->whereNotIn('tenant_id', $geridas)->exists();
+    }
+
     private function recusa(string $mensagem): never
     {
         throw ValidationException::withMessages(['geral' => [$mensagem]]);
@@ -374,12 +402,28 @@ class UtilizadoresApiController extends Controller
             }
         }
 
-        $u = DB::transaction(function () use ($dados, $id, $empresas, $request) {
+        $alheia = $id ? $this->contaForaDoMeuAlcance($request, $this->daCasa($request, $id)) : false;
+
+        if ($alheia) {
+            $alvo = $this->daCasa($request, $id);
+
+            if (! empty($dados['password']) || mb_strtolower($dados['email']) !== mb_strtolower((string) $alvo->email)) {
+                $this->recusa(__('Esta pessoa também trabalha noutra empresa: a senha e o email são da conta dela. Peça-lhe que os mude, ou que use «Esqueci-me da palavra-passe».'));
+            }
+        }
+
+        $u = DB::transaction(function () use ($dados, $id, $empresas, $request, $alheia) {
             $valores = [
                 'name' => $dados['name'],
                 'email' => $dados['email'],
                 'is_active' => (bool) ($dados['is_active'] ?? true),
             ];
+
+            // Conta de outras casas: o nome e o estado são da conta — ficam como
+            // estão (tirá-la desta empresa é o «eliminar», que só a desliga daqui).
+            if ($alheia) {
+                unset($valores['is_active'], $valores['name']);
+            }
 
             if (! empty($dados['password'])) {
                 $valores['password'] = Hash::make($dados['password']);
@@ -508,7 +552,17 @@ class UtilizadoresApiController extends Controller
             $this->recusa(__('Não pode desactivar a sua própria conta.'));
         }
 
+        if ($this->contaForaDoMeuAlcance($request, $u)) {
+            // Desactivar a conta tirava-a de TODAS as empresas dela.
+            $this->recusa(__('Esta pessoa também trabalha noutra empresa: desactivar a conta tirava-a de lá. Retire-a desta empresa com «Eliminar».'));
+        }
+
         $u->update(['is_active' => ! $u->is_active]);
+
+        // Desactivar tira a app móvel também: os tokens da conta caem.
+        if (! $u->is_active) {
+            \App\Models\ApiToken::where('user_id', $u->id)->delete();
+        }
 
         return response()->json([
             'message' => $u->is_active ? __('Utilizador activado.') : __('Utilizador desactivado.'),
@@ -551,6 +605,16 @@ class UtilizadoresApiController extends Controller
                 && DB::table($tabela)->where($coluna, $u->id)->exists()) {
                 $this->recusa(__('Este utilizador tem documentos emitidos. Desactive-o em vez de o eliminar.'));
             }
+        }
+
+        // Conta de outras casas: sai só desta empresa, com os papéis daqui.
+        if ($this->contaForaDoMeuAlcance($request, $u)) {
+            DB::transaction(function () use ($u) {
+                $u->roles()->wherePivot('tenant_id', activeTenantId())->detach();
+                $u->tenants()->detach(activeTenantId());
+            });
+
+            return response()->json(['message' => __('Utilizador retirado desta empresa.')]);
         }
 
         DB::transaction(function () use ($u) {

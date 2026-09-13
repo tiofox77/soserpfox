@@ -60,7 +60,7 @@ class ApiDasGuiasParaReactTest extends TenantTestCase
     /** A permissão é a do menu: ver as notas de débito também abre as guias. @test */
     public function a_permissao_e_a_do_menu(): void
     {
-        $this->comPermissoes('invoicing.debit-notes.view');
+        $this->comPermissoes('invoicing.debit-notes.view', 'invoicing.transport-guides.create', 'invoicing.transport-guides.delete');
 
         $this->getJson(self::RAIZ . '/opcoes')->assertOk()->assertJsonPath('tipos.0.valor', 'GT');
     }
@@ -68,7 +68,7 @@ class ApiDasGuiasParaReactTest extends TenantTestCase
     /** @test */
     public function nasce_numerada_por_tipo_e_ano_e_com_as_linhas(): void
     {
-        $this->comPermissoes('invoicing.debit-notes.view');
+        $this->comPermissoes('invoicing.debit-notes.view', 'invoicing.transport-guides.create', 'invoicing.transport-guides.delete');
 
         $r = $this->postJson(self::RAIZ, $this->corpo())->assertCreated();
 
@@ -86,7 +86,7 @@ class ApiDasGuiasParaReactTest extends TenantTestCase
     /** @test */
     public function sem_linhas_com_quantidade_nao_ha_guia(): void
     {
-        $this->comPermissoes('invoicing.debit-notes.view');
+        $this->comPermissoes('invoicing.debit-notes.view', 'invoicing.transport-guides.create', 'invoicing.transport-guides.delete');
 
         $this->postJson(self::RAIZ, $this->corpo(['linhas' => []]))->assertStatus(422)->assertJsonValidationErrors('linhas');
 
@@ -124,7 +124,7 @@ class ApiDasGuiasParaReactTest extends TenantTestCase
     /** Anular gasta o número. @test */
     public function anular_gasta_o_numero(): void
     {
-        $this->comPermissoes('invoicing.debit-notes.view');
+        $this->comPermissoes('invoicing.debit-notes.view', 'invoicing.transport-guides.create', 'invoicing.transport-guides.delete');
 
         $id = $this->postJson(self::RAIZ, $this->corpo())->assertCreated()->json('data.id');
 

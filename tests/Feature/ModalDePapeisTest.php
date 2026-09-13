@@ -33,7 +33,9 @@ class ModalDePapeisTest extends TenantTestCase
             Permission::findOrCreate($n, 'web');
         }
 
-        $this->comPermissoes('users.roles.manage');
+        // Quem gere utilizadores: dá qualquer permissão. Quem só gere papéis dá o
+        // que tem — ver PapeisEscadaTest.
+        $this->comPermissoes('users.roles.manage', 'users.manage');
     }
 
     private function activar(string $slug): void

@@ -109,7 +109,7 @@ class MoedasApiController extends Controller
             'permissoes' => [
                 // A LISTA É DA PLATAFORMA: escrever nela mexe com todas as
                 // empresas, e por isso pede a permissão de gerir.
-                'gerir' => (bool) $request->user()?->can('accounting.currencies.manage'),
+                'gerir' => (bool) $request->user()?->can('accounting.currencies.manage') && (bool) $request->user()?->isPlatformSuperAdmin(),
             ],
         ]);
     }
@@ -117,6 +117,9 @@ class MoedasApiController extends Controller
     public function guardarMoeda(Request $request, ?int $id = null): JsonResponse
     {
         $this->exigir($request, 'accounting.currencies.manage');
+        // As moedas e as taxas de câmbio não têm empresa: são as mesmas para todas.
+        // Escrevê-las era mexer na contabilidade das outras casas (auditoria de 2026-09-13).
+        abort_unless($request->user()?->isPlatformSuperAdmin(), 403, __('As moedas e os câmbios são da plataforma: só ela os altera.'));
 
         $dados = $request->validate([
             // O CÓDIGO É ISO-4217: três letras, e único na plataforma.
@@ -154,6 +157,9 @@ class MoedasApiController extends Controller
     public function apagarMoeda(Request $request, int $id): JsonResponse
     {
         $this->exigir($request, 'accounting.currencies.manage');
+        // As moedas e as taxas de câmbio não têm empresa: são as mesmas para todas.
+        // Escrevê-las era mexer na contabilidade das outras casas (auditoria de 2026-09-13).
+        abort_unless($request->user()?->isPlatformSuperAdmin(), 403, __('As moedas e os câmbios são da plataforma: só ela os altera.'));
 
         $moeda = Currency::findOrFail($id);
 
@@ -186,6 +192,9 @@ class MoedasApiController extends Controller
     public function guardarTaxa(Request $request): JsonResponse
     {
         $this->exigir($request, 'accounting.currencies.manage');
+        // As moedas e as taxas de câmbio não têm empresa: são as mesmas para todas.
+        // Escrevê-las era mexer na contabilidade das outras casas (auditoria de 2026-09-13).
+        abort_unless($request->user()?->isPlatformSuperAdmin(), 403, __('As moedas e os câmbios são da plataforma: só ela os altera.'));
 
         $dados = $request->validate([
             'currency_from_id' => ['required', 'integer', 'exists:currencies,id'],
@@ -221,6 +230,9 @@ class MoedasApiController extends Controller
     public function apagarTaxa(Request $request, int $id): JsonResponse
     {
         $this->exigir($request, 'accounting.currencies.manage');
+        // As moedas e as taxas de câmbio não têm empresa: são as mesmas para todas.
+        // Escrevê-las era mexer na contabilidade das outras casas (auditoria de 2026-09-13).
+        abort_unless($request->user()?->isPlatformSuperAdmin(), 403, __('As moedas e os câmbios são da plataforma: só ela os altera.'));
 
         ExchangeRate::findOrFail($id)->delete();
 

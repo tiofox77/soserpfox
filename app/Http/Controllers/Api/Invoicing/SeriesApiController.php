@@ -60,7 +60,8 @@ class SeriesApiController extends Controller
 
     public function guardar(Request $request, GestaoDeSeries $gestao): JsonResponse
     {
-        $this->exigir($request, 'invoicing.series.view');
+        // Criar, mudar o próximo número ou apagar uma série pedia só VER (auditoria de 2026-09-13).
+        $this->exigirUma($request, ['invoicing.series.edit', 'invoicing.settings.edit']);
 
         $d = $this->validar($request, $gestao);
 
@@ -75,7 +76,8 @@ class SeriesApiController extends Controller
 
     public function actualizar(Request $request, GestaoDeSeries $gestao, int $id): JsonResponse
     {
-        $this->exigir($request, 'invoicing.series.view');
+        // Criar, mudar o próximo número ou apagar uma série pedia só VER (auditoria de 2026-09-13).
+        $this->exigirUma($request, ['invoicing.series.edit', 'invoicing.settings.edit']);
 
         $s = InvoicingSeries::forTenant(activeTenantId())->findOrFail($id);
         $d = $this->validar($request, $gestao);
@@ -91,7 +93,8 @@ class SeriesApiController extends Controller
 
     public function eliminar(Request $request, GestaoDeSeries $gestao, int $id): JsonResponse
     {
-        $this->exigir($request, 'invoicing.series.view');
+        // Criar, mudar o próximo número ou apagar uma série pedia só VER (auditoria de 2026-09-13).
+        $this->exigirUma($request, ['invoicing.series.edit', 'invoicing.settings.edit']);
 
         $s = InvoicingSeries::forTenant(activeTenantId())->findOrFail($id);
 
@@ -144,6 +147,12 @@ class SeriesApiController extends Controller
             'emitidos' => SeriesCatalog::documentosEmitidos($s),
             'exemplo' => $s->prefix . ' ' . $s->series_code . ($s->include_year ? '/' . ($s->series_year ?? now()->year) : '') . '/' . str_pad((string) $s->next_number, (int) $s->number_padding, '0', STR_PAD_LEFT),
         ];
+    }
+
+    /** @param list<string> $permissoes basta uma */
+    private function exigirUma(Request $request, array $permissoes): void
+    {
+        abort_unless($request->user()?->canAny($permissoes), 403, __('Sem permissão para esta operação.'));
     }
 
     private function exigir(Request $request, string $permissao): void

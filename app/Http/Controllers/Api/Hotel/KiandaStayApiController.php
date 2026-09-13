@@ -97,7 +97,7 @@ class KiandaStayApiController extends Controller
         $this->exigir($request, 'hotel.settings.edit');
 
         $dados = $request->validate([
-            'base_url' => ['required', 'url', 'max:255'],
+            'base_url' => ['required', 'url', 'max:255', new \App\Rules\EnderecoPublico()],
             'api_key' => ['nullable', 'string', 'max:255'],
         ]);
 
@@ -128,7 +128,7 @@ class KiandaStayApiController extends Controller
     {
         $this->exigir($request, 'hotel.settings.edit');
 
-        $dados = $request->validate(['base_url' => ['required', 'url', 'max:255']]);
+        $dados = $request->validate(['base_url' => ['required', 'url', 'max:255', new \App\Rules\EnderecoPublico()]]);
 
         $l = $this->ligacao();
         $l->base_url = rtrim($dados['base_url'], '/');

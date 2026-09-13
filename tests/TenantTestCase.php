@@ -181,6 +181,35 @@ abstract class TenantTestCase extends TestCase
      * utilizador criado no setUp não tem papel nenhum de propósito, para que
      * um teste que precise de permissão o diga.
      */
+    /**
+     * Um colega que entra no aparelho por PIN: tem PIN e as permissões do
+     * balcão — é o que a API do PWA exige a um operador que não é a sessão.
+     */
+    protected function operadorDoPwa(\App\Models\User $u): \App\Models\User
+    {
+        $u->definirPinPos('5827');
+        setPermissionsTeamId($this->tenant->id);
+
+        foreach (['invoicing.pos.access', 'invoicing.pos.sell', 'invoicing.sales.invoices.create', 'invoicing.sales.proformas.create'] as $nome) {
+            \Spatie\Permission\Models\Permission::findOrCreate($nome, 'web');
+        }
+
+        $u->givePermissionTo(['invoicing.pos.access', 'invoicing.pos.sell', 'invoicing.sales.invoices.create', 'invoicing.sales.proformas.create']);
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+
+        return $u;
+    }
+
+    /** O papel de quem usa o PWA ao balcão e no restaurante — o que a API do PWA pede. */
+    protected function comPermissoesDoPwa(): static
+    {
+        return $this->comPermissoes(
+            'invoicing.pos.access', 'invoicing.pos.sell', 'invoicing.sales.invoices.create', 'invoicing.sales.proformas.create',
+            'invoicing.clients.create', 'restaurant.orders.view', 'restaurant.orders.create', 'restaurant.orders.edit',
+            'restaurant.checkout.charge',
+        );
+    }
+
     protected function comPermissoes(string ...$nomes): static
     {
         setPermissionsTeamId($this->tenant->id);

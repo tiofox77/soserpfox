@@ -25,7 +25,7 @@ trait ManagesFileUploads
             $folder .= '/gallery';
         }
         
-        $extension = $file->getClientOriginalExtension();
+        $extension = $file->extension();
         
         if ($entityName && $fileType !== 'gallery') {
             $fileName = $fileType . '_' . Str::slug($entityName) . '.' . $extension;

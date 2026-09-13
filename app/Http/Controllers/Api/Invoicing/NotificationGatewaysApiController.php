@@ -115,7 +115,11 @@ class NotificationGatewaysApiController extends Controller
             'from_name' => ['nullable', 'string', 'max:255'],
         ]);
         $s = TenantNotificationSetting::getForTenant($this->tenant());
-        $senha = trim((string) ($dados['smtp_password'] ?? '')) ?: $s->smtp_password;
+        // A senha guardada só vai para o servidor guardado (auditoria de 2026-09-13).
+        $mesmoServidor = strcasecmp(trim($dados['smtp_host']), trim((string) $s->smtp_host)) === 0
+            && (int) $dados['smtp_port'] === (int) $s->smtp_port
+            && trim((string) ($dados['smtp_username'] ?? '')) === trim((string) $s->smtp_username);
+        $senha = trim((string) ($dados['smtp_password'] ?? '')) ?: ($mesmoServidor ? $s->smtp_password : null);
         abort_if(blank($senha), 422, __('Não existe uma senha SMTP guardada.'));
 
         $porta = (int) $dados['smtp_port'];

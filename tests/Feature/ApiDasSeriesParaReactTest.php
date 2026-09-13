@@ -49,7 +49,7 @@ class ApiDasSeriesParaReactTest extends TenantTestCase
         $this->getJson(self::RAIZ)->assertForbidden();
         $this->postJson(self::RAIZ, $this->corpo())->assertForbidden();
 
-        $this->comPermissoes('invoicing.series.view');
+        $this->comPermissoes('invoicing.series.view', 'invoicing.series.edit');
 
         $opcoes = $this->getJson(self::RAIZ . '/opcoes')->assertOk();
         $this->assertSame('FT', collect($opcoes->json('tipos'))->firstWhere('valor', 'invoice')['prefixo']);
@@ -61,7 +61,7 @@ class ApiDasSeriesParaReactTest extends TenantTestCase
     /** O prefixo é fiscal: o que se manda não conta. @test */
     public function o_prefixo_e_o_da_agt_e_nao_o_que_se_manda(): void
     {
-        $this->comPermissoes('invoicing.series.view');
+        $this->comPermissoes('invoicing.series.view', 'invoicing.series.edit');
 
         $r = $this->postJson(self::RAIZ, $this->corpo(['prefix' => 'ZZ']))->assertCreated();
 
@@ -74,7 +74,7 @@ class ApiDasSeriesParaReactTest extends TenantTestCase
     /** @test */
     public function uma_serie_registada_na_agt_quase_nao_se_mexe_e_nao_se_elimina(): void
     {
-        $this->comPermissoes('invoicing.series.view');
+        $this->comPermissoes('invoicing.series.view', 'invoicing.series.edit');
 
         $id = $this->postJson(self::RAIZ, $this->corpo())->assertCreated()->json('data.id');
         InvoicingSeries::whereKey($id)->update(['agt_series_id' => 'AGT-ENSAIO-1']);
@@ -92,7 +92,7 @@ class ApiDasSeriesParaReactTest extends TenantTestCase
     /** @test */
     public function uma_serie_livre_edita_se_e_elimina_se(): void
     {
-        $this->comPermissoes('invoicing.series.view');
+        $this->comPermissoes('invoicing.series.view', 'invoicing.series.edit');
 
         $id = $this->postJson(self::RAIZ, $this->corpo())->assertCreated()->json('data.id');
 
@@ -107,7 +107,7 @@ class ApiDasSeriesParaReactTest extends TenantTestCase
     /** @test */
     public function a_lista_filtra_por_tipo_e_por_procura(): void
     {
-        $this->comPermissoes('invoicing.series.view');
+        $this->comPermissoes('invoicing.series.view', 'invoicing.series.edit');
 
         $this->postJson(self::RAIZ, $this->corpo(['name' => 'Balcão Norte']))->assertCreated();
         $this->postJson(self::RAIZ, $this->corpo(['document_type' => 'proforma', 'prefix' => 'PP', 'name' => 'Proformas do ensaio']))->assertCreated();

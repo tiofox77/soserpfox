@@ -43,6 +43,28 @@ class PedidosApiController extends Controller
         abort_unless($request->user()?->can($permissao), 403, __('Sem permissão para esta operação.'));
     }
 
+    /**
+     * ABRIR O ANEXO DE UM PEDIDO (o atestado de uma licença) — com a permissão
+     * de ver esse pedido. O servidor web já não o entrega pelo /storage.
+     */
+    public function abrirAnexo(Request $request, string $tipo, int $id)
+    {
+        $def = $this->definicao($tipo);
+        $this->exigir($request, $def['permissoes']['ver']);
+
+        abort_unless(isset($def['anexo']), 404);
+
+        $m = $this->base($def)->findOrFail($id);
+        $caminho = $m->{$def['anexo']['coluna']};
+
+        abort_unless($caminho && Storage::disk('public')->exists($caminho), 404);
+
+        return Storage::disk('public')->response($caminho, basename($caminho), [
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'private, no-store',
+        ]);
+    }
+
     /** A consulta base: desta empresa, e com o filtro que o tipo declare. */
     private function base(array $def)
     {
@@ -533,7 +555,7 @@ class PedidosApiController extends Controller
         ];
 
         $ficha['anexo'] = isset($def['anexo']) && $m->{$def['anexo']['coluna']}
-            ? Storage::disk('public')->url($m->{$def['anexo']['coluna']})
+            ? route('api.invoicing.react.rh.pedidos.anexo.abrir', ['tipo' => $def['tipo'] ?? request()->route()?->parameter('tipo'), 'id' => $m->id], false)
             : null;
 
         return $ficha;

@@ -299,6 +299,29 @@ class FuncionariosApiController extends Controller
         ]);
     }
 
+    /**
+     * ABRIR UM DOCUMENTO DA FICHA — com a sessão e a permissão de ver funcionários.
+     *
+     * O ficheiro continua no mesmo sítio; o que muda é que o servidor web já não
+     * o entrega a quem adivinhar o endereço (ver public/.htaccess).
+     */
+    public function abrirDocumento(Request $request, int $id, string $tipo)
+    {
+        $this->exigir($request, 'employees.view');
+
+        abort_unless(isset(self::DOCUMENTOS[$tipo]), 404);
+
+        $e = Employee::where('tenant_id', activeTenantId())->findOrFail($id);
+        $caminho = $e->{self::DOCUMENTOS[$tipo]};
+
+        abort_unless($caminho && Storage::disk('public')->exists($caminho), 404);
+
+        return Storage::disk('public')->response($caminho, basename($caminho), [
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'private, no-store',
+        ]);
+    }
+
     public function apagarDocumento(Request $request, int $id, string $tipo): JsonResponse
     {
         $this->exigir($request, 'employees.edit');
@@ -677,7 +700,7 @@ class FuncionariosApiController extends Controller
         $campos['documentos'] = collect(self::DOCUMENTOS)->map(fn ($coluna, $tipo) => [
             'chave' => $tipo,
             'rotulo' => self::rotuloDoDocumento($tipo),
-            'url' => $e->{$coluna} ? Storage::disk('public')->url($e->{$coluna}) : null,
+            'url' => $e->{$coluna} ? route('api.invoicing.react.rh.funcionarios.documento.abrir', ['id' => $e->id, 'tipo' => $tipo], false) : null,
         ])->values();
 
         return $campos;

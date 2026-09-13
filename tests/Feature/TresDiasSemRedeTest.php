@@ -23,6 +23,10 @@ class TresDiasSemRedeTest extends TenantTestCase
     {
         parent::setUp();
 
+        // A API do PWA pede permissão desde 2026-09-13 (AutorizaApiDoPwa): o
+        // utilizador do ensaio é um caixa a sério, não um membro sem papel.
+        $this->comPermissoesDoPwa();
+
         $this->comPermissoes('invoicing.pos.access', 'invoicing.pos.view')
              ->comModulo('invoicing');
     }
@@ -42,7 +46,7 @@ class TresDiasSemRedeTest extends TenantTestCase
         setPermissionsTeamId($this->tenant->id);
         $u->syncRoles($this->user->roles);
 
-        return $u;
+        return $this->operadorDoPwa($u);
     }
 
     /** Uma venda como o aparelho a enfileira: com o seu local_uuid. */

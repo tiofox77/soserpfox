@@ -23,10 +23,27 @@ class AuthController extends Controller
             'device_name' => 'nullable|string|max:60',
         ]);
 
+        /*
+         * TENTATIVAS CONTADAS. O /login do site limita a cinco por minuto; esta
+         * porta paralela não limitava nada — adivinhava-se a senha de qualquer
+         * email sem travão (auditoria de segurança de 2026-09-13).
+         */
+        $chave = 'api-login:' . mb_strtolower($data['email']) . '|' . $request->ip();
+
+        if (\Illuminate\Support\Facades\RateLimiter::tooManyAttempts($chave, 5)) {
+            return response()->json([
+                'message' => __('Demasiadas tentativas. Tente de novo dentro de :s segundos.', ['s' => \Illuminate\Support\Facades\RateLimiter::availableIn($chave)]),
+            ], 429);
+        }
+
         $user = User::where('email', $data['email'])->first();
-        if (!$user || !Hash::check($data['password'], $user->password)) {
+        if (!$user || !Hash::check($data['password'], $user->password) || !$user->is_active) {
+            \Illuminate\Support\Facades\RateLimiter::hit($chave, 60);
+
             return response()->json(['message' => 'Credenciais inválidas.'], 422);
         }
+
+        \Illuminate\Support\Facades\RateLimiter::clear($chave);
 
         // Tenant ativo (default do utilizador / 1º que pertence)
         $tenant = method_exists($user, 'activeTenant') ? $user->activeTenant() : null;

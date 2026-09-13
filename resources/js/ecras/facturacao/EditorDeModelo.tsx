@@ -187,7 +187,7 @@ function Editor({ id, inicial, previaInicial, catalogo, variaveis }: { id: numbe
                 </div>
 
                 <Cartao titulo={t('A folha, como vai sair')} icone="fa-file-lines" semPadding>
-                    <iframe title={t('Pré-visualização do modelo')} srcDoc={previa} className={cls('h-[80vh] w-full bg-slate-100 transition-opacity duration-200', accao.isPending && 'opacity-60')} data-previa />
+                    <iframe title={t('Pré-visualização do modelo')} sandbox="" srcDoc={previa} className={cls('h-[80vh] w-full bg-slate-100 transition-opacity duration-200', accao.isPending && 'opacity-60')} data-previa />
                 </Cartao>
 
                 <div className="space-y-3">

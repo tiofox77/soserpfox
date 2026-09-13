@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Invoicing\SalesInvoice;
+use App\Models\Invoicing\SalesProforma;
+use App\Models\User;
 use Tests\TenantTestCase;
 
 /**
@@ -17,6 +19,10 @@ class DocumentosDoPwaSaoEmitidosTest extends TenantTestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // A API do PWA pede permissão desde 2026-09-13 (AutorizaApiDoPwa): o
+        // utilizador do ensaio é um caixa a sério, não um membro sem papel.
+        $this->comPermissoesDoPwa();
 
         $this->comPermissoes('invoicing.sales.invoices.create')->comModulo('invoicing');
     }
@@ -34,6 +40,53 @@ class DocumentosDoPwaSaoEmitidosTest extends TenantTestCase
                 'tax_rate'     => 0,
             ]],
         ])->assertSuccessful()->json();
+    }
+
+    private function operadorB(): User
+    {
+        $operador = User::create([
+            'name' => 'Operador PIN B',
+            'email' => 'operador-documento-b@empresa.ao',
+            'password' => bcrypt('x'),
+            'tenant_id' => $this->tenant->id,
+            'is_active' => true,
+        ]);
+        $operador->tenants()->syncWithoutDetaching([$this->tenant->id]);
+
+        return $this->operadorDoPwa($operador);
+    }
+
+    private function criarComoOperador(string $tipo, User $operador): array
+    {
+        return $this->actingAs($this->user)->postJson('/api/v1/invoicing/drafts', [
+            'doc_type' => $tipo,
+            'local_uuid' => 'doc_operador_' . $tipo . '_' . uniqid(),
+            'operator_id' => $operador->id,
+            'operator_email' => $operador->email,
+            'items' => [[
+                'product_id' => $this->produtoComStock(10)->id,
+                'product_name' => 'Artigo',
+                'quantity' => 1,
+                'unit_price' => 1000,
+                'tax_rate' => 0,
+            ]],
+        ])->assertSuccessful()->json();
+    }
+
+    public function test_ft_fr_e_proforma_ficam_no_operador_que_entrou_por_pin(): void
+    {
+        $operador = $this->operadorB();
+
+        foreach (['FT', 'FR'] as $tipo) {
+            $resposta = $this->criarComoOperador($tipo, $operador);
+            $documento = SalesInvoice::withoutGlobalScopes()->findOrFail($resposta['id']);
+            $this->assertSame($operador->id, (int) $documento->created_by);
+            $this->assertSame((string) $operador->id, (string) $documento->source_id);
+        }
+
+        $resposta = $this->criarComoOperador('proforma', $operador);
+        $proforma = SalesProforma::withoutGlobalScopes()->findOrFail($resposta['id']);
+        $this->assertSame($operador->id, (int) $proforma->created_by);
     }
 
     public function test_uma_factura_sai_com_numero_fiscal(): void

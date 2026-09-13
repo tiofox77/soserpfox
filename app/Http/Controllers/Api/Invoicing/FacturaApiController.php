@@ -307,10 +307,11 @@ class FacturaApiController extends Controller
 
     private function emitirPedido(Request $request, EmissorDeFacturas $emissor, ?SalesInvoice $existente): JsonResponse
     {        $dados = $request->validate([
-            'client_id' => ['required', 'integer'],
-            'warehouse_id' => ['nullable', 'integer'],
+            // Da EMPRESA: um id de outra casa punha o cliente dela no documento.
+            'client_id' => ['required', 'integer', \Illuminate\Validation\Rule::exists('invoicing_clients', 'id')->where('tenant_id', activeTenantId())],
+            'warehouse_id' => ['nullable', 'integer', \Illuminate\Validation\Rule::exists('invoicing_warehouses', 'id')->where('tenant_id', activeTenantId())],
             'invoice_type' => ['required', 'in:FT,FR'],
-            'series_id' => ['nullable', 'integer'],
+            'series_id' => ['nullable', 'integer', \Illuminate\Validation\Rule::exists('invoicing_series', 'id')->where('tenant_id', activeTenantId())],
             'invoice_date' => ['required', 'date'],
             'due_date' => ['nullable', 'date'],
             'delivery_date' => ['nullable', 'date'],

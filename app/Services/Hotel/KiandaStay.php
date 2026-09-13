@@ -42,6 +42,12 @@ class KiandaStay
 
     private function http(bool $comChave = true): PendingRequest
     {
+        // No momento de sair confere-se outra vez para onde o nome aponta: um
+        // DNS que mudou depois de gravado não leva o servidor à rede interna.
+        if (! \App\Rules\EnderecoPublico::permite((string) $this->ligacao->base())) {
+            throw new \RuntimeException(__('O endereço do site não é da internet pública.'));
+        }
+
         $pedido = Http::acceptJson()
             ->timeout(15)
             ->retry(2, 300, throw: false);
@@ -59,11 +65,14 @@ class KiandaStay
         try {
             $r = $this->http(false)->get($this->ligacao->base() . '/api/v1/status');
 
+            // Só o que o estado precisa: a resposta inteira de um anfitrião qualquer não volta ao ecrã.
             return $r->successful()
-                ? ['ok' => true, 'dados' => $r->json()]
+                ? ['ok' => true, 'dados' => collect((array) $r->json())->only(['status', 'version', 'name', 'time'])->all()]
                 : ['ok' => false, 'erro' => 'HTTP ' . $r->status()];
         } catch (\Throwable $e) {
-            return ['ok' => false, 'erro' => $e->getMessage()];
+            report($e);
+
+            return ['ok' => false, 'erro' => __('O site não respondeu.')];
         }
     }
 

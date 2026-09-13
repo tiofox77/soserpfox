@@ -281,6 +281,25 @@ class AgtApiController extends Controller
 
         abort_unless($id, 403, __('Empresa não seleccionada ou sem acesso.'));
 
+        /*
+         * A PERMISSÃO É A DA EMPRESA ONDE SE MEXE.
+         *
+         * O `exigirVer`/`exigirEditar` responde pela empresa ACTIVA, e o
+         * `?tenant=` escolhe outra: um administrador de A que é só caixa em B
+         * trocava as chaves AGT de B, o ambiente e os reenvios (auditoria de
+         * segurança de 2026-09-13). Noutra empresa, confere-se lá.
+         */
+        if ($id !== (int) activeTenantId() && ! $user->isPlatformSuperAdmin()) {
+            $activa = getPermissionsTeamId();
+            setPermissionsTeamId($id);
+            $user->unsetRelation('roles')->unsetRelation('permissions');
+            $pode = $user->can($this->permissaoPedida ?? 'invoicing.agt.edit');
+            setPermissionsTeamId($activa);
+            $user->unsetRelation('roles')->unsetRelation('permissions');
+
+            abort_unless($pode, 403, __('Sem permissão para esta operação nessa empresa.'));
+        }
+
         return [new GestaoAgt($id), $id];
     }
 
@@ -317,8 +336,13 @@ class AgtApiController extends Controller
         return (bool) ($request->user()?->isPlatformSuperAdmin() || $request->user()?->can('invoicing.agt.edit'));
     }
 
+    /** A permissão que a acção pediu — o `gestao()` confere-a na empresa escolhida. */
+    private ?string $permissaoPedida = null;
+
     private function exigirVer(Request $request): void
     {
+        $this->permissaoPedida = 'invoicing.agt.view';
+
         abort_unless(
             $request->user()?->isPlatformSuperAdmin() || $request->user()?->can('invoicing.agt.view'),
             403,
@@ -328,6 +352,8 @@ class AgtApiController extends Controller
 
     private function exigirEditar(Request $request): void
     {
+        $this->permissaoPedida = 'invoicing.agt.edit';
+
         abort_unless($this->podeEditar($request), 403, __('Sem permissão para esta operação.'));
     }
 }

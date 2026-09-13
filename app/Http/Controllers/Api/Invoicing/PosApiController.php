@@ -806,6 +806,39 @@ class PosApiController extends Controller
             ], 422);
         }
 
+        /*
+         * O PREÇO É O DO CATÁLOGO — salvo para quem pode mudar preços.
+         *
+         * O ecrã só deixa escrever o preço num artigo «preço no POS», e diz
+         * `pode_mudar_preco`; mas a porta aceitava qualquer `unit_price`: um
+         * caixa sem essa permissão emitia uma Fatura-Recibo assinada a 1 Kz e o
+         * stock saía inteiro (auditoria de segurança de 2026-09-13). Uma linha
+         * sem artigo do catálogo também é um preço inventado.
+         */
+        if (! $request->user()?->can('invoicing.products.edit')) {
+            $precos = Product::where('tenant_id', $tenantId)
+                ->whereIn('id', collect($dados['items'])->pluck('product_id')->filter()->all())
+                ->get(['id', 'name', 'price', 'preco_no_pos'])
+                ->keyBy('id');
+
+            foreach ($dados['items'] as $linha) {
+                $artigo = ! empty($linha['product_id']) ? $precos->get((int) $linha['product_id']) : null;
+
+                if (! $artigo) {
+                    return response()->json(['message' => __('Só pode vender artigos do catálogo: «:linha» não é um deles.', ['linha' => $linha['product_name']])], 422);
+                }
+
+                if (! $artigo->preco_no_pos && abs((float) $linha['unit_price'] - (float) $artigo->price) > 0.005) {
+                    return response()->json([
+                        'message' => __('O preço de :artigo é :preco. Mudar o preço ao balcão pede permissão.', [
+                            'artigo' => $artigo->name,
+                            'preco' => number_format((float) $artigo->price, 2, ',', '.'),
+                        ]),
+                    ], 422);
+                }
+            }
+        }
+
         try {
             $factura = $servico->createFromPayload($dados, $tenantId, (int) auth()->id());
         } catch (\App\Services\POS\ClientePorSincronizar $e) {
