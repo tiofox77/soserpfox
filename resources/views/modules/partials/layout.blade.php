@@ -25,7 +25,6 @@
     <meta name="twitter:image" content="{{ $shareImage }}">
     @include('partials.favicon')
     <link rel="manifest" href="{{ url('/manifest.webmanifest') }}">
-    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { font-family: 'Inter', sans-serif; }
@@ -35,6 +34,8 @@
         .screenshot { background: linear-gradient(135deg, var(--from), var(--to)); border-radius: 1rem; padding: 0.5rem; box-shadow: 0 30px 60px -15px rgba(0,0,0,0.3); }
         .screenshot-inner { background: white; border-radius: 0.75rem; padding: 1.5rem; aspect-ratio: 16/10; display: flex; flex-direction: column; }
     </style>
+    {{-- No fim do <head>: era aqui que o Tailwind em runtime injectava o CSS, e a cascata depende disso. --}}
+    @include('partials.css-publico')
 </head>
 <body class="bg-slate-50">
 

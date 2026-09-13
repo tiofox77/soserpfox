@@ -8,7 +8,6 @@
     <meta name="robots" content="index, follow, max-image-preview:large">
     <link rel="canonical" href="{{ \App\Support\DadosEstruturados::raiz() . '/' . ltrim(request()->path(), '/') }}">
     <link rel="icon" href="/brand/favicon-32x32.png">
-    <script src="/vendor/js/tailwind.js"></script>
     <link rel="stylesheet" href="/vendor/css/fontawesome.min.css">
     <style>
         /* Tipografia de documento: linha larga e respiração entre secções —
@@ -34,6 +33,8 @@
         .indice a:hover { background: #fff7ed; color: #c2410c; }
         .indice a.activo { background: #ffedd5; color: #9a3412; }
     </style>
+    {{-- No fim do <head>: era aqui que o Tailwind em runtime injectava o CSS, e a cascata depende disso. --}}
+    @include('partials.css-publico')
 </head>
 <body class="bg-slate-100">
 

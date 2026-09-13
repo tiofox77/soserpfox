@@ -39,7 +39,6 @@
 
     {{ $dadosEstruturados ?? '' }}
 
-    <script src="/vendor/js/tailwind.js"></script>
     <link rel="stylesheet" href="/vendor/css/fontawesome.min.css">
 
     {{--
@@ -101,6 +100,8 @@
         </script>
         <script type="module" src="{{ $pacoteReact }}" defer></script>
     @endif
+    {{-- No fim do <head>: era aqui que o Tailwind em runtime injectava o CSS, e a cascata depende disso. --}}
+    @include('partials.css-publico')
 </head>
 <body class="bg-white">
     <x-ecra-react :nome="$ecra" :props="$props ?? []" class="min-h-screen" />

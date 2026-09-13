@@ -85,7 +85,6 @@
          apagado e este link dava 404 em todas as visitas à página inicial. --}}
     <link rel="manifest" href="{{ url('/manifest.webmanifest') }}">
     <link rel="sitemap" type="application/xml" href="/sitemap.xml">
-    <link rel="dns-prefetch" href="//cdn.tailwindcss.com">
     <link rel="dns-prefetch" href="//fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
@@ -150,7 +149,6 @@
     @endif
     
     <!-- Preconnect para Performance -->
-    <link rel="preconnect" href="https://cdn.tailwindcss.com">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
     
     
@@ -173,12 +171,16 @@
         }
     </style>
     
-    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    {{-- O plugin do `x-collapse` (as perguntas frequentes) ANTES do Alpine: sem ele a consola
+         enchia-se de avisos e as respostas abriam de repente. Versões fixas: `3.x.x` mudava sozinho. --}}
+    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.17.2/dist/cdn.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.17.2/dist/cdn.min.js"></script>
     {{-- Sem isto o menu "Mais" aparece aberto durante o instante em que o
          Alpine ainda não arrancou (o script é `defer`). --}}
     <style>[x-cloak]{display:none !important}</style>
+    {{-- No fim do <head>: era aqui que o Tailwind em runtime injectava o CSS, e a cascata depende disso. --}}
+    @include('partials.css-publico')
 </head>
 <body class="bg-white">
     

@@ -29,7 +29,6 @@
     <meta name="twitter:image" content="{{ $imagemDePartilha }}">
     {{ $dadosEstruturados }}
     @include('partials.favicon')
-    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     {{-- v=2: o recolector passou a medir o tempo em página e a registar
@@ -41,6 +40,8 @@
         .feature-card { transition: all 0.3s; }
         .feature-card:hover { transform: translateY(-4px); box-shadow: 0 20px 40px -10px rgba(0,0,0,0.15); }
     </style>
+    {{-- No fim do <head>: era aqui que o Tailwind em runtime injectava o CSS, e a cascata depende disso. --}}
+    @include('partials.css-publico')
 </head>
 <body class="bg-white">
 
