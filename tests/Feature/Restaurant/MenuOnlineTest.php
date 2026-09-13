@@ -2,14 +2,12 @@
 
 namespace Tests\Feature\Restaurant;
 
-use App\Livewire\Restaurant\MenuOnline;
 use App\Models\Product;
 use App\Models\Restaurant\Area;
 use App\Models\Restaurant\DiningTable;
 use App\Models\Restaurant\RestaurantSettings;
 use App\Models\Restaurant\Venue;
 use App\Models\Tenant;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -171,29 +169,26 @@ class MenuOnlineTest extends TenantTestCase
 
         // Um QR antigo, de uma mesa que já foi removida. Fingir que se sabe
         // onde a pessoa está sentada é pior do que perguntar.
-        $this->get('/menu/casa-de-teste/MESA-QUE-NAO-EXISTE')
-            ->assertOk()
-            ->assertSee('não reconhecida', false);
+        // O ecrã diz «Mesa não reconhecida» quando a página lho conta.
+        $mesa = $this->props($this->get('/menu/casa-de-teste/MESA-QUE-NAO-EXISTE'))['mesa'];
+
+        $this->assertFalse($mesa['reconhecida']);
+        $this->assertSame('MESA-QUE-NAO-EXISTE', $mesa['codigo']);
     }
 
     /** @test */
     public function a_mensagem_de_whatsapp_leva_a_mesa_e_os_artigos(): void
     {
-        $prato = Product::where('tenant_id', $this->tenant->id)->firstOrFail();
+        auth()->logout();
 
-        $componente = Livewire::test(MenuOnline::class, ['slug' => 'casa-de-teste', 'mesa' => 'M12'])
-            ->call('escolher', $prato->id)
-            ->call('escolher', $prato->id);
+        // A mensagem monta-se no telemóvel (mensagemDoWhatsapp.test.ts guarda o
+        // texto: a mesa à cabeça, «2x Muamba de Galinha»). Daqui sai o que ela
+        // precisa: o número só com dígitos e o rótulo da mesa.
+        $props = $this->props($this->get('/menu/casa-de-teste/M12'));
 
-        $link = $componente->instance()->linkDoWhatsapp;
-        $mensagem = urldecode(parse_url($link, PHP_URL_QUERY) ?? '');
-
-        $this->assertStringStartsWith('https://wa.me/244900111222', $link);
-
-        // A MESA VEM À CABEÇA. É a informação que mais falta nestes pedidos —
-        // quem recebe fica com uma lista de pratos e ninguém sabe para onde vão.
-        $this->assertStringContainsString('Mesa 12', $mensagem);
-        $this->assertStringContainsString('2x Muamba de Galinha', $mensagem);
+        $this->assertSame('244900111222', $props['casa']['whatsapp']);
+        $this->assertSame('Mesa 12', $props['mesa']['rotulo']);
+        $this->assertTrue($props['mesa']['reconhecida']);
     }
 
     /** @test */
@@ -201,12 +196,13 @@ class MenuOnlineTest extends TenantTestCase
     {
         $this->definicoes->update(['menu_whatsapp_number' => null]);
 
-        $prato = Product::where('tenant_id', $this->tenant->id)->firstOrFail();
+        auth()->logout();
 
-        $componente = Livewire::test(MenuOnline::class, ['slug' => 'casa-de-teste'])
-            ->call('escolher', $prato->id);
+        $this->assertNull($this->props($this->get('/menu/casa-de-teste'))['casa']['whatsapp']);
 
-        $this->assertNull($componente->instance()->linkDoWhatsapp);
+        // E com o WhatsApp desligado, mesmo com número, também não.
+        $this->definicoes->update(['menu_whatsapp_number' => '+244 900 111 222', 'menu_whatsapp_enabled' => false]);
+        $this->assertNull($this->props($this->get('/menu/casa-de-teste'))['casa']['whatsapp']);
     }
 
     /** @test */
@@ -287,10 +283,8 @@ class MenuOnlineTest extends TenantTestCase
     {
         $prato = Product::where('tenant_id', $this->tenant->id)->firstOrFail();
 
-        Livewire::test(MenuOnline::class, ['slug' => 'casa-de-teste', 'mesa' => 'M12'])
-            ->call('escolher', $prato->id)
-            ->call('enviarPedido')
-            ->assertHasErrors('pedido');
+        $this->pedir(['mesa' => 'M12', 'escolhas' => [['id' => $prato->id, 'quantidade' => 1]]])
+            ->assertStatus(422)->assertJsonValidationErrors('pedido');
 
         $this->assertSame(0, \App\Models\Restaurant\MenuOrder::withoutGlobalScopes()->count());
     }
@@ -302,14 +296,10 @@ class MenuOnlineTest extends TenantTestCase
 
         $prato = Product::where('tenant_id', $this->tenant->id)->firstOrFail();
 
-        Livewire::test(MenuOnline::class, ['slug' => 'casa-de-teste', 'mesa' => 'M12'])
-            ->call('escolher', $prato->id)
-            ->call('escolher', $prato->id)
-            ->set('nome', 'Cliente da Esplanada')
-            ->call('enviarPedido')
-            ->assertHasNoErrors()
-            ->assertSet('pedidoEnviado', true)
-            ->assertSet('escolhas', []);
+        \Illuminate\Support\Facades\RateLimiter::clear('menu-pedido:'.$this->tenant->id.':'.$this->mesa->id);
+
+        $this->pedir(['mesa' => 'M12', 'escolhas' => [['id' => $prato->id, 'quantidade' => 2]], 'nome' => 'Cliente da Esplanada'])
+            ->assertCreated();
 
         $pedido = \App\Models\Restaurant\MenuOrder::withoutGlobalScopes()->firstOrFail();
 
@@ -336,10 +326,8 @@ class MenuOnlineTest extends TenantTestCase
 
         // Sem mesa o pedido não tem destino, e a mesa é a única coisa que
         // amarra quem pede a alguém que está mesmo lá dentro.
-        Livewire::test(MenuOnline::class, ['slug' => 'casa-de-teste'])
-            ->call('escolher', $prato->id)
-            ->call('enviarPedido')
-            ->assertHasErrors('pedido');
+        $this->pedir(['escolhas' => [['id' => $prato->id, 'quantidade' => 1]]])
+            ->assertStatus(422)->assertJsonValidationErrors('pedido');
 
         $this->assertSame(0, \App\Models\Restaurant\MenuOrder::withoutGlobalScopes()->count());
     }
@@ -351,17 +339,13 @@ class MenuOnlineTest extends TenantTestCase
 
         $prato = Product::where('tenant_id', $this->tenant->id)->firstOrFail();
 
-        $componente = Livewire::test(MenuOnline::class, ['slug' => 'casa-de-teste', 'mesa' => 'M12'])
-            ->call('escolher', $prato->id)
-            ->call('enviarPedido')
-            ->assertHasNoErrors();
+        \Illuminate\Support\Facades\RateLimiter::clear('menu-pedido:'.$this->tenant->id.':'.$this->mesa->id);
+        $this->pedir(['mesa' => 'M12', 'escolhas' => [['id' => $prato->id, 'quantidade' => 1]]])->assertCreated();
 
         // Um endereço público sem travão é um convite a encher a sala de
         // pedidos falsos.
-        $componente
-            ->call('escolher', $prato->id)
-            ->call('enviarPedido')
-            ->assertHasErrors('pedido');
+        $this->pedir(['mesa' => 'M12', 'escolhas' => [['id' => $prato->id, 'quantidade' => 1]]])
+            ->assertStatus(422)->assertJsonValidationErrors('pedido');
 
         $this->assertSame(1, \App\Models\Restaurant\MenuOrder::withoutGlobalScopes()->count());
     }
@@ -373,9 +357,62 @@ class MenuOnlineTest extends TenantTestCase
 
         auth()->logout();
 
-        $this->get('/menu/casa-de-teste')
+        $r = $this->get('/menu/casa-de-teste')
             ->assertOk()
             ->assertSee('Muamba de Galinha')
             ->assertDontSee('5.500,00');
+
+        // O preço nem chega ao browser: escondido não é só não desenhado.
+        $this->assertNull($this->props($r)['pratos'][0]['preco']);
+        $this->assertStringNotContainsString('5500', $r->getContent());
+    }
+
+    /** @test */
+    public function um_artigo_de_outra_casa_nao_entra_no_pedido(): void
+    {
+        $this->definicoes->update(['menu_orders_enabled' => true]);
+        \Illuminate\Support\Facades\RateLimiter::clear('menu-pedido:'.$this->tenant->id.':'.$this->mesa->id);
+
+        $vizinha = Tenant::create([
+            'name' => 'Vizinho', 'slug' => 'vz-'.uniqid(), 'nif' => (string) random_int(500000000, 599999999),
+            'email' => 'vz'.uniqid().'@exemplo.ao', 'is_active' => true,
+        ]);
+        $alheio = Product::withoutGlobalScopes()->create([
+            'tenant_id' => $vizinha->id, 'name' => 'Prato Alheio', 'code' => 'ALHEIO', 'price' => 100,
+            'type' => 'produto', 'manage_stock' => false, 'is_active' => true,
+        ]);
+
+        // Um id escrito à mão, de outra empresa, não faz um pedido.
+        $this->pedir(['mesa' => 'M12', 'escolhas' => [['id' => $alheio->id, 'quantidade' => 3]]])
+            ->assertStatus(422)->assertJsonValidationErrors('pedido');
+
+        $this->assertSame(0, \App\Models\Restaurant\MenuOrder::withoutGlobalScopes()->count());
+    }
+
+    /** @test */
+    public function a_pagina_monta_a_carta_em_react_com_a_mesa(): void
+    {
+        auth()->logout();
+
+        $props = $this->props($this->get('/menu/casa-de-teste/M12'));
+
+        $this->assertSame('Casa de Teste', $props['casa']['titulo']);
+        $this->assertSame(['Muamba de Galinha'], array_column($props['pratos'], 'nome'));
+        $this->assertSame(5500.0, (float) $props['pratos'][0]['preco']);
+    }
+
+    private function props(\Illuminate\Testing\TestResponse $r): array
+    {
+        $r->assertOk()->assertSee('data-ecra="restaurant/carta-online"', false);
+        preg_match('/data-props="([^"]*)"/', $r->getContent(), $m);
+
+        return json_decode(html_entity_decode($m[1], ENT_QUOTES), true);
+    }
+
+    private function pedir(array $dados): \Illuminate\Testing\TestResponse
+    {
+        auth()->logout();
+
+        return $this->postJson('/api/publico/restaurante/casa-de-teste/pedido', $dados);
     }
 }

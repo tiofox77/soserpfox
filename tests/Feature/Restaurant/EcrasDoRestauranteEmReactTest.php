@@ -106,16 +106,10 @@ class EcrasDoRestauranteEmReactTest extends TenantTestCase
         }
     }
 
-    /** O Livewire do restaurante foi-se — só a carta pública ficou. */
-    public function test_so_a_carta_publica_continua_em_livewire(): void
+    /** O Livewire do restaurante foi-se todo — a carta pública também já é React. */
+    public function test_ja_nao_ha_livewire_no_restaurante(): void
     {
-        $restantes = array_values(array_diff(
-            scandir(app_path('Livewire/Restaurant')) ?: [],
-            ['.', '..'],
-        ));
-
-        $this->assertSame(['MenuOnline.php'], $restantes,
-            'A carta pública é a única página do restaurante que não tem sessão — e por isso a única que fica.');
+        $this->assertDirectoryDoesNotExist(app_path('Livewire/Restaurant'));
     }
 
     /* ─── As portas, uma a uma ─────────────────────────────────────────── */

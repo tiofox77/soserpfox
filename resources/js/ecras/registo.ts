@@ -222,6 +222,8 @@ export const ecras: Record<string, Ecra> = {
         import('./restaurant/Balcao'),
     'restaurant/cozinha': () =>
         import('./restaurant/Cozinha'),
+    'restaurant/carta-online': () =>
+        import('./restaurant/CartaOnline'),
     'restaurant/carta': () =>
         import('./restaurant/Carta'),
     'restaurant/contactos': () =>

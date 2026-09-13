@@ -3241,10 +3241,13 @@ Route::get('/agendar/{slug}', \App\Livewire\Salon\SalonBookingOnline::class)->na
 // colado à mesa: o pedido chega já a dizer de onde vem.
 //
 // Fora de qualquer `auth`: quem abre isto é um cliente sentado à mesa. O
-// componente resolve a empresa pelo slug e recusa-se a servir uma carta
+// controlador resolve a empresa pelo slug e recusa-se a servir uma carta
 // desligada — ver RestaurantSettings::porSlugPublico.
-Route::get('/menu/{slug}', \App\Livewire\Restaurant\MenuOnline::class)->name('restaurant.menu.online');
-Route::get('/menu/{slug}/{mesa}', \App\Livewire\Restaurant\MenuOnline::class)->name('restaurant.menu.mesa');
+Route::get('/menu/{slug}', [\App\Http\Controllers\Restaurant\CartaPublicaController::class, 'pagina'])->name('restaurant.menu.online');
+Route::get('/menu/{slug}/{mesa}', [\App\Http\Controllers\Restaurant\CartaPublicaController::class, 'pagina'])->name('restaurant.menu.mesa');
+// O pedido feito na própria carta: escrever na base a partir da rua, com travão.
+Route::post('/api/publico/restaurante/{slug}/pedido', [\App\Http\Controllers\Restaurant\CartaPublicaController::class, 'pedido'])
+    ->middleware('throttle:30,1')->name('restaurant.menu.pedido');
 
 // Restaurante - operação de sala e comandas; faturação permanece no módulo Invoicing.
 Route::middleware(['auth', 'tenant.module:restaurant'])->prefix('restaurant')->name('restaurant.')->group(function () {
