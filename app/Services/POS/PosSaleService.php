@@ -86,8 +86,24 @@ class PosSaleService
         }
 
         $paymentMethod = $payload['payment_method'] ?? 'cash';
-        $discountCommercial = (float) ($payload['discount_commercial'] ?? 0);
         $notes = $payload['notes'] ?? null;
+
+        /*
+         * O DESCONTO DO BALCÃO CHEGA EM PERCENTAGEM, e aqui passa a Kz.
+         *
+         * Os dois balcões (o POS em React e o PWA sem rede) mandam o
+         * `discount_commercial` em PERCENTAGEM — é o que o operador escreve,
+         * é o que as validações aceitam (0 a 100) e é assim que o talão do
+         * aparelho faz as contas. Isto passava-o ao cálculo como VALOR: 10% de
+         * 5.000 Kz saíam 10 Kz na factura e 500 Kz no talão, e o papel
+         * imprimia «Desconto 10,00 Kz». O desconto POR VALOR do balcão online
+         * vem em `discount_value` (Kz). Nenhum dos dois passa do líquido.
+         */
+        $liquido = collect($items)->sum(fn ($i) => round((float) ($i['unit_price'] ?? 0) * (float) ($i['quantity'] ?? 0), 2));
+        $percentagem = min(max((float) ($payload['discount_commercial'] ?? 0), 0), 100);
+        $porPercentagem = round($liquido * $percentagem / 100, 2);
+        $porValor = min(max((float) ($payload['discount_value'] ?? 0), 0), max($liquido - $porPercentagem, 0));
+        $discountCommercial = round($porPercentagem + $porValor, 2);
 
         return DB::transaction(function () use (
             $payload, $items, $tenantId, $userId, $localUuid,

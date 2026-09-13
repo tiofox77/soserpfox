@@ -230,6 +230,29 @@ class ApiDoPosParaReactTest extends TenantTestCase
     }
 
     /**
+     * O DESCONTO DO BALCÃO: a percentagem é percentagem, e o valor chega.
+     *
+     * O ecrã manda `discount_commercial` em % e `discount_value` em Kz. O
+     * serviço tratava a percentagem como Kz (10% davam 10 Kz de desconto) e o
+     * desconto por valor ia a zero. Ver Tests\Feature\Pwa\DescontoDoBalcaoTest.
+     *
+     * @test
+     */
+    public function o_desconto_em_percentagem_e_em_valor_chega_a_factura(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.create');
+        $this->turno();
+
+        $a = $this->artigo();
+
+        $pct = $this->postJson(self::RAIZ . '/vender', $this->venda($a, ['discount_commercial' => 10]))->assertCreated();
+        $this->assertEqualsWithDelta(900 * 1.14, $pct->json('total'), 0.01, '10% de 1000 são 100 Kz, não 10');
+
+        $valor = $this->postJson(self::RAIZ . '/vender', $this->venda($a, ['discount_value' => 250]))->assertCreated();
+        $this->assertEqualsWithDelta(750 * 1.14, $valor->json('total'), 0.01, 'o desconto por valor tem de chegar à factura');
+    }
+
+    /**
      * A MESMA VENDA DUAS VEZES DÁ UMA FACTURA SÓ.
      *
      * É o `local_uuid` que o garante. Com a rede a oscilar, o operador carrega

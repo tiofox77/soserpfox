@@ -628,7 +628,10 @@ function Balcao({ o }: { o: Opcoes }) {
                         payment_method: p.payment_method,
                         payments: p.payments,
                         amount_received: p.amount_received,
-                        discount_commercial: descontoTipo === 'percentagem' ? Number(desconto) || 0 : 0,
+                        // A percentagem vai como percentagem; o valor vai em Kz. Ia a zero e o
+                        // desconto por valor não chegava à factura (ver PosSaleService).
+                        discount_commercial: descontoTipo === 'percentagem' ? Math.min(Number(String(desconto).replace(',', '.')) || 0, 100) : 0,
+                        discount_value: descontoTipo === 'valor' ? descontoValor : 0,
                         notes: p.notes,
                         items: linhas.map((l) => ({
                             product_id: l.servico ? null : l.id,

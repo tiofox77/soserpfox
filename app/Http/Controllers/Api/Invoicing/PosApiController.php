@@ -496,7 +496,9 @@ class PosApiController extends Controller
             'payments.*.amount' => ['required_with:payments', 'numeric', 'min:0'],
             'payments.*.reference' => ['nullable', 'string', 'max:100'],
             'amount_received' => ['nullable', 'numeric', 'min:0'],
+            // Percentagem (0–100); o desconto por valor vem em Kz no discount_value.
             'discount_commercial' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'discount_value' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string', 'max:2000'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['nullable', 'integer'],
