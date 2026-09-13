@@ -442,6 +442,8 @@ export const ecras: Record<string, Ecra> = {
      * do superadmin e fala com outra raiz de API (`/api/v1/plataforma/react`),
      * porque ali não há empresa no escopo nenhuma.
      */
+    'plataforma/inicio': () =>
+        import('./plataforma/Inicio'),
     'plataforma/painel': () =>
         import('./plataforma/Painel'),
     'plataforma/analitica': () =>

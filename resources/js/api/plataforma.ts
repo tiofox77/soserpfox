@@ -508,7 +508,29 @@ export const definicoes = {
     },
 };
 
+export type InicioDaPlataforma = {
+    utilizador: { nome: string };
+    agora: string;
+    empresas: { total: number; activas: number; em_teste: number; hoje: number; semana: number; mes: number; crescimento: number };
+    utilizadores: { total: number; novos_hoje: number; activos_hoje: number };
+    receita: { mrr: number; paga_no_mes: number };
+    visitas: {
+        disponivel: boolean;
+        visitantes: number;
+        paginas_vistas: number;
+        cliques_registo: number;
+        paginas: Array<{ caminho: string; vistas: number }>;
+        origens: Array<{ origem: string; visitantes: number }>;
+        leads: Array<{ visitante: string; pontos: number; pais: string | null; aparelho: string | null; origem: string | null }>;
+    };
+    pedidos_pendentes: number;
+    empresas_recentes: Array<{ id: number; nome: string; slug: string | null; activa: boolean; criada: string | null }>;
+    serie: Array<{ dia: string; empresas: number; utilizadores: number }>;
+    sistema: { php: string; laravel: string; ambiente: string; debug: boolean; fuso: string; base_de_dados: string; cache: string; fila: string };
+};
+
 export const plataforma = {
+    inicio: () => apiDaPlataforma.ler<InicioDaPlataforma>('/inicio'),
     facturacao: {
         ler: () => apiDaPlataforma.ler<FacturacaoDaPlataforma>('/facturacao'),
         subscricoes: (f: { procura?: string; estado?: string; pagina?: number }) =>

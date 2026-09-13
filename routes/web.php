@@ -234,6 +234,8 @@ Route::middleware(['auth'])->prefix('api/v1/casca')->name('api.casca.')->group(f
 });
 
 Route::middleware(['auth', 'superadmin'])->prefix('api/v1/plataforma/react')->name('api.plataforma.react.')->group(function () {
+    Route::get('/inicio', [\App\Http\Controllers\Api\Plataforma\InicioApiController::class, 'index'])->name('inicio');
+
     Route::prefix('painel')->name('painel.')->group(function () {
         $c = \App\Http\Controllers\Api\Plataforma\PainelApiController::class;
 
