@@ -1,197 +1,122 @@
 <!DOCTYPE html>
-<html lang="pt-AO">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    
+
     <!-- SEO Meta Tags -->
-    <title>{{ $title ?? 'Portal do Cliente' }} - {{ app_name() ?? config('app.name', 'SOS ERP') }}</title>
-    <meta name="description" content="Portal exclusivo para clientes. Visualize faturas, eventos, documentos e acompanhe o status dos seus serviços.">
-    <meta name="keywords" content="portal cliente, área cliente, minhas faturas, meus eventos, {{ app_name() ?? config('app.name') }}">
+    <title>@yield('title', __('Portal do Cliente')) - {{ app_name() ?? config('app.name', 'SOS ERP') }}</title>
+    <meta name="description" content="{{ __('Portal exclusivo para clientes. Visualize faturas, eventos, documentos e acompanhe o status dos seus serviços.') }}">
     <meta name="robots" content="noindex, nofollow">
     <meta name="author" content="{{ app_name() ?? config('app.name') }}">
-    
+
     <!-- Open Graph -->
     <meta property="og:type" content="website">
-    <meta property="og:title" content="{{ $title ?? 'Portal do Cliente' }} - {{ app_name() ?? config('app.name') }}">
-    <meta property="og:description" content="Portal exclusivo para clientes">
+    <meta property="og:title" content="@yield('title', __('Portal do Cliente')) - {{ app_name() ?? config('app.name') }}">
     <meta property="og:site_name" content="{{ app_name() ?? config('app.name') }}">
     @if(app_logo())
     <meta property="og:image" content="{{ app_logo() }}">
     @endif
-    
-    <!-- Favicon -->
+
     @include('partials.favicon')
-    
-    <!-- PWA -->
+
     <link rel="manifest" href="{{ url('/manifest.webmanifest') }}">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="SOS ERP">
-    
-    <!-- Tailwind CSS CDN -->
+
     <script src="/vendor/js/tailwind.js"></script>
-    
-    <!-- Font Awesome CDN -->
     <link rel="stylesheet" href="/vendor/css/fontawesome.min.css">
-    
+
     <style>
-        [x-cloak] { display: none !important; }
-        /* Animations */
         @keyframes float {
             0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
+            50% { transform: translateY(-6px); }
         }
-        
-        @keyframes pulse-glow {
-            0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
-            50% { box-shadow: 0 0 30px rgba(59, 130, 246, 0.6); }
-        }
-        
-        .icon-float {
-            animation: float 3s ease-in-out infinite;
-        }
-        
-        .card-hover {
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        
-        .card-hover:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-        }
-        
-        .card-3d {
-            perspective: 1000px;
-            transform-style: preserve-3d;
-        }
-        
-        .card-3d:hover {
-            transform: translateY(-8px) rotateX(2deg) rotateY(2deg);
-        }
-        
-        .card-zoom:hover {
-            transform: scale(1.05);
-        }
-        
-        .card-glow:hover {
-            animation: pulse-glow 2s ease-in-out infinite;
-        }
-        
-        .stagger-animation.animate-in > * {
-            opacity: 0;
-            animation: fadeInUp 0.6s ease-out forwards;
-        }
-        
-        .stagger-animation.animate-in > *:nth-child(1) { animation-delay: 0.1s; }
-        .stagger-animation.animate-in > *:nth-child(2) { animation-delay: 0.2s; }
-        .stagger-animation.animate-in > *:nth-child(3) { animation-delay: 0.3s; }
-        .stagger-animation.animate-in > *:nth-child(4) { animation-delay: 0.4s; }
-        
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
+        .icon-float { animation: float 3s ease-in-out infinite; }
+        .card-hover { transition: transform .3s cubic-bezier(.4, 0, .2, 1), box-shadow .3s cubic-bezier(.4, 0, .2, 1); }
+        .card-hover:hover { transform: translateY(-6px); box-shadow: 0 20px 40px rgba(0, 0, 0, .1); }
+        [data-menu-painel][hidden] { display: none !important; }
     </style>
-    
-    @livewireStyles
-</head>
-<body class="bg-gray-100">
-    {{-- Navbar --}}
-    <nav class="bg-white shadow-md">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                {{-- Logo --}}
-                <div class="flex items-center">
-                    <div class="flex-shrink-0 flex items-center">
-                        @if(app_logo())
-                            <img src="{{ app_logo() }}" alt="{{ app_name() }}" class="h-12 w-auto object-contain mr-3">
-                        @else
-                            <div class="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center mr-3">
-                                <i class="fas fa-users text-white"></i>
-                            </div>
-                        @endif
-                        <span class="text-xl font-bold text-gray-900">Portal do Cliente</span>
-                    </div>
-                </div>
 
-                {{-- Menu (desktop) --}}
-                @php
-                    $navLinks = [
-                        ['route' => 'client.dashboard', 'icon' => 'fa-home',          'label' => 'Início',    'hover' => 'blue'],
-                        ['route' => 'client.statement', 'icon' => 'fa-chart-line',    'label' => 'Extrato',   'hover' => 'amber'],
-                        ['route' => 'client.events',    'icon' => 'fa-calendar-alt',  'label' => 'Eventos',   'hover' => 'indigo'],
-                        ['route' => 'client.invoices',  'icon' => 'fa-file-invoice',  'label' => 'Faturas',   'hover' => 'green'],
-                        ['route' => 'client.proformas', 'icon' => 'fa-file-alt',      'label' => 'Proformas', 'hover' => 'purple'],
-                    ];
-                @endphp
-                <div class="hidden md:flex items-center space-x-1">
-                    @foreach($navLinks as $link)
-                        @if(Route::has($link['route']))
-                            <a href="{{ route($link['route']) }}"
-                               class="px-3 py-2 rounded-md text-sm font-medium transition {{ request()->routeIs($link['route']) ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:text-'.$link['hover'].'-600' }}">
-                                <i class="fas {{ $link['icon'] }} mr-1"></i>{{ $link['label'] }}
-                            </a>
-                        @endif
+    @include('partials.react-animacoes')
+</head>
+<body class="flex min-h-screen flex-col bg-gray-100">
+    {{-- O PORTAL SEM LIVEWIRE. Os menus (utilizador e telemóvel) abrem com o
+         pequeno script do fim desta página: eram Alpine, que vinha com o Livewire. --}}
+    @php
+        $ligacoesDoPortal = [
+            ['route' => 'client.dashboard', 'icon' => 'fa-house',        'label' => __('Início')],
+            ['route' => 'client.statement', 'icon' => 'fa-chart-line',   'label' => __('Extrato')],
+            ['route' => 'client.events',    'icon' => 'fa-calendar-days', 'label' => __('Eventos')],
+            ['route' => 'client.invoices',  'icon' => 'fa-file-invoice', 'label' => __('Faturas')],
+            ['route' => 'client.proformas', 'icon' => 'fa-file-lines',   'label' => __('Proformas')],
+        ];
+    @endphp
+
+    <nav class="relative bg-white shadow-md">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="flex h-16 justify-between">
+                <a href="{{ route('client.dashboard') }}" class="flex items-center">
+                    @if(app_logo())
+                        <img src="{{ app_logo() }}" alt="{{ app_name() }}" class="mr-3 h-12 w-auto object-contain">
+                    @else
+                        <span class="mr-3 flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-purple-600">
+                            <i class="fas fa-users text-white"></i>
+                        </span>
+                    @endif
+                    <span class="text-xl font-bold text-gray-900">{{ __('Portal do Cliente') }}</span>
+                </a>
+
+                <div class="hidden items-center space-x-1 md:flex">
+                    @foreach($ligacoesDoPortal as $l)
+                        <a href="{{ route($l['route']) }}"
+                           @if(request()->routeIs($l['route'])) aria-current="page" @endif
+                           class="rounded-md px-3 py-2 text-sm font-medium transition {{ request()->routeIs($l['route']) ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50 hover:text-blue-600' }}">
+                            <i class="fas {{ $l['icon'] }} mr-1"></i>{{ $l['label'] }}
+                        </a>
                     @endforeach
 
-                    {{-- User Menu --}}
-                    <div class="relative ml-2" x-data="{ open: false }">
-                        <button @click="open = !open" class="flex items-center text-gray-700 hover:text-blue-600 focus:outline-none">
-                            <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                <i class="fas fa-user text-blue-600"></i>
-                            </div>
+                    <div class="relative ml-2" data-menu>
+                        <button type="button" data-menu-botao aria-expanded="false" class="flex items-center text-gray-700 hover:text-blue-600">
+                            <span class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100"><i class="fas fa-user text-blue-600"></i></span>
                             <i class="fas fa-chevron-down ml-2 text-sm"></i>
+                            <span class="sr-only">{{ __('Menu do utilizador') }}</span>
                         </button>
-                        <div x-show="open" @click.away="open = false" x-transition x-cloak
-                             class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-20">
-                            @if(Route::has('client.profile'))
-                                <a href="{{ route('client.profile') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                    <i class="fas fa-user-circle mr-2"></i>Meu Perfil
-                                </a>
-                            @endif
+                        <div data-menu-painel hidden class="animate-scale-in absolute right-0 z-20 mt-2 w-48 rounded-md bg-white py-1 shadow-lg">
+                            <a href="{{ route('client.profile') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-circle-user mr-2"></i>{{ __('Meu Perfil') }}
+                            </a>
                             <form method="POST" action="{{ route('client.logout') }}">
                                 @csrf
-                                <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">
-                                    <i class="fas fa-sign-out-alt mr-2"></i>Sair
+                                <button type="submit" class="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50">
+                                    <i class="fas fa-right-from-bracket mr-2"></i>{{ __('Sair') }}
                                 </button>
                             </form>
                         </div>
                     </div>
                 </div>
 
-                {{-- Botão menu mobile --}}
-                <div class="flex items-center md:hidden" x-data="{ mobile: false }">
-                    <button @click="mobile = !mobile" class="text-gray-700 hover:text-blue-600 focus:outline-none p-2">
+                <div class="flex items-center md:hidden" data-menu>
+                    <button type="button" data-menu-botao aria-expanded="false" class="p-2 text-gray-700 hover:text-blue-600">
                         <i class="fas fa-bars text-xl"></i>
+                        <span class="sr-only">{{ __('Menu') }}</span>
                     </button>
-                    <div x-show="mobile" @click.away="mobile = false" x-transition x-cloak
-                         class="absolute top-16 right-0 left-0 bg-white shadow-lg border-t border-gray-100 py-2 z-20">
-                        @foreach($navLinks as $link)
-                            @if(Route::has($link['route']))
-                                <a href="{{ route($link['route']) }}"
-                                   class="block px-6 py-3 text-sm font-medium {{ request()->routeIs($link['route']) ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' }}">
-                                    <i class="fas {{ $link['icon'] }} mr-2 w-5"></i>{{ $link['label'] }}
-                                </a>
-                            @endif
-                        @endforeach
-                        @if(Route::has('client.profile'))
-                            <a href="{{ route('client.profile') }}" class="block px-6 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 border-t border-gray-100">
-                                <i class="fas fa-user-circle mr-2 w-5"></i>Meu Perfil
+                    <div data-menu-painel hidden class="animate-fade-in absolute left-0 right-0 top-16 z-20 border-t border-gray-100 bg-white py-2 shadow-lg">
+                        @foreach($ligacoesDoPortal as $l)
+                            <a href="{{ route($l['route']) }}"
+                               class="block px-6 py-3 text-sm font-medium {{ request()->routeIs($l['route']) ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' }}">
+                                <i class="fas {{ $l['icon'] }} mr-2 w-5"></i>{{ $l['label'] }}
                             </a>
-                        @endif
+                        @endforeach
+                        <a href="{{ route('client.profile') }}" class="block border-t border-gray-100 px-6 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                            <i class="fas fa-circle-user mr-2 w-5"></i>{{ __('Meu Perfil') }}
+                        </a>
                         <form method="POST" action="{{ route('client.logout') }}">
                             @csrf
-                            <button type="submit" class="block w-full text-left px-6 py-3 text-sm font-medium text-red-600 hover:bg-red-50">
-                                <i class="fas fa-sign-out-alt mr-2 w-5"></i>Sair
+                            <button type="submit" class="block w-full px-6 py-3 text-left text-sm font-medium text-red-600 hover:bg-red-50">
+                                <i class="fas fa-right-from-bracket mr-2 w-5"></i>{{ __('Sair') }}
                             </button>
                         </form>
                     </div>
@@ -200,38 +125,49 @@
         </div>
     </nav>
 
-    {{-- Content --}}
-    <main class="py-10">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            {{-- Mensagens flash globais --}}
-            @if(session('success'))
-                <div class="mb-6 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-xl flex items-center">
-                    <i class="fas fa-check-circle mr-2"></i><span>{{ session('success') }}</span>
-                </div>
-            @endif
-            @if(session('error'))
-                <div class="mb-6 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl flex items-center">
-                    <i class="fas fa-exclamation-circle mr-2"></i><span>{{ session('error') }}</span>
-                </div>
-            @endif
-
-            {{ $slot }}
+    <main class="flex-1 py-10">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            @yield('content')
         </div>
     </main>
 
-    {{-- Footer --}}
-    <footer class="bg-white border-t border-gray-200 mt-auto">
-        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-            <p class="text-center text-gray-500 text-sm">
-                &copy; {{ date('Y') }} {{ config('app.name') }}. Todos os direitos reservados.
-            </p>
+    <footer class="mt-auto border-t border-gray-200 bg-white">
+        <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+            <p class="text-center text-sm text-gray-500">&copy; {{ date('Y') }} {{ config('app.name') }}. {{ __('Todos os direitos reservados.') }}</p>
         </div>
     </footer>
 
-    @livewireScripts
-    {{-- Nota: o Livewire 3 já inclui o Alpine.js; não carregar outro (evita "multiple instances of Alpine"). --}}
+    <script>
+        // Os dois menus do topo: abrem no botão, fecham ao clicar fora ou com Escape.
+        (function () {
+            var menus = document.querySelectorAll('[data-menu]');
+            function fechar(excepto) {
+                menus.forEach(function (m) {
+                    if (m === excepto) return;
+                    m.querySelector('[data-menu-painel]').hidden = true;
+                    m.querySelector('[data-menu-botao]').setAttribute('aria-expanded', 'false');
+                });
+            }
+            menus.forEach(function (m) {
+                var botao = m.querySelector('[data-menu-botao]');
+                var painel = m.querySelector('[data-menu-painel]');
+                botao.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    fechar(m);
+                    painel.hidden = !painel.hidden;
+                    botao.setAttribute('aria-expanded', painel.hidden ? 'false' : 'true');
+                });
+            });
+            document.addEventListener('click', function (e) {
+                if (!e.target.closest('[data-menu]')) fechar(null);
+            });
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') fechar(null);
+            });
+        })();
+    </script>
 
-    <!-- PWA Service Worker -->
+    @include('partials.react-pacote')
     @include('partials.pwa-register')
 </body>
 </html>

@@ -20,7 +20,15 @@ class CheckSubscription
         }
         
         $user = auth()->user();
-        
+
+        // Só os utilizadores das empresas têm subscrição. No portal do cliente o
+        // `auth:client` põe o guard `client` como o do pedido, e `auth()->user()`
+        // devolve um Client — que não tem empresa activa: o activeTenant() mais
+        // abaixo rebentava e as páginas do portal davam erro 500.
+        if (! $user instanceof \App\Models\User) {
+            return $next($request);
+        }
+
         // Super Admin tem acesso total
         if ($user->is_super_admin) {
             return $next($request);

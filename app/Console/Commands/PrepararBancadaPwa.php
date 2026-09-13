@@ -50,6 +50,9 @@ class PrepararBancadaPwa extends Command
      */
     public const EMAIL_DONO = 'dono@pwa.local';
 
+    /** O cliente da bancada entra no PORTAL DO CLIENTE com este email e a mesma senha. */
+    public const EMAIL_PORTAL = 'cliente@pwa.local';
+
     public function handle(): int
     {
         if (!app()->environment('local')) {
@@ -166,6 +169,15 @@ class PrepararBancadaPwa extends Command
             ['name' => 'Cliente da Bancada', 'type' => 'pessoa_juridica', 'is_active' => true]
         );
 
+        // O portal do cliente precisa de uma porta aberta para os ensaios de
+        // browser: email, senha e o acesso ligado.
+        $cliente->forceFill([
+            'email' => self::EMAIL_PORTAL,
+            'password' => \Illuminate\Support\Facades\Hash::make(self::PASSWORD),
+            'portal_access' => true,
+            'is_active' => true,
+        ])->save();
+
         /*
          * DOIS DELES SÃO MEDICAMENTOS, e de propósito.
          *
@@ -232,6 +244,7 @@ class PrepararBancadaPwa extends Command
             ['Password', self::PASSWORD],
             ['PIN',      self::PIN],
             ['Dono da plataforma', self::EMAIL_DONO],
+            ['Portal do cliente', self::EMAIL_PORTAL . ' (/client/login)'],
             ['Artigos',  $artigos],
             ['Mesas',    $mesas],
             ['Funcionários', $pessoas],

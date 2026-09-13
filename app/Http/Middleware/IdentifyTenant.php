@@ -16,7 +16,9 @@ class IdentifyTenant
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (!auth()->check()) {
+        // Só utilizadores das empresas: no portal do cliente o guard do pedido é
+        // `client`, e um Client não pertence a empresas desta maneira.
+        if (!auth()->check() || !auth()->user() instanceof \App\Models\User) {
             return $next($request);
         }
 

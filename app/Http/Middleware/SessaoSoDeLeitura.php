@@ -37,7 +37,7 @@ class SessaoSoDeLeitura
     {
         $response = $next($request);
 
-        if ($request->isMethodSafe() && $request->is('api/*') && $request->hasSession()) {
+        if ($request->isMethodSafe() && $request->is('api/*', 'client/api/*') && $request->hasSession()) {
             $sessao = $request->session();
 
             if ($sessao instanceof Store) {

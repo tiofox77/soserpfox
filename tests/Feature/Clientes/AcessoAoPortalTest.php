@@ -2,14 +2,12 @@
 
 namespace Tests\Feature\Clientes;
 
-use App\Livewire\Client\ClientLogin;
 use App\Mail\AcessoAoPortalDoCliente;
 use App\Models\Client;
 use App\Services\Clientes\AcessoAoPortal;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -95,11 +93,11 @@ class AcessoAoPortalTest extends TenantTestCase
         $cliente = $this->cliente();
         $r = app(AcessoAoPortal::class)->conceder($cliente);
 
-        Livewire::test(ClientLogin::class)
-            ->set('email', $cliente->email)
-            ->set('password', $r['senha'])
-            ->call('login')
-            ->assertHasNoErrors();
+        // A entrada passou a React: o formulário faz POST a /client/login.
+        auth()->logout();
+        $this->postJson('/client/login', ['email' => $cliente->email, 'password' => $r['senha']])
+            ->assertOk()
+            ->assertJsonPath('ir_para', route('client.dashboard'));
 
         $this->assertTrue(Auth::guard('client')->check());
         $this->assertSame($cliente->id, Auth::guard('client')->id());
@@ -112,11 +110,10 @@ class AcessoAoPortalTest extends TenantTestCase
         $r = app(AcessoAoPortal::class)->conceder($cliente);
         app(AcessoAoPortal::class)->revogar($cliente);
 
-        Livewire::test(ClientLogin::class)
-            ->set('email', $cliente->email)
-            ->set('password', $r['senha'])
-            ->call('login')
-            ->assertHasErrors('email');
+        auth()->logout();
+        $this->postJson('/client/login', ['email' => $cliente->email, 'password' => $r['senha']])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('email');
 
         $this->assertFalse(Auth::guard('client')->check());
     }

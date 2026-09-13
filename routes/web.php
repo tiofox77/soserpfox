@@ -2653,19 +2653,35 @@ Route::middleware(['auth', 'tenant.module:eventos'])->prefix('events')->name('ev
 // ============================================
 
 // Login do Cliente
-Route::get('/client/login', \App\Livewire\Client\ClientLogin::class)->name('client.login');
-Route::get('/client/forgot-password', function () {
-    return view('client.forgot-password');
-})->name('client.forgot-password');
+Route::group([], function () {
+    Route::get('/client/login', \App\Support\EcraReact::entradaCliente('cliente/entrada', 'Portal do Cliente'))->name('client.login');
+    // Tentativas limitadas por email e IP: ver EntradaNoPortalController.
+    Route::post('/client/login', [\App\Http\Controllers\Cliente\EntradaNoPortalController::class, 'entrar'])->name('client.login.entrar');
+    // A vista `client.forgot-password` nunca existiu: a ligação dava erro 500.
+    Route::get('/client/forgot-password', \App\Support\EcraReact::entradaCliente('cliente/esqueci-a-senha', 'Esqueceu a senha?'))->name('client.forgot-password');
+});
 
 // Rotas protegidas do cliente
 Route::middleware(['auth:client'])->prefix('client')->name('client.')->group(function () {
-    Route::get('/dashboard', \App\Livewire\Client\ClientDashboard::class)->name('dashboard');
-    Route::get('/statement', \App\Livewire\Client\ClientStatement::class)->name('statement');
-    Route::get('/events', \App\Livewire\Client\ClientEvents::class)->name('events');
-    Route::get('/invoices', \App\Livewire\Client\ClientInvoices::class)->name('invoices');
-    Route::get('/proformas', \App\Livewire\Client\ClientProformas::class)->name('proformas');
-    Route::get('/profile', \App\Livewire\Client\ClientProfile::class)->name('profile');
+    Route::get('/dashboard', \App\Support\EcraReact::cliente('cliente/painel', 'Portal do Cliente'))->name('dashboard');
+    Route::get('/statement', \App\Support\EcraReact::cliente('cliente/extrato', 'Extrato Financeiro'))->name('statement');
+    Route::get('/events', \App\Support\EcraReact::cliente('cliente/eventos', 'Meus Eventos'))->name('events');
+    Route::get('/invoices', \App\Support\EcraReact::cliente('cliente/facturas', 'Minhas Faturas'))->name('invoices');
+    Route::get('/proformas', \App\Support\EcraReact::cliente('cliente/proformas', 'Minhas Proformas'))->name('proformas');
+    Route::get('/profile', \App\Support\EcraReact::cliente('cliente/perfil', 'Meu Perfil'))->name('profile');
+
+    Route::prefix('api')->name('api.')->group(function () {
+        $c = \App\Http\Controllers\Api\Cliente\PortalDoClienteApiController::class;
+
+        Route::get('/painel', [$c, 'painel'])->name('painel');
+        Route::get('/extrato', [$c, 'extrato'])->name('extrato');
+        Route::get('/facturas', [$c, 'facturas'])->name('facturas');
+        Route::get('/proformas', [$c, 'proformas'])->name('proformas');
+        Route::get('/eventos', [$c, 'eventos'])->name('eventos');
+        Route::get('/perfil', [$c, 'perfil'])->name('perfil');
+        Route::put('/perfil', [$c, 'guardarPerfil'])->name('perfil.guardar');
+        Route::put('/senha', [$c, 'mudarSenha'])->name('senha');
+    });
 
     // Logout do portal (POST) — funciona a partir de qualquer página do portal
     Route::post('/logout', function (\Illuminate\Http\Request $request) {

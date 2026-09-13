@@ -36,6 +36,23 @@ final class EcraReact
         return self::servir('react.ecra-superadmin', $ecra, $titulo, $props, $aoAbrir);
     }
 
+    /**
+     * NO PORTAL DO CLIENTE — o layout do portal, com o menu do cliente e sem o
+     * da empresa.
+     */
+    public static function cliente(string $ecra, string $titulo, array $props = []): Closure
+    {
+        return self::servir('react.ecra-cliente', $ecra, $titulo, $props, null);
+    }
+
+    /** A entrada do portal: página sem menu, só o ecrã. */
+    public static function entradaCliente(string $ecra, string $titulo, array $props = []): Closure
+    {
+        // O logótipo e o nome saem da configuração a cada pedido: a página de
+        // entrada não tem layout que os desenhe.
+        return self::servir('react.entrada-cliente', $ecra, $titulo, $props, fn () => ['logo' => app_logo(), 'nome' => app_name()]);
+    }
+
     private static function servir(string $vista, string $ecra, string $titulo, array $props, ?Closure $aoAbrir): Closure
     {
         return function () use ($vista, $ecra, $titulo, $props, $aoAbrir) {
