@@ -2,22 +2,20 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Support\EcraReact;
 
 class ChangelogController extends Controller
 {
     /**
-     * Página pública do changelog do SOS ERP.
-     * Lê a configuração `config/changelog.php`.
+     * As actualizações do sistema — o ecrã `conta/actualizacoes`, com as versões
+     * do `config/changelog.php` nas props (são poucas dezenas de KB e não mudam
+     * entre deploys, por isso não merecem uma ida à API).
      */
     public function index()
     {
-        $current  = (string) config('changelog.current', '1.0.0');
-        $releases = (array) config('changelog.releases', []);
-
-        return view('changelog.index', [
-            'currentVersion' => $current,
-            'releases'       => $releases,
-        ]);
+        return EcraReact::pagina('conta/actualizacoes', 'Atualizações do Sistema', [
+            'atual' => (string) config('changelog.current', '1.0.0'),
+            'versoes' => array_values((array) config('changelog.releases', [])),
+        ])();
     }
 }

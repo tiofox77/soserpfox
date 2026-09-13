@@ -101,6 +101,8 @@ export const ecras: Record<string, Ecra> = {
     // O portal do cliente (guard `client`).
     'registo/assistente': () =>
         import('./registo/Assistente'),
+    'conta/actualizacoes': () =>
+        import('./conta/Actualizacoes'),
     'inicio': () =>
         import('./casca/Inicio'),
     'setup/assistente': () =>

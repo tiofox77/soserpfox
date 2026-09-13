@@ -10238,5 +10238,16 @@
     "Receita Mensal": "Monthly revenue",
     "Sem leads ainda. Aguarda visitantes na landing.": "No leads yet. Waiting for visitors on the landing page.",
     "Ver Leads": "See leads",
-    "Visitantes Landing": "Landing visitors"
+    "Visitantes Landing": "Landing visitors",
+    "A versão actual está sempre visível no header do PWA e neste cabeçalho — confirme que coincide com :versao.": "The current version is always shown in the PWA header and in this header — check that it matches :versao.",
+    "Histórico de versões e novidades do SOS ERP": "SOS ERP version history and what's new",
+    "Nenhuma nota encontrada.": "No notes found.",
+    "O PWA já estava instalado e os ícones não mudaram?": "The PWA was already installed and the icons didn't change?",
+    "O conteúdo da app actualiza-se automaticamente — quando há nova versão aparece um aviso \"Nova versão disponível\" no canto inferior direito (basta clicar em Atualizar agora).": "The app's content updates automatically — when there's a new version a \"New version available\" notice appears in the bottom-right corner (just click Update now).",
+    "Os ícones do atalho são guardados pelo sistema operativo (Android/iOS/Windows) no momento da instalação e não actualizam sozinhos.": "Shortcut icons are stored by the operating system (Android/iOS/Windows) at install time and don't update on their own.",
+    "Para ver os novos ícones: desinstalar o atalho (manter premido → Desinstalar) e reinstalar a partir do botão \"Instalar\" do navegador.": "To see the new icons: uninstall the shortcut (long press → Uninstall) and reinstall it from the browser's \"Install\" button.",
+    "Procurar nas notas": "Search the notes",
+    "Procurar nas notas…": "Search the notes…",
+    "Sugestões ou problemas? Use o botão de suporte no canto inferior direito.": "Suggestions or problems? Use the support button in the bottom-right corner.",
+    "Versão Actual": "Current version"
 }

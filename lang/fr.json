@@ -10238,5 +10238,16 @@
     "Receita Mensal": "Revenu mensuel",
     "Sem leads ainda. Aguarda visitantes na landing.": "Pas encore de prospects. En attente de visiteurs sur la page d'accueil.",
     "Ver Leads": "Voir les prospects",
-    "Visitantes Landing": "Visiteurs de la page d'accueil"
+    "Visitantes Landing": "Visiteurs de la page d'accueil",
+    "A versão actual está sempre visível no header do PWA e neste cabeçalho — confirme que coincide com :versao.": "La version actuelle est toujours visible dans l'en-tête du PWA et ici — vérifiez qu'elle correspond à :versao.",
+    "Histórico de versões e novidades do SOS ERP": "Historique des versions et nouveautés de SOS ERP",
+    "Nenhuma nota encontrada.": "Aucune note trouvée.",
+    "O PWA já estava instalado e os ícones não mudaram?": "Le PWA était déjà installé et les icônes n'ont pas changé ?",
+    "O conteúdo da app actualiza-se automaticamente — quando há nova versão aparece um aviso \"Nova versão disponível\" no canto inferior direito (basta clicar em Atualizar agora).": "Le contenu de l'app se met à jour automatiquement — lorsqu'une nouvelle version existe, un avis « Nouvelle version disponible » apparaît en bas à droite (cliquez sur Mettre à jour).",
+    "Os ícones do atalho são guardados pelo sistema operativo (Android/iOS/Windows) no momento da instalação e não actualizam sozinhos.": "Les icônes du raccourci sont enregistrées par le système (Android/iOS/Windows) à l'installation et ne se mettent pas à jour seules.",
+    "Para ver os novos ícones: desinstalar o atalho (manter premido → Desinstalar) e reinstalar a partir do botão \"Instalar\" do navegador.": "Pour voir les nouvelles icônes : désinstallez le raccourci (appui long → Désinstaller) et réinstallez-le depuis le bouton « Installer » du navigateur.",
+    "Procurar nas notas": "Rechercher dans les notes",
+    "Procurar nas notas…": "Rechercher dans les notes…",
+    "Sugestões ou problemas? Use o botão de suporte no canto inferior direito.": "Suggestions ou problèmes ? Utilisez le bouton d'assistance en bas à droite.",
+    "Versão Actual": "Version actuelle"
 }
