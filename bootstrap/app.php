@@ -16,6 +16,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Um separador aberto de antes do React ainda fala Livewire: 409, e o
+        // layout antigo recarrega a página para a nova. Antes de tudo, para
+        // nem chegar à sessão nem ao CSRF.
+        $middleware->prepend(\App\Http\Middleware\SeparadorDeAntesDoReact::class);
+
         // Cabeçalhos de segurança em todas as respostas (HSTS, CSP, X-Frame,
         // nosniff, Referrer-Policy, Permissions-Policy; remove X-Powered-By).
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
