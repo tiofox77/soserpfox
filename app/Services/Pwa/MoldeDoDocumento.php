@@ -212,7 +212,10 @@ final class MoldeDoDocumento
             }
         }
 
-        $aPagar = self::DOC['TOTAL'] - self::DOC['RETENCAO'];
+        // O `total` gravado JÁ leva a retenção descontada: é o que se paga. O
+        // «Total da Fatura» do papel é o de antes de reter (App\Support\TotaisDoPapel).
+        $aPagar = self::DOC['TOTAL'];
+        $doDocumento = self::DOC['TOTAL'] + self::DOC['RETENCAO'];
 
         $mapa = [
             numberToWords($aPagar, 'AOA')                       => '%%EXTENSO%%',
@@ -221,7 +224,7 @@ final class MoldeDoDocumento
             $f2(self::DOC['DESC_COMERCIAL'])                    => '%%DESC_COMERCIAL%%',
             $f2(self::DOC['DESC_FINANCEIRO'])                   => '%%DESC_FINANCEIRO%%',
             $f2(self::DOC['IVA'])                               => '%%IVA%%',
-            $f2(self::DOC['TOTAL'])                             => '%%TOTAL%%',
+            $f2($doDocumento)                                   => '%%TOTAL%%',
             $f2(self::DOC['RETENCAO'])                          => '%%RETENCAO%%',
             $f2(self::DOC['RECEBIDO'])                          => '%%RECEBIDO%%',
             $f2($aPagar)                                        => '%%A_PAGAR%%',

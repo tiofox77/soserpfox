@@ -606,7 +606,7 @@
                         </div>
                         <div class="summary-row">
                             <span>Total do Orçamento</span>
-                            <span>{{ number_format($quote->total, 2, ',', '.') }}</span>
+                            <span>{{ number_format(\App\Support\TotaisDoPapel::doDocumento($quote), 2, ',', '.') }}</span>
                         </div>
                         <div class="summary-row">
                             <span>Retenção</span>
@@ -614,11 +614,11 @@
                         </div>
                         <div class="summary-row summary-total">
                             <span>Total a Pagar</span>
-                            <span>{{ number_format($quote->total - ($quote->irt_amount ?? 0), 2, ',', '.') }}</span>
+                            <span>{{ number_format(\App\Support\TotaisDoPapel::aPagar($quote), 2, ',', '.') }}</span>
                         </div>
 
                         <div class="total-extenso">
-                            {{ numberToWords($quote->total - ($quote->irt_amount ?? 0), 'AOA') }}
+                            {{ numberToWords(\App\Support\TotaisDoPapel::aPagar($quote), 'AOA') }}
                         </div>
                     </div>
                 </div>

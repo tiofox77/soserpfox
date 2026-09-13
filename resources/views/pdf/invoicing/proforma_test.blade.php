@@ -398,10 +398,10 @@
                     </div>
                     <div class="totals-row totals-final">
                         <span>TOTAL A PAGAR</span>
-                        <span>{{ number_format($proforma->total - ($proforma->irt_amount ?? 0), 2, ',', '.') }} Kz</span>
+                        <span>{{ number_format(\App\Support\TotaisDoPapel::aPagar($proforma), 2, ',', '.') }} Kz</span>
                     </div>
                     <div class="extenso">
-                        {{ number_format($proforma->total - ($proforma->irt_amount ?? 0), 2, ',', '.') }} AOA
+                        {{ number_format(\App\Support\TotaisDoPapel::aPagar($proforma), 2, ',', '.') }} AOA
                     </div>
                 </div>
             </div>

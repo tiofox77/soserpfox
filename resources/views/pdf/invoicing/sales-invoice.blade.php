@@ -821,7 +821,7 @@
                         </div>
                         <div class="summary-row">
                             <span>Total da Fatura</span>
-                            <span>{{ number_format($invoice->total, 2, ',', '.') }}</span>
+                            <span>{{ number_format(\App\Support\TotaisDoPapel::doDocumento($invoice), 2, ',', '.') }}</span>
                         </div>
                         <div class="summary-row">
                             <span>Retenção</span>
@@ -829,7 +829,7 @@
                         </div>
                         <div class="summary-row summary-total">
                             <span>{{ $isFR ? 'Total Pago' : 'Total a Pagar' }}</span>
-                            <span>{{ number_format($invoice->total - ($invoice->irt_amount ?? 0), 2, ',', '.') }}</span>
+                            <span>{{ number_format(\App\Support\TotaisDoPapel::aPagar($invoice), 2, ',', '.') }}</span>
                         </div>
 
                         @if($isFR)
@@ -845,7 +845,7 @@
                         @endif
                         
                         <div class="total-extenso">
-                            {{ numberToWords($invoice->total - ($invoice->irt_amount ?? 0), 'AOA') }}
+                            {{ numberToWords(\App\Support\TotaisDoPapel::aPagar($invoice), 'AOA') }}
                         </div>
                     </div>
                 </div>

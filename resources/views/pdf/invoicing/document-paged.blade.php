@@ -808,10 +808,10 @@
                             </div>
                             <div class="totals-row highlight">
                                 <span>TOTAL A PAGAR</span>
-                                <span>{{ number_format(($document->total ?? 0) - ($document->irt_amount ?? 0), 2, ',', '.') }} Kz</span>
+                                <span>{{ number_format(\App\Support\TotaisDoPapel::aPagar($document), 2, ',', '.') }} Kz</span>
                             </div>
                             <div class="total-extenso">
-                                @php $totalPagar = ($document->total ?? 0) - ($document->irt_amount ?? 0); @endphp
+                                @php $totalPagar = \App\Support\TotaisDoPapel::aPagar($document); @endphp
                                 {{ function_exists('numberToWords') ? numberToWords($totalPagar, 'AOA') : '' }}
                             </div>
                         </div>

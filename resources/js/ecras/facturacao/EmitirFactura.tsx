@@ -198,6 +198,18 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
 
     const retencaoValor = totais && retencaoPct ? Math.round(totais.base * Number(retencaoPct)) / 100 : 0;
 
+    /*
+     * A RETENÇÃO QUE O DOCUMENTO VAI TER — uma só, como o EmissorDeFacturas.
+     *
+     * A indicada manda; sem ela, uma prestação de serviço retém os 6,5% de
+     * IRT, e esses já vêm tirados do `totais.total` que o servidor contou. O
+     * ecrã tirava a indicada POR CIMA desse total: um serviço com retenção
+     * indicada aparecia com as duas descontadas, e um serviço sem ela baixava
+     * o total sem mostrar a linha da retenção.
+     */
+    const retencaoEfectiva = retencaoValor > 0 ? retencaoValor : (totais?.retencao ?? 0);
+    const totalAPagar = totais ? Math.round((totais.total + totais.retencao - retencaoEfectiva) * 100) / 100 : 0;
+
     const guardar = useMutation({
         mutationFn: (status: 'draft' | 'pending') => {
             const corpo = {
@@ -764,12 +776,16 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
                                 <ParcelaDoTotal rotulo={t('Incidência de IVA')} valor={kz(totais.base)} />
                                 <ParcelaDoTotal rotulo={t('Imposto')} valor={kz(totais.imposto)} icone="fa-percent" realce="imposto" />
                                 {Number(descontoFinanceiro) > 0 && <ParcelaDoTotal rotulo={t('Desconto financeiro')} valor={kz(-Number(descontoFinanceiro))} icone="fa-scissors" />}
-                                {retencaoValor > 0 && <ParcelaDoTotal rotulo={t('Retenção :tipo', { tipo: retencaoTipo })} valor={kz(-retencaoValor)} icone="fa-hand-holding-dollar" realce="retencao" />}
+                                {retencaoEfectiva > 0 && (
+                                    <ParcelaDoTotal
+                                        rotulo={retencaoValor > 0 ? t('Retenção :tipo', { tipo: retencaoTipo }) : t('Retenção IRT (6,5%)')}
+                                        valor={kz(-retencaoEfectiva)} icone="fa-hand-holding-dollar" realce="retencao" />
+                                )}
                             </dl>
 
                             <TotalGrande
                                 rotulo={t('Total')}
-                                valor={<>{kz(totais.total - retencaoValor)} <span className="text-base font-normal text-emerald-800/60">Kz</span></>}
+                                valor={<>{kz(totalAPagar)} <span className="text-base font-normal text-emerald-800/60">Kz</span></>}
                                 nota={t('Contado no servidor — é o mesmo cálculo que assina o documento.')}
                             />
 

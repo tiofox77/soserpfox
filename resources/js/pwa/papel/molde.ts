@@ -132,7 +132,11 @@ export function contasDoDocumento(doc: Registo) {
     const retencao = doc.is_service ? Math.round(liquidoDoc * (Number.isFinite(pct) ? pct : 6.5)) / 100 : 0;
     const total = Math.max(0, liquidoDoc + ivaDoc - financeiro - retencao);
 
-    return { linhas, subtotal, comercial, financeiro, iva: ivaDoc, retencao, total, aPagar: total - retencao };
+    // O `total` já leva a retenção descontada (como o servidor grava): é o que se
+    // paga. O «Total da Fatura» do papel é o de antes de reter — ver
+    // App\Support\TotaisDoPapel. O `aPagar` era `total − retencao` e o papel
+    // sem rede descontava-a duas vezes, como o do servidor.
+    return { linhas, subtotal, comercial, financeiro, iva: ivaDoc, retencao, total, totalDoDocumento: total + retencao, aPagar: total };
 }
 
 export interface ExtrasDoPapel {
@@ -266,7 +270,7 @@ export function preencherMolde(moldeHtml: string, doc: Registo, extras: ExtrasDo
         DESC_COMERCIAL: fmt2(c.comercial),
         DESC_FINANCEIRO: fmt2(c.financeiro),
         IVA: fmt2(c.iva),
-        TOTAL: fmt2(c.total),
+        TOTAL: fmt2(c.totalDoDocumento),
         RETENCAO: fmt2(c.retencao),
         A_PAGAR: fmt2(c.aPagar),
         RECEBIDO: fmt2(doc.amount_received != null ? doc.amount_received : c.total),

@@ -119,6 +119,14 @@ describe('as contas do documento (ecrã, papel e lista batem com o servidor)', (
         expect(servico.total).toBeCloseTo(2700 + 378 - 175.5, 2);
     });
 
+    it('a retenção sai do total UMA vez: a pagar é o total, e o total do documento é antes de reter', () => {
+        const c = contasDoDocumento({ items: itens, is_service: true });
+
+        expect(c.aPagar).toBeCloseTo(c.total, 2);
+        expect(c.totalDoDocumento).toBeCloseTo(c.total + c.retencao, 2);
+        expect(c.aPagar).toBeCloseTo(2700 + 378 - 175.5, 2);
+    });
+
     it('um total nunca fica negativo', () => {
         expect(contasDoDocumento({ items: itens, discount_financial: 999999 }).total).toBe(0);
     });

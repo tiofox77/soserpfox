@@ -764,7 +764,7 @@
                         </div>
                         <div class="summary-row">
                             <span>Total da Proforma</span>
-                            <span>{{ number_format($proforma->total, 2, ',', '.') }}</span>
+                            <span>{{ number_format(\App\Support\TotaisDoPapel::doDocumento($proforma), 2, ',', '.') }}</span>
                         </div>
                         <div class="summary-row">
                             <span>Retenção</span>
@@ -772,11 +772,11 @@
                         </div>
                         <div class="summary-row summary-total">
                             <span>Total a Pagar</span>
-                            <span>{{ number_format($proforma->total - ($proforma->irt_amount ?? 0), 2, ',', '.') }}</span>
+                            <span>{{ number_format(\App\Support\TotaisDoPapel::aPagar($proforma), 2, ',', '.') }}</span>
                         </div>
                         
                         <div class="total-extenso">
-                            {{ numberToWords($proforma->total - ($proforma->irt_amount ?? 0), 'AOA') }}
+                            {{ numberToWords(\App\Support\TotaisDoPapel::aPagar($proforma), 'AOA') }}
                         </div>
                     </div>
                 </div>

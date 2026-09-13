@@ -764,10 +764,10 @@
                             </div>
                             <div class="totals-row highlight">
                                 <span>TOTAL A PAGAR</span>
-                                <span>{{ number_format($invoice->total - ($invoice->irt_amount ?? 0), 2, ',', '.') }} Kz</span>
+                                <span>{{ number_format(\App\Support\TotaisDoPapel::aPagar($invoice), 2, ',', '.') }} Kz</span>
                             </div>
                             <div class="total-extenso">
-                                {{ numberToWords($invoice->total - ($invoice->irt_amount ?? 0), 'AOA') }}
+                                {{ numberToWords(\App\Support\TotaisDoPapel::aPagar($invoice), 'AOA') }}
                             </div>
                         </div>
                     </div>
