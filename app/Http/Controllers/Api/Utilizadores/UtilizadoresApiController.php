@@ -58,6 +58,99 @@ class UtilizadoresApiController extends Controller
         return (bool) ($eu?->can($permissao) || $eu?->can('users.manage'));
     }
 
+    /**
+     * NINGUÉM SOBE NA ESCADA PELAS PRÓPRIAS MÃOS.
+     *
+     * O ecrã novo deu ao Gestor `users.edit` e `users.invite` (antes as três
+     * páginas estavam atrás de `users.manage`, que ele não tem). E as portas
+     * gravavam os papéis que viessem no pedido: um Gestor dava a si próprio o
+     * papel «Super Admin», convidava alguém com ele, mudava a senha do
+     * Administrador e desactivava-o (auditoria de 2026-09-13).
+     *
+     * A regra: quem não gere papéis (`users.manage` ou `users.roles.manage`) só
+     * dá um papel se tiver, ELE PRÓPRIO NESSA EMPRESA, todas as permissões desse
+     * papel; e não mexe em quem tem permissões que ele não tem. Lê-se da base e
+     * não do `can()`, porque o `can()` responde pela empresa activa e as
+     * permissões são por empresa.
+     *
+     * @return array<string, true>
+     */
+    private function permissoesNaEmpresa(int $userId, int $empresaId): array
+    {
+        $viaPapel = DB::table('model_has_roles as mr')
+            ->join('role_has_permissions as rp', 'rp.role_id', '=', 'mr.role_id')
+            ->join('permissions as p', 'p.id', '=', 'rp.permission_id')
+            ->where('mr.model_type', User::class)
+            ->where('mr.model_id', $userId)
+            ->where('mr.tenant_id', $empresaId)
+            ->pluck('p.name');
+
+        $directas = DB::table('model_has_permissions as mp')
+            ->join('permissions as p', 'p.id', '=', 'mp.permission_id')
+            ->where('mp.model_type', User::class)
+            ->where('mp.model_id', $userId)
+            ->where('mp.tenant_id', $empresaId)
+            ->pluck('p.name');
+
+        return $viaPapel->merge($directas)->unique()->mapWithKeys(fn ($n) => [$n => true])->all();
+    }
+
+    private function gerePapeis(Request $request, int $empresaId): bool
+    {
+        $eu = $request->user();
+
+        if ($eu?->is_super_admin) {
+            return true;
+        }
+
+        $minhas = $this->permissoesNaEmpresa((int) $eu->id, $empresaId);
+
+        return isset($minhas['users.manage']) || isset($minhas['users.roles.manage']);
+    }
+
+    private function podeDarOPapel(Request $request, Role $papel, int $empresaId): bool
+    {
+        if ($this->gerePapeis($request, $empresaId)) {
+            return true;
+        }
+
+        $minhas = $this->permissoesNaEmpresa((int) $request->user()->id, $empresaId);
+
+        foreach (DB::table('role_has_permissions as rp')->join('permissions as p', 'p.id', '=', 'rp.permission_id')
+            ->where('rp.role_id', $papel->id)->pluck('p.name') as $nome) {
+            if (! isset($minhas[$nome])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** Não se mexe em quem tem mais do que nós — nem na senha, nem no PIN, nem no estado. */
+    private function protegerQuemTemMais(Request $request, User $alvo): void
+    {
+        $eu = $request->user();
+        $empresaId = (int) activeTenantId();
+
+        if ($eu?->is_super_admin || (int) $alvo->id === (int) $eu->id) {
+            return;
+        }
+
+        $minhas = $this->permissoesNaEmpresa((int) $eu->id, $empresaId);
+
+        if (isset($minhas['users.manage'])) {
+            return;
+        }
+
+        $dele = $this->permissoesNaEmpresa((int) $alvo->id, $empresaId);
+
+        abort_if(
+            $alvo->is_super_admin || array_diff_key($dele, $minhas) !== [],
+            403,
+            __('Não pode alterar um utilizador com permissões que você não tem.'),
+        );
+    }
+
     private function recusa(string $mensagem): never
     {
         throw ValidationException::withMessages(['geral' => [$mensagem]]);
@@ -88,9 +181,19 @@ class UtilizadoresApiController extends Controller
     {
         $eu = $request->user();
 
-        return $eu->is_super_admin
-            ? Tenant::orderBy('name')->get(['id', 'name'])
-            : $eu->tenants()->orderBy('name')->get(['tenants.id', 'tenants.name']);
+        if ($eu->is_super_admin) {
+            return Tenant::orderBy('name')->get(['id', 'name']);
+        }
+
+        // Só as empresas onde gere utilizadores: ser Gestor numa casa e Caixa
+        // noutra não dá para mexer nos utilizadores da segunda.
+        return $eu->tenants()->orderBy('name')->get(['tenants.id', 'tenants.name'])
+            ->filter(function ($t) use ($eu) {
+                $minhas = $this->permissoesNaEmpresa((int) $eu->id, (int) $t->id);
+
+                return isset($minhas['users.manage']) || isset($minhas['users.edit']) || isset($minhas['users.create']) || isset($minhas['users.invite']);
+            })
+            ->values();
     }
 
     public function opcoes(Request $request): JsonResponse
@@ -232,6 +335,10 @@ class UtilizadoresApiController extends Controller
     {
         $this->exigir($request, $id ? 'users.edit' : 'users.create');
 
+        if ($id) {
+            $this->protegerQuemTemMais($request, $this->daCasa($request, $id));
+        }
+
         $dados = $request->validate([
             'name' => ['required', 'string', 'min:3', 'max:150'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($id)],
@@ -316,15 +423,24 @@ class UtilizadoresApiController extends Controller
                     ->where('tenant_id', $empresaId)->update(['is_active' => true]);
             }
 
-            $u->roles()->wherePivot('tenant_id', $empresaId)->detach();
-
             $papelId = $papeis[$empresaId] ?? $papeis[(string) $empresaId] ?? null;
-            $papel = null;
 
-            if ($papelId) {
-                // O PAPEL TEM DE SER DA EMPRESA: um id de outra casa dava ao
-                // utilizador as permissões dela.
-                $papel = Role::where('id', $papelId)->where('tenant_id', $empresaId)->first();
+            // O PAPEL TEM DE SER DA EMPRESA: um id de outra casa dava ao
+            // utilizador as permissões dela.
+            $papel = $papelId ? Role::where('id', $papelId)->where('tenant_id', $empresaId)->first() : null;
+
+            $actuais = DB::table('model_has_roles')->where('model_type', User::class)
+                ->where('model_id', $u->id)->where('tenant_id', $empresaId)
+                ->pluck('role_id')->map(fn ($i) => (int) $i)->sort()->values()->all();
+
+            $igual = $papel ? $actuais === [(int) $papel->id] : $actuais === [];
+
+            if (! $igual) {
+                if ($papel && ! $this->podeDarOPapel($request, $papel, (int) $empresaId)) {
+                    $this->recusa(__('Não pode dar o papel «:papel»: tem permissões que você não tem.', ['papel' => $papel->name]));
+                }
+
+                $u->roles()->wherePivot('tenant_id', $empresaId)->detach();
 
                 if ($papel) {
                     setPermissionsTeamId($empresaId);
@@ -337,7 +453,12 @@ class UtilizadoresApiController extends Controller
             }
         }
 
-        $aRetirar = array_values(array_diff($existentes, $empresas));
+        // Só se retiram empresas que QUEM EDITA gere: as outras não aparecem no
+        // formulário dele, e editar alguém tirava-o delas sem ninguém ver.
+        $geridas = $this->minhasEmpresas($request)->pluck('id')->map(fn ($i) => (int) $i)->all();
+        $aRetirar = array_values(array_diff(array_intersect($existentes, $geridas), $empresas));
+
+        setPermissionsTeamId(activeTenantId());
 
         if ($aRetirar) {
             $u->tenants()->detach($aRetirar);
@@ -377,6 +498,7 @@ class UtilizadoresApiController extends Controller
         $this->exigir($request, 'users.edit');
 
         $u = $this->daCasa($request, $id);
+        $this->protegerQuemTemMais($request, $u);
 
         if ($u->is_super_admin) {
             $this->recusa(__('Não se altera o estado de um super administrador.'));
@@ -399,6 +521,7 @@ class UtilizadoresApiController extends Controller
         $this->exigir($request, 'users.delete');
 
         $u = $this->daCasa($request, $id);
+        $this->protegerQuemTemMais($request, $u);
 
         if ($u->is_super_admin) {
             $this->recusa(__('Não se elimina um super administrador.'));
@@ -461,6 +584,7 @@ class UtilizadoresApiController extends Controller
         ]);
 
         $u = $this->daCasa($request, $id);
+        $this->protegerQuemTemMais($request, $u);
 
         // A lista dos óbvios vive num sítio só (`PinDeTurno`): estava aqui, no
         // auto-serviço e no comando, e já não eram iguais.
@@ -525,6 +649,12 @@ class UtilizadoresApiController extends Controller
             'email' => ['required', 'email', 'max:255'],
             'role_id' => ['required', Rule::exists('roles', 'id')->where('tenant_id', $tenantId)],
         ], [], ['name' => __('nome'), 'role_id' => __('papel')]);
+
+        $papelDoConvite = Role::where('id', $dados['role_id'])->where('tenant_id', $tenantId)->firstOrFail();
+
+        if (! $this->podeDarOPapel($request, $papelDoConvite, (int) $tenantId)) {
+            $this->recusa(__('Não pode dar o papel «:papel»: tem permissões que você não tem.', ['papel' => $papelDoConvite->name]));
+        }
 
         $jaEsta = User::where('email', $dados['email'])
             ->whereHas('tenants', fn ($q) => $q->where('tenants.id', $tenantId))
