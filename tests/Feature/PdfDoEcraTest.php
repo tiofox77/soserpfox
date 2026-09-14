@@ -97,9 +97,8 @@ class PdfDoEcraTest extends TenantTestCase
      * um tempo, só o do servidor sobreviveu: o desenho aprovado (a
      * pré-visualização) deixou de poder sair em papel tal como se vê.
      *
-     * O que se prende aqui é que os DOIS continuam oferecidos, lado a lado:
-     * nenhum substitui o outro. O do servidor tem texto para copiar; o do ecrã
-     * é a própria pré-visualização, e por isso nunca diverge dela.
+     * O que se prende aqui é o PDF do ecrã: é a própria pré-visualização, e por
+     * isso nunca diverge dela. O do servidor saiu (2026-09-14): saía torto.
      *
      * @test
      */
@@ -109,8 +108,10 @@ class PdfDoEcraTest extends TenantTestCase
             $s = file_get_contents(resource_path($ficheiro));
             $nome = basename($ficheiro);
 
-            $this->assertStringContainsString('/pdf', $s,
-                "{$nome}: a lista tem de deixar chegar ao papel do documento");
+            // O PDF do SERVIDOR (DomPDF) saiu das listas a pedido do utilizador
+            // (2026-09-14): saía torto. O papel do documento é o do ecrã.
+            $this->assertStringNotContainsString('}/pdf`', $s,
+                "{$nome}: o PDF do servidor saiu das listas — saía torto");
 
             $this->assertStringContainsString('PdfDoEcra', $s,
                 "{$nome}: falta o botão do PDF feito do próprio ecrã");
@@ -130,7 +131,7 @@ class PdfDoEcraTest extends TenantTestCase
      * ligação no número: quem abria a ficha para mandar um orçamento ao
      * cliente tinha de a fechar e voltar à linha.
      *
-     * A ficha oferece os DOIS papéis (o do servidor e o do ecrã), e cada
+     * A ficha oferece o PDF do ecrã (o do servidor saiu — saía torto), e cada
      * factura do histórico também. As moradas saem da `rota` que o servidor
      * manda — a da lista na ficha, a de cada factura no histórico.
      *
@@ -141,12 +142,13 @@ class PdfDoEcraTest extends TenantTestCase
         $s = file_get_contents(resource_path('js/ecras/facturacao/ListaDeDocumentos.tsx'));
 
         $ficha = $this->pedaco($s, 'function FichaDoDocumento(', 'function Soma(');
-        $this->assertStringContainsString('${rota}/${documento.id}/pdf', $ficha, 'a ficha tem de levar ao PDF do servidor');
+        // O PDF do SERVIDOR (DomPDF) saiu das listas a pedido do utilizador (2026-09-14): saía torto.
+        $this->assertStringNotContainsString('${rota}/${documento.id}/pdf', $ficha, 'o PDF do servidor saiu da ficha');
         $this->assertStringContainsString('<PdfDoEcra', $ficha, 'a ficha tem de levar o PDF do ecrã');
         $this->assertStringContainsString('${rota}/${documento.id}/preview', $ficha, 'a pré-visualização continua na ficha');
 
         $historico = $this->pedaco($s, 'function HistoricoDeConversoes(', 'const TOM_DO_ESTADO');
-        $this->assertStringContainsString('${f.rota}/${f.id}/pdf', $historico, 'cada factura do histórico tem de levar ao PDF');
+        $this->assertStringNotContainsString('${f.rota}/${f.id}/pdf', $historico, 'o PDF do servidor saiu do histórico');
         $this->assertStringContainsString('<PdfDoEcra', $historico, 'e ao PDF do ecrã');
 
         // E as moradas existem para todos os documentos da lista, e para as

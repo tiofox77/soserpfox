@@ -579,22 +579,6 @@ function FichaDoDocumento({
                         abre à parte: no mesmo separador, o PDF tomava o lugar
                         da lista. */}
                     <div className="flex items-center justify-center gap-1">
-                        <a
-                            href={`${rota}/${documento.id}/pdf`}
-                            target="_blank"
-                            rel="noreferrer"
-                            title={t('PDF')}
-                            aria-label={t('PDF de :numero', { numero: documento.numero })}
-                            className={cls(
-                                'inline-flex h-10 items-center gap-2 border border-red-200 bg-white px-4 text-sm font-semibold text-red-600',
-                                'transition-all duration-200 hover:-translate-y-0.5 hover:border-red-300 hover:bg-red-50 hover:shadow-sm',
-                                RAIO,
-                                FOCO,
-                            )}
-                        >
-                            <i className="fas fa-file-pdf" aria-hidden="true" />
-                            {t('PDF')}
-                        </a>
                         <PdfDoEcra
                             url={`${rota}/${documento.id}/preview`}
                             titulo={t('Descarregar :numero em PDF', { numero: documento.numero })}
@@ -946,16 +930,6 @@ function HistoricoDeConversoes({
                                                     servidor — venda ou compra. */}
                                                 <td className="px-3 py-2">
                                                     <div className="flex items-center justify-end gap-1">
-                                                        <a
-                                                            href={`${f.rota}/${f.id}/pdf`}
-                                                            target="_blank"
-                                                            rel="noreferrer"
-                                                            title={t('PDF')}
-                                                            aria-label={t('PDF de :numero', { numero: f.numero })}
-                                                            className={cls('p-2 text-red-500 transition-all duration-200 hover:scale-110 active:scale-100 hover:bg-red-50', RAIO, FOCO)}
-                                                        >
-                                                            <i className="fas fa-file-pdf" aria-hidden="true" />
-                                                        </a>
                                                         <PdfDoEcra
                                                             url={`${f.rota}/${f.id}/preview`}
                                                             titulo={t('Descarregar :numero em PDF', { numero: f.numero })}
@@ -1191,9 +1165,14 @@ function Linha({
                         <i className="fas fa-eye" aria-hidden="true" />
                     </a>
 
-                    {/* TRÊS CAMINHOS PARA O MESMO DOCUMENTO, e nenhum
-                        substitui outro. A PRÉ-VISUALIZAÇÃO é a origem de tudo:
-                        abre num separador e é de lá que se imprime. */}
+                    {/* DOIS CAMINHOS PARA O MESMO DOCUMENTO. A PRÉ-VISUALIZAÇÃO é
+                        a origem de tudo: abre num separador e é de lá que se
+                        imprime. O PDF é essa mesma pré-visualização, fotografada.
+
+                        O PDF DO SERVIDOR (DomPDF, o ícone com «PDF» escrito) SAIU
+                        daqui a pedido do utilizador (2026-09-14): saía torto em
+                        relação ao que o ecrã mostra. A rota `/pdf` continua a
+                        existir para quem a chama por outro lado. */}
                     <a
                         href={`${rota}/${d.id}/preview`}
                         target="_blank"
@@ -1204,18 +1183,6 @@ function Linha({
                     >
                         <i className="fas fa-print" aria-hidden="true" />
                     </a>
-                    <a
-                        href={`${rota}/${d.id}/pdf`}
-                        title={t('PDF')}
-                        aria-label={t('PDF de :numero', { numero: d.numero })}
-                        className={cls('p-2 text-red-500 transition-all duration-200 hover:scale-110 active:scale-100 hover:bg-red-50', RAIO, FOCO)}
-                    >
-                        <i className="fas fa-file-pdf" aria-hidden="true" />
-                    </a>
-
-                    {/* E o PDF DO ECRÃ: a própria pré-visualização,
-                        fotografada — o de cima sai do DomPDF e tem texto para
-                        copiar. */}
                     <PdfDoEcra
                         url={`${rota}/${d.id}/preview`}
                         titulo={t('Descarregar :numero em PDF', { numero: d.numero })}

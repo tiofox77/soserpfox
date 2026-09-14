@@ -646,24 +646,19 @@ function Accoes({
 
             <Accao href={`/invoicing/sales/invoices/${factura.id}`} icone="fa-eye" titulo={t('Ver')} />
 
-            {/* TRÊS CAMINHOS PARA O MESMO DOCUMENTO, e nenhum substitui outro.
-                A PRÉ-VISUALIZAÇÃO é a origem de tudo: abre num separador e é
-                de lá que se imprime e se confere antes de mandar. */}
+            {/* DOIS CAMINHOS PARA O MESMO DOCUMENTO. A PRÉ-VISUALIZAÇÃO é a
+                origem de tudo: abre num separador e é de lá que se imprime e se
+                confere antes de mandar. O PDF é essa mesma pré-visualização,
+                fotografada — o papel não diverge do que se vê.
+
+                O PDF DO SERVIDOR (DomPDF, o ícone com «PDF» escrito) SAIU daqui a
+                pedido do utilizador (2026-09-14): saía torto. */}
             <Accao
                 href={`/invoicing/sales/invoices/${factura.id}/preview`}
                 icone="fa-print"
                 titulo={t('Pré-visualizar / Imprimir')}
                 novoSeparador
             />
-            <Accao
-                href={`/invoicing/sales/invoices/${factura.id}/pdf`}
-                icone="fa-file-pdf"
-                titulo={t('PDF')}
-            />
-
-            {/* E o PDF DO ECRÃ: a própria pré-visualização, fotografada. É
-                isso que garante que o papel não diverge do que se vê — o do
-                servidor sai do DomPDF e tem texto para copiar e pesquisar. */}
             <PdfDoEcra
                 url={`/invoicing/sales/invoices/${factura.id}/preview`}
                 titulo={t('Descarregar :numero em PDF', { numero: factura.numero })}

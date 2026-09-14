@@ -194,14 +194,14 @@ test('os cartões do topo mostram as somas que vêm do servidor', async ({ page 
  * diverge do que se vê. Nenhum substitui o outro, e a lista em React tinha
  * ficado só com o primeiro.
  */
-test('cada factura tem o PDF do servidor e o PDF do ecrã', async ({ page }) => {
+test('cada factura tem só o PDF do ecrã (o do servidor saiu — saía torto)', async ({ page }) => {
     await page.goto(ECRA);
 
     const linha = page.locator('tbody tr').first();
 
     await expect(linha).toBeVisible({ timeout: 20_000 });
 
-    await expect(linha.locator('a[href$="/pdf"]')).toHaveCount(1);
+    await expect(linha.locator('a[href$="/pdf"]')).toHaveCount(0);
 
     // O botão do PDF do ecrã não é uma ligação: é os seus `data-*`, que o
     // ouvinte por delegação em casca/pdfDoDocumento.ts reconhece.

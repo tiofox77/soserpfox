@@ -9,6 +9,7 @@ import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { GraficoDeBarras } from '@/ui/GraficoDeBarras';
 import { Modal } from '@/ui/Modal';
+import { PdfDoEcra } from '@/ui/PdfDoEcra';
 import { ALTURAS, CORES, FOCO, RAIO, TRANSICAO, cls, data, kz, type Cor, type CorDeEcra } from '@/ui/tokens';
 
 /**
@@ -341,16 +342,12 @@ export function JanelaDoExtrato({
                                                             >
                                                                 {d.numero}
                                                             </a>
-                                                            <a
-                                                                href={moradasDoDocumento(d.id).pdf}
-                                                                target="_blank"
-                                                                rel="noreferrer"
-                                                                title={t('PDF')}
-                                                                aria-label={t('PDF de :numero', { numero: d.numero })}
-                                                                className={accao('perigo')}
-                                                            >
-                                                                <i className="fas fa-file-pdf" aria-hidden="true" />
-                                                            </a>
+                                                            {/* O PDF da factura é a pré-visualização fotografada, como
+                                                                nas listas — o do servidor saía torto. */}
+                                                            <PdfDoEcra
+                                                                url={moradasDoDocumento(d.id).preview}
+                                                                titulo={t('Descarregar :numero em PDF', { numero: d.numero })}
+                                                            />
                                                         </span>
                                                     </td>
                                                     <td className="whitespace-nowrap px-3 py-2 text-slate-500">{data(d.data)}</td>
