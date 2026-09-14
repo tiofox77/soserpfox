@@ -396,6 +396,16 @@
 
             <!-- Main Content -->
             <div class="flex-1 flex flex-col overflow-hidden">
+                {{-- A FAIXA DA PERSONIFICAÇÃO: o super admin está aqui em nome
+                     de alguém. Por cima do cabeçalho e dentro da coluna, para
+                     EMPURRAR a página em vez de a tapar. Só existe quando há
+                     personificação — as outras sessões não pagam nada por ela. --}}
+                @if(session()->has(\App\Services\Plataforma\Personificacao::CHAVE_DO_ADMIN))
+                    <x-ecra-react nome="casca/personificacao" :esqueleto="false" class="flex-none" :props="[
+                        'estado' => app(\App\Services\Plataforma\Personificacao::class)->estado(),
+                    ]" />
+                @endif
+
                 <!-- Top Bar -->
                 <header class="bg-white shadow-sm border-b border-gray-200">
                     <div class="flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4">

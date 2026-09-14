@@ -8,6 +8,7 @@ use App\Services\Casca\MensagensParaOUtilizador;
 use App\Services\Casca\NotificacoesDoSistema;
 use App\Services\Casca\PaginaInicial;
 use App\Services\Casca\PrazoDaSubscricao;
+use App\Services\Plataforma\Personificacao;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -27,6 +28,7 @@ class CascaApiController extends Controller
         private PrazoDaSubscricao $prazo,
         private NotificacoesDoSistema $sistema,
         private MensagensParaOUtilizador $mensagens,
+        private Personificacao $personificacao,
     ) {}
 
     /** A empresa activa, as outras a que pertence, e o prazo — numa ida só. */
@@ -56,6 +58,27 @@ class CascaApiController extends Controller
                 'excedido' => $maximo !== null && $contagem > $maximo,
             ],
             'prazo' => $this->prazo->para($user),
+            // A faixa da personificação: quem, onde, desde quando e até quando.
+            // Null fora dela — e é assim que a faixa sabe que tem de sair.
+            'personificacao' => $this->personificacao->estado(),
+        ]);
+    }
+
+    /**
+     * VOLTAR À PLATAFORMA — o botão da faixa da personificação.
+     *
+     * Quem chama é, para o sistema, a pessoa da empresa; o serviço confirma que
+     * havia mesmo uma personificação e que o admin ainda pode voltar.
+     */
+    public function sairDaPersonificacao(Request $request): JsonResponse
+    {
+        $admin = $this->personificacao->sair($request);
+
+        return response()->json([
+            'message' => $admin
+                ? __('Voltou à plataforma.')
+                : __('A sua conta já não pode voltar à plataforma. Inicie sessão de novo.'),
+            'seguir_para' => $this->personificacao->destino(),
         ]);
     }
 

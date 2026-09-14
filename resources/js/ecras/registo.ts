@@ -164,6 +164,9 @@ export const ecras: Record<string, Ecra> = {
         import('./casca/Lingua'),
     'casca/suporte': () =>
         import('./casca/Suporte'),
+    // A faixa de quem está numa empresa em nome de alguém (personificação).
+    'casca/personificacao': () =>
+        import('./casca/Personificacao'),
 
     // SEIS catálogos (fornecedores, categorias, marcas, armazéns, condições
     // de pagamento, impostos): o `tipo` vem nas props, o esquema do servidor.

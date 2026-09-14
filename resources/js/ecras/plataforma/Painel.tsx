@@ -1,21 +1,20 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { ErroDaApi } from '@/api/cliente';
 import { plataforma } from '@/api/plataforma';
 import { t } from '@/i18n';
-import { Botao } from '@/ui/Botao';
 import { Carregando } from '@/ui/Carregando';
 import { Cartao } from '@/ui/Cartao';
 import { CartaoNumero } from '@/ui/CartaoNumero';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { GraficoDeBarras } from '@/ui/GraficoDeBarras';
 import { GraficoHorizontal } from '@/ui/GraficoHorizontal';
-import { Modal } from '@/ui/Modal';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
 
 import { EstadoNaFaixa, Faixa } from '../facturacao/faixa';
+import { EntrarComo } from './empresas/EntrarComo';
 
 /**
  * O PAINEL DA PLATAFORMA — quantas empresas há, quanto entra e o que expira.
@@ -36,15 +35,6 @@ export default function Painel() {
         queryKey: ['plataforma', 'painel'],
         queryFn: plataforma.painel.ler,
         staleTime: 30_000,
-    });
-
-    const entrar = useMutation({
-        mutationFn: (id: number) => plataforma.painel.entrarNaEmpresa(id),
-        onSuccess: (r) => {
-            // A sessão mudou de empresa: recarregar é o que põe o resto da
-            // aplicação a olhar para a casa certa.
-            window.location.href = r.seguir_para;
-        },
     });
 
     if (painel.isPending) return <Carregando linhas={12} />;
@@ -97,8 +87,6 @@ export default function Painel() {
                     )}
                 </div>
             </Faixa>
-
-            <ErroDaAccao erro={entrar.error} />
 
             {/* OS NÚMEROS */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
@@ -310,12 +298,13 @@ export default function Painel() {
                                             {e.activa ? t('Activa') : t('Inactiva')}
                                         </Etiqueta>
 
-                                        {/* ENTRAR NA CASA: o acto com mais poder
-                                            que há, e por isso pergunta-se. */}
+                                        {/* ENTRAR EM NOME DE ALGUÉM DE LÁ: o acto
+                                            com mais poder que há, e por isso
+                                            escolhe-se a pessoa e pergunta-se. */}
                                         <button
                                             type="button"
                                             onClick={() => porAEntrar({ id: e.id, nome: e.nome })}
-                                            title={t('Entrar nesta empresa')}
+                                            title={t('Entrar em nome de alguém')}
                                             aria-label={t('Entrar em :empresa', { empresa: e.nome })}
                                             className={cls(BOTAO_DE_ACCAO, 'border-purple-200 bg-purple-50 text-purple-700')}
                                         >
@@ -401,39 +390,9 @@ export default function Painel() {
                 </Cartao>
             </div>
 
-            {/* ENTRAR NA CASA DE UMA EMPRESA — o que vai acontecer, dito antes. */}
-            <Modal
-                aberto={aEntrar !== null}
-                aoFechar={() => porAEntrar(null)}
-                titulo={t('Entrar nesta empresa')}
-                subtitulo={aEntrar?.nome}
-                icone="fa-right-to-bracket"
-                cor="roxo"
-                largura="sm"
-                rodape={
-                    <>
-                        <Botao onClick={() => porAEntrar(null)}>{t('Cancelar')}</Botao>
-                        <Botao
-                            cor="primaria"
-                            tom="solida"
-                            icone="fa-right-to-bracket"
-                            aTrabalhar={entrar.isPending}
-                            onClick={() => aEntrar && entrar.mutate(aEntrar.id)}
-                        >
-                            {t('Entrar')}
-                        </Botao>
-                    </>
-                }
-            >
-                <p className="text-sm text-slate-700">
-                    {t('A partir daqui, tudo o que fizer aparece como sendo DENTRO desta empresa — incluindo o que gravar, emitir ou apagar.')}
-                </p>
-
-                <p className={cls('mt-3 border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900', RAIO)}>
-                    <i className="fas fa-fingerprint mr-2" aria-hidden="true" />
-                    {t('A entrada fica na trilha de auditoria com o seu nome, e cada acto seguinte leva a marca de quem abriu a porta.')}
-                </p>
-            </Modal>
+            {/* ENTRAR EM NOME DE ALGUÉM DA EMPRESA — a mesma janela da lista das
+                Empresas: a pessoa escolhe-se antes, e o aviso diz tudo. */}
+            {aEntrar && <EntrarComo empresa={aEntrar} aoFechar={() => porAEntrar(null)} />}
         </div>
     );
 }
@@ -468,17 +427,4 @@ function EtiquetaDoEstado({ estado }: { estado: string }) {
     const e = mapa[estado] ?? { cor: 'neutra' as const, rotulo: estado };
 
     return <Etiqueta cor={e.cor} ponto>{e.rotulo}</Etiqueta>;
-}
-
-function ErroDaAccao({ erro }: { erro: unknown }) {
-    if (!erro) return null;
-
-    const daApi = erro instanceof ErroDaApi ? erro : null;
-
-    return (
-        <div role="alert" className={cls('border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800', RAIO)}>
-            <i className="fas fa-triangle-exclamation mr-2" aria-hidden="true" />
-            {daApi?.message ?? t('A operação não foi concluída.')}
-        </div>
-    );
 }

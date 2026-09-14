@@ -41,6 +41,15 @@ return Application::configure(basePath: dirname(__DIR__))
         // Ver App\Http\Middleware\SessaoSoDeLeitura.
         $middleware->appendToGroup('web', \App\Http\Middleware\SessaoSoDeLeitura::class);
 
+        // A personificação do super admin: prazo de duas horas, as acções que
+        // nunca se fazem em nome de outra pessoa, e o fim quando a pessoa deixa
+        // de poder estar lá. CEDO no grupo — antes do CheckSubscription, do
+        // RecordLastLogin e sobretudo do SaiQuemFoiDesactivado, que de outro
+        // modo punha fora a sessão do ADMIN por causa da conta do cliente.
+        // Todas as APIs de sessão (`api/v1/*/react`, `api/v1/casca`) estão em
+        // routes/web.php, portanto no grupo web: ficam cobertas.
+        $middleware->appendToGroup('web', \App\Http\Middleware\PersonificacaoComPrazo::class);
+
         // Licença offline (build on-premise). No grupo web e, por dentro, um
         // no-op TOTAL enquanto LICENSE_ENFORCE não estiver ligado — na cloud
         // não lê sequer a licença. Cedo no grupo para trancar antes do miolo.

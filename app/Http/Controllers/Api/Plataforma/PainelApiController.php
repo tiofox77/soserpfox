@@ -10,6 +10,7 @@ use App\Models\Plan;
 use App\Models\Subscription;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\Plataforma\Personificacao;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -256,30 +257,57 @@ class PainelApiController extends Controller
     }
 
     /**
-     * ENTRAR NA CASA DE UMA EMPRESA.
+     * EM NOME DE QUEM SE PODE ENTRAR NUMA EMPRESA.
      *
-     * É o acto com mais poder que o sistema tem: daqui para a frente tudo o que
-     * se fizer aparece como sendo dentro daquela empresa. Fica na trilha de
-     * auditoria — as linhas seguintes já levavam o `impersonator_id`, o que
-     * faltava era o MOMENTO DA ENTRADA, sem o qual a trilha mostra actos sem
-     * mostrar quem abriu a porta.
+     * Todas as pessoas da empresa, com o dono marcado e — em quem não se pode
+     * escolher — a razão (conta desactivada, super admin da plataforma…). A
+     * empresa vem junto porque o modal avisa quando ela está desactivada.
      */
-    public function entrarNaEmpresa(Request $request, int $id): JsonResponse
+    public function utilizadoresDaEmpresa(Request $request, int $id, Personificacao $personificacao): JsonResponse
     {
         $empresa = Tenant::findOrFail($id);
 
-        app(\App\Services\Audit\AuditRecorder::class)->acto(
-            'personificacao.entrou',
-            $empresa->id,
-            ['empresa' => $empresa->name],
+        return response()->json([
+            'empresa' => ['id' => $empresa->id, 'nome' => $empresa->name, 'activa' => (bool) $empresa->is_active],
+            'duracao_em_minutos' => Personificacao::DURACAO_EM_MINUTOS,
+            'utilizadores' => $personificacao->pessoasDaEmpresa($empresa, $request->user()),
+        ]);
+    }
+
+    /**
+     * ENTRAR NUMA EMPRESA EM NOME DE ALGUÉM DE LÁ.
+     *
+     * É o acto com mais poder que o sistema tem: daqui para a frente tudo o que
+     * se fizer aparece como feito por essa pessoa, com o admin marcado ao lado.
+     * Por isso pede `confirmar` explícito — o modal diz o que vai acontecer
+     * antes, e um pedido sem essa marca não entra. As regras vivem no serviço.
+     *
+     * O que aqui estava gravava uma chave de sessão que nada lia: a trilha
+     * dizia «entrou» e o admin ficava na sua própria empresa.
+     */
+    public function entrarNaEmpresa(Request $request, int $id, Personificacao $personificacao): JsonResponse
+    {
+        $empresa = Tenant::findOrFail($id);
+
+        $dados = $request->validate([
+            'confirmar' => ['accepted'],
+            'utilizador_id' => ['nullable', 'integer'],
+        ], [
+            'confirmar.accepted' => __('Confirme que quer entrar em nome desta pessoa.'),
+        ]);
+
+        $pessoa = $personificacao->entrar(
+            $request,
+            $request->user(),
             $empresa,
+            isset($dados['utilizador_id']) ? (int) $dados['utilizador_id'] : null,
         );
 
-        session(['impersonate_tenant_id' => $empresa->id]);
-
         return response()->json([
-            'message' => __('A entrar em :empresa.', ['empresa' => $empresa->name]),
-            'seguir_para' => '/dashboard',
+            'message' => __('Entrou em :empresa como :pessoa.', ['empresa' => $empresa->name, 'pessoa' => $pessoa->name]),
+            // A mesma casa onde aterra quem muda de empresa (ver
+            // CascaApiController::trocarDeEmpresa): nada ali depende de onde se veio.
+            'seguir_para' => route('home'),
         ]);
     }
 }

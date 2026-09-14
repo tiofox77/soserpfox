@@ -17,6 +17,7 @@ import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '../facturacao/faixa';
 import { ApagarDefinitivo, Desactivar, Suspender } from './empresas/Accoes';
 import { Detalhes } from './empresas/Detalhes';
+import { EntrarComo } from './empresas/EntrarComo';
 import { Formulario } from './empresas/Formulario';
 import { PlanoAMedida } from './empresas/PlanoAMedida';
 import { PlanoDaEmpresa } from './empresas/PlanoDaEmpresa';
@@ -54,6 +55,7 @@ export default function Empresas() {
     const [pessoasDe, porPessoasDe] = useState<number | null>(null);
     const [planoDe, porPlanoDe] = useState<number | null>(null);
     const [medidaDe, porMedidaDe] = useState<number | null>(null);
+    const [entrarEm, porEntrarEm] = useState<EmpresaDaLista | null>(null);
 
     const lista = useQuery({
         queryKey: ['plataforma', 'empresas', filtros],
@@ -248,6 +250,7 @@ export default function Empresas() {
                                 alternar: () => (e.activa ? porADesactivar(e) : activar.mutate(e.id)),
                                 suspender: () => porASuspender(e),
                                 apagar: () => porAApagar(e),
+                                entrar: () => porEntrarEm(e),
                             }}
                         />
                     ))}
@@ -302,6 +305,11 @@ export default function Empresas() {
                 <PlanoDaEmpresa id={planoDe} aoFechar={() => porPlanoDe(null)} aoGuardar={(m) => { porPlanoDe(null); feito(m); }} />
             )}
 
+            {/* ENTRAR EM NOME DE ALGUÉM DA EMPRESA — a mesma janela do Painel. */}
+            {entrarEm && (
+                <EntrarComo empresa={{ id: entrarEm.id, nome: entrarEm.nome }} aoFechar={() => porEntrarEm(null)} />
+            )}
+
             {medidaDe !== null && (
                 <PlanoAMedida id={medidaDe} aoFechar={() => porMedidaDe(null)} aoGuardar={(m) => { porMedidaDe(null); feito(m); }} />
             )}
@@ -315,7 +323,7 @@ function CartaoDaEmpresa({ empresa: e, indice, aActivar, accoes }: {
     empresa: EmpresaDaLista;
     indice: number;
     aActivar: boolean;
-    accoes: Record<'pessoas' | 'plano' | 'medida' | 'ver' | 'editar' | 'alternar' | 'suspender' | 'apagar', () => void>;
+    accoes: Record<'pessoas' | 'plano' | 'medida' | 'ver' | 'editar' | 'alternar' | 'suspender' | 'apagar' | 'entrar', () => void>;
 }) {
     const vida = e.vida;
     const estado = vida ? estados().find((x) => x.chave === vida.chave) : null;
@@ -434,6 +442,16 @@ function CartaoDaEmpresa({ empresa: e, indice, aActivar, accoes }: {
                     {/* AS ACÇÕES ESTÃO SEMPRE À VISTA: escondidas até ao passar do
                         rato, num tablet não havia como lhes chegar. */}
                     <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+                        {/* ENTRAR EM NOME DE ALGUÉM DE LÁ — à cabeça, porque é o que o
+                            suporte faz primeiro; a janela escolhe a pessoa e avisa. */}
+                        <Accao
+                            cor="text-orange-800 bg-gradient-to-r from-amber-100 to-orange-100 ring-1 ring-inset ring-orange-200 hover:from-amber-200 hover:to-orange-200"
+                            icone="fa-right-to-bracket"
+                            aoClicar={accoes.entrar}
+                            titulo={t('Entrar nesta empresa em nome de alguém de lá')}
+                        >
+                            {t('Entrar')}
+                        </Accao>
                         <Accao cor="text-orange-700 bg-orange-50 hover:bg-orange-100" icone="fa-users" aoClicar={accoes.pessoas}>{t('Utilizadores')}</Accao>
                         <Accao cor="text-purple-700 bg-purple-50 hover:bg-purple-100" icone="fa-crown" aoClicar={accoes.plano}>{t('Plano')}</Accao>
                         <Accao cor="text-amber-700 bg-amber-50 hover:bg-amber-100" icone="fa-sliders" aoClicar={accoes.medida} titulo={t('Montar um plano só para esta empresa')}>{t('À medida')}</Accao>

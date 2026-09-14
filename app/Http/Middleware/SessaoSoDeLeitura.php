@@ -33,9 +33,23 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class SessaoSoDeLeitura
 {
+    /**
+     * A EXCEPÇÃO: um GET que MUDOU a identidade da sessão tem de gravar.
+     *
+     * A personificação que acaba sozinha (o prazo passa enquanto o topo
+     * pergunta) acaba num GET. Sem gravar, a sessão regenerada ficava sem nada
+     * — o admin era posto fora — ou o pedido seguinte voltava a ser a pessoa
+     * personificada. Quem muda a identidade marca o pedido com este atributo.
+     */
+    public const GRAVAR = 'sessao.gravar_mesmo_numa_leitura';
+
     public function handle(Request $request, Closure $next): Response
     {
         $response = $next($request);
+
+        if ($request->attributes->get(self::GRAVAR)) {
+            return $response;
+        }
 
         if ($request->isMethodSafe() && $request->is('api/*', 'client/api/*') && $request->hasSession()) {
             $sessao = $request->session();

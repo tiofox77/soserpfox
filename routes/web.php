@@ -232,6 +232,10 @@ Route::middleware(['auth'])->prefix('api/v1/casca')->name('api.casca.')->group(f
     Route::post('/mensagens/{id}/dispensar', [$c, 'dispensar'])->whereNumber('id')->name('mensagens.dispensar');
     Route::get('/avisos', [$c, 'avisos'])->name('avisos');
     Route::get('/inicio', [$c, 'inicio'])->name('inicio');
+    // Voltar à plataforma a meio de uma personificação. Aqui, e não no grupo
+    // da plataforma: quem carrega no botão é, para o sistema, a pessoa da
+    // empresa — o `superadmin` recusava-o.
+    Route::post('/personificacao/sair', [$c, 'sairDaPersonificacao'])->name('personificacao.sair');
 });
 
 Route::middleware(['auth', 'superadmin'])->prefix('api/v1/plataforma/react')->name('api.plataforma.react.')->group(function () {
@@ -241,9 +245,12 @@ Route::middleware(['auth', 'superadmin'])->prefix('api/v1/plataforma/react')->na
         $c = \App\Http\Controllers\Api\Plataforma\PainelApiController::class;
 
         Route::get('/', [$c, 'index'])->name('index');
-        // ENTRAR NA CASA DE UMA EMPRESA: o acto com mais poder que há, e o que
-        // fica na trilha é o momento da entrada.
-        Route::post('/empresas/{id}/entrar', [$c, 'entrarNaEmpresa'])->whereNumber('id')->name('empresas.entrar');
+        // ENTRAR NUMA EMPRESA EM NOME DE ALGUÉM DE LÁ (personificação): o acto
+        // com mais poder que há. Primeiro escolhe-se a pessoa; a entrada pede
+        // confirmação e tem limite de tentativas — ver App\Services\Plataforma\Personificacao.
+        Route::get('/empresas/{id}/utilizadores', [$c, 'utilizadoresDaEmpresa'])->whereNumber('id')->name('empresas.utilizadores');
+        Route::post('/empresas/{id}/entrar', [$c, 'entrarNaEmpresa'])->whereNumber('id')
+            ->middleware('throttle:10,1')->name('empresas.entrar');
     });
 
     Route::prefix('analitica')->name('analitica.')->group(function () {

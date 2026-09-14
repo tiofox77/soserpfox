@@ -37,6 +37,31 @@ export type NumerosDaPlataforma = {
     crescimento: number | null;
 };
 
+/**
+ * EM NOME DE QUEM SE ENTRA NUMA EMPRESA.
+ *
+ * `motivo` é a frase do servidor para quem não se pode escolher (a própria
+ * conta, super admin da plataforma, desactivado): o modal mostra-a tal e qual,
+ * para a regra viver num sítio só.
+ */
+export type PessoaParaEntrar = {
+    id: number;
+    nome: string;
+    email: string;
+    papeis: string[];
+    activo: boolean;
+    dono: boolean;
+    super_admin_da_plataforma: boolean;
+    pode_entrar: boolean;
+    motivo: string | null;
+};
+
+export type PessoasParaEntrar = {
+    empresa: { id: number; nome: string; activa: boolean };
+    duracao_em_minutos: number;
+    utilizadores: PessoaParaEntrar[];
+};
+
 export type PainelDaPlataforma = {
     numeros: NumerosDaPlataforma;
     crescimento_das_empresas: Serie;
@@ -607,9 +632,18 @@ export const plataforma = {
     },
     painel: {
         ler: () => apiDaPlataforma.ler<PainelDaPlataforma>('/painel'),
-        /** Entrar na casa de uma empresa — fica na trilha de auditoria. */
-        entrarNaEmpresa: (id: number) =>
-            apiDaPlataforma.criar<Recado & { seguir_para: string }>(`/painel/empresas/${id}/entrar`, {}),
+        /** Em nome de quem se pode entrar numa empresa (o dono marcado). */
+        pessoasParaEntrar: (id: number) =>
+            apiDaPlataforma.ler<PessoasParaEntrar>(`/painel/empresas/${id}/utilizadores`),
+        /**
+         * Entrar numa empresa EM NOME DE alguém de lá (personificação). Sem
+         * `utilizador_id`, o servidor escolhe o dono. Fica na trilha de auditoria.
+         */
+        entrarNaEmpresa: (id: number, utilizadorId: number | null) =>
+            apiDaPlataforma.criar<Recado & { seguir_para: string }>(`/painel/empresas/${id}/entrar`, {
+                confirmar: true,
+                utilizador_id: utilizadorId,
+            }),
     },
     analitica: {
         ler: (filtros: FiltrosDaAnalitica = {}) =>

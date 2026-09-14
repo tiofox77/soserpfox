@@ -101,6 +101,23 @@ export type TopoDaCasca = {
         excedido: boolean;
     };
     prazo: PrazoDaSubscricao | null;
+    /** Null fora de uma personificação — ver `Personificacao::estado()` no servidor. */
+    personificacao: EstadoDaPersonificacao | null;
+};
+
+/**
+ * O SUPER ADMIN ESTÁ AQUI EM NOME DE ALGUÉM.
+ *
+ * As datas vêm em ISO com fuso: a faixa mostra-as na hora de quem olha, e é o
+ * `expira_em` que lhe diz quando perguntar ao servidor se já acabou.
+ */
+export type EstadoDaPersonificacao = {
+    activa: true;
+    admin: { id: number; nome: string } | null;
+    empresa: { id: number; nome: string; activa: boolean } | null;
+    utilizador: { id: number; nome: string; email: string } | null;
+    desde: string;
+    expira_em: string;
 };
 
 export type NotificacaoDoSino = {
@@ -156,6 +173,8 @@ export const casca = {
     inicio: () => apiDaCasca.ler<PaginaInicial>('/inicio'),
     topo: () => apiDaCasca.ler<TopoDaCasca>('/topo'),
     entrarNaEmpresa: (id: number) => apiDaCasca.criar<Recado & { ir_para: string }>(`/empresas/${id}/entrar`, {}),
+    /** Voltar à plataforma a meio de uma personificação. */
+    sairDaPersonificacao: () => apiDaCasca.criar<Recado & { seguir_para: string }>('/personificacao/sair', {}),
     notificacoes: (soPorLer: boolean) =>
         apiDaCasca.ler<{ notificacoes: NotificacaoDoSino[]; por_ler: number }>('/notificacoes', { so_por_ler: soPorLer ? 1 : 0 }),
     marcarComoLida: (id: string) => apiDaCasca.criar<Recado>(`/notificacoes/${id}/lida`, {}),

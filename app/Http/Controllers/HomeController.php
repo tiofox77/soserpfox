@@ -24,7 +24,9 @@ class HomeController extends Controller
         $user = auth()->user();
 
         // ====== SUPER ADMIN: home dedicado com analytics ======
-        if ($user->isSuperAdmin() && !session()->has('impersonate_tenant_id')) {
+        // Durante uma personificação quem está na sessão é a pessoa da empresa,
+        // que nunca é super admin — cai no início da empresa sem mais regra.
+        if ($user->isSuperAdmin()) {
             return $this->superAdminHome($user);
         }
 
