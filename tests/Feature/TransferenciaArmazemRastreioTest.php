@@ -266,6 +266,40 @@ class TransferenciaArmazemRastreioTest extends TenantTestCase
         $this->get(route('invoicing.stock.batch-preview', ['reference' => $referencia]))->assertForbidden();
     }
 
+    /**
+     * OS MOVIMENTOS ANTIGOS SEM LOTE NÃO SE JUNTAM NUMA «TRANSFERÊNCIA» SÓ.
+     *
+     * Na farmácia, 5468 ajustes e 8 transferências avulsos apareciam como uma
+     * linha sem número, com 5476 artigos e o nome e a hora do último.
+     */
+    public function test_os_movimentos_sem_lote_sao_uma_linha_cada(): void
+    {
+        $this->comStock($this->armazem, 20);
+        $referencia = $this->transferir(5)->assertCreated()->json('referencia');
+
+        // Dois ajustes à moda antiga: sem referência nenhuma.
+        $antigo1 = StockMovement::create(['tenant_id' => $this->tenant->id, 'warehouse_id' => $this->armazem->id, 'product_id' => $this->produto->id, 'type' => 'adjustment', 'quantity' => 12, 'user_id' => $this->user->id]);
+        $antigo2 = StockMovement::create(['tenant_id' => $this->tenant->id, 'warehouse_id' => $this->armazem->id, 'product_id' => $this->produto->id, 'type' => 'adjustment', 'quantity' => 11, 'user_id' => $this->user->id]);
+
+        $linhas = collect($this->getJson('/api/v1/invoicing/react/transferencias/historico')->assertOk()->json('data'));
+
+        $this->assertCount(3, $linhas, 'o lote e os dois avulsos, cada um na sua linha');
+        $lote = $linhas->firstWhere('referencia', $referencia);
+        $this->assertSame(1, $lote['produtos']);
+        $this->assertEqualsWithDelta(5, $lote['quantidade'], 0.001, 'a transferência conta a quantidade movida uma vez, não as duas pernas');
+
+        $avulso = $linhas->firstWhere('movimento_id', $antigo2->id);
+        $this->assertNull($avulso['referencia']);
+        $this->assertSame($this->produto->name, $avulso['artigo']);
+
+        // O detalhe de um avulso é só ele.
+        $this->getJson('/api/v1/invoicing/react/transferencias/detalhes?movimento=' . $antigo1->id)->assertOk()->assertJsonCount(1, 'data');
+
+        // E o filtro por tipo.
+        $this->assertCount(2, $this->getJson('/api/v1/invoicing/react/transferencias/historico?tipo=adjustment')->json('data'));
+        $this->assertCount(1, $this->getJson('/api/v1/invoicing/react/transferencias/historico?tipo=transfer')->json('data'));
+    }
+
     public function test_uma_transferencia_nao_usa_o_documento_de_entradas_e_saidas(): void
     {
         // O documento de entradas/saídas tem UM armazém e uma linha por

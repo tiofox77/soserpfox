@@ -59,9 +59,9 @@ export const stock = {
     artigos: (procura: string, armazem?: string) => api.ler<{ data: ArtigoParaLote[] }>('/stock/artigos', { procura, armazem }),
     movimentos: (produto: number) => api.ler<{ data: Movimento[] }>(`/stock/movimentos/${produto}`),
     ajustar: (corpo: { stock_id: number; nova_quantidade: number; notas?: string | null }) =>
-        api.criar<{ data: LinhaDeStock; message: string }>('/stock/ajustar', corpo),
+        api.criar<{ data: LinhaDeStock; referencia: string | null; pdf: string | null; message: string }>('/stock/ajustar', corpo),
     transferir: (corpo: { stock_id: number; para_armazem_id: number; quantidade: number; notas?: string | null }) =>
-        api.criar<{ message: string }>('/stock/transferir', corpo),
+        api.criar<{ referencia: string; pdf: string; message: string }>('/stock/transferir', corpo),
     entrada: (corpo: { armazem_id: number; itens: Array<Omit<ItemDoLote, 'code' | 'unit' | 'actual'>>; notas?: string | null }) =>
         api.criar<{ referencia: string; ok: number; erros: string[]; pdf: string; message: string }>('/stock/entrada', corpo),
 };

@@ -100,20 +100,34 @@ class TransferenciasApiController extends Controller
     {
         $this->exigirAlguma($request, self::PODE_VER);
 
-        $f = $request->validate(['procura' => ['nullable', 'string', 'max:100'], 'armazem' => ['nullable', 'integer'], 'de' => ['nullable', 'date'], 'ate' => ['nullable', 'date'], 'page' => ['nullable', 'integer', 'min:1']]);
+        $f = $request->validate(['procura' => ['nullable', 'string', 'max:100'], 'armazem' => ['nullable', 'integer'], 'tipo' => ['nullable', 'in:transfer,adjustment'], 'de' => ['nullable', 'date'], 'ate' => ['nullable', 'date'], 'page' => ['nullable', 'integer', 'min:1']]);
+
+        /*
+         * A CHAVE DE CADA LINHA: o lote (MOV/), senão o lote antigo
+         * (reference_type + reference_id), senão O PRÓPRIO MOVIMENTO.
+         *
+         * Agrupava-se só por (reference_id, reference_type), e os movimentos
+         * sem nenhum dos dois — o ajuste e a transferência de um artigo no ecrã
+         * do stock, anos de correcções — caíam TODOS no mesmo grupo: uma
+         * «transferência» sem número com 5476 artigos e 24 986 unidades, com o
+         * nome e a hora do último que lá entrou. Parecia uma transferência mal
+         * feita; era a lista a somar o que não tinha nada a ver.
+         */
+        $chave = "COALESCE(batch_reference, IF(reference_id IS NULL, CONCAT('mov:', id), CONCAT(COALESCE(reference_type, ''), ':', reference_id)))";
 
         $q = StockMovement::where('tenant_id', activeTenantId())
             ->whereIn('type', ['transfer', 'adjustment'])
-            ->select('reference_id', 'reference_type', DB::raw('MAX(id) as id'), DB::raw('MAX(warehouse_id) as warehouse_id'), DB::raw('MAX(type) as type'), DB::raw('MAX(user_id) as user_id'), DB::raw('MAX(notes) as notes'), DB::raw('MAX(created_at) as created_at'), DB::raw('MAX(batch_reference) as batch_reference'), DB::raw('COUNT(*) as products_count'), DB::raw('SUM(ABS(quantity)) as total_quantity'))
+            ->select(DB::raw("{$chave} as chave"), DB::raw('MAX(reference_id) as reference_id'), DB::raw('MAX(reference_type) as reference_type'), DB::raw('MAX(id) as id'), DB::raw('MIN(id) as primeiro_id'), DB::raw('MAX(product_id) as product_id'), DB::raw('MAX(warehouse_id) as warehouse_id'), DB::raw('MAX(type) as type'), DB::raw('MAX(user_id) as user_id'), DB::raw('MAX(notes) as notes'), DB::raw('MAX(created_at) as created_at'), DB::raw('MAX(batch_reference) as batch_reference'), DB::raw('COUNT(DISTINCT product_id) as products_count'), DB::raw('COUNT(*) as linhas'), DB::raw("SUM(CASE WHEN type = 'transfer' THEN GREATEST(quantity, 0) ELSE ABS(quantity) END) as total_quantity"))
             ->when($f['armazem'] ?? null, fn ($w, $v) => $w->where('warehouse_id', $v))
+            ->when($f['tipo'] ?? null, fn ($w, $v) => $w->where('type', $v))
             ->when($f['procura'] ?? null, fn ($w, $v) => $w->whereHas('product', fn ($p) => $p->where('name', 'like', "%{$v}%")->orWhere('code', 'like', "%{$v}%")))
             ->when($f['de'] ?? null, fn ($w, $v) => $w->where('created_at', '>=', $v . ' 00:00:00'))
             ->when($f['ate'] ?? null, fn ($w, $v) => $w->where('created_at', '<=', $v . ' 23:59:59'))
-            ->groupBy('reference_id', 'reference_type')
+            ->groupBy(DB::raw($chave))
             ->orderByDesc('created_at');
 
         $pagina = $q->paginate(15)->withQueryString();
-        $pagina->load(['warehouse:id,name', 'user:id,name']);
+        $pagina->load(['warehouse:id,name', 'user:id,name', 'product' => fn ($p) => $p->withTrashed()->select('id', 'name')]);
 
         return response()->json([
             'data' => collect($pagina->items())->map(fn ($m) => [
@@ -125,6 +139,9 @@ class TransferenciasApiController extends Controller
                 'quando' => (string) $m->created_at,
                 'armazem' => $m->warehouse?->name,
                 'produtos' => (int) $m->products_count,
+                // Um movimento avulso (antigo, sem lote): o artigo diz o que foi.
+                'movimento_id' => str_starts_with((string) $m->chave, 'mov:') ? (int) $m->id : null,
+                'artigo' => (int) $m->products_count === 1 ? $m->product?->name : null,
                 'quantidade' => round((float) $m->total_quantity, 3),
                 'quem' => $m->user?->name,
                 'notas' => $m->notes,
@@ -148,12 +165,15 @@ class TransferenciasApiController extends Controller
     {
         $this->exigirAlguma($request, self::PODE_VER);
 
-        $f = $request->validate(['referencia' => ['nullable', 'string', 'max:40'], 'reference_id' => ['nullable', 'integer']]);
+        $f = $request->validate(['referencia' => ['nullable', 'string', 'max:40'], 'reference_id' => ['nullable', 'integer'], 'movimento' => ['nullable', 'integer']]);
 
         $q = StockMovement::where('tenant_id', activeTenantId())->with(['product:id,name,code', 'warehouse:id,name', 'user:id,name']);
 
         if (! empty($f['referencia'])) {
             $q->where('batch_reference', $f['referencia']);
+        } elseif (! empty($f['movimento'])) {
+            // Um movimento avulso: só ele (e só se for de transferência ou ajuste).
+            $q->whereKey($f['movimento'])->whereNull('batch_reference')->whereIn('type', ['transfer', 'adjustment']);
         } elseif (! empty($f['reference_id'])) {
             $q->whereNull('batch_reference')->where('reference_id', $f['reference_id']);
         } else {

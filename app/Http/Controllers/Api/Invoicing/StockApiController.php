@@ -202,9 +202,21 @@ class StockApiController extends Controller
         ]);
 
         $linha = Stock::where('tenant_id', activeTenantId())->findOrFail($dados['stock_id']);
-        $stock->ajustar((int) $linha->warehouse_id, (int) $linha->product_id, (float) $dados['nova_quantidade'], $dados['notas'] ?? null);
 
-        return response()->json(['data' => $this->linha($linha->fresh(['warehouse', 'product'])), 'message' => __('Stock ajustado.')]);
+        try {
+            $referencia = $stock->ajustar((int) $linha->warehouse_id, (int) $linha->product_id, (float) $dados['nova_quantidade'], $dados['notas'] ?? null);
+        } catch (\DomainException $e) {
+            return response()->json(['message' => $e->getMessage(), 'errors' => ['nova_quantidade' => [$e->getMessage()]]], 422);
+        }
+
+        return response()->json([
+            'data' => $this->linha($linha->fresh(['warehouse', 'product'])),
+            'referencia' => $referencia,
+            'pdf' => $referencia ? '/invoicing/stock/movimentacao/' . $referencia . '/pdf' : null,
+            'message' => $referencia
+                ? __('Stock ajustado — :ref.', ['ref' => $referencia])
+                : __('O stock já estava nessa quantidade: nada a registar.'),
+        ]);
     }
 
     public function transferir(Request $request, MovimentacaoDeStock $stock): JsonResponse
@@ -229,12 +241,16 @@ class StockApiController extends Controller
         ]);
 
         try {
-            $stock->transferir((int) $linha->warehouse_id, (int) $dados['para_armazem_id'], (int) $linha->product_id, (float) $dados['quantidade'], $dados['notas'] ?? null);
+            $referencia = $stock->transferir((int) $linha->warehouse_id, (int) $dados['para_armazem_id'], (int) $linha->product_id, (float) $dados['quantidade'], $dados['notas'] ?? null);
         } catch (\Exception $e) {
             return response()->json(['message' => $e->getMessage(), 'errors' => ['quantidade' => [$e->getMessage()]]], 422);
         }
 
-        return response()->json(['message' => __('Transferência realizada.')]);
+        return response()->json([
+            'referencia' => $referencia,
+            'pdf' => '/invoicing/stock/movimentacao/' . $referencia . '/pdf',
+            'message' => __('Transferência :ref registada.', ['ref' => $referencia]),
+        ]);
     }
 
     /** A movimentação em lote: entradas e saídas manuais, com referência (MOV/AAAA/NNNNNN). */

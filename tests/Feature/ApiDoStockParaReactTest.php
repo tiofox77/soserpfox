@@ -116,8 +116,20 @@ class ApiDoStockParaReactTest extends TenantTestCase
         $this->entrada($a, 10);
         $linha = Stock::where('product_id', $a->id)->first();
 
-        $this->postJson(self::RAIZ . '/ajustar', ['stock_id' => $linha->id, 'nova_quantidade' => 7, 'notas' => 'Contagem'])
+        $r = $this->postJson(self::RAIZ . '/ajustar', ['stock_id' => $linha->id, 'nova_quantidade' => 7, 'notas' => 'Contagem'])
             ->assertOk()->assertJsonPath('data.quantidade', 7);
+
+        // Um lote de uma linha: referência MOV/, saldos e o papel em PDF.
+        $ajuste = StockMovement::where('product_id', $a->id)->where('type', 'adjustment')->first();
+        $this->assertStringStartsWith('MOV/', (string) $r->json('referencia'));
+        $this->assertSame($r->json('referencia'), $ajuste->batch_reference);
+        $this->assertEqualsWithDelta(10, $ajuste->balance_before, 0.001);
+        $this->assertEqualsWithDelta(7, $ajuste->balance_after, 0.001);
+        $this->assertSame($this->user->id, (int) $ajuste->user_id);
+        $this->assertStringEndsWith('/pdf', $r->json('pdf'));
+
+        // A mesma quantidade outra vez não regista nada.
+        $this->postJson(self::RAIZ . '/ajustar', ['stock_id' => $linha->id, 'nova_quantidade' => 7])->assertOk()->assertJsonPath('referencia', null);
 
         $this->assertEqualsWithDelta(7, $a->fresh()->stock_quantity, 0.001);
         $this->assertSame(1, StockMovement::where('product_id', $a->id)->where('type', 'adjustment')->count());
@@ -135,7 +147,11 @@ class ApiDoStockParaReactTest extends TenantTestCase
         $this->entrada($a, 10);
         $linha = Stock::where('product_id', $a->id)->first();
 
-        $this->postJson(self::RAIZ . '/transferir', ['stock_id' => $linha->id, 'para_armazem_id' => $outro->id, 'quantidade' => 4])->assertOk();
+        $ref = $this->postJson(self::RAIZ . '/transferir', ['stock_id' => $linha->id, 'para_armazem_id' => $outro->id, 'quantidade' => 4])->assertOk()->json('referencia');
+
+        // As duas pernas no mesmo lote, com os saldos dos dois lados.
+        $this->assertStringStartsWith('MOV/', (string) $ref);
+        $this->assertSame(2, StockMovement::where('batch_reference', $ref)->where('type', 'transfer')->count());
 
         $this->assertEqualsWithDelta(6, $linha->fresh()->quantity, 0.001);
         $this->assertEqualsWithDelta(4, Stock::where('warehouse_id', $outro->id)->where('product_id', $a->id)->value('quantity'), 0.001);

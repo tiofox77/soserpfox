@@ -38,7 +38,7 @@ const accao = (cor: Cor) =>
 
 export default function TransferenciasEntreArmazens() {
     const cache = useQueryClient();
-    const [filtros, porFiltros] = useState({ procura: '', armazem: '', de: '', ate: '', page: 1 });
+    const [filtros, porFiltros] = useState({ procura: '', armazem: '', tipo: '', de: '', ate: '', page: 1 });
     const [modal, porModal] = useState<'transferir' | 'ajustar' | null>(null);
     const [detalhe, porDetalhe] = useState<LoteDoHistorico | null>(null);
     const [recado, porRecado] = useRecadoNoCanto('');
@@ -87,6 +87,9 @@ export default function TransferenciasEntreArmazens() {
                     <label className="text-sm"><span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">{t('Armazém')}</span>
                         <select value={filtros.armazem} onChange={(e) => porFiltros((f) => ({ ...f, armazem: e.target.value, page: 1 }))} className={entrada}><option value="">{t('Todos')}</option>{o.armazens.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
                     </label>
+                    <label className="text-sm"><span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">{t('Tipo')}</span>
+                        <select value={filtros.tipo} onChange={(e) => porFiltros((f) => ({ ...f, tipo: e.target.value, page: 1 }))} className={entrada}><option value="">{t('Todos')}</option><option value="transfer">{t('Transferências')}</option><option value="adjustment">{t('Ajustes')}</option></select>
+                    </label>
                     <label className="text-sm"><span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">{t('De')}</span><input type="date" value={filtros.de} onChange={(e) => porFiltros((f) => ({ ...f, de: e.target.value, page: 1 }))} className={entrada} /></label>
                     <label className="text-sm"><span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">{t('Até')}</span><input type="date" value={filtros.ate} onChange={(e) => porFiltros((f) => ({ ...f, ate: e.target.value, page: 1 }))} className={entrada} /></label>
                 </div>
@@ -116,7 +119,19 @@ export default function TransferenciasEntreArmazens() {
                             )}
                             {linhas.map((l, i) => (
                                 <tr key={l.id} style={cascata(i)} className="entra group transition-all duration-200 hover:bg-purple-50/60">
-                                    <td className="whitespace-nowrap px-4 py-2 font-mono font-semibold text-slate-900">{l.referencia ?? <span className="text-xs italic text-slate-400">#{l.reference_id}</span>}</td>
+                                    <td className="px-4 py-2 font-mono font-semibold text-slate-900">
+                                        {l.referencia ? (
+                                            <span className="whitespace-nowrap">{l.referencia}</span>
+                                        ) : (
+                                            // Antigo, sem lote: diz o que foi em vez de um «#» vazio.
+                                            <span className="block font-sans">
+                                                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                                                    <i className="fas fa-clock-rotate-left" aria-hidden="true" />{l.movimento_id ? t('Avulso') : `#${l.reference_id ?? ''}`}
+                                                </span>
+                                                {l.artigo && <span className="mt-0.5 block max-w-[16rem] truncate text-xs font-medium text-slate-600" title={l.artigo}>{l.artigo}</span>}
+                                            </span>
+                                        )}
+                                    </td>
                                     <td className="px-4 py-2"><Etiqueta cor={l.tipo === 'transfer' ? 'primaria' : 'aviso'} icone={l.tipo === 'transfer' ? 'fa-exchange-alt' : 'fa-sliders'}>{l.tipo_rotulo}</Etiqueta></td>
                                     <td className="whitespace-nowrap px-4 py-2 tabular-nums text-slate-600">{dataHora(l.quando.replace(' ', 'T'))}</td>
                                     <td className="px-4 py-2">{l.armazem ? <Etiqueta cor="neutra" icone="fa-warehouse">{l.armazem}</Etiqueta> : <span className="text-slate-300">—</span>}</td>
@@ -129,7 +144,7 @@ export default function TransferenciasEntreArmazens() {
                                         ícones do PDF tinham desaparecido. */}
                                     <td className="sticky right-0 bg-white px-4 py-2 text-right shadow-[-10px_0_12px_-10px_rgba(15,23,42,0.25)] transition-colors duration-200 group-hover:bg-purple-50">
                                         <span className="flex justify-end gap-1.5">
-                                            <button type="button" onClick={() => porDetalhe(l)} title={t('Detalhe')} aria-label={t('Detalhe de :referencia', { referencia: l.referencia ?? l.reference_id ?? '' })} className={accao('primaria')}><i className="fas fa-list" aria-hidden="true" /></button>
+                                            <button type="button" onClick={() => porDetalhe(l)} title={t('Detalhe')} aria-label={t('Detalhe de :referencia', { referencia: l.referencia ?? l.artigo ?? l.reference_id ?? '' })} className={accao('primaria')}><i className="fas fa-list" aria-hidden="true" /></button>
                                             {/* A PRÉ-VISUALIZAÇÃO abre no browser e é de lá
                                                 que se imprime; o PDF descarrega. O ecrã de
                                                 sempre tinha os dois, e a migração trouxe só o
@@ -232,10 +247,15 @@ function Ajustar({ o, aoFechar, aoFeito }: { o: OpcoesDasTransferencias; aoFecha
 }
 
 function Detalhe({ l, aoFechar }: { l: LoteDoHistorico; aoFechar: () => void }) {
-    const q = useQuery({ queryKey: ['transferencias', 'detalhes', l.referencia, l.reference_id], queryFn: () => transferencias.detalhes({ referencia: l.referencia, reference_id: l.referencia ? null : l.reference_id }) });
+    const q = useQuery({
+        queryKey: ['transferencias', 'detalhes', l.referencia, l.reference_id, l.movimento_id],
+        queryFn: () => transferencias.detalhes(
+            l.referencia ? { referencia: l.referencia } : l.movimento_id ? { movimento: l.movimento_id } : { reference_id: l.reference_id },
+        ),
+    });
 
     return (
-        <Modal aberto aoFechar={aoFechar} titulo={t('Lote :referencia', { referencia: l.referencia ?? '#' + l.reference_id })} icone="fa-list" largura="lg" rodape={<Botao onClick={aoFechar}>{t('Fechar')}</Botao>}>
+        <Modal aberto aoFechar={aoFechar} titulo={l.referencia ? t('Lote :referencia', { referencia: l.referencia }) : l.movimento_id ? t('Movimento avulso') : t('Lote :referencia', { referencia: '#' + l.reference_id })} icone="fa-list" largura="lg" rodape={<Botao onClick={aoFechar}>{t('Fechar')}</Botao>}>
             {q.isPending ? <Carregando linhas={4} /> : q.isError ? <AvisoDeErro erro={q.error} /> : (
                 <table className="w-full text-sm">
                     <thead><tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-600"><th className="px-3 py-2 font-bold">{t('Artigo')}</th><th className="px-3 py-2 font-bold">{t('Armazém')}</th><th className="px-3 py-2 text-right font-bold">{t('Qtd.')}</th><th className="px-3 py-2 text-right font-bold">{t('Antes')}</th><th className="px-3 py-2 text-right font-bold">{t('Depois')}</th><th className="px-3 py-2 font-bold">{t('Notas')}</th></tr></thead>

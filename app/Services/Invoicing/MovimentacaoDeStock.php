@@ -29,15 +29,63 @@ use Illuminate\Support\Facades\DB;
  */
 class MovimentacaoDeStock
 {
-    public function ajustar(int $armazemId, int $produtoId, float $novaQuantidade, ?string $notas): void
+    /*
+     * O AJUSTE E A TRANSFERÊNCIA DE UM ARTIGO SÓ SÃO UM LOTE DE UMA LINHA.
+     *
+     * Gravavam-se com `createAdjustment`/`createTransfer`: sem referência, sem
+     * saldos, sem quem — e a lista das transferências, que agrupa pelo lote,
+     * juntava-os TODOS numa «transferência» sem número (na farmácia, 5468
+     * ajustes e 8 transferências de meses, com o nome e a hora do último). E a
+     * transferência avulsa nem mexia nos lotes de validade.
+     *
+     * Agora passam pelo mesmo serviço do modal «Transferir» e do «Ajustar em
+     * lote»: referência MOV/, saldos antes/depois, os lotes por FEFO e o papel
+     * em PDF. Devolvem a referência.
+     */
+
+    /**
+     * Põe a linha na quantidade pedida. Regista a DIFERENÇA como entrada ou
+     * saída; se já estava certa, não regista nada e devolve null.
+     *
+     * @throws \DomainException
+     */
+    public function ajustar(int $armazemId, int $produtoId, float $novaQuantidade, ?string $notas, ?int $tenantId = null, ?int $userId = null): ?string
     {
-        StockMovement::createAdjustment($armazemId, $produtoId, $novaQuantidade, $notas);
+        $tenantId ??= (int) activeTenantId();
+        $userId ??= auth()->id();
+
+        $actual = (float) (Stock::where('tenant_id', $tenantId)->where('warehouse_id', $armazemId)->where('product_id', $produtoId)->value('quantity') ?? 0);
+        $diferenca = round($novaQuantidade - $actual, 4);
+
+        if (abs($diferenca) < 0.0001) {
+            return null;
+        }
+
+        $motivo = trim((string) $notas) !== ''
+            ? trim((string) $notas)
+            : __('Correcção de stock: de :antes para :depois', ['antes' => $actual + 0, 'depois' => $novaQuantidade + 0]);
+
+        return app(TransferenciaDeStock::class)->ajustarEmLote(
+            $armazemId,
+            $diferenca > 0 ? 'in' : 'out',
+            $motivo,
+            [['product_id' => $produtoId, 'quantity' => abs($diferenca)]],
+            $tenantId,
+            $userId
+        )['referencia'];
     }
 
-    /** @throws \Exception quando não há stock que chegue na origem */
-    public function transferir(int $deArmazemId, int $paraArmazemId, int $produtoId, float $quantidade, ?string $notas): void
+    /** @throws \DomainException quando não há stock que chegue na origem */
+    public function transferir(int $deArmazemId, int $paraArmazemId, int $produtoId, float $quantidade, ?string $notas, ?int $tenantId = null, ?int $userId = null): string
     {
-        StockMovement::createTransfer($deArmazemId, $paraArmazemId, $produtoId, $quantidade, $notas);
+        return app(TransferenciaDeStock::class)->entreArmazens(
+            $deArmazemId,
+            $paraArmazemId,
+            [['product_id' => $produtoId, 'quantity' => $quantidade]],
+            $notas,
+            $tenantId ?? (int) activeTenantId(),
+            $userId ?? auth()->id()
+        )['referencia'];
     }
 
     /**
