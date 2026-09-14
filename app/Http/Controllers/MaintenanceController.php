@@ -135,6 +135,9 @@ class MaintenanceController extends Controller
         // Só lê: as submissões à AGT por ambiente, e as por concluir que
         // ficam paradas por serem de outro ambiente que não o activo.
         'agt:submissoes-por-ambiente',
+        // Só lê: uma empresa acabada de inscrever ficou completa? Dono, papéis,
+        // subscrição, módulos e permissões, impostos, armazém, séries e erros.
+        'empresa:diagnostico',
         'clientes:importar',
         // Exporta os produtos de um tenant para JSON (só lê) — para gerar uma
         // lista de preços em PDF fora do sistema.
