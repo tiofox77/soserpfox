@@ -266,10 +266,13 @@ export type EmpresaDaLista = {
         rotulo: string; cor: string; icone: string; detalhe: string;
         nota: string | null; falta: string | null; ate: string | null;
     };
+    criada_ha: string | null;
     vida: {
-        chave: string; texto: string; facturas_30d: number; artigos: number;
-        movimentos_30d: number; entraram_30d: number; utilizadores: number;
-        ultima_entrada: string | null; entrou_ha_pouco: boolean;
+        chave: string; texto: string; motivo: string;
+        facturas_30d: number; ultima_factura: string | null; ultima_factura_em: string | null;
+        artigos: number; movimentos_30d: number; operacoes_30d: number;
+        entraram_30d: number; utilizadores: number;
+        ultimo_acesso: string | null; ultimo_acesso_em: string | null; acesso_recente: boolean;
     } | null;
 };
 

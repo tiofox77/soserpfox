@@ -55,6 +55,10 @@ export function Detalhes({ id, aoFechar, aoEditar }: { id: number; aoFechar: () 
                         {e.vida && <Etiqueta cor="primaria" icone="fa-heart-pulse">{e.vida.texto}</Etiqueta>}
                     </div>
 
+                    {/* O PORQUÊ DO ESTADO: «A usar» sozinho não diz se factura menos
+                        ou se só entra. */}
+                    {e.vida && <p className="entra text-sm text-slate-600">{e.vida.motivo}</p>}
+
                     {!e.activa && e.motivo_da_desactivacao && (
                         <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
                             <p className="font-bold">

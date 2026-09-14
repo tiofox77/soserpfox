@@ -47,6 +47,9 @@ class TenantsFiltrosTest extends TenantTestCase
             'invoice_number' => 'FT-' . uniqid(),
             'client_id'      => $this->cliente->id,
             'invoice_date'   => now(),
+            // Emitida: um rascunho (o DEFAULT da coluna) já não conta como
+            // «a facturar» — ver SinaisDeVidaTest.
+            'status'         => 'sent',
             'created_by'     => $this->user->id,
             'created_at'     => now(),
             'updated_at'     => now(),

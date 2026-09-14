@@ -138,6 +138,9 @@ class MaintenanceController extends Controller
         // Só lê: uma empresa acabada de inscrever ficou completa? Dono, papéis,
         // subscrição, módulos e permissões, impostos, armazém, séries e erros.
         'empresa:diagnostico',
+        // Só lê: de onde vem cada número do cartão da empresa na plataforma
+        // (relógios, última entrada por pessoa, documentos por tipo).
+        'plataforma:sinais',
         'clientes:importar',
         // Exporta os produtos de um tenant para JSON (só lê) — para gerar uma
         // lista de preços em PDF fora do sistema.

@@ -134,31 +134,45 @@ export default function Empresas() {
             <AvisoDeErro erro={activar.error} />
 
             {/* OS CARTÕES DE ESTADO: contagem e filtro ao mesmo tempo. Contados
-                ANTES do filtro de estado — clicar num não pode zerar os outros. */}
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+                ANTES do filtro de estado — clicar num não pode zerar os outros.
+
+                A REGRA DE CADA UM ESTÁ ESCRITA NO CARTÃO. «A montar 34» sem
+                dizer o que é «a montar» não deixava ver que a conta estava
+                errada (bastava ter-se inscrito no último mês). E a barra diz a
+                fatia de cada estado no total: 34 de 76 salta à vista. */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
                 {estados().map((e, i) => {
                     const aceso = filtros.estado === e.chave;
+                    const n = contagens[e.chave] ?? 0;
+                    const todas = Object.values(contagens).reduce((a, b) => a + (b ?? 0), 0);
+                    const fatia = todas > 0 ? Math.round((n / todas) * 100) : 0;
 
                     return (
                         <button
                             key={e.chave}
                             type="button"
                             aria-pressed={aceso}
+                            title={e.regra}
                             onClick={() => mexer('estado', aceso ? '' : e.chave)}
                             className={cls(
-                                'entra border-2 p-3 text-left', RAIO, TRANSICAO, FOCO,
+                                'entra group flex flex-col border-2 p-3 text-left', RAIO, TRANSICAO, FOCO,
                                 'hover:-translate-y-0.5 hover:shadow-md',
                                 aceso ? e.aceso : 'border-slate-200 bg-white',
                             )}
                             style={cascata(i)}
                         >
                             <div className="flex items-center justify-between">
-                                <i className={cls('fas', e.icone, e.texto)} aria-hidden="true" />
-                                <span className="text-2xl font-extrabold text-slate-900 tabular-nums">
-                                    {contagens[e.chave] ?? 0}
+                                <span className={cls('grid h-8 w-8 place-items-center rounded-lg transition-transform duration-300 group-hover:scale-110', e.suave)}>
+                                    <i className={cls('fas', e.icone)} aria-hidden="true" />
                                 </span>
+                                <span className="text-2xl font-extrabold text-slate-900 tabular-nums">{n}</span>
                             </div>
-                            <p className="mt-1 text-xs font-semibold text-slate-600">{e.rotulo}</p>
+                            <p className="mt-2 text-xs font-bold text-slate-700">{e.rotulo}</p>
+                            <p className="mt-0.5 flex-1 text-[11px] leading-snug text-slate-500">{e.regra}</p>
+                            <div className="mt-2 h-1 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
+                                <div className={cls('h-1 rounded-full transition-all duration-700', e.barra)} style={{ width: `${fatia}%` }} />
+                            </div>
+                            <p className="mt-1 text-[10px] font-semibold text-slate-400 tabular-nums">{t(':n% das empresas', { n: fatia })}</p>
                         </button>
                     );
                 })}
@@ -379,7 +393,19 @@ function CartaoDaEmpresa({ empresa: e, indice, aActivar, accoes }: {
                                 )
                                 : <span className="text-slate-400">{t('por preencher')}</span>}
                         />
-                        <Dado icone="fa-calendar" cor="bg-purple-100 text-purple-600" rotulo={t('Criada em')} valor={e.criada_em ?? '—'} />
+                        <Dado
+                            icone="fa-calendar"
+                            cor="bg-purple-100 text-purple-600"
+                            rotulo={t('Inscrita em')}
+                            valor={e.criada_em
+                                ? (
+                                    <>
+                                        {e.criada_em}
+                                        {e.criada_ha && <span className="block text-[11px] text-slate-500">{e.criada_ha}</span>}
+                                    </>
+                                )
+                                : '—'}
+                        />
                     </dl>
 
                     <div className="flex flex-wrap items-center gap-2">
@@ -404,38 +430,77 @@ function CartaoDaEmpresa({ empresa: e, indice, aActivar, accoes }: {
                         não distinguem um cliente que factura todos os dias de um que
                         se registou e nunca mais voltou. */}
                     {vida && (
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-slate-100 pt-3 text-xs text-slate-600">
-                            {estado && (
-                                <span className={cls('inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 font-bold', estado.suave)}>
-                                    <i className={cls('fas', estado.icone)} aria-hidden="true" />
-                                    {vida.texto}
+                        <div className="space-y-3 border-t border-slate-100 pt-3">
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-slate-600">
+                                {estado && (
+                                    <span className={cls('inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 font-bold', estado.suave)} title={estado.regra}>
+                                        {vida.chave === 'activa'
+                                            ? <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" aria-hidden="true" />
+                                            : <i className={cls('fas', estado.icone)} aria-hidden="true" />}
+                                        {vida.texto}
+                                    </span>
+                                )}
+                                {/* O PORQUÊ, por extenso: «A usar» não diz se factura menos ou se só entra. */}
+                                <span className="font-medium text-slate-700">{vida.motivo}</span>
+                                {/* EM QUE PÉ ESTÁ A SUBSCRIÇÃO: em teste? falta quanto? já
+                                    passou do prazo e continua a usar? */}
+                                <span title={e.subscricao.detalhe}>
+                                    <Etiqueta cor={corDaSubscricao(e.subscricao.cor)} icone={e.subscricao.icone}>
+                                        {e.subscricao.rotulo}
+                                        {e.subscricao.falta && <span className="font-normal opacity-90">· {e.subscricao.falta}{e.subscricao.ate && ` (${e.subscricao.ate})`}</span>}
+                                        {!e.subscricao.falta && e.subscricao.nota && <span className="font-normal opacity-90">· {e.subscricao.nota}</span>}
+                                    </Etiqueta>
                                 </span>
-                            )}
-                            {/* EM QUE PÉ ESTÁ A SUBSCRIÇÃO: em teste? falta quanto? já
-                                passou do prazo e continua a usar? */}
-                            <span title={e.subscricao.detalhe}>
-                                <Etiqueta cor={corDaSubscricao(e.subscricao.cor)} icone={e.subscricao.icone}>
-                                    {e.subscricao.rotulo}
-                                    {e.subscricao.falta && <span className="font-normal opacity-90">· {e.subscricao.falta}{e.subscricao.ate && ` (${e.subscricao.ate})`}</span>}
-                                    {!e.subscricao.falta && e.subscricao.nota && <span className="font-normal opacity-90">· {e.subscricao.nota}</span>}
-                                </Etiqueta>
-                            </span>
-                            <Sinal icone="fa-file-invoice" titulo={t('Facturas emitidas nos últimos 30 dias')}>
-                                {t(':n factura(s)/30d', { n: vida.facturas_30d })}
-                            </Sinal>
-                            <Sinal icone="fa-box" titulo={t('Artigos no catálogo')}>
-                                {t(':n artigo(s)', { n: kz(vida.artigos, 0) })}
-                            </Sinal>
-                            <Sinal icone="fa-right-left" titulo={t('Movimentos de stock nos últimos 30 dias')}>
-                                {t(':n mov./30d', { n: vida.movimentos_30d })}
-                            </Sinal>
-                            <Sinal icone="fa-user-clock" titulo={t('Utilizadores que entraram nos últimos 30 dias')}>
-                                {t(':a/:t activo(s)', { a: vida.entraram_30d, t: vida.utilizadores })}
-                            </Sinal>
-                            <span className={vida.entrou_ha_pouco ? '' : 'font-semibold text-red-600'} title={t('Última vez que alguém desta empresa entrou')}>
-                                <i className="fas fa-right-to-bracket mr-1 text-slate-400" aria-hidden="true" />
-                                {vida.ultima_entrada ? t('entrou :quando', { quando: vida.ultima_entrada }) : t('nunca entrou')}
-                            </span>
+                            </div>
+
+                            {/* OS SINAIS, cada um com o que conta e desde quando. A data
+                                por extenso vai no title: o relativo diz a distância, o
+                                absoluto diz o instante. */}
+                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+                                <Sinal
+                                    icone="fa-file-invoice-dollar"
+                                    cor="bg-emerald-100 text-emerald-600"
+                                    valor={vida.facturas_30d}
+                                    rotulo={t('facturas em 30 dias')}
+                                    detalhe={vida.ultima_factura ? t('última :quando', { quando: vida.ultima_factura }) : t('nunca facturou')}
+                                    titulo={vida.ultima_factura_em
+                                        ? t('Documentos de venda emitidos (sem rascunhos). Última: :dia', { dia: vida.ultima_factura_em })
+                                        : t('Documentos de venda emitidos (sem rascunhos)')}
+                                />
+                                <Sinal
+                                    icone="fa-boxes-stacked"
+                                    cor="bg-sky-100 text-sky-600"
+                                    valor={kz(vida.artigos, 0)}
+                                    rotulo={t('artigos no catálogo')}
+                                    detalhe={t(':n mov. de stock em 30 dias', { n: vida.movimentos_30d })}
+                                    titulo={t('Artigos no catálogo e movimentos de stock nos últimos 30 dias')}
+                                />
+                                <Sinal
+                                    icone="fa-gears"
+                                    cor="bg-indigo-100 text-indigo-600"
+                                    valor={vida.operacoes_30d}
+                                    rotulo={t('operações em 30 dias')}
+                                    detalhe={t('stock, tesouraria, módulos…')}
+                                    titulo={t('Registos de trabalho nos últimos 30 dias: stock, propostas, recibos, compras, tesouraria, restaurante, hotel, salão, oficina, RH e CRM')}
+                                />
+                                <Sinal
+                                    icone="fa-user-clock"
+                                    cor="bg-purple-100 text-purple-600"
+                                    valor={`${vida.entraram_30d}/${vida.utilizadores}`}
+                                    rotulo={t('pessoas entraram em 30 dias')}
+                                    detalhe={t(':n com conta nesta empresa', { n: vida.utilizadores })}
+                                    titulo={t('Quantas pessoas desta empresa entraram nela nos últimos 30 dias')}
+                                />
+                                <Sinal
+                                    icone="fa-right-to-bracket"
+                                    cor={vida.acesso_recente ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}
+                                    valor={vida.ultimo_acesso ?? t('sem registo')}
+                                    rotulo={t('último acesso')}
+                                    detalhe={vida.ultimo_acesso_em ?? t('ninguém entrou nesta empresa')}
+                                    titulo={t('A última vez que alguém entrou NESTA empresa (quem tem várias empresas conta só na que estava a usar)')}
+                                    alerta={!vida.acesso_recente}
+                                />
+                            </div>
                         </div>
                     )}
 
@@ -488,12 +553,35 @@ function Dado({ icone, cor, rotulo, valor }: { icone: string; cor: string; rotul
     );
 }
 
-function Sinal({ icone, titulo, children }: { icone: string; titulo: string; children: React.ReactNode }) {
+function Sinal({ icone, cor, valor, rotulo, detalhe, titulo, alerta = false }: {
+    icone: string;
+    cor: string;
+    valor: React.ReactNode;
+    rotulo: string;
+    detalhe: string;
+    titulo: string;
+    alerta?: boolean;
+}) {
     return (
-        <span title={titulo}>
-            <i className={cls('fas mr-1 text-slate-400', icone)} aria-hidden="true" />
-            <b className="font-semibold text-slate-700">{children}</b>
-        </span>
+        <div
+            title={titulo}
+            className={cls(
+                'group flex min-w-0 items-start gap-2 rounded-lg px-2.5 py-2 ring-1 ring-inset', TRANSICAO,
+                'hover:-translate-y-0.5 hover:bg-white hover:shadow-sm',
+                alerta ? 'bg-red-50/60 ring-red-100' : 'bg-slate-50 ring-slate-100',
+            )}
+        >
+            <span className={cls('grid h-7 w-7 shrink-0 place-items-center rounded-lg text-xs transition-transform duration-300 group-hover:scale-110', cor)}>
+                <i className={cls('fas', icone)} aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+                <p className={cls('truncate text-sm font-extrabold tabular-nums', alerta ? 'text-red-700' : 'text-slate-900')}>{valor}</p>
+                {/* O rótulo e o pormenor QUEBRAM a linha: num telemóvel, cortados
+                    com «…», «facturas em 30 …» não se percebia o que se contava. */}
+                <p className="text-[11px] font-medium leading-tight text-slate-600">{rotulo}</p>
+                <p className="mt-0.5 text-[10px] leading-tight text-slate-400">{detalhe}</p>
+            </div>
+        </div>
     );
 }
 
@@ -526,11 +614,15 @@ function Accao({ cor, icone, aoClicar, titulo, desligado = false, children }: {
 // Uma função e não uma constante: o `t()` tem de correr depois de o dicionário
 // chegar. E as classes escritas por inteiro: o Tailwind não vê `bg-${cor}-50` montado em
 // tempo de execução, e era assim no Blade — os cartões acesos nunca tinham cor.
+//
+// A `regra` é a mesma de SinaisDeVida::classificar, em palavras: se uma mudar,
+// a outra muda também.
 const estados = () => [
-    { chave: 'activa', rotulo: t('A facturar'), icone: 'fa-file-invoice-dollar', texto: 'text-emerald-600', aceso: 'border-emerald-500 bg-emerald-50 shadow', suave: 'bg-emerald-100 text-emerald-700' },
-    { chave: 'a_usar', rotulo: t('A usar'), icone: 'fa-computer', texto: 'text-blue-600', aceso: 'border-blue-500 bg-blue-50 shadow', suave: 'bg-blue-100 text-blue-700' },
-    { chave: 'a_montar', rotulo: t('A montar'), icone: 'fa-screwdriver-wrench', texto: 'text-amber-600', aceso: 'border-amber-500 bg-amber-50 shadow', suave: 'bg-amber-100 text-amber-700' },
-    { chave: 'adormecida', rotulo: t('Adormecidas'), icone: 'fa-moon', texto: 'text-orange-600', aceso: 'border-orange-500 bg-orange-50 shadow', suave: 'bg-orange-100 text-orange-700' },
-    { chave: 'vazia', rotulo: t('Nunca usaram'), icone: 'fa-ghost', texto: 'text-red-600', aceso: 'border-red-500 bg-red-50 shadow', suave: 'bg-red-100 text-red-700' },
+    { chave: 'activa', rotulo: t('A facturar'), regra: t('Emitiram documentos de venda nos últimos 14 dias'), icone: 'fa-file-invoice-dollar', texto: 'text-emerald-600', aceso: 'border-emerald-500 bg-emerald-50 shadow', suave: 'bg-emerald-100 text-emerald-700', barra: 'bg-emerald-500' },
+    { chave: 'a_usar', rotulo: t('A usar'), regra: t('Trabalham no sistema ou continuam a entrar, sem facturar há 14 dias'), icone: 'fa-computer', texto: 'text-blue-600', aceso: 'border-blue-500 bg-blue-50 shadow', suave: 'bg-blue-100 text-blue-700', barra: 'bg-blue-500' },
+    { chave: 'a_montar', rotulo: t('A montar'), regra: t('Nunca facturaram e deram sinal nos últimos 14 dias'), icone: 'fa-screwdriver-wrench', texto: 'text-amber-600', aceso: 'border-amber-500 bg-amber-50 shadow', suave: 'bg-amber-100 text-amber-700', barra: 'bg-amber-500' },
+    { chave: 'adormecida', rotulo: t('Adormecidas'), regra: t('Têm dados, mas nenhum sinal há mais de 14 dias'), icone: 'fa-moon', texto: 'text-orange-600', aceso: 'border-orange-500 bg-orange-50 shadow', suave: 'bg-orange-100 text-orange-700', barra: 'bg-orange-500' },
+    { chave: 'vazia', rotulo: t('Nunca usaram'), regra: t('Inscreveram-se há mais de 14 dias e não registaram nada'), icone: 'fa-ghost', texto: 'text-red-600', aceso: 'border-red-500 bg-red-50 shadow', suave: 'bg-red-100 text-red-700', barra: 'bg-red-500' },
+    { chave: 'desactivada', rotulo: t('Desactivadas'), regra: t('Desligadas pela plataforma; ficam fora dos outros cartões'), icone: 'fa-power-off', texto: 'text-slate-600', aceso: 'border-slate-500 bg-slate-100 shadow', suave: 'bg-slate-200 text-slate-700', barra: 'bg-slate-500' },
 ];
 

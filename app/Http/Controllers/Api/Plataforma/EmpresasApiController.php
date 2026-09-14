@@ -40,9 +40,9 @@ use function Illuminate\Support\defer;
  */
 class EmpresasApiController extends Controller
 {
-    public const ORDENACOES = ['recentes', 'antigas', 'nome', 'entrada', 'facturas', 'artigos'];
+    public const ORDENACOES = ['recentes', 'antigas', 'nome', 'actividade', 'entrada', 'facturas', 'artigos'];
 
-    public const ESTADOS = ['activa', 'a_usar', 'a_montar', 'adormecida', 'vazia'];
+    public const ESTADOS = ['activa', 'a_usar', 'a_montar', 'adormecida', 'vazia', 'desactivada'];
 
     /**
      * A lista, em três tempos:
@@ -101,6 +101,7 @@ class EmpresasApiController extends Controller
             // Datas nulas para o fim: quem nunca entrou não pode aparecer à
             // frente de quem entrou ontem.
             'entrada' => $filtrados->sortByDesc(fn ($t) => $sinais[$t->id]->ultima_entrada?->timestamp ?? -1),
+            'actividade' => $filtrados->sortByDesc(fn ($t) => $sinais[$t->id]->ultima_actividade?->timestamp ?? -1),
             'facturas' => $filtrados->sortByDesc(fn ($t) => $sinais[$t->id]->facturas_30d ?? 0),
             'artigos' => $filtrados->sortByDesc(fn ($t) => $sinais[$t->id]->artigos ?? 0),
             default => $filtrados->sortByDesc('created_at'),
@@ -132,7 +133,8 @@ class EmpresasApiController extends Controller
                     ['valor' => 'recentes', 'rotulo' => __('Mais recentes')],
                     ['valor' => 'antigas', 'rotulo' => __('Mais antigas')],
                     ['valor' => 'nome', 'rotulo' => __('Nome (A–Z)')],
-                    ['valor' => 'entrada', 'rotulo' => __('Última entrada')],
+                    ['valor' => 'actividade', 'rotulo' => __('Última actividade')],
+                    ['valor' => 'entrada', 'rotulo' => __('Último acesso')],
                     ['valor' => 'facturas', 'rotulo' => __('Mais facturas (30d)')],
                     ['valor' => 'artigos', 'rotulo' => __('Maior catálogo')],
                 ],
@@ -426,6 +428,7 @@ class EmpresasApiController extends Controller
             'logo' => $t->logo ? (string) parse_url(\Illuminate\Support\Facades\Storage::url($t->logo), PHP_URL_PATH) : null,
             'activa' => (bool) $t->is_active,
             'criada_em' => $t->created_at?->format('d/m/Y'),
+            'criada_ha' => SinaisDeVida::distancia($t->created_at),
             'plano' => $sub?->plan?->name,
             'ciclo' => $sub?->billing_cycle ? \App\Support\CicloDeFacturacao::nome($sub->billing_cycle) : null,
             'max_utilizadores' => (int) $t->max_users,
@@ -441,16 +444,24 @@ class EmpresasApiController extends Controller
                 'falta' => $estado['dias'] !== null ? EstadoDaSubscricao::quantoFalta($estado['dias']) : null,
                 'ate' => $estado['ate'],
             ],
+            // CADA NÚMERO COM A SUA DATA POR EXTENSO. «entrou há 4h» ao lado de
+            // «Criada em 14/09/2026» lia-se como «inscreveu-se há 4h»: o
+            // relativo diz a distância, o absoluto (no title) diz o instante.
             'vida' => $sinais ? [
                 'chave' => $sinais->estado['chave'],
                 'texto' => __($sinais->estado['texto']),
+                'motivo' => SinaisDeVida::motivo($sinais),
                 'facturas_30d' => (int) $sinais->facturas_30d,
+                'ultima_factura' => SinaisDeVida::distancia($sinais->ultima_factura),
+                'ultima_factura_em' => $sinais->ultima_factura?->format('d/m/Y H:i'),
                 'artigos' => (int) $sinais->artigos,
                 'movimentos_30d' => (int) $sinais->movimentos_30d,
+                'operacoes_30d' => (int) $sinais->operacoes_30d,
                 'entraram_30d' => (int) $sinais->entraram_30d,
                 'utilizadores' => (int) $sinais->utilizadores,
-                'ultima_entrada' => $sinais->ultima_entrada?->diffForHumans(short: true),
-                'entrou_ha_pouco' => (bool) ($sinais->ultima_entrada && $sinais->ultima_entrada->gt(now()->subDays(30))),
+                'ultimo_acesso' => SinaisDeVida::distancia($sinais->ultima_entrada),
+                'ultimo_acesso_em' => $sinais->ultima_entrada?->format('d/m/Y H:i'),
+                'acesso_recente' => (bool) ($sinais->ultima_entrada && $sinais->ultima_entrada->gte(now()->subDays(SinaisDeVida::RECENTE))),
             ] : null,
         ];
     }
