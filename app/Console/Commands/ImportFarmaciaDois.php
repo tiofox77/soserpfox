@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Support\AcentosEstragados;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -387,7 +388,8 @@ class ImportFarmaciaDois extends Command
         $bar->start();
 
         foreach ($rows as $r) {
-            $name = trim($r->name);
+            // A base SMA tem os nomes lidos na página do DOS («├üGUA»): repara-se à entrada.
+            $name = AcentosEstragados::reparar(trim($r->name));
             // idempotência: tenant + name
             $existing = DB::table('invoicing_categories')
                 ->where('tenant_id', $this->tenantId)
@@ -444,7 +446,7 @@ class ImportFarmaciaDois extends Command
         foreach ($rows as $r) {
             $dest = DB::table('invoicing_categories')
                 ->where('tenant_id', $this->tenantId)
-                ->where('name', trim($r->name))
+                ->where('name', AcentosEstragados::reparar(trim($r->name)))
                 ->value('id');
             if ($dest) {
                 $this->catMap[(int) $r->id] = (int) $dest;
@@ -465,7 +467,7 @@ class ImportFarmaciaDois extends Command
 
         foreach ($rows as $r) {
             $code = trim($r->code) ?: ('WH' . $r->id);
-            $name = trim($r->name);
+            $name = AcentosEstragados::reparar(trim($r->name));
 
             // idempotência: tenant + code
             $existing = DB::table('invoicing_warehouses')
@@ -579,8 +581,8 @@ class ImportFarmaciaDois extends Command
                 'type' => 'produto',
                 'code' => $code,
                 'barcode' => $code,
-                'name' => trim($r->name),
-                'description' => $r->product_details ?: $r->details,
+                'name' => AcentosEstragados::reparar(trim($r->name)),
+                'description' => AcentosEstragados::reparar($r->product_details ?: $r->details),
                 'price' => (float) $r->price,
                 'cost' => (float) $r->cost,
                 // Fiscalidade herdada do REGIME do tenant: com 'iva' fixo, uma

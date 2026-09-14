@@ -124,6 +124,11 @@ class MaintenanceController extends Controller
         // pelo código. O JSON vive em storage/app/imports/ (fora da whitelist
         // de verificação, mas não é segredo — é o catálogo do cliente).
         'produtos:importar-lista',
+        // Repara os acentos estragados pela importação («├üCIDO» → «ÁCIDO»)
+        // nas fichas (artigos, categorias, marcas, armazéns, fornecedores,
+        // clientes). SÓ MOSTRA por omissão; grava apenas com --aplicar, e
+        // nunca toca em documentos emitidos.
+        'acentos:corrigir',
         'clientes:importar',
         // Exporta os produtos de um tenant para JSON (só lê) — para gerar uma
         // lista de preços em PDF fora do sistema.

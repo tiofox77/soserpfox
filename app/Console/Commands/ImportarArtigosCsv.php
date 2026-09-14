@@ -6,6 +6,7 @@ use App\Models\Product;
 use App\Models\Invoicing\Stock;
 use App\Models\Invoicing\Warehouse;
 use App\Models\Tenant;
+use App\Support\AcentosEstragados;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -451,7 +452,9 @@ class ImportarArtigosCsv extends Command
 
             $linhas[] = [
                 'codigo_barras' => trim($r['codigo_barras']),
-                'descricao'     => trim($r['descricao']),
+                // Um CSV gravado pelo Excel vem em Windows-1252, e um exportado de um
+                // sistema antigo pode trazer os acentos já estragados («├ü»).
+                'descricao'     => AcentosEstragados::reparar(trim(mb_check_encoding($r['descricao'], 'UTF-8') ? $r['descricao'] : mb_convert_encoding($r['descricao'], 'UTF-8', 'Windows-1252'))),
                 'preco_compra'  => (float) $r['preco_compra'],
                 'preco_venda'   => (float) $r['preco_venda'],
                 'quantidade'    => (float) $r['quantidade'],
