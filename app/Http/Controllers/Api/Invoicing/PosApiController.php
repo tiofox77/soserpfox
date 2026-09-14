@@ -356,7 +356,14 @@ class PosApiController extends Controller
      * farmácia pergunta-se por «paracetamol» sem saber que a caixa diz
      * Ben-u-ron; numa loja de roupa pergunta-se por «38», que não está no nome
      * nem no código. Era assim no ecrã de sempre e continua a ser.
+     *
+     * AOS BOCADOS, e todos. Vinham só os primeiros 50 — numa farmácia com 259
+     * ampolas, a grelha parava a meio da letra A e o resto não se via sem
+     * procurar. Agora vem uma página de cada vez (`pagina`), e o `meta.mais`
+     * diz ao ecrã se há mais para pedir quando se chega ao fundo.
      */
+    public const ARTIGOS_POR_PAGINA = 60;
+
     public function artigos(Request $request): JsonResponse
     {
         $tenantId = (int) activeTenantId();
@@ -371,6 +378,7 @@ class PosApiController extends Controller
             'armazem' => ['nullable', 'integer'],
             'modulo' => ['nullable', 'string', 'in:salon'],
             'tipo' => ['nullable', 'string', 'in:servicos,produtos'],
+            'pagina' => ['nullable', 'integer', 'min:1', 'max:10000'],
         ]);
 
         if (($filtros['tipo'] ?? null) === 'servicos' && $this->moduloDoBalcao($request, $tenantId) === 'salon') {
@@ -417,6 +425,9 @@ class PosApiController extends Controller
         if ($procura = ($filtros['procura'] ?? null)) {
             $q->where(function ($w) use ($procura) {
                 $w->where('invoicing_products.name', 'like', "%{$procura}%")
+                    // O código do artigo também: na farmácia importada é o
+                    // código de barras, e há artigos só com ele.
+                    ->orWhere('invoicing_products.code', 'like', "%{$procura}%")
                     ->orWhere('invoicing_products.sku', 'like', "%{$procura}%")
                     ->orWhere('invoicing_products.barcode', 'like', "%{$procura}%")
                     ->orWhere('invoicing_products.active_ingredient', 'like', "%{$procura}%")
@@ -428,9 +439,15 @@ class PosApiController extends Controller
             $q->whereIn('invoicing_products.category_id', array_map('intval', explode(',', (string) $categoria)));
         }
 
-        $artigos = $q->orderBy('invoicing_products.name')->limit(50)->get();
+        [$artigos, $meta] = $this->umaPagina(
+            // O id desempata: dois artigos com o mesmo nome não podem trocar de
+            // página entre um pedido e o seguinte (um repetia, o outro sumia).
+            $q->orderBy('invoicing_products.name')->orderBy('invoicing_products.id'),
+            (int) ($filtros['pagina'] ?? 1)
+        );
 
         return response()->json([
+            'meta' => $meta,
             'data' => $artigos->map(function ($p) {
                 $servico = $p->type === 'servico';
 
@@ -481,6 +498,27 @@ class PosApiController extends Controller
     }
 
     /**
+     * UMA PÁGINA DA GRELHA — e se há mais depois dela.
+     *
+     * Pede-se um a mais do que cabe: se vier, há página seguinte. Assim não se
+     * conta a lista inteira (com a subconsulta do stock por armazém) a cada
+     * bocado que se pede.
+     *
+     * @return array{0: \Illuminate\Support\Collection, 1: array{pagina: int, por_pagina: int, mais: bool}}
+     */
+    private function umaPagina($consulta, int $pagina): array
+    {
+        $pagina = max(1, $pagina);
+        $linhas = $consulta->offset(($pagina - 1) * self::ARTIGOS_POR_PAGINA)->limit(self::ARTIGOS_POR_PAGINA + 1)->get();
+        $mais = $linhas->count() > self::ARTIGOS_POR_PAGINA;
+
+        return [
+            $linhas->take(self::ARTIGOS_POR_PAGINA)->values(),
+            ['pagina' => $pagina, 'por_pagina' => self::ARTIGOS_POR_PAGINA, 'mais' => $mais],
+        ];
+    }
+
+    /**
      * OS SERVIÇOS DO SALÃO, no formato da grelha.
      *
      * Um serviço não tem stock nem código de barras; a categoria vem do JSON
@@ -499,8 +537,11 @@ class PosApiController extends Controller
             $q->daCategoria((int) explode(',', (string) $categoria)[0]);
         }
 
+        [$servicos, $meta] = $this->umaPagina($q->orderBy('name')->orderBy('id'), (int) ($filtros['pagina'] ?? 1));
+
         return response()->json([
-            'data' => $q->orderBy('name')->limit(80)->get()->map(fn ($s) => [
+            'meta' => $meta,
+            'data' => $servicos->map(fn ($s) => [
                 'id' => (int) $s->id,
                 'nome' => $s->name,
                 'codigo' => $s->sku,

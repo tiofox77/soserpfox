@@ -126,8 +126,10 @@ export const pos = {
         armazem?: number | null;
         modulo?: string | null;
         tipo?: 'servicos' | 'produtos';
+        /** A página da grelha (60 de cada vez); `meta.mais` diz se há outra. */
+        pagina?: number;
     }) =>
-        api.ler<{ data: ArtigoDoPos[] }>('/pos/artigos', filtros),
+        api.ler<{ data: ArtigoDoPos[]; meta?: { pagina: number; por_pagina: number; mais: boolean } }>('/pos/artigos', filtros),
 
     clientes: (procura: string) => api.ler<{ data: ClienteDoPos[] }>('/pos/clientes', { procura }),
 

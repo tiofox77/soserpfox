@@ -110,6 +110,52 @@ class ApiDoPosParaReactTest extends TenantTestCase
             ->assertJsonPath('turno.numero', $t->shift_number);
     }
 
+    /**
+     * A GRELHA VEM AOS BOCADOS, E VEM TODA.
+     *
+     * Vinham só os primeiros 50 e o resto não se via sem procurar. Agora vêm 60
+     * de cada vez, sem repetir nem saltar nenhum, e o `meta.mais` diz se há
+     * mais — com dois artigos de nome igual a desempatar pelo id.
+     *
+     * @test
+     */
+    public function a_grelha_vem_por_paginas_e_chega_a_todos(): void
+    {
+        $this->comPermissoes('invoicing.pos.view');
+
+        foreach (range(1, 130) as $n) {
+            $this->artigo(['name' => 'Ampola ' . str_pad((string) ($n % 125), 3, '0', STR_PAD_LEFT)]);
+        }
+
+        $vistos = [];
+
+        foreach ([1 => [60, true], 2 => [60, true], 3 => [10, false]] as $pagina => [$quantos, $mais]) {
+            $r = $this->getJson(self::RAIZ . '/artigos?armazem=0&pagina=' . $pagina)->assertOk()
+                ->assertJsonPath('meta.pagina', $pagina)
+                ->assertJsonPath('meta.mais', $mais)
+                ->assertJsonCount($quantos, 'data');
+
+            $vistos = array_merge($vistos, array_column($r->json('data'), 'id'));
+        }
+
+        $this->assertCount(130, $vistos, 'chega a todos');
+        $this->assertCount(130, array_unique($vistos), 'e nenhum aparece duas vezes');
+
+        // Sem `pagina` é a primeira, como antes.
+        $this->getJson(self::RAIZ . '/artigos')->assertOk()->assertJsonCount(60, 'data')->assertJsonPath('meta.mais', true);
+    }
+
+    /** A procura acha também pelo código do artigo. @test */
+    public function a_procura_acha_pelo_codigo_do_artigo(): void
+    {
+        $this->comPermissoes('invoicing.pos.view');
+        $this->artigo(['name' => 'Soro fisiológico', 'code' => '5601234567890']);
+
+        $this->getJson(self::RAIZ . '/artigos?procura=5601234567890')->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.nome', 'Soro fisiológico');
+    }
+
     /** O armazém e as formas de pagamento vêm decididos do servidor. @test */
     public function as_opcoes_trazem_o_armazem_as_formas_e_os_montantes(): void
     {

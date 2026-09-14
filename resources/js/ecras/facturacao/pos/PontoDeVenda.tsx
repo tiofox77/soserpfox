@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
 
 import { pos, type ArtigoDoPos, type CategoriaDoPos, type ClienteDoPos, type VendaFechada } from '@/api/pos';
 import { ErroDaApi } from '@/api/cliente';
@@ -254,15 +254,31 @@ function Balcao({ o }: { o: Opcoes }) {
 
     /* ─── Os artigos ──────────────────────────────────────────────────── */
 
-    const artigos = useQuery({
+    /*
+     * A GRELHA VEM AOS BOCADOS — e vem toda.
+     *
+     * O servidor mandava só os primeiros 50 e a grelha acabava ali: numa
+     * farmácia com 259 ampolas, o resto só se via procurando pelo nome. Agora
+     * pede 60 de cada vez e, quando se chega perto do fundo, pede os seguintes
+     * sozinha (ver `Catalogo`).
+     */
+    const artigos = useInfiniteQuery({
         queryKey: ['pos', 'artigos', procura, categoria, o.armazem.id, o.modulo, tipo],
-        queryFn: () =>
-            pos.artigos({ procura, categoria, armazem: o.armazem.id, ...(salao ? { modulo: o.modulo, tipo } : {}) }),
+        queryFn: ({ pageParam }) =>
+            pos.artigos({ procura, categoria, armazem: o.armazem.id, pagina: pageParam, ...(salao ? { modulo: o.modulo, tipo } : {}) }),
+        initialPageParam: 1,
+        getNextPageParam: (ultima) => (ultima.meta?.mais ? ultima.meta.pagina + 1 : undefined),
         placeholderData: keepPreviousData,
         staleTime: 15_000,
     });
 
-    const lista = artigos.data?.data ?? [];
+    // As páginas numa lista só — e sem repetidos: um artigo que vende entre
+    // um bocado e o seguinte pode escorregar de página e aparecer duas vezes.
+    const lista = useMemo(() => {
+        const vistos = new Set<number>();
+
+        return (artigos.data?.pages ?? []).flatMap((p) => p.data).filter((a) => (vistos.has(a.id) ? false : (vistos.add(a.id), true)));
+    }, [artigos.data]);
 
     /*
      * AS CATEGORIAS QUE TÊM ALGUMA COISA.
@@ -562,7 +578,11 @@ function Balcao({ o }: { o: Opcoes }) {
                     porCategoria={porCategoria}
                     logotipo={o.logotipo}
                     artigos={lista}
-                    aCarregar={artigos.isFetching}
+                    aCarregar={artigos.isFetching && !artigos.isFetchingNextPage}
+                    chaveDaLista={`${procura}|${categoria ?? ''}|${tipo}`}
+                    haMais={Boolean(artigos.hasNextPage)}
+                    aCarregarMais={artigos.isFetchingNextPage}
+                    carregarMais={() => void artigos.fetchNextPage()}
                     linhas={linhas}
                     aoEscolher={escolher}
                 />
@@ -830,6 +850,10 @@ function Catalogo({
     logotipo,
     artigos,
     aCarregar,
+    chaveDaLista,
+    haMais,
+    aCarregarMais,
+    carregarMais,
     linhas,
     aoEscolher,
 }: {
@@ -846,11 +870,47 @@ function Catalogo({
     logotipo: string | null;
     artigos: ArtigoDoPos[];
     aCarregar: boolean;
+    /** Muda com a procura, a categoria e o separador: a grelha volta ao topo. */
+    chaveDaLista: string;
+    haMais: boolean;
+    aCarregarMais: boolean;
+    carregarMais: () => void;
     linhas: LinhaDoCarrinho[];
     aoEscolher: (a: ArtigoDoPos) => void;
     separadores: { tipo: 'servicos' | 'produtos'; porTipo: (t: 'servicos' | 'produtos') => void } | null;
 }) {
     const noCarrinho = useMemo(() => new Map(linhas.map((l) => [l.id, l.quantidade])), [linhas]);
+    const grelha = useRef<HTMLDivElement>(null);
+    const fundo = useRef<HTMLDivElement>(null);
+
+    // Outra procura, outra categoria: começa-se do princípio da lista nova.
+    useEffect(() => {
+        grelha.current?.scrollTo({ top: 0 });
+    }, [chaveDaLista]);
+
+    /*
+     * O FUNDO DA GRELHA PEDE MAIS.
+     *
+     * Um marcador invisível depois do último cartão; quando fica a 600 px de
+     * aparecer, pede-se a página seguinte — chega antes de o operador lá
+     * chegar, e a lista parece não ter fim até ter mesmo.
+     */
+    useEffect(() => {
+        const alvo = fundo.current;
+
+        if (!alvo || !haMais || aCarregarMais || typeof IntersectionObserver === 'undefined') return;
+
+        const vigia = new IntersectionObserver(
+            (entradas) => {
+                if (entradas.some((e) => e.isIntersecting)) carregarMais();
+            },
+            { root: grelha.current, rootMargin: '0px 0px 600px 0px' },
+        );
+
+        vigia.observe(alvo);
+
+        return () => vigia.disconnect();
+    }, [haMais, aCarregarMais, carregarMais, artigos.length]);
 
     return (
         <section className={cls('flex min-h-0 flex-col overflow-hidden border border-slate-200 bg-white shadow-sm', RAIO)}>
@@ -924,7 +984,7 @@ function Catalogo({
 
             {/* A GRELHA. Cartões maiores do que os de antes: ao balcão acerta-se
                 com o dedo, e um alvo pequeno é um artigo errado na factura. */}
-            <div className={cls('flex-1 overflow-y-auto p-3', aCarregar && 'opacity-60')}>
+            <div ref={grelha} className={cls('flex-1 overflow-y-auto p-3 transition-opacity duration-200', aCarregar && 'opacity-60')} data-grelha-do-pos>
                 {artigos.length === 0 ? (
                     <div className="flex h-full flex-col items-center justify-center py-16 text-center">
                         <div className="mb-4 grid h-20 w-20 place-items-center rounded-full bg-slate-100">
@@ -954,6 +1014,32 @@ function Catalogo({
                                 onClick={() => aoEscolher(a)}
                             />
                         ))}
+                    </div>
+                )}
+
+                {artigos.length > 0 && (
+                    <div ref={fundo} className="flex min-h-16 items-center justify-center py-4" data-fundo-da-grelha>
+                        {aCarregarMais ? (
+                            <span className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 shadow-sm" role="status">
+                                <i className="fas fa-spinner fa-spin" aria-hidden="true" />
+                                {t('A carregar mais artigos…')}
+                            </span>
+                        ) : haMais ? (
+                            // O botão é a rede: se o browser não vigiar o fundo, carrega-se à mão.
+                            <button
+                                type="button"
+                                onClick={carregarMais}
+                                className={cls('inline-flex items-center gap-2 border border-indigo-200 bg-white px-4 py-2 text-sm font-semibold text-indigo-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-indigo-50 hover:shadow-md', RAIO, FOCO)}
+                            >
+                                <i className="fas fa-arrow-down" aria-hidden="true" />
+                                {t('Mostrar mais artigos')}
+                            </button>
+                        ) : (
+                            <span className="inline-flex items-center gap-2 text-xs font-medium text-slate-400">
+                                <i className="fas fa-circle-check text-emerald-400" aria-hidden="true" />
+                                {t('São todos — :n artigo(s)', { n: artigos.length.toLocaleString('pt-PT') })}
+                            </span>
+                        )}
                     </div>
                 )}
             </div>
