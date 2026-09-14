@@ -599,7 +599,23 @@ function FichaDaOrdemModal({ id, o, aoFechar, aoMudar, mudarEstado, aMudarEstado
             icone="fa-clipboard-list"
             cor="roxo"
             largura="xl"
-            rodape={<Botao onClick={aoFechar}>{t('Fechar')}</Botao>}
+            rodape={
+                <>
+                    {/* A FOLHA DA ORDEM, para o cliente assinar e a oficina arquivar: o ecrã
+                        de sempre tinha «Imprimir» aqui e a migração deixou-o cair. */}
+                    {f && (
+                        <a
+                            href={`/workshop/work-orders/${id}/print`}
+                            target="_blank"
+                            rel="noopener"
+                            className={cls('inline-flex items-center justify-center gap-2 border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md', RAIO, FOCO)}
+                        >
+                            <i className="fas fa-print text-indigo-600" aria-hidden="true" />{t('Imprimir')}
+                        </a>
+                    )}
+                    <Botao onClick={aoFechar}>{t('Fechar')}</Botao>
+                </>
+            }
         >
             {q.isPending ? <Carregando linhas={8} /> : !f ? <Falhou erro={q.error} /> : (
                 <div className="space-y-4">

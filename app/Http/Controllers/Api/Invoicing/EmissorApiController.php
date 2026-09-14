@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Invoicing;
 
+use App\Helpers\DocumentConfigHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\Invoicing\QuoteTemplate;
@@ -165,6 +166,16 @@ class EmissorApiController extends Controller
             'permissoes' => [
                 'pode_criar' => (bool) $request->user()?->can(str_replace('.view', '.create', $def['permissao'])),
             ],
+
+            /*
+             * «IMPRIMIR AUTOMATICAMENTE AO GRAVAR», das definições da empresa.
+             *
+             * O interruptor gravava-se e nenhum ecrã em React o lia: perdeu-se
+             * na migração. Viaja nas opções e não num pedido à parte porque o
+             * ecrã precisa de o saber no instante em que a gravação volta — é
+             * nesse instante que abre o PDF.
+             */
+            'imprimir_ao_gravar' => DocumentConfigHelper::shouldAutoPrint(),
         ]);
     }
 
@@ -487,6 +498,11 @@ class EmissorApiController extends Controller
             'numero' => $documento->{$def['numero']},
             'total' => round((float) $documento->total, 2),
             'abrir' => $def['rota'] . '/' . $documento->id . '/edit',
+            // O PAPEL DO QUE SE ACABOU DE GRAVAR. Sem as duas moradas, o ecrã
+            // de sucesso não tinha botão de PDF e a impressão ao gravar não
+            // tinha o que abrir — quem queria o papel ia procurá-lo à lista.
+            'pdf' => $def['rota'] . '/' . $documento->id . '/pdf',
+            'preview' => $def['rota'] . '/' . $documento->id . '/preview',
             'estado' => $documento->status,
             'message' => match (true) {
                 $documento->status === 'sent' => __('Documento :n gravado e dado como enviado.', ['n' => $documento->{$def['numero']}]),

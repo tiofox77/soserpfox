@@ -559,7 +559,7 @@ export default function Clientes() {
                     artigos: t('Top 10 Produtos Mais Comprados'),
                     semDocumentos: t('Sem faturas registadas'),
                 }}
-                moradaDoDocumento={(id) => `/invoicing/sales/invoices/${id}`}
+                moradasDoDocumento={(id) => ({ preview: `/invoicing/sales/invoices/${id}/preview`, pdf: `/invoicing/sales/invoices/${id}/pdf` })}
                 podeEditar={Boolean(permissoes?.pode_editar)}
                 aoEditar={() => {
                     const c = aVer;

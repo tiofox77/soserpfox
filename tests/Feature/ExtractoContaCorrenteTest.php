@@ -319,6 +319,48 @@ class ExtractoContaCorrenteTest extends TenantTestCase
         $this->assertStringStartsWith('%PDF-', $resposta->getContent());
     }
 
+    /**
+     * O ECRÃ OFERECE O PAPEL, com os filtros que tem postos.
+     *
+     * O controlador do PDF existia e nenhum ecrã em React o oferecia. O ecrã
+     * chama aos filtros `entidadeId`, `dateFrom`, `dateTo` e `period`; o
+     * controlador lê `id`, `de` e `ate`. A morada vem pronta do servidor — e
+     * com o MESMO intervalo dos números do ecrã.
+     */
+    public function test_o_ecra_da_a_morada_do_pdf_com_os_filtros_traduzidos(): void
+    {
+        $this->factura(10000, now()->subDays(10)->toDateString());
+
+        // Sem titular escolhido não há papel.
+        $this->assertNull($this->getJson(self::RAIZ)->assertOk()->json('pdf'));
+
+        $de = now()->subMonths(3)->toDateString();
+        $ate = now()->toDateString();
+
+        $r = $this->getJson(self::RAIZ . '?' . http_build_query([
+            'entidade' => 'cliente', 'entidadeId' => $this->cliente->id, 'entidadeNome' => $this->cliente->name,
+            'period' => 'custom', 'dateFrom' => $de, 'dateTo' => $ate,
+        ]))->assertOk();
+
+        $pdf = (string) $r->json('pdf');
+        $this->assertSame('/invoicing/reports/account-statement/pdf', parse_url($pdf, PHP_URL_PATH));
+
+        parse_str((string) parse_url($pdf, PHP_URL_QUERY), $q);
+        $this->assertSame(['entidade' => 'cliente', 'id' => (string) $this->cliente->id, 'de' => $de, 'ate' => $ate], $q);
+        $this->assertSame($r->json('dados.intervalo.de'), $q['de'], 'o papel tem o período do ecrã');
+
+        // E abre.
+        $resposta = $this->get($pdf)->assertOk();
+        $this->assertStringStartsWith('%PDF-', $resposta->getContent());
+
+        // Um atalho («este ano») resolve-se no servidor, não no ecrã.
+        parse_str((string) parse_url((string) $this->getJson(self::RAIZ . '?entidade=cliente&entidadeId=' . $this->cliente->id . '&period=ytd')->json('pdf'), PHP_URL_QUERY), $ano);
+        $this->assertSame(now()->startOfYear()->toDateString(), $ano['de']);
+
+        // Um id de cliente do lado dos fornecedores não dá papel de ninguém.
+        $this->assertNull($this->getJson(self::RAIZ . '?entidade=fornecedor&entidadeId=' . $this->cliente->id)->json('pdf'));
+    }
+
     public function test_o_pdf_de_uma_conta_de_outra_empresa_da_404(): void
     {
         $outra = \App\Models\Tenant::create([

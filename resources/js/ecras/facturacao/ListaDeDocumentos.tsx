@@ -569,6 +569,38 @@ function FichaDoDocumento({
             rodape={
                 <>
                     <Botao onClick={aoFechar}>{t('Fechar')}</Botao>
+
+                    {/* OS DOIS PDF, como a linha da lista os tem — e como o
+                        modal em Blade os tinha. Sem eles, quem abria a ficha
+                        para conferir um orçamento e o queria mandar ao cliente
+                        tinha de fechar, voltar à linha e procurar o botão. O
+                        do servidor (DomPDF) tem texto para copiar; o do ecrã é
+                        a própria pré-visualização, fotografada. O do servidor
+                        abre à parte: no mesmo separador, o PDF tomava o lugar
+                        da lista. */}
+                    <div className="flex items-center justify-center gap-1">
+                        <a
+                            href={`${rota}/${documento.id}/pdf`}
+                            target="_blank"
+                            rel="noreferrer"
+                            title={t('PDF')}
+                            aria-label={t('PDF de :numero', { numero: documento.numero })}
+                            className={cls(
+                                'inline-flex h-10 items-center gap-2 border border-red-200 bg-white px-4 text-sm font-semibold text-red-600',
+                                'transition-all duration-200 hover:-translate-y-0.5 hover:border-red-300 hover:bg-red-50 hover:shadow-sm',
+                                RAIO,
+                                FOCO,
+                            )}
+                        >
+                            <i className="fas fa-file-pdf" aria-hidden="true" />
+                            {t('PDF')}
+                        </a>
+                        <PdfDoEcra
+                            url={`${rota}/${documento.id}/preview`}
+                            titulo={t('Descarregar :numero em PDF', { numero: documento.numero })}
+                        />
+                    </div>
+
                     <a
                         href={`${rota}/${documento.id}/preview`}
                         target="_blank"
@@ -878,6 +910,7 @@ function HistoricoDeConversoes({
                                             <th className="px-3 py-2 text-left font-semibold">{t('Vencimento')}</th>
                                             <th className="px-3 py-2 text-right font-semibold">{t('Total')}</th>
                                             <th className="px-3 py-2 text-left font-semibold">{t('Estado')}</th>
+                                            <th className="px-3 py-2 text-right font-semibold">{t('Acções')}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
@@ -904,6 +937,30 @@ function HistoricoDeConversoes({
                                                 </td>
                                                 <td className="px-3 py-2">
                                                     <Etiqueta cor={f.estado_cor}>{f.estado_rotulo}</Etiqueta>
+                                                </td>
+                                                {/* O PAPEL DE CADA FACTURA QUE SAIU. O
+                                                    histórico em Blade tinha o PDF ao lado
+                                                    de cada uma; aqui só o número levava à
+                                                    pré-visualização, e descarregar pedia
+                                                    abri-la e procurar lá. A `rota` vem do
+                                                    servidor — venda ou compra. */}
+                                                <td className="px-3 py-2">
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <a
+                                                            href={`${f.rota}/${f.id}/pdf`}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            title={t('PDF')}
+                                                            aria-label={t('PDF de :numero', { numero: f.numero })}
+                                                            className={cls('p-2 text-red-500 transition-all duration-200 hover:scale-110 active:scale-100 hover:bg-red-50', RAIO, FOCO)}
+                                                        >
+                                                            <i className="fas fa-file-pdf" aria-hidden="true" />
+                                                        </a>
+                                                        <PdfDoEcra
+                                                            url={`${f.rota}/${f.id}/preview`}
+                                                            titulo={t('Descarregar :numero em PDF', { numero: f.numero })}
+                                                        />
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}

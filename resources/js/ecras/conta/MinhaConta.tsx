@@ -683,8 +683,12 @@ export default function MinhaConta() {
                                             {kz(p.valor)}
                                         </span>
 
-                                        {p.tem_comprovativo && (
-                                            <Etiqueta cor="bom" icone="fa-paperclip">{t('Comprovativo')}</Etiqueta>
+                                        {/* O comprovativo abre-se — o ecrã de sempre tinha «Baixar Comprovativo»,
+                                            e a migração deixou só a etiqueta. */}
+                                        {p.tem_comprovativo && p.comprovativo && (
+                                            <a href={p.comprovativo} target="_blank" rel="noopener" title={t('Ver comprovativo')} className="transition-transform duration-200 hover:scale-105">
+                                                <Etiqueta cor="bom" icone="fa-paperclip">{t('Ver comprovativo')}</Etiqueta>
+                                            </a>
                                         )}
 
                                         <Etiqueta cor={COR_DO_PEDIDO[p.estado] ?? 'neutra'} ponto>

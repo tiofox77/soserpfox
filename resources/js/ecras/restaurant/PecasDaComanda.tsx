@@ -441,6 +441,21 @@ export function PainelDaComanda({
                         </Botao>
                     )}
 
+                    {/* A CONTA DE CONSULTA: o papel que vai à mesa ANTES de se
+                        facturar, para o cliente conferir. O ecrã de sempre tinha-a
+                        e a migração deixou-a cair. Não é documento fiscal. */}
+                    {['ready', 'served', 'partially_billed'].includes(c.estado) && f.artigos.some((a) => a.estado_na_cozinha !== 'voided') && (
+                        <a
+                            href={`/restaurant/orders/${c.id}/consultation-receipt?print=1`}
+                            target="_blank"
+                            rel="noopener"
+                            className={cls('inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md', FOCO)}
+                        >
+                            <i className="fas fa-receipt text-amber-600" aria-hidden="true" />
+                            {t('Conta de consulta')}
+                        </a>
+                    )}
+
                     {c.para_fora && !c.despachada_em && (
                         <Botao cor="aviso" icone="fa-motorcycle" aTrabalhar={despachar.isPending} onClick={() => despachar.mutate()}>
                             {t('Saiu para o cliente')}
@@ -959,7 +974,7 @@ function ModalDoDocumento({
 
                 <div className="mt-5 flex justify-center gap-2">
                     <a
-                        href={factura ? `/restaurant/documents/${factura.id}/print` : '#'}
+                        href={factura ? `/restaurant/documents/${factura.id}/print?print=1` : '#'}
                         target="_blank"
                         rel="noopener"
                         className={cls(

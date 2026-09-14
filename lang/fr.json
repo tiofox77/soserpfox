@@ -1,4 +1,8 @@
 {
+    "Ver PDF": "Voir le PDF",
+    "Pré-visualizar PDF": "Aperçu du PDF",
+    "Mostra a versão gravada do modelo.": "Affiche la version enregistrée du modèle.",
+    "A gravar… o PDF só mostra a alteração depois de gravada.": "Enregistrement… le PDF n'affiche la modification qu'une fois enregistrée.",
     "Este ano até hoje": "Depuis le début de l'année",
     "Ano anterior": "Année précédente",
     "Ano passado": "L'année dernière",
@@ -6066,6 +6070,7 @@
     "Nenhum artigo com stock neste filtro.": "Aucun article en stock avec ce filtre.",
     "Nenhum artigo encontrado.": "Aucun article trouvé.",
     "Artigos a movimentar": "Articles à déplacer",
+    "Conta de consulta": "Addition à consulter",
     "Avulso": "Isolé",
     "Movimento avulso": "Mouvement isolé",
     "Correcção de stock: de :antes para :depois": "Correction de stock : de :antes à :depois",
@@ -10623,6 +10628,7 @@
     "O motor offline ainda não carregou. Tente outra vez.": "Le moteur hors ligne n'est pas encore chargé. Réessayez.",
     "O módulo de impressão não carregou. Recarregue a página com internet.": "Le module d'impression ne s'est pas chargé. Rechargez la page avec internet.",
     "O navegador bloqueou a janela. Permita pop-ups para este site.": "Le navigateur a bloqué la fenêtre. Autorisez les fenêtres pop-up pour ce site.",
+    "O browser não deixou abrir a janela do PDF. Carregue em «PDF» para o abrir, ou permita pop-ups para este site.": "Le navigateur n'a pas laissé s'ouvrir la fenêtre du PDF. Cliquez sur «PDF» pour l'ouvrir, ou autorisez les fenêtres pop-up pour ce site.",
     "O que acontece a seguir": "Ce qui se passe ensuite",
     "O que está por enviar continua guardado neste aparelho.": "Ce qui n'a pas été envoyé reste enregistré sur cet appareil.",
     "Obrigatório. Para vendas sem cliente identificado, use o Consumidor Final no POS.": "Obligatoire. Pour les ventes sans client identifié, utilisez le Consommateur final au PDV.",
@@ -10754,5 +10760,6 @@
     "Defina o seu PIN de turno": "Définissez votre PIN de service",
     "Sem PIN não entra neste aparelho quando faltar a internet.": "Sans PIN, vous ne pourrez pas vous connecter sur cet appareil sans internet.",
     "Usar antes a palavra-passe neste aparelho": "Utiliser plutôt le mot de passe sur cet appareil",
+    "Extracto em PDF": "Relevé en PDF",
     "Voltar ao POS offline": "Retour au PDV hors ligne"
 }

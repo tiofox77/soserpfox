@@ -239,7 +239,12 @@ class ClientApiController extends Controller
     {
         $this->exigir($request, 'invoicing.clients.view');
 
-        return response()->json($extrato->doCliente($this->doTenant($id)));
+        $cliente = $this->doTenant($id);
+
+        // O extracto de conta em papel, a partir da ficha — só a quem o abre.
+        return response()->json($extrato->doCliente($cliente) + [
+            'pdf' => \App\Services\Invoicing\Relatorios\ExtractoDeConta::moradaDoPdfPara($request->user(), \App\Services\Invoicing\ContaCorrenteQuery::CLIENTE, $cliente->id),
+        ]);
     }
 
     /**

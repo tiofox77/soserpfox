@@ -317,6 +317,25 @@ class StockMovement extends Model
             ->orderBy('id');
     }
 
+    /**
+     * A morada do papel de um lote — `pdf` descarrega, `preview` abre no browser.
+     *
+     * UM SÍTIO SÓ PARA A MORADA, e com a mesma regra da rota: a rota só aceita
+     * letras, algarismos, `/`, `_` e `-` na referência (o `where` que deixa as
+     * barras do MOV/AAAA/NNNNNN passar). Uma referência antiga com outro
+     * carácter daria uma ligação que nunca corresponde — um 404 com cara de
+     * documento perdido. Sem referência, ou com uma que a rota não apanha, não
+     * há ligação nenhuma, e o ecrã mostra só o texto.
+     */
+    public static function moradaDoLote(?string $referencia, string $papel = 'pdf'): ?string
+    {
+        if ($referencia === null || !preg_match('#^[A-Za-z0-9/_-]+$#', $referencia)) {
+            return null;
+        }
+
+        return '/invoicing/stock/movimentacao/' . $referencia . '/' . ($papel === 'preview' ? 'preview' : 'pdf');
+    }
+
     public static function createTransfer($fromWarehouseId, $toWarehouseId, $productId, $quantity, $notes = null)
     {
         return static::create([

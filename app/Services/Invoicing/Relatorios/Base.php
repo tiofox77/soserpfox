@@ -21,9 +21,31 @@ abstract class Base implements Relatorio
         return $v === '' ? null : $v;
     }
 
+    /** A maior parte dos mapas não tem papel próprio: imprime-se o ecrã. */
+    public function pdf(array $f, array $dados): ?string
+    {
+        return null;
+    }
+
     protected static function col(string $rotulo, string $chave, ?string $formato = null, ?string $alinhar = null): array
     {
         return array_filter(['rotulo' => $rotulo, 'chave' => $chave, 'formato' => $formato, 'alinhar' => $alinhar ?? (in_array($formato, ['dinheiro', 'inteiro', 'numero', 'percentagem', 'dias'], true) ? 'direita' : null)]);
+    }
+
+    /**
+     * UMA COLUNA QUE LEVA AO DOCUMENTO DA LINHA.
+     *
+     * O texto é o de `$chave` — é esse que o CSV exporta, porque uma folha de
+     * cálculo não abre ligações de sessão. As moradas vêm em `$ligacao`, cada
+     * uma o caminho de um campo DA LINHA: `abrir` (o próprio texto), `previsao`
+     * (o quadrado verde de imprimir) e `pdf` (o vermelho). Uma linha sem morada
+     * mostra só o texto: nem todos os movimentos têm papel.
+     *
+     * @param  array{abrir?: string, previsao?: string, pdf?: string}  $ligacao
+     */
+    protected static function colLigacao(string $rotulo, string $chave, array $ligacao): array
+    {
+        return ['rotulo' => $rotulo, 'chave' => $chave, 'formato' => 'ligacao', 'ligacao' => $ligacao];
     }
 
     protected static function cartao(string $rotulo, string $chave, string $formato = 'dinheiro', string $cor = 'gray'): array

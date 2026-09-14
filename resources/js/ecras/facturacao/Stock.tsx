@@ -414,7 +414,20 @@ function Movimentos({ l, aoFechar }: { l: LinhaDeStock; aoFechar: () => void }) 
                                 <td className="px-3 py-2">{m.armazem}</td>
                                 <td className="px-3 py-2 text-right tabular-nums">{m.quantidade.toLocaleString('pt-PT')}</td>
                                 <td className="px-3 py-2 text-right tabular-nums text-slate-500">{m.saldo_depois?.toLocaleString('pt-PT') ?? ''}</td>
-                                <td className="px-3 py-2 text-xs text-slate-500">{m.lote && <span className="mr-1 font-mono">{m.lote}</span>}{m.notas}{m.quem && <span className="ml-1 text-slate-400">· {m.quem}</span>}</td>
+                                <td className="px-3 py-2 text-xs text-slate-500">
+                                    {/* O LOTE LEVA AO SEU PAPEL. Era texto só, e o
+                                        documento do lote tinha de se ir buscar ao
+                                        ecrã das transferências; ficam os dois
+                                        quadrados de sempre ao lado da referência. */}
+                                    {m.lote && (
+                                        <span className="mb-1 flex items-center gap-1.5">
+                                            <span className="font-mono">{m.lote}</span>
+                                            {m.preview && <a href={m.preview} target="_blank" rel="noreferrer" title={t('Pré-visualizar / Imprimir')} aria-label={t('Pré-visualizar :referencia', { referencia: m.lote })} className={accao('bom')}><i className="fas fa-print" aria-hidden="true" /></a>}
+                                            {m.pdf && <a href={m.pdf} target="_blank" rel="noreferrer" title={t('PDF')} aria-label={t('PDF de :referencia', { referencia: m.lote })} className={accao('perigo')}><i className="fas fa-file-pdf" aria-hidden="true" /></a>}
+                                        </span>
+                                    )}
+                                    {m.notas}{m.quem && <span className="ml-1 text-slate-400">· {m.quem}</span>}
+                                </td>
                             </tr>
                         ))}
                     </tbody>

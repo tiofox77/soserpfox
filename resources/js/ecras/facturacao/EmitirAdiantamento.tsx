@@ -10,7 +10,8 @@ import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
 import { cls, kz } from '@/ui/tokens';
 import { t } from '@/i18n';
-import { Aviso, NaoAbriu, PainelDeSucesso } from './PecasDoEditor';
+import { useImprimirAoGravar } from './imprimirAoGravar';
+import { Aviso, NaoAbriu, PainelDeSucesso, PapelBloqueado } from './PecasDoEditor';
 
 /**
  * REGISTAR UM ADIANTAMENTO — dinheiro recebido de um cliente antes de haver
@@ -32,6 +33,8 @@ export default function EmitirAdiantamento({ id }: { id?: number }) {
 
     const opcoes = useQuery({ queryKey: ['adiantamentos', 'opcoes'], queryFn: adiantamentos.opcoes, staleTime: 5 * 60_000 });
     const existente = useQuery({ queryKey: ['adiantamentos', id], queryFn: () => adiantamentos.mostrar(id as number), enabled: !!id });
+    /* O PDF abre sozinho ao registar, se a empresa o pediu — ver `imprimirAoGravar`. */
+    const impressao = useImprimirAoGravar(opcoes.data?.imprimir_ao_gravar);
 
     /* Em edição, a forma nasce do servidor. */
     useEffect(() => {
@@ -57,7 +60,12 @@ export default function EmitirAdiantamento({ id }: { id?: number }) {
             };
             return id ? adiantamentos.actualizar(id, corpo) : adiantamentos.guardar(corpo);
         },
-        onSuccess: (r) => { porFeito(r.data); porErros({}); },
+        onSuccess: (r) => {
+            porFeito(r.data);
+            porErros({});
+            // O adiantamento não tem rascunho: registado é o papel do dinheiro recebido.
+            impressao.depoisDeGravar(r.data.pdf);
+        },
         onError: (e) => porErros(e instanceof ErroDaApi ? e.erros : {}),
     });
 
@@ -79,10 +87,11 @@ export default function EmitirAdiantamento({ id }: { id?: number }) {
                 numero={feito.numero}
                 mensagem={t(':valor Kz disponíveis para abater em facturas.', { valor: kz(feito.amount) })}
                 icone="fa-hand-holding-dollar"
+                aviso={impressao.bloqueado && <PapelBloqueado />}
             >
                 <Botao cor="primaria" tom="solida" icone="fa-file-pdf" onClick={() => window.open(feito.pdf, '_blank')}>{t('PDF')}</Botao>
                 <Botao icone="fa-list" onClick={() => (window.location.href = feito.abrir)}>{t('Ver adiantamentos')}</Botao>
-                {!id && <Botao icone="fa-plus" onClick={() => { porFeito(null); porClienteId(''); porValor(''); porFinalidade(''); porNotas(''); }}>{t('Registar outro')}</Botao>}
+                {!id && <Botao icone="fa-plus" onClick={() => { porFeito(null); impressao.esquecer(); porClienteId(''); porValor(''); porFinalidade(''); porNotas(''); }}>{t('Registar outro')}</Botao>}
             </PainelDeSucesso>
         );
     }

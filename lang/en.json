@@ -1,4 +1,8 @@
 {
+    "Ver PDF": "View PDF",
+    "Pré-visualizar PDF": "Preview PDF",
+    "Mostra a versão gravada do modelo.": "Shows the saved version of the template.",
+    "A gravar… o PDF só mostra a alteração depois de gravada.": "Saving… the PDF only shows the change once it has been saved.",
     "Este ano até hoje": "Year to date",
     "Ano anterior": "Previous year",
     "Ano passado": "Last year",
@@ -6066,6 +6070,7 @@
     "Nenhum artigo com stock neste filtro.": "No item with stock under this filter.",
     "Nenhum artigo encontrado.": "No item found.",
     "Artigos a movimentar": "Items to move",
+    "Conta de consulta": "Bill for review",
     "Avulso": "Single",
     "Movimento avulso": "Single movement",
     "Correcção de stock: de :antes para :depois": "Stock correction: from :antes to :depois",
@@ -10623,6 +10628,7 @@
     "O motor offline ainda não carregou. Tente outra vez.": "The offline engine has not loaded yet. Try again.",
     "O módulo de impressão não carregou. Recarregue a página com internet.": "The printing module did not load. Reload the page with internet.",
     "O navegador bloqueou a janela. Permita pop-ups para este site.": "The browser blocked the window. Allow pop-ups for this site.",
+    "O browser não deixou abrir a janela do PDF. Carregue em «PDF» para o abrir, ou permita pop-ups para este site.": "The browser did not let the PDF window open. Click «PDF» to open it, or allow pop-ups for this site.",
     "O que acontece a seguir": "What happens next",
     "O que está por enviar continua guardado neste aparelho.": "Anything not yet sent is still saved on this device.",
     "Obrigatório. Para vendas sem cliente identificado, use o Consumidor Final no POS.": "Required. For sales without an identified customer, use Final Consumer in the POS.",
@@ -10754,5 +10760,6 @@
     "Defina o seu PIN de turno": "Set your shift PIN",
     "Sem PIN não entra neste aparelho quando faltar a internet.": "Without a PIN you cannot sign in on this device when the internet is down.",
     "Usar antes a palavra-passe neste aparelho": "Use the password on this device instead",
+    "Extracto em PDF": "Statement as PDF",
     "Voltar ao POS offline": "Back to the offline POS"
 }

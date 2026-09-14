@@ -13,6 +13,7 @@ import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
 import { t } from '@/i18n';
 import { EscolhaDaParte } from './EscolhaDaParte';
 import { EscolhaDeArtigo, juntarArtigo } from './EscolhaDeArtigo';
+import { useImprimirAoGravar } from './imprimirAoGravar';
 import {
     ApagarLinha,
     CABECALHO_DA_TABELA,
@@ -23,6 +24,7 @@ import {
     LINHA_DA_TABELA,
     NaoAbriu,
     PainelDeSucesso,
+    PapelBloqueado,
     ParcelaDoTotal,
     SemNada,
     TotalGrande,
@@ -86,6 +88,8 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
     const [aContar, porAContar] = useState(false);
 
     const opcoes = useQuery({ queryKey: ['factura', 'opcoes'], queryFn: factura.opcoes, staleTime: 5 * 60_000 });
+    /* O PDF abre sozinho ao emitir, se a empresa o pediu — ver `imprimirAoGravar`. */
+    const impressao = useImprimirAoGravar(opcoes.data?.imprimir_ao_gravar);
     const aberta = useQuery({ queryKey: ['factura', 'abrir', id], queryFn: () => factura.abrir(id ?? 0), enabled: id !== undefined });
     const copia = useQuery({ queryKey: ['factura', 'duplicar', duplicarDe], queryFn: () => factura.duplicar(duplicarDe ?? 0), enabled: id === undefined && duplicarDe !== undefined });
 
@@ -237,7 +241,12 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
             };
             return id !== undefined ? factura.actualizar(id, corpo) : factura.guardar(corpo);
         },
-        onSuccess: (r) => { porFeito({ numero: r.numero, agt: r.agt, abrir: r.abrir, pdf: r.pdf, mensagem: r.message }); porErros({}); },
+        onSuccess: (r) => {
+            porFeito({ numero: r.numero, agt: r.agt, abrir: r.abrir, pdf: r.pdf, mensagem: r.message });
+            porErros({});
+            // Só a EMITIDA se imprime: o rascunho ainda não é factura.
+            impressao.depoisDeGravar(r.pdf, r.estado);
+        },
         onError: (e) => porErros(e instanceof ErroDaApi ? e.erros : {}),
     });
 
@@ -255,10 +264,10 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
 
     if (feito) {
         return (
-            <PainelDeSucesso numero={feito.numero} mensagem={feito.mensagem} agt={feito.agt} icone="fa-file-invoice">
+            <PainelDeSucesso numero={feito.numero} mensagem={feito.mensagem} agt={feito.agt} icone="fa-file-invoice" aviso={impressao.bloqueado && <PapelBloqueado />}>
                 <Botao cor="primaria" tom="solida" icone="fa-file-pdf" onClick={() => window.open(feito.pdf, '_blank')}>{t('PDF')}</Botao>
                 <Botao icone="fa-list" onClick={() => (window.location.href = '/invoicing/sales/invoices')}>{t('Ver as facturas')}</Botao>
-                {id === undefined && <Botao icone="fa-plus" onClick={() => { porFeito(null); porLinhas([{ ...LINHA_NOVA }]); porClienteId(''); porNotas(''); }}>{t('Emitir outra')}</Botao>}
+                {id === undefined && <Botao icone="fa-plus" onClick={() => { porFeito(null); impressao.esquecer(); porLinhas([{ ...LINHA_NOVA }]); porClienteId(''); porNotas(''); }}>{t('Emitir outra')}</Botao>}
             </PainelDeSucesso>
         );
     }

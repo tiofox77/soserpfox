@@ -373,6 +373,16 @@ class ApiDosCatalogosParaReactTest extends TenantTestCase
         // O FORNECEDOR NÃO TEM EXTRAS: notas de crédito e recibos são do lado
         // do cliente. Uma caixa vazia a dizer «Recibos: 0» seria mentira.
         $this->assertSame([], $e['extras']);
+
+        // O extracto de conta em papel só a quem tem a permissão dos
+        // relatórios — e do lado dos fornecedores.
+        $this->assertNull($e['pdf']);
+
+        $this->comPermissoes('invoicing.reports.view');
+        $pdf = (string) $this->getJson(self::RAIZ . "/fornecedores/{$fornecedor->id}/extrato")->assertOk()->json('pdf');
+        parse_str((string) parse_url($pdf, PHP_URL_QUERY), $q);
+        $this->assertSame(['entidade' => 'fornecedor', 'id' => (string) $fornecedor->id], $q);
+        $this->assertStringStartsWith('%PDF-', $this->get($pdf)->assertOk()->getContent());
     }
 
     /**

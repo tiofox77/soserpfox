@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Invoicing;
 
+use App\Helpers\DocumentConfigHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\Invoicing\LineTax;
@@ -260,6 +261,11 @@ class FacturaApiController extends Controller
             'permissoes' => [
                 'pode_criar' => true,
             ],
+
+            // «Imprimir automaticamente ao gravar», das definições da empresa:
+            // o ecrã abre o PDF assim que a factura é emitida. Ver o mesmo
+            // campo no `EmissorApiController`.
+            'imprimir_ao_gravar' => DocumentConfigHelper::shouldAutoPrint(),
         ]);
     }
 
@@ -382,6 +388,9 @@ class FacturaApiController extends Controller
             'agt' => $r['fila']['enfileirado'] ? __('A comunicar à AGT.') : null,
             'abrir' => '/invoicing/sales/invoices/' . $f->id,
             'pdf' => '/invoicing/sales/invoices/' . $f->id . '/pdf',
+            // O estado diz ao ecrã se foi EMITIDA ou só guardada: um rascunho
+            // não se imprime sozinho — não é documento para entregar a ninguém.
+            'estado' => $f->status,
             'message' => $existente
                 ? __('Factura :n actualizada.', ['n' => $f->invoice_number])
                 : __('Factura :n emitida.', ['n' => $f->invoice_number]),

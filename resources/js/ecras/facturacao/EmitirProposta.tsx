@@ -12,6 +12,7 @@ import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
 import { t } from '@/i18n';
 import { EscolhaDaParte } from './EscolhaDaParte';
 import { EscolhaDeArtigo, juntarArtigo } from './EscolhaDeArtigo';
+import { useImprimirAoGravar } from './imprimirAoGravar';
 import {
     ApagarLinha,
     CABECALHO_DA_TABELA,
@@ -22,6 +23,7 @@ import {
     LINHA_DA_TABELA,
     NaoAbriu,
     PainelDeSucesso,
+    PapelBloqueado,
     ParcelaDoTotal,
     SemNada,
     TotalGrande,
@@ -75,14 +77,18 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
     const [campos, porCampos] = useState<Record<string, string>>({});
     const [linhas, porLinhas] = useState<LinhaDoEditor[]>([{ ...LINHA_NOVA }]);
     const [erros, porErros] = useState<Record<string, string[]>>({});
-    const [gravado, porGravado] = useState<{ numero: string; abrir: string; mensagem: string } | null>(null);
+    const [gravado, porGravado] = useState<{ numero: string; abrir: string; pdf: string; preview: string; mensagem: string } | null>(null);
 
     const opcoes = useQuery({
         queryKey: ['emissor', tipo, 'opcoes'],
         queryFn: () => emissor.opcoes(tipo),
         staleTime: 5 * 60_000,
     });
-    const aberta = useQuery({ queryKey: ['emissor', tipo, 'abrir', id], queryFn: () => emissor.abrir(tipo, id ?? 0), enabled: id !== undefined });
+
+    /* O PDF abre sozinho ao gravar, se a empresa o pediu — ver `imprimirAoGravar`. */
+    const impressao = useImprimirAoGravar(opcoes.data?.imprimir_ao_gravar);
+
+    const aberta =useQuery({ queryKey: ['emissor', tipo, 'abrir', id], queryFn: () => emissor.abrir(tipo, id ?? 0), enabled: id !== undefined });
     const copia = useQuery({ queryKey: ['emissor', tipo, 'duplicar', duplicarDe], queryFn: () => emissor.duplicar(tipo, duplicarDe ?? 0), enabled: id === undefined && duplicarDe !== undefined });
 
     /*
@@ -193,7 +199,10 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
                 desconto_comercial: Number(descontoComercial) || 0,
                 desconto_legado: Number(descontoLegado) || 0,
                 desconto_financeiro: Number(descontoFinanceiro) || 0,
-                estado,
+                // «Guardar alterações» numa proposta que já existe NÃO manda estado: mandar
+                // `draft` devolvia a rascunho uma proposta já enviada — o servidor só muda o
+                // estado quando o pedido o diz, e só «Guardar e enviar» o deve dizer.
+                estado: id !== undefined && estado === 'draft' ? undefined : estado,
                 notas: notas || null,
                 condicoes: condicoes || null,
                 quote_template_id: Number(modeloId) || null,
@@ -203,8 +212,11 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
             return id !== undefined ? emissor.actualizar(tipo, id, corpo) : emissor.guardar(tipo, corpo);
         },
         onSuccess: (r) => {
-            porGravado({ numero: r.numero, abrir: r.abrir, mensagem: r.message });
+            porGravado({ numero: r.numero, abrir: r.abrir, pdf: r.pdf, preview: r.preview, mensagem: r.message });
             porErros({});
+            // «Gravar rascunho» não imprime; «Guardar e enviar» sim — é a
+            // proposta a sair para a outra parte.
+            impressao.depoisDeGravar(r.pdf, r.estado);
         },
         onError: (e) => porErros(e instanceof ErroDaApi ? e.erros : {}),
     });
@@ -232,12 +244,26 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
     /* Gravado: o ecrã dá o número e sai da frente. */
     if (gravado) {
         return (
-            <PainelDeSucesso numero={gravado.numero} mensagem={gravado.mensagem} icone="fa-file-signature">
+            <PainelDeSucesso
+                numero={gravado.numero}
+                mensagem={gravado.mensagem}
+                icone="fa-file-signature"
+                aviso={impressao.bloqueado && <PapelBloqueado />}
+            >
+                {/* O PAPEL — o que os outros ecrãs de sucesso sempre tiveram e
+                    este não: quem acabava de gravar uma proposta para a mandar
+                    ao cliente tinha de a ir procurar à lista para a imprimir. */}
+                <Botao cor="primaria" tom="solida" icone="fa-file-pdf" onClick={() => window.open(gravado.pdf, '_blank', 'noopener')}>
+                    {t('PDF')}
+                </Botao>
+                <Botao icone="fa-eye" onClick={() => window.open(gravado.preview, '_blank', 'noopener')}>
+                    {t('Pré-visualizar')}
+                </Botao>
                 {/* ABRIR O QUE SE ACABOU DE GRAVAR.
                     O servidor sempre devolveu a morada do documento, e o
                     ecrã nunca a usava: quem grava um rascunho para o
                     continuar tinha de ir procurá-lo à lista. */}
-                <Botao cor="primaria" tom="solida" icone="fa-up-right-from-square" onClick={() => (window.location.href = gravado.abrir)}>
+                <Botao icone="fa-up-right-from-square" onClick={() => (window.location.href = gravado.abrir)}>
                     {t('Abrir o documento')}
                 </Botao>
                 <Botao icone="fa-list" onClick={() => (window.location.href = o.rota)}>
@@ -248,6 +274,7 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
                         icone="fa-plus"
                         onClick={() => {
                             porGravado(null);
+                            impressao.esquecer();
                             porLinhas([{ ...LINHA_NOVA }]);
                             porParteId('');
                             porNotas('');

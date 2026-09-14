@@ -2324,7 +2324,7 @@ function Rastreio({ artigo, aoFechar }: { artigo: Artigo | null; aoFechar: () =>
                                                 <td className="px-3 py-2 font-semibold">
                                                     {v.documento_id ? (
                                                         <a
-                                                            href={`/invoicing/sales/invoices/${v.documento_id}`}
+                                                            href={`/invoicing/sales/invoices/${v.documento_id}/preview`}
                                                             target="_blank"
                                                             rel="noreferrer"
                                                             className="text-indigo-600 hover:underline"

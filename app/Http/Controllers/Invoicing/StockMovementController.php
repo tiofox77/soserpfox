@@ -139,13 +139,16 @@ class StockMovementController extends Controller
         // A permissão de transferência também serve, pelo mesmo motivo: quem
         // transfere entre armazéns tem de conseguir imprimir a guia, e essa
         // gente costuma ter `warehouse-transfer.create` sem ter nada de stock.
+        // E `reports.view`, porque o relatório dos ajustes de stock mostra o
+        // papel de cada lote — a mesma rota tem de o deixar abrir.
         abort_unless(
             $utilizador?->can('invoicing.stock.view')
             || $utilizador?->can('invoicing.stock.edit')
             || $utilizador?->can('invoicing.warehouse-transfer.view')
             || $utilizador?->can('invoicing.warehouse-transfer.create')
             || $utilizador?->can('invoicing.inter-company-transfer.view')
-            || $utilizador?->can('invoicing.inter-company-transfer.create'),
+            || $utilizador?->can('invoicing.inter-company-transfer.create')
+            || $utilizador?->can('invoicing.reports.view'),
             403,
             'Sem permissão para ver movimentações de stock.'
         );

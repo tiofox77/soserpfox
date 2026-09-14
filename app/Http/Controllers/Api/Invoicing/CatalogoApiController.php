@@ -571,7 +571,10 @@ class CatalogoApiController extends Controller
 
         $fornecedor = $this->encontrar($def, activeTenantId(), $id);
 
-        return response()->json($extrato->doFornecedor($fornecedor));
+        // O extracto de conta em papel, a partir da ficha — só a quem o abre.
+        return response()->json($extrato->doFornecedor($fornecedor) + [
+            'pdf' => \App\Services\Invoicing\Relatorios\ExtractoDeConta::moradaDoPdfPara($request->user(), \App\Services\Invoicing\ContaCorrenteQuery::FORNECEDOR, (int) $fornecedor->id),
+        ]);
     }
 
     /** O logótipo do fornecedor: um ficheiro na pasta dele, como sempre. */

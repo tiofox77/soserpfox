@@ -59,6 +59,9 @@ class RelatoriosApiController extends Controller
             'dados' => $dados,
             'atalhos' => collect(Periodo::ATALHOS)->map(fn ($rotulo, $valor) => ['valor' => $valor, 'rotulo' => __($rotulo)])->values(),
             'csv' => $esquema['csv'] ? url(Catalogo::caminho($slug) . '/csv') : null,
+            // O papel próprio do mapa, já com os filtros do ecrã traduzidos —
+            // null quando o mapa não o tem ou ainda lhe falta o que escolher.
+            'pdf' => $relatorio->pdf($f, $dados),
         ]);
     }
 

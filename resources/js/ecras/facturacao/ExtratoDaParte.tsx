@@ -9,7 +9,7 @@ import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { GraficoDeBarras } from '@/ui/GraficoDeBarras';
 import { Modal } from '@/ui/Modal';
-import { RAIO, cls, data, kz, type CorDeEcra } from '@/ui/tokens';
+import { ALTURAS, CORES, FOCO, RAIO, TRANSICAO, cls, data, kz, type Cor, type CorDeEcra } from '@/ui/tokens';
 
 /**
  * O EXTRATO DE UM CLIENTE OU DE UM FORNECEDOR.
@@ -52,7 +52,16 @@ export type ExtratoDeParte = {
     artigos: Array<{ nome: string; quantidade: number; total: number; documentos: number }>;
     frequencia: Array<{ periodo: string; quantos: number; total: number }>;
     extras: Array<{ chave: string; rotulo: string; quantos: number; total: number }>;
+    /** O extracto de conta em papel — só a quem tem a permissão dos relatórios. */
+    pdf?: string | null;
 };
+
+/** As duas moradas de um documento da lista: ver no browser, e o PDF. */
+export type MoradasDoDocumento = { preview: string; pdf: string };
+
+/** O quadrado de uma acção de linha: fundo suave da cor do que ela faz. */
+const accao = (cor: Cor) =>
+    cls('grid h-9 w-9 flex-none place-items-center rounded-lg transition-all duration-200 hover:scale-110', CORES[cor].suave, FOCO);
 
 /** Uma linha da ficha: rótulo à esquerda, valor à direita. */
 export function Dado({ rotulo, valor }: { rotulo: string; valor?: string | number | null }) {
@@ -105,7 +114,7 @@ export function JanelaDoExtrato({
     chave,
     ficha,
     rotulos,
-    moradaDoDocumento,
+    moradasDoDocumento,
     podeEditar,
     aoEditar,
 }: {
@@ -123,8 +132,16 @@ export function JanelaDoExtrato({
     ficha: React.ReactNode;
     /** As palavras do lado certo: um cliente COMPRA, um fornecedor VENDE. */
     rotulos: { facturado: string; documentos: string; artigos: string; semDocumentos: string };
-    /** Para onde vai o número do documento quando se carrega nele. */
-    moradaDoDocumento: (id: number) => string;
+    /**
+     * Para onde vai o documento: o número abre a pré-visualização, o quadrado
+     * vermelho ao lado é o PDF.
+     *
+     * Era uma morada só, `/invoicing/sales/invoices/{id}` — que não existe (a
+     * factura tem /preview, /pdf, /edit, mas não se «vê» sem mais nada), e o
+     * número de cada linha dava 404. As duas moradas vêm de quem sabe de que
+     * lado está: uma factura de venda e uma de compra não moram no mesmo sítio.
+     */
+    moradasDoDocumento: (id: number) => MoradasDoDocumento;
     podeEditar?: boolean;
     aoEditar?: () => void;
 }) {
@@ -161,6 +178,29 @@ export function JanelaDoExtrato({
             rodape={
                 <>
                     <Botao onClick={aoFechar}>{t('Fechar')}</Botao>
+                    {/* O EXTRACTO DE CONTA EM PAPEL — o do relatório, com
+                        cabeçalho e o saldo que transitava. A ficha é onde se
+                        está quando o cliente pergunta o que deve; a morada vem
+                        do servidor só a quem a pode abrir. */}
+                    {e?.pdf && (
+                        <a
+                            href={e.pdf}
+                            target="_blank"
+                            rel="noreferrer"
+                            title={t('Extracto de Conta Corrente')}
+                            className={cls(
+                                'group inline-flex items-center justify-center gap-2 font-semibold hover:-translate-y-0.5',
+                                TRANSICAO,
+                                RAIO,
+                                ALTURAS.normal,
+                                CORES.perigo.suave,
+                                FOCO,
+                            )}
+                        >
+                            <i className="fas fa-file-pdf" aria-hidden="true" />
+                            {t('Extracto em PDF')}
+                        </a>
+                    )}
                     {podeEditar && aoEditar && (
                         <Botao cor="primaria" tom="solida" icone="fa-pen" onClick={aoEditar}>
                             {t('Editar')}
@@ -291,14 +331,27 @@ export function JanelaDoExtrato({
                                             e.documentos.map((d) => (
                                                 <tr key={d.id} className="transition-colors hover:bg-indigo-50/50">
                                                     <td className="px-3 py-2 font-semibold">
-                                                        <a
-                                                            href={moradaDoDocumento(d.id)}
-                                                            target="_blank"
-                                                            rel="noreferrer"
-                                                            className="text-indigo-600 hover:underline"
-                                                        >
-                                                            {d.numero}
-                                                        </a>
+                                                        <span className="flex items-center gap-1.5 whitespace-nowrap">
+                                                            <a
+                                                                href={moradasDoDocumento(d.id).preview}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                title={t('Pré-visualizar / Imprimir')}
+                                                                className={cls('text-indigo-600 hover:underline', FOCO)}
+                                                            >
+                                                                {d.numero}
+                                                            </a>
+                                                            <a
+                                                                href={moradasDoDocumento(d.id).pdf}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                title={t('PDF')}
+                                                                aria-label={t('PDF de :numero', { numero: d.numero })}
+                                                                className={accao('perigo')}
+                                                            >
+                                                                <i className="fas fa-file-pdf" aria-hidden="true" />
+                                                            </a>
+                                                        </span>
                                                     </td>
                                                     <td className="whitespace-nowrap px-3 py-2 text-slate-500">{data(d.data)}</td>
                                                     <td className="whitespace-nowrap px-3 py-2 text-slate-500">{data(d.vencimento)}</td>

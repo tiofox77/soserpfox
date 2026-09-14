@@ -11,12 +11,14 @@ import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { FOCO, RAIO, cls, data as fmtData, kz } from '@/ui/tokens';
 import { t } from '@/i18n';
+import { useImprimirAoGravar } from './imprimirAoGravar';
 import {
     CABECALHO_DA_TABELA,
     CELULA_DO_CABECALHO,
     LINHA_DA_TABELA,
     NaoAbriu,
     PainelDeSucesso,
+    PapelBloqueado,
     SemNada,
     cascata,
 } from './PecasDoEditor';
@@ -102,13 +104,16 @@ function Emitir({ tipo, facturaId: daMorada, clienteId: clienteDaMorada }: { tip
     const [vencimento, porVencimento] = useState('');
     const [notasTexto, porNotasTexto] = useState('');
     const [erros, porErros] = useState<Record<string, string[]>>({});
-    const [feito, porFeito] = useState<{ numero: string; agt: string | null; abrir: string } | null>(null);
+    const [feito, porFeito] = useState<{ numero: string; agt: string | null; abrir: string; pdf: string } | null>(null);
 
     const opcoes = useQuery({
         queryKey: ['notas', tipo, 'opcoes'],
         queryFn: () => notas.opcoes(tipo),
         staleTime: 5 * 60_000,
     });
+
+    /* O PDF abre sozinho ao emitir, se a empresa o pediu — ver `imprimirAoGravar`. */
+    const impressao = useImprimirAoGravar(opcoes.data?.imprimir_ao_gravar);
 
     const facturas = useQuery({
         queryKey: ['notas', tipo, 'facturas', clienteId],
@@ -152,8 +157,10 @@ function Emitir({ tipo, facturaId: daMorada, clienteId: clienteDaMorada }: { tip
                     .map((l) => ({ origem_line_id: l.origem_line_id, quantity: Number(l.quantidade) })),
             }),
         onSuccess: (r) => {
-            porFeito({ numero: r.numero, agt: r.agt, abrir: r.abrir });
+            porFeito({ numero: r.numero, agt: r.agt, abrir: r.abrir, pdf: r.pdf });
             porErros({});
+            // Uma nota não tem rascunho: nasce emitida, e imprime-se já.
+            impressao.depoisDeGravar(r.pdf);
         },
         onError: (e) => porErros(e instanceof ErroDaApi ? e.erros : {}),
     });
@@ -178,8 +185,14 @@ function Emitir({ tipo, facturaId: daMorada, clienteId: clienteDaMorada }: { tip
                 mensagem={eCredito ? t('Nota de crédito emitida.') : t('Nota de débito emitida.')}
                 agt={feito.agt}
                 icone={eCredito ? 'fa-file-circle-minus' : 'fa-file-circle-plus'}
+                aviso={impressao.bloqueado && <PapelBloqueado />}
             >
-                <Botao cor="primaria" tom="solida" icone="fa-list" onClick={() => (window.location.href = feito.abrir)}>
+                {/* O PAPEL DA NOTA. Não havia botão para ele: quem emitia uma
+                    nota para entregar ao cliente tinha de a ir buscar à lista. */}
+                <Botao cor="primaria" tom="solida" icone="fa-file-pdf" onClick={() => window.open(feito.pdf, '_blank', 'noopener')}>
+                    {t('PDF')}
+                </Botao>
+                <Botao icone="fa-list" onClick={() => (window.location.href = feito.abrir)}>
                     {t('Ver as notas')}
                 </Botao>
             </PainelDeSucesso>

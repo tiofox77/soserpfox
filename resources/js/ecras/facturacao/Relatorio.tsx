@@ -8,7 +8,7 @@ import { Cartao } from '@/ui/Cartao';
 import { CartaoNumero, type TomDoCartao } from '@/ui/CartaoNumero';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
-import { RAIO, cls } from '@/ui/tokens';
+import { CORES, FOCO, RAIO, cls, type Cor } from '@/ui/tokens';
 import { t } from '@/i18n';
 import { ACCAO_DA_FAIXA, Faixa, SemNada, cascata } from './faixa';
 
@@ -156,7 +156,7 @@ export default function Relatorio({ slug, filtrosIniciais }: { slug: string; fil
         );
     }
 
-    const { esquema: e, dados, atalhos, csv } = q.data;
+    const { esquema: e, dados, atalhos, csv, pdf } = q.data;
     const mudar = (nome: string, v: string) => porFiltros((f) => ({ ...f, [nome]: v }));
     const intervalo = dados.intervalo;
     const csvUrl = csv ? `${csv}?${new URLSearchParams(filtros).toString()}` : null;
@@ -171,6 +171,12 @@ export default function Relatorio({ slug, filtrosIniciais }: { slug: string; fil
                     <>
                         <a href="/invoicing/reports" className={ACCAO_DA_FAIXA}><i className="fas fa-arrow-left" aria-hidden="true" />{t('Todos os relatórios')}</a>
                         {csvUrl && <a href={csvUrl} className={ACCAO_DA_FAIXA} data-csv><i className="fas fa-file-csv" aria-hidden="true" />CSV</a>}
+                        {/* O PAPEL PRÓPRIO DO MAPA — o extracto de conta com
+                            cabeçalho e saldo transportado. A morada vem do
+                            servidor já com os filtros traduzidos, e só quando
+                            há o que imprimir (um titular escolhido): o
+                            controlador existia e nenhum ecrã o oferecia. */}
+                        {pdf && <a href={pdf} target="_blank" rel="noreferrer" className={ACCAO_DA_FAIXA} data-pdf-do-mapa><i className="fas fa-file-pdf" aria-hidden="true" />PDF</a>}
                         <button type="button" onClick={() => window.print()} className={ACCAO_DA_FAIXA}><i className="fas fa-print" aria-hidden="true" />{t('Imprimir')}</button>
                     </>
                 }
@@ -258,6 +264,50 @@ function CampoDeFiltro({ f, valor: v, aoMudar, procura, porProcura, sugestoes, e
     );
 }
 
+/** O quadrado de uma acção de linha: fundo suave da cor do que ela faz. */
+const accao = (cor: Cor) =>
+    cls('grid h-9 w-9 flex-none place-items-center rounded-lg transition-all duration-200 hover:scale-110', CORES[cor].suave, FOCO);
+
+/**
+ * UMA CÉLULA QUE LEVA AO DOCUMENTO DA LINHA (formato `ligacao`).
+ *
+ * O texto é o mesmo que o CSV exporta; ao lado, os quadrados de sempre — o
+ * verde pré-visualiza e imprime, o vermelho é o PDF —, como na lista das
+ * transferências. As moradas são campos DA LINHA, e uma linha que não tem
+ * morada (um movimento sem lote) mostra só o texto: um ícone que dá 404 é
+ * pior do que nenhum.
+ */
+function CelulaDeLigacao({ linha, coluna }: { linha: unknown; coluna: Coluna }) {
+    const texto = formatar(valor(linha, coluna.chave));
+    const morada = (caminho?: string): string | null => {
+        const m = caminho ? valor(linha, caminho) : null;
+        return typeof m === 'string' && m !== '' ? m : null;
+    };
+    const abrir = morada(coluna.ligacao?.abrir);
+    const previsao = morada(coluna.ligacao?.previsao);
+    const pdf = morada(coluna.ligacao?.pdf);
+
+    return (
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+            {abrir ? (
+                <a href={abrir} target="_blank" rel="noreferrer" className={cls('font-semibold text-indigo-600 hover:underline', FOCO)}>{texto}</a>
+            ) : (
+                <span>{texto}</span>
+            )}
+            {previsao && (
+                <a href={previsao} target="_blank" rel="noreferrer" title={t('Pré-visualizar / Imprimir')} aria-label={t('Pré-visualizar :referencia', { referencia: texto })} className={accao('bom')} data-ligacao-previsao>
+                    <i className="fas fa-print" aria-hidden="true" />
+                </a>
+            )}
+            {pdf && (
+                <a href={pdf} target="_blank" rel="noreferrer" title={t('PDF')} aria-label={t('PDF de :referencia', { referencia: texto })} className={accao('perigo')} data-ligacao-pdf>
+                    <i className="fas fa-file-pdf" aria-hidden="true" />
+                </a>
+            )}
+        </span>
+    );
+}
+
 function TabelaDoMapa({ tabela, dados, csv }: { tabela: Tabela; dados: Dados; csv?: string | null }) {
     const linhas = linhasDe(dados, tabela.chave);
     const alinhar = (c: Coluna) => (c.alinhar === 'direita' ? 'text-right' : c.alinhar === 'centro' ? 'text-center' : 'text-left');
@@ -301,7 +351,7 @@ function TabelaDoMapa({ tabela, dados, csv }: { tabela: Tabela; dados: Dados; cs
                                tabela de trinta colunas. */
                             <tr key={i} className="entra transition-all duration-200 hover:bg-indigo-50/60" style={cascata(i)}>
                                 {tabela.numerada && <td className="px-3 py-2 text-slate-400">{i + 1}</td>}
-                                {tabela.colunas.map((c) => <td key={c.chave + c.rotulo} className={cls('px-3 py-2', alinhar(c), (c.formato === 'dinheiro' || c.formato === 'inteiro' || c.formato === 'numero' || c.formato === 'percentagem') && 'tabular-nums')}><Valor v={valor(l, c.chave)} formato={c.formato} /></td>)}
+                                {tabela.colunas.map((c) => <td key={c.chave + c.rotulo} className={cls('px-3 py-2', alinhar(c), (c.formato === 'dinheiro' || c.formato === 'inteiro' || c.formato === 'numero' || c.formato === 'percentagem') && 'tabular-nums')}>{c.formato === 'ligacao' ? <CelulaDeLigacao linha={l} coluna={c} /> : <Valor v={valor(l, c.chave)} formato={c.formato} />}</td>)}
                             </tr>
                         ))}
                     </tbody>

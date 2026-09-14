@@ -137,6 +137,48 @@ class ApiDoStockParaReactTest extends TenantTestCase
         $this->assertCount(2, $this->getJson(self::RAIZ . '/movimentos/' . $a->id)->assertOk()->json('data'));
     }
 
+    /**
+     * O LOTE, NO MODAL DOS MOVIMENTOS, LEVA AO SEU PAPEL.
+     *
+     * A lista mostrava a referência como texto, e o documento do lote tinha de
+     * se ir buscar a outro ecrã. Um movimento sem lote (uma venda) não tem
+     * papel nenhum — e não ganha uma ligação que daria 404.
+     *
+     * @test
+     */
+    public function os_movimentos_trazem_o_papel_do_lote(): void
+    {
+        $this->comPermissoes('invoicing.stock.view', 'invoicing.stock.edit');
+
+        $a = $this->artigo();
+        $this->entrada($a, 10);
+
+        StockMovement::semAplicarStock(fn () => StockMovement::create([
+            'tenant_id' => $this->tenant->id, 'warehouse_id' => $this->armazem->id, 'product_id' => $a->id,
+            'type' => StockMovement::TYPE_OUT, 'quantity' => 1, 'unit_cost' => 40, 'user_id' => $this->user->id, 'notes' => 'Venda',
+        ]));
+
+        $movimentos = collect($this->getJson(self::RAIZ . '/movimentos/' . $a->id)->assertOk()->json('data'));
+
+        $comLote = $movimentos->firstWhere('lote', '!=', null);
+        $this->assertNotNull($comLote);
+        $this->assertSame('/invoicing/stock/movimentacao/' . $comLote['lote'] . '/pdf', $comLote['pdf']);
+        $this->assertSame('/invoicing/stock/movimentacao/' . $comLote['lote'] . '/preview', $comLote['preview']);
+
+        $semLote = $movimentos->firstWhere('lote', null);
+        $this->assertNotNull($semLote);
+        $this->assertNull($semLote['pdf'], 'sem lote não há papel');
+        $this->assertNull($semLote['preview']);
+
+        // E as moradas abrem, para quem abre o modal (stock.view).
+        $this->get($comLote['preview'])->assertOk()->assertSee($comLote['lote']);
+        $this->assertStringStartsWith('%PDF-', $this->get($comLote['pdf'])->assertOk()->getContent());
+
+        // Uma referência que a rota não apanha não dá ligação nenhuma.
+        $this->assertNull(StockMovement::moradaDoLote('LOTE ANTIGO #3'));
+        $this->assertNull(StockMovement::moradaDoLote(null, 'preview'));
+    }
+
     /** @test */
     public function transferir_tira_de_um_armazem_e_poe_noutro(): void
     {

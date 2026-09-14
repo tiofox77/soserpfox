@@ -13,6 +13,7 @@ import { CARTAO, RAIO, cls, kz } from '@/ui/tokens';
 import { t } from '@/i18n';
 import { EscolhaDaParte } from './EscolhaDaParte';
 import { EscolhaDeArtigo, juntarArtigo } from './EscolhaDeArtigo';
+import { useImprimirAoGravar } from './imprimirAoGravar';
 import {
     ApagarLinha,
     CABECALHO_DA_TABELA,
@@ -23,6 +24,7 @@ import {
     LINHA_DA_TABELA,
     NaoAbriu,
     PainelDeSucesso,
+    PapelBloqueado,
     ParcelaDoTotal,
     SemNada,
     TotalGrande,
@@ -78,11 +80,13 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
     const [termos, porTermos] = useState('');
     const [linhas, porLinhas] = useState<LinhaDaCompra[]>([{ ...LINHA_NOVA }]);
     const [erros, porErros] = useState<Record<string, string[]>>({});
-    const [feito, porFeito] = useState<{ numero: string; abrir: string; mensagem: string } | null>(null);
+    const [feito, porFeito] = useState<{ numero: string; abrir: string; pdf: string; mensagem: string } | null>(null);
     const [totais, porTotais] = useState<Totais | null>(null);
     const [aContar, porAContar] = useState(false);
 
     const opcoes = useQuery({ queryKey: ['compra', 'opcoes'], queryFn: compra.opcoes, staleTime: 5 * 60_000 });
+    /* O PDF abre sozinho ao registar, se a empresa o pediu — ver `imprimirAoGravar`. */
+    const impressao = useImprimirAoGravar(opcoes.data?.imprimir_ao_gravar);
     const aberta = useQuery({ queryKey: ['compra', 'abrir', id], queryFn: () => compra.abrir(id ?? 0), enabled: id !== undefined });
     const copia = useQuery({ queryKey: ['compra', 'duplicar', duplicarDe], queryFn: () => compra.duplicar(duplicarDe ?? 0), enabled: id === undefined && duplicarDe !== undefined });
 
@@ -183,7 +187,12 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
             };
             return id !== undefined ? compra.actualizar(id, corpo) : compra.guardar(corpo);
         },
-        onSuccess: (r) => { porFeito({ numero: r.numero, abrir: r.abrir, mensagem: r.message }); porErros({}); },
+        onSuccess: (r) => {
+            porFeito({ numero: r.numero, abrir: r.abrir, pdf: r.pdf, mensagem: r.message });
+            porErros({});
+            // O rascunho não se imprime; a compra registada (por pagar ou paga) sim.
+            impressao.depoisDeGravar(r.pdf, r.estado);
+        },
         onError: (e) => porErros(e instanceof ErroDaApi ? e.erros : {}),
     });
 
@@ -201,9 +210,12 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
 
     if (feito) {
         return (
-            <PainelDeSucesso numero={feito.numero} mensagem={feito.mensagem} icone="fa-truck-ramp-box">
-                <Botao cor="primaria" tom="solida" icone="fa-list" onClick={() => (window.location.href = feito.abrir)}>{t('Ver compras')}</Botao>
-                {id === undefined && <Botao icone="fa-plus" onClick={() => { porFeito(null); porLinhas([{ ...LINHA_NOVA }]); porFornecedorId(''); porNotas(''); }}>{t('Registar outra')}</Botao>}
+            <PainelDeSucesso numero={feito.numero} mensagem={feito.mensagem} icone="fa-truck-ramp-box" aviso={impressao.bloqueado && <PapelBloqueado />}>
+                {/* O PAPEL DA COMPRA, como nos outros ecrãs de sucesso — e o
+                    remédio quando a impressão ao gravar é bloqueada. */}
+                <Botao cor="primaria" tom="solida" icone="fa-file-pdf" onClick={() => window.open(feito.pdf, '_blank', 'noopener')}>{t('PDF')}</Botao>
+                <Botao icone="fa-list" onClick={() => (window.location.href = feito.abrir)}>{t('Ver compras')}</Botao>
+                {id === undefined && <Botao icone="fa-plus" onClick={() => { porFeito(null); impressao.esquecer(); porLinhas([{ ...LINHA_NOVA }]); porFornecedorId(''); porNotas(''); }}>{t('Registar outra')}</Botao>}
             </PainelDeSucesso>
         );
     }

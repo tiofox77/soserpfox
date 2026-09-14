@@ -21,6 +21,8 @@ export type OpcoesDoAdiantamento = {
     clientes: Array<{ id: number; name: string; nif: string | null }>;
     formas: Array<{ valor: string; rotulo: string }>;
     permissoes: { pode_criar: boolean };
+    /** "Imprimir automaticamente ao gravar", das definições da empresa. */
+    imprimir_ao_gravar: boolean;
 };
 
 export const adiantamentos = {

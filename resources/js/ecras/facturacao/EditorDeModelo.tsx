@@ -82,6 +82,26 @@ function Editor({ id, inicial, previaInicial, catalogo, variaveis }: { id: numbe
         fazer({ accao: 'reordenar', ids });
     };
 
+    /*
+     * O PDF DO MODELO, gerado pelo DomPDF no servidor — o que o editor em
+     * Blade tinha em dois sítios («Ver PDF» e «Pré-visualizar PDF») e a
+     * migração deixou cair. A folha do centro é o mesmo renderizador, mas em
+     * HTML: é no PDF que se vê o que o DomPDF faz às margens e às quebras de
+     * página, e é esse o papel que o cliente recebe.
+     *
+     * MOSTRA A VERSÃO GRAVADA. Cada acção do editor grava ao voltar do
+     * servidor, e um campo de texto só grava ao sair dele: o que ainda está a
+     * meio de escrever, ou a caminho do servidor, não entra. Diz-se no botão,
+     * e enquanto grava diz-se isso — um PDF que parece desactualizado sem
+     * razão à vista lê-se como avaria.
+     *
+     * Só com o modelo gravado: sem id não há morada a pedir.
+     */
+    const pdfDoModelo = estado.id ? `/invoicing/sales/quote-templates/${estado.id}/preview` : null;
+    const avisoDoPdf = accao.isPending
+        ? t('A gravar… o PDF só mostra a alteração depois de gravada.')
+        : t('Mostra a versão gravada do modelo.');
+
     const bloco = estado.blocos.find((b) => b.id === seleccionado) ?? null;
     const nomeDoTipo = (tipo: string) => catalogo.find((c) => c.tipo === tipo)?.nome ?? tipo;
     const iconeDoTipo = (tipo: string) => catalogo.find((c) => c.tipo === tipo)?.icone ?? 'fa-square';
@@ -99,6 +119,12 @@ function Editor({ id, inicial, previaInicial, catalogo, variaveis }: { id: numbe
                         <a href="/invoicing/sales/quote-templates" className={ACCAO_DA_FAIXA}><i className="fas fa-arrow-left" aria-hidden="true" />{t('Modelos')}</a>
                         <button type="button" onClick={() => porMostrarVariaveis((v) => !v)} aria-pressed={mostrarVariaveis} className={ACCAO_DA_FAIXA}><i className="fas fa-code" aria-hidden="true" />{t('Variáveis')}</button>
                         <button type="button" onClick={() => fazer({ accao: 'pagina' })} className={ACCAO_DA_FAIXA}><i className="fas fa-file-circle-plus" aria-hidden="true" />{t('Página (:n)', { n: estado.paginas })}</button>
+                        {pdfDoModelo && (
+                            <a href={pdfDoModelo} target="_blank" rel="noreferrer" title={avisoDoPdf} className={cls(ACCAO_DA_FAIXA, 'group')} data-pdf-do-modelo>
+                                <i className={cls('fas', accao.isPending ? 'fa-circle-notch fa-spin' : 'fa-file-pdf transition-transform duration-200 group-hover:scale-110')} aria-hidden="true" />
+                                {t('Ver PDF')}
+                            </a>
+                        )}
                         <Botao cor="primaria" tom="solida" icone="fa-floppy-disk" aTrabalhar={accao.isPending} onClick={() => fazer({ accao: 'guardar' })}>{t('Guardar')}</Botao>
                     </>
                 }
@@ -186,7 +212,37 @@ function Editor({ id, inicial, previaInicial, catalogo, variaveis }: { id: numbe
                     </Cartao>
                 </div>
 
-                <Cartao titulo={t('A folha, como vai sair')} icone="fa-file-lines" semPadding>
+                <Cartao
+                    titulo={t('A folha, como vai sair')}
+                    icone="fa-file-lines"
+                    semPadding
+                    accoes={
+                        pdfDoModelo && (
+                            <>
+                                {/* O aviso à vista, e não só no título: quem
+                                    acabou de escrever num campo e abre o PDF
+                                    tem de saber que ele mostra o que já foi
+                                    gravado. */}
+                                <span className="hidden text-[11px] text-slate-500 xl:inline">{avisoDoPdf}</span>
+                                <a
+                                    href={pdfDoModelo}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    title={avisoDoPdf}
+                                    className={cls(
+                                        'inline-flex items-center gap-1.5 border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700',
+                                        'transition-all duration-200 hover:-translate-y-0.5 hover:border-red-300 hover:text-red-600 hover:shadow-sm',
+                                        RAIO,
+                                        FOCO,
+                                    )}
+                                >
+                                    <i className="fas fa-file-pdf text-red-500" aria-hidden="true" />
+                                    {t('Pré-visualizar PDF')}
+                                </a>
+                            </>
+                        )
+                    }
+                >
                     <iframe title={t('Pré-visualização do modelo')} sandbox="" srcDoc={previa} className={cls('h-[80vh] w-full bg-slate-100 transition-opacity duration-200', accao.isPending && 'opacity-60')} data-previa />
                 </Cartao>
 

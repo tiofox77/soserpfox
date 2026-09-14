@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Invoicing;
 
+use App\Helpers\DocumentConfigHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\Invoicing\CreditNote;
@@ -65,6 +66,10 @@ class NotasApiController extends Controller
             'permissoes' => [
                 'pode_criar' => (bool) $request->user()?->can($this->permissao($tipo, 'create')),
             ],
+
+            // «Imprimir automaticamente ao gravar», das definições da empresa:
+            // o ecrã abre o PDF assim que a nota é emitida.
+            'imprimir_ao_gravar' => DocumentConfigHelper::shouldAutoPrint(),
         ]);
     }
 
@@ -193,6 +198,9 @@ class NotasApiController extends Controller
             'total' => round((float) $nota->total, 2),
             'agt' => $r['fila']['enfileirado'] ? __('A comunicar à AGT.') : null,
             'abrir' => $tipo === 'credito' ? '/invoicing/credit-notes' : '/invoicing/debit-notes',
+            // O papel da nota: o ecrã de sucesso não tinha por onde o abrir, e
+            // a impressão ao gravar precisa desta morada.
+            'pdf' => ($tipo === 'credito' ? '/invoicing/credit-notes/' : '/invoicing/debit-notes/') . $nota->id . '/pdf',
             'message' => __(':n criada.', ['n' => $numero]),
         ], 201);
     }

@@ -185,6 +185,11 @@ class StockApiController extends Controller
                 'saldo_depois' => $m->balance_after !== null ? round((float) $m->balance_after, 3) : null,
                 'armazem' => $m->warehouse?->name,
                 'lote' => $m->batch_reference,
+                // O papel do lote ao lado da referência, como na lista das
+                // transferências: a referência sozinha era texto morto, e quem
+                // queria o documento tinha de ir procurá-lo a outro ecrã.
+                'preview' => StockMovement::moradaDoLote($m->batch_reference, 'preview'),
+                'pdf' => StockMovement::moradaDoLote($m->batch_reference, 'pdf'),
                 'notas' => $m->notes,
                 'quem' => $m->user?->name,
             ])->values(),

@@ -263,6 +263,46 @@ class StockAdjustmentsReportTest extends TenantTestCase
         $this->assertNotContains($artigoAlheio->name, $artigos);
     }
 
+    /**
+     * O DOCUMENTO DE CADA LINHA LEVA AO PAPEL DO LOTE.
+     *
+     * A coluna mostrava a referência como texto e o ecrã genérico não sabia
+     * fazer ligações. A coluna passa a ser do formato `ligacao`, com as moradas
+     * em campos da linha; uma linha sem lote fica sem morada. O CSV continua a
+     * levar o texto, e quem só vê relatórios abre o papel que o mapa lhe mostra.
+     */
+    public function test_o_documento_de_cada_linha_leva_ao_papel_do_lote(): void
+    {
+        $p = $this->produtoComStock(0);
+
+        $this->movimento(['product_id' => $p->id, 'batch_reference' => 'MOV/2026/000042', 'notes' => 'Com lote']);
+        $this->movimento(['product_id' => $p->id, 'notes' => 'Sem lote']);
+
+        $r = $this->getJson(self::RAIZ)->assertOk();
+
+        $coluna = collect(collect($r->json('esquema.tabelas'))->firstWhere('chave', 'movimentos')['colunas'])->firstWhere('chave', 'batch_reference');
+        $this->assertSame('ligacao', $coluna['formato']);
+        $this->assertSame(['previsao' => 'lote_preview', 'pdf' => 'lote_pdf'], $coluna['ligacao']);
+
+        $linhas = collect($r->json('dados.movimentos'));
+        $comLote = $linhas->firstWhere('notes', 'Com lote');
+        $this->assertSame('/invoicing/stock/movimentacao/MOV/2026/000042/pdf', $comLote['lote_pdf']);
+        $this->assertSame('/invoicing/stock/movimentacao/MOV/2026/000042/preview', $comLote['lote_preview']);
+        $this->assertNull($linhas->firstWhere('notes', 'Sem lote')['lote_pdf'], 'sem lote não há papel');
+
+        // O CSV leva a referência, não a morada.
+        $csv = $this->get('/invoicing/reports/stock-adjustments/csv?tabela=movimentos')->streamedContent();
+        $this->assertStringContainsString('MOV/2026/000042', $csv);
+        $this->assertStringNotContainsString('/invoicing/stock/movimentacao/', $csv);
+
+        // Quem só vê relatórios abre o papel que o mapa lhe mostra.
+        $this->user->syncPermissions([]);
+        $this->comPermissoes('invoicing.reports.view');
+
+        $this->get($comLote['lote_preview'])->assertOk()->assertSee('MOV/2026/000042');
+        $this->get($comLote['lote_pdf'])->assertOk();
+    }
+
     public function test_a_exportacao_devolve_csv_com_o_periodo_filtrado(): void
     {
         $p = $this->produtoComStock(0);

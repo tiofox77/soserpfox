@@ -122,6 +122,61 @@ class PdfDoEcraTest extends TenantTestCase
     }
 
     /**
+     * A FICHA E O HISTÓRICO TAMBÉM DESCARREGAM — não só a linha.
+     *
+     * Em Blade, o modal de ver e o de histórico dos orçamentos, das proformas
+     * de venda e de compra e das facturas de compra levavam o botão do PDF. A
+     * migração deixou a ficha só com a pré-visualização e o histórico só com a
+     * ligação no número: quem abria a ficha para mandar um orçamento ao
+     * cliente tinha de a fechar e voltar à linha.
+     *
+     * A ficha oferece os DOIS papéis (o do servidor e o do ecrã), e cada
+     * factura do histórico também. As moradas saem da `rota` que o servidor
+     * manda — a da lista na ficha, a de cada factura no histórico.
+     *
+     * @test
+     */
+    public function a_ficha_e_o_historico_levam_ao_pdf(): void
+    {
+        $s = file_get_contents(resource_path('js/ecras/facturacao/ListaDeDocumentos.tsx'));
+
+        $ficha = $this->pedaco($s, 'function FichaDoDocumento(', 'function Soma(');
+        $this->assertStringContainsString('${rota}/${documento.id}/pdf', $ficha, 'a ficha tem de levar ao PDF do servidor');
+        $this->assertStringContainsString('<PdfDoEcra', $ficha, 'a ficha tem de levar o PDF do ecrã');
+        $this->assertStringContainsString('${rota}/${documento.id}/preview', $ficha, 'a pré-visualização continua na ficha');
+
+        $historico = $this->pedaco($s, 'function HistoricoDeConversoes(', 'const TOM_DO_ESTADO');
+        $this->assertStringContainsString('${f.rota}/${f.id}/pdf', $historico, 'cada factura do histórico tem de levar ao PDF');
+        $this->assertStringContainsString('<PdfDoEcra', $historico, 'e ao PDF do ecrã');
+
+        // E as moradas existem para todos os documentos da lista, e para as
+        // duas espécies de factura que o histórico mostra.
+        $uris = collect(app('router')->getRoutes())->map(fn ($r) => $r->uri())->all();
+
+        $rotas = collect(\App\Services\Invoicing\TiposDeDocumento::todos())
+            ->pluck('rota')
+            ->push('/invoicing/sales/invoices', '/invoicing/purchases/invoices');
+
+        foreach ($rotas as $rota) {
+            $esperada = ltrim($rota, '/') . '/{id}/pdf';
+
+            $this->assertContains($esperada, $uris, "sem {$esperada} o botão do PDF da ficha leva ao vazio");
+        }
+    }
+
+    /** O texto de um ficheiro entre duas marcas — para olhar só para uma peça. */
+    private function pedaco(string $s, string $de, string $ate): string
+    {
+        $inicio = strpos($s, $de);
+        $this->assertNotFalse($inicio, "não encontrei «{$de}»");
+
+        $fim = strpos($s, $ate, $inicio);
+        $this->assertNotFalse($fim, "não encontrei «{$ate}» depois de «{$de}»");
+
+        return substr($s, $inicio, $fim - $inicio);
+    }
+
+    /**
      * O BOTÃO É SÓ OS SEUS ATRIBUTOS.
      *
      * O gerador ouve o clique por DELEGAÇÃO no documento e não sabe nada de

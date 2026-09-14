@@ -341,6 +341,13 @@ class ApiDosDocumentosParaReactTest extends TenantTestCase
 
         $this->assertCount(1, $h->json('facturas'));
         $this->assertSame($id, $h->json('facturas.0.id'));
+
+        // E traz a `rota` da factura: é dela que o histórico monta o PDF e a
+        // pré-visualização ao lado de cada número — e as duas moradas abrem.
+        $this->assertSame('/invoicing/sales/invoices', $h->json('facturas.0.rota'));
+
+        $this->comPermissoes('invoicing.sales.invoices.view');
+        $this->get($h->json('facturas.0.rota') . '/' . $id . '/pdf')->assertOk();
     }
 
     /** Um documento que não se converte responde 404, e não uma factura vazia. @test */

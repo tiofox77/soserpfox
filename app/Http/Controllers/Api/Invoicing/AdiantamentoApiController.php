@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Invoicing;
 
+use App\Helpers\DocumentConfigHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\Invoicing\Advance;
@@ -28,6 +29,9 @@ class AdiantamentoApiController extends Controller
                 ->orderBy('name')->limit(500)->get(['id', 'name', 'nif']),
             'formas' => collect(EmissorDeAdiantamentos::FORMAS)->map(fn ($r, $v) => ['valor' => $v, 'rotulo' => __($r)])->values(),
             'permissoes' => ['pode_criar' => true],
+            // «Imprimir automaticamente ao gravar», das definições da empresa:
+            // o ecrã abre o PDF do adiantamento assim que fica registado.
+            'imprimir_ao_gravar' => DocumentConfigHelper::shouldAutoPrint(),
         ]);
     }
 

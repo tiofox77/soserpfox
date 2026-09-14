@@ -39,6 +39,8 @@ export type OpcoesDaFactura = {
     /** O CLIENTE RÁPIDO: se se pode criar aqui, e com que país por omissão. */
     criar_parte: CriarParte;
     permissoes: { pode_criar: boolean };
+    /** «Imprimir automaticamente ao gravar», das definições da empresa. */
+    imprimir_ao_gravar: boolean;
 };
 
 /**
@@ -87,7 +89,8 @@ export type FacturaDuplicada = {
     linhas: LinhaDaFactura[];
 };
 
-type Gravada = { id: number; numero: string; total: number; agt: string | null; abrir: string; pdf: string; message: string };
+/** `estado` diz se foi emitida ou só guardada em rascunho. */
+type Gravada = { id: number; numero: string; total: number; agt: string | null; abrir: string; pdf: string; estado: string; message: string };
 
 export const factura = {
     opcoes: () => api.ler<OpcoesDaFactura>('/factura/opcoes'),

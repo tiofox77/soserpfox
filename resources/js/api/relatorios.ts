@@ -1,6 +1,6 @@
 import { api } from './cliente';
 
-export type Formato = 'dinheiro' | 'inteiro' | 'numero' | 'percentagem' | 'data' | 'texto' | 'estado' | 'dias';
+export type Formato = 'dinheiro' | 'inteiro' | 'numero' | 'percentagem' | 'data' | 'texto' | 'estado' | 'dias' | 'ligacao';
 
 export type Opcao = { valor: string; rotulo: string };
 
@@ -9,7 +9,13 @@ export type Filtro = {
     opcoes?: Opcao[]; omissao?: string | number | null;
 };
 
-export type Coluna = { rotulo: string; chave: string; formato?: Formato; alinhar?: 'direita' | 'centro' };
+/**
+ * As moradas de uma coluna `ligacao`: cada uma é o CAMINHO de um campo da
+ * linha (`lote_pdf`), não a morada em si — cada linha leva a sua.
+ */
+export type Ligacao = { abrir?: string; previsao?: string; pdf?: string };
+
+export type Coluna = { rotulo: string; chave: string; formato?: Formato; alinhar?: 'direita' | 'centro'; ligacao?: Ligacao };
 
 export type Tabela = { titulo?: string; chave: string; colunas: Coluna[]; rodape?: Record<string, string>; numerada?: boolean; vazio?: string };
 
@@ -24,7 +30,8 @@ export type Esquema = {
 
 export type Dados = Record<string, unknown> & { intervalo?: { de: string; ate: string } };
 
-export type Relatorio = { esquema: Esquema; dados: Dados; atalhos: Opcao[]; csv: string | null };
+/** `pdf` é o papel próprio do mapa, já com os filtros do ecrã — null quando não há. */
+export type Relatorio = { esquema: Esquema; dados: Dados; atalhos: Opcao[]; csv: string | null; pdf?: string | null };
 
 export type Seccao = { titulo: string; icone: string; cor: string; relatorios: Array<{ slug: string; nome: string; desc: string; icone: string; caminho: string }> };
 

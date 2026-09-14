@@ -808,6 +808,33 @@ class ApiDosClientesParaReactTest extends TenantTestCase
         $this->assertSame([], $e['artigos']);
     }
 
+    /**
+     * A FICHA OFERECE O EXTRACTO DE CONTA EM PAPEL — a quem o pode abrir.
+     *
+     * O papel é o do relatório do extracto e pede a permissão dos relatórios:
+     * a quem só vê clientes não se dá uma ligação que abriria um 403.
+     *
+     * @test
+     */
+    public function o_extrato_traz_o_pdf_do_extracto_de_conta_a_quem_o_abre(): void
+    {
+        $this->comPermissoes('invoicing.clients.view');
+
+        $cliente = $this->clienteEmpresa();
+
+        $this->assertNull($this->getJson(self::RAIZ . "/{$cliente->id}/extrato")->assertOk()->json('pdf'));
+
+        $this->comPermissoes('invoicing.reports.view');
+
+        $pdf = (string) $this->getJson(self::RAIZ . "/{$cliente->id}/extrato")->assertOk()->json('pdf');
+
+        $this->assertSame('/invoicing/reports/account-statement/pdf', parse_url($pdf, PHP_URL_PATH));
+        parse_str((string) parse_url($pdf, PHP_URL_QUERY), $q);
+        $this->assertSame(['entidade' => 'cliente', 'id' => (string) $cliente->id], $q);
+
+        $this->assertStringStartsWith('%PDF-', $this->get($pdf)->assertOk()->getContent());
+    }
+
     /** O extrato exige a permissão de ver clientes, e o cliente é desta empresa. @test */
     public function o_extrato_segue_a_permissao_e_a_empresa(): void
     {

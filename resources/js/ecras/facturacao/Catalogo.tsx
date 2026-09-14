@@ -257,7 +257,7 @@ function UmCatalogo({ tipo }: { tipo: string }) {
                         artigos: t('Top 10 Produtos Comprados a Este Fornecedor'),
                         semDocumentos: t('Sem faturas registadas'),
                     }}
-                    moradaDoDocumento={(id) => `/invoicing/purchases/invoices/${id}`}
+                    moradasDoDocumento={(id) => ({ preview: `/invoicing/purchases/invoices/${id}/preview`, pdf: `/invoicing/purchases/invoices/${id}/pdf` })}
                     podeEditar={o.permissoes.pode_escrever}
                     aoEditar={() => {
                         const l = aVer;

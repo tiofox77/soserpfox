@@ -39,6 +39,8 @@ export type ItemDoLote = { product_id: number; product_name: string; code: strin
 export type Movimento = {
     id: number; quando: string | null; tipo: string; tipo_rotulo: string; quantidade: number; saldo_depois: number | null;
     armazem: string | null; lote: string | null; notas: string | null; quem: string | null;
+    /** O papel do lote — só quando há lote (e uma referência que a rota apanha). */
+    preview: string | null; pdf: string | null;
 };
 
 export type FiltrosDeStock = {

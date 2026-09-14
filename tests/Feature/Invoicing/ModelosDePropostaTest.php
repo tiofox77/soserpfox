@@ -325,6 +325,35 @@ class ModelosDePropostaTest extends TenantTestCase
         $this->get(route('invoicing.sales.quote-templates.edit', $modelo->id))->assertOk();
     }
 
+    /**
+     * O EDITOR VOLTA A LEVAR AO PDF DO MODELO.
+     *
+     * O editor em Blade tinha «Ver PDF» e «Pré-visualizar PDF»; a migração para
+     * React deixou só a folha em HTML. É no PDF que se vê o que o DomPDF faz às
+     * margens e às quebras — e é esse o papel que o cliente recebe.
+     *
+     * O PDF lê o modelo GRAVADO, e o ecrã tem de o dizer: um campo de texto só
+     * grava ao sair dele, e um PDF que parece desactualizado sem razão à vista
+     * lê-se como avaria.
+     */
+    public function test_o_editor_leva_ao_pdf_do_modelo_gravado(): void
+    {
+        $this->ligarModuloDeFacturacao();
+        $modelo = $this->modelo();
+
+        $ecra = file_get_contents(resource_path('js/ecras/facturacao/EditorDeModelo.tsx'));
+
+        $this->assertStringContainsString('/invoicing/sales/quote-templates/${estado.id}/preview', $ecra,
+            'o editor tem de levar ao PDF do modelo');
+        $this->assertStringContainsString('target="_blank"', $ecra, 'o PDF abre à parte, sem largar o editor');
+        $this->assertStringContainsString("t('Mostra a versão gravada do modelo.')", $ecra,
+            'o ecrã tem de dizer que o PDF é o da versão gravada');
+
+        // E a morada existe e dá mesmo um PDF.
+        $r = $this->get(route('invoicing.sales.quote-templates.preview', $modelo->id))->assertOk();
+        $this->assertStringContainsString('application/pdf', (string) $r->headers->get('Content-Type'));
+    }
+
     public function test_a_lista_de_modelos_abre_por_http(): void
     {
         $this->ligarModuloDeFacturacao();

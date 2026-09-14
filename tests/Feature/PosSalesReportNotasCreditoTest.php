@@ -97,6 +97,63 @@ class PosSalesReportNotasCreditoTest extends TenantTestCase
         $this->assertStringContainsString($n->credit_note_number, $numeros);
     }
 
+    /**
+     * A DEVOLUÇÃO TEM PAPEL, como a venda.
+     *
+     * Na migração para React só a factura recebeu moradas: a linha da nota de
+     * crédito vinha com `papeis` a null e ficava sem botão nenhum — quando o
+     * ecrã em Livewire a ligava ao PDF da nota. E as moradas têm de ser as da
+     * NOTA: a pré-visualização da factura com o id da nota abria outro
+     * documento (ou um 404), o que é pior do que não ter botão.
+     */
+    public function test_a_nota_de_credito_traz_as_moradas_do_seu_papel(): void
+    {
+        $f = $this->factura(10000);
+        $n = $this->nota($f, 4000);
+
+        $linhas = collect($this->mapa()['data']);
+
+        $daNota = $linhas->first(fn ($d) => $d['tipo'] === 'nota' && $d['id'] === $n->id);
+        $this->assertNotNull($daNota, 'a nota tem de aparecer no mapa');
+        $this->assertNotNull($daNota['papeis'], 'sem moradas a linha da devolução fica sem botão');
+
+        // Uma nota não tem talão: as duas moradas levam à pré-visualização A4.
+        $this->assertSame("/invoicing/credit-notes/{$n->id}/preview", $daNota['papeis']['talao']);
+        $this->assertSame("/invoicing/credit-notes/{$n->id}/preview", $daNota['papeis']['a4']);
+        $this->assertSame("/invoicing/credit-notes/{$n->id}/pdf", $daNota['pdf']);
+
+        // A factura continua com os dois papéis dela, e ganha o PDF.
+        $daFactura = $linhas->first(fn ($d) => $d['tipo'] === 'factura' && $d['id'] === $f->id);
+        $this->assertSame("/invoicing/sales/invoices/{$f->id}/talao", $daFactura['papeis']['talao']);
+        $this->assertSame("/invoicing/sales/invoices/{$f->id}/preview", $daFactura['papeis']['a4']);
+        $this->assertSame("/invoicing/sales/invoices/{$f->id}/pdf", $daFactura['pdf']);
+
+        // E as moradas da nota ABREM — uma ligação para o vazio é pior do que
+        // ligação nenhuma.
+        $this->comPermissoes('invoicing.credit-notes.view');
+
+        $this->get($daNota['papeis']['a4'])->assertOk();
+        $this->get($daNota['pdf'])->assertOk();
+    }
+
+    /**
+     * O DETALHE IMPRIME, como a linha.
+     *
+     * O modal de detalhe em Livewire tinha «Imprimir» no rodapé; o de React só
+     * mostrava os números. E os botões são a MESMA peça nos dois sítios: duas
+     * cópias da morada divergem à primeira alteração.
+     */
+    public function test_o_detalhe_tem_os_mesmos_botoes_de_papel_que_a_linha(): void
+    {
+        $ecra = file_get_contents(resource_path('js/ecras/facturacao/pos/RelatorioDoPos.tsx'));
+
+        $this->assertSame(2, substr_count($ecra, '<PapelDoDocumento '),
+            'a linha e o rodapé do detalhe usam a mesma peça');
+        $this->assertStringContainsString('rodape={', $ecra, 'o detalhe tem de ter rodapé com os botões');
+        $this->assertStringContainsString('d.papeis[formato]', $ecra, 'imprime no papel que a empresa configurou');
+        $this->assertStringContainsString('href={d.pdf}', $ecra, 'e leva ao PDF do servidor');
+    }
+
     public function test_o_filtro_separa_facturas_de_notas(): void
     {
         $f = $this->factura(10000);

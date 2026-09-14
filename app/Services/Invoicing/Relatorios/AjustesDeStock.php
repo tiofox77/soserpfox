@@ -59,7 +59,10 @@ class AjustesDeStock extends Base
                 ['titulo' => 'Movimentos', 'chave' => 'movimentos', 'colunas' => [
                     self::col('Data', 'created_at', 'data'), self::col('Tipo', 'type', 'estado', 'centro'), self::col('Produto', 'product.name'), self::col('Armazém', 'warehouse.name'),
                     self::col('Qtd.', 'quantity', 'numero'), self::col('Saldo após', 'balance_after', 'numero'), self::col('Valor (Kz)', 'valor', 'dinheiro'),
-                    self::col('Documento', 'batch_reference'), self::col('Nota', 'notes'), self::col('Operador', 'user.name'),
+                    // O documento leva ao papel do lote: a referência sozinha
+                    // obrigava a ir ao ecrã das transferências procurá-la.
+                    self::colLigacao('Documento', 'batch_reference', ['previsao' => 'lote_preview', 'pdf' => 'lote_pdf']),
+                    self::col('Nota', 'notes'), self::col('Operador', 'user.name'),
                 ], 'vazio' => 'Nenhum movimento manual no período.'],
             ],
             'csv' => true,
@@ -130,7 +133,12 @@ class AjustesDeStock extends Base
         // O ecrã de sempre pagina; o genérico leva uma lista com tecto.
         $movimentos = !empty($f['paginar'])
             ? $movimentos->paginate((int) ($f['perPage'] ?? 25))
-            : $movimentos->limit(500)->get()->each(fn ($m) => $m->valor = self::valorDoMovimento($m));
+            : $movimentos->limit(500)->get()->each(function (StockMovement $m) {
+                $m->valor = self::valorDoMovimento($m);
+                // As moradas do papel do lote, para a coluna do documento.
+                $m->lote_preview = StockMovement::moradaDoLote($m->batch_reference, 'preview');
+                $m->lote_pdf = StockMovement::moradaDoLote($m->batch_reference, 'pdf');
+            });
 
         return [
             'movimentos' => $movimentos,

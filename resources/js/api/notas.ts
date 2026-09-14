@@ -28,6 +28,8 @@ export type OpcoesDasNotas = {
     artigos: Array<{ id: number; name: string; code: string | null; price: number; unit: string }>;
     motivos: Array<{ valor: string; rotulo: string }>;
     permissoes: { pode_criar: boolean };
+    /** «Imprimir automaticamente ao gravar», das definições da empresa. */
+    imprimir_ao_gravar: boolean;
 };
 
 /** Uma nota aberta para consulta. Emitida, não se edita — rectifica-se com outra. */
@@ -44,7 +46,7 @@ export const notas = {
     linhas: (tipo: TipoDeNota, facturaId: number) =>
         api.ler<{ data: LinhaDaFactura[] }>(`/notas/${tipo}/facturas/${facturaId}/linhas`),
     guardar: (tipo: TipoDeNota, corpo: Record<string, unknown>) =>
-        api.criar<{ id: number; numero: string; total: number; agt: string | null; abrir: string; message: string }>(
+        api.criar<{ id: number; numero: string; total: number; agt: string | null; abrir: string; pdf: string; message: string }>(
             `/notas/${tipo}`,
             corpo,
         ),

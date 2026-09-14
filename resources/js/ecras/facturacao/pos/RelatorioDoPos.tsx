@@ -46,7 +46,13 @@ type LinhaDoMapa = {
     factura_origem: string | null;
     /** O selo da AGT, ja decidido pelo servidor. */
     agt: { estado: string; rotulo: string; cor: 'primaria' | 'neutra' | 'bom' | 'aviso' | 'perigo'; razao: string | null };
+    /**
+     * As moradas do papel. A nota de crédito também as tem — não tem talão, e
+     * as duas levam à pré-visualização A4 dela.
+     */
     papeis: { talao: string; a4: string } | null;
+    /** O PDF do servidor (DomPDF), da factura ou da nota. */
+    pdf: string | null;
 };
 
 type Totais = {
@@ -412,28 +418,8 @@ export default function RelatorioDoPos({ sourceModule }: { sourceModule?: string
                                                 >
                                                     <i className="fas fa-eye" aria-hidden="true" />
                                                 </button>
-                                                {/* IMPRIMIR. Abre o papel que a empresa
-                                                    configurou com a caixa de impressão já
-                                                    pronta — a página manda-se imprimir
-                                                    sozinha depois de as imagens carregarem.
-                                                    Reimprimir um talão passa a ser um clique. */}
-                                                {d.papeis && (
-                                                    <a
-                                                        href={`${d.papeis[formato]}?imprimir=1`}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        aria-label={t('Imprimir :numero', { numero: d.numero_interno })}
-                                                        className={cls(
-                                                            'inline-flex items-center gap-1.5 border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700',
-                                                            'transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-300 hover:text-indigo-600 hover:shadow-sm',
-                                                            RAIO,
-                                                            FOCO,
-                                                        )}
-                                                    >
-                                                        <i className="fas fa-print text-indigo-500" aria-hidden="true" />
-                                                        {t('Imprimir')}
-                                                    </a>
-                                                )}
+                                                <PapelDoDocumento d={d} formato={formato} />
+
 
                                                 {/* CREDITAR leva ao editor de notas de crédito
                                                     com a factura já escolhida. O ecrã de sempre
@@ -480,6 +466,18 @@ export default function RelatorioDoPos({ sourceModule }: { sourceModule?: string
                 subtitulo={aVer?.cliente}
                 icone="fa-file-invoice"
                 cor="primaria"
+                /* O RODAPÉ QUE O MODAL DE SEMPRE TINHA: «Imprimir». Sem ele,
+                   quem abria o detalhe para conferir uma venda tinha de fechar
+                   e ir procurar a linha outra vez para a imprimir. Os botões
+                   são os MESMOS da linha — a mesma peça, o mesmo papel. */
+                rodape={
+                    aVer && (
+                        <>
+                            <Botao onClick={() => porAVer(null)}>{t('Fechar')}</Botao>
+                            <PapelDoDocumento d={aVer} formato={formato} grande />
+                        </>
+                    )
+                }
             >
                 {aVer && (
                     <dl className="space-y-2 text-sm">
@@ -505,5 +503,75 @@ export default function RelatorioDoPos({ sourceModule }: { sourceModule?: string
                 )}
             </Modal>
         </div>
+    );
+}
+
+/**
+ * OS BOTÕES DO PAPEL de um documento do mapa: imprimir e PDF.
+ *
+ * Uma peça só para a linha e para o rodapé do detalhe. Eram dois sítios a
+ * montar a mesma morada, e à primeira alteração um imprimia no papel da casa e
+ * o outro não.
+ *
+ * IMPRIMIR abre o papel que a empresa configurou com a caixa de impressão já
+ * pronta — o talão manda-se imprimir sozinho depois de as imagens carregarem,
+ * e reimprimir passa a ser um clique. A nota de crédito não tem talão: o
+ * servidor manda as duas moradas para a pré-visualização A4 dela.
+ *
+ * O PDF é o do servidor (DomPDF), com texto para copiar — é o que se anexa a
+ * um email ou se guarda. Não substitui o imprimir: ficam os dois.
+ */
+function PapelDoDocumento({
+    d,
+    formato,
+    grande = false,
+}: {
+    d: LinhaDoMapa;
+    formato: 'talao' | 'a4';
+    /** No rodapé do modal os botões são do tamanho dos do modal. */
+    grande?: boolean;
+}) {
+    return (
+        <>
+            {d.papeis && (
+                <a
+                    href={`${d.papeis[formato]}?imprimir=1`}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={t('Imprimir :numero', { numero: d.numero_interno })}
+                    className={cls(
+                        'inline-flex items-center justify-center gap-1.5 font-semibold transition-all duration-200 hover:-translate-y-0.5',
+                        grande
+                            ? 'h-10 bg-gradient-to-r from-indigo-600 to-violet-600 px-4 text-sm text-white shadow-md hover:from-indigo-700 hover:to-violet-700 hover:shadow-lg'
+                            : 'border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 hover:border-indigo-300 hover:text-indigo-600 hover:shadow-sm',
+                        RAIO,
+                        FOCO,
+                    )}
+                >
+                    <i className={cls('fas fa-print', !grande && 'text-indigo-500')} aria-hidden="true" />
+                    {t('Imprimir')}
+                </a>
+            )}
+            {d.pdf && (
+                <a
+                    href={d.pdf}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={t('PDF')}
+                    aria-label={t('PDF de :numero', { numero: d.numero_interno })}
+                    className={cls(
+                        'inline-flex items-center justify-center gap-1.5 font-semibold transition-all duration-200 hover:-translate-y-0.5',
+                        grande
+                            ? 'h-10 border border-red-200 bg-white px-4 text-sm text-red-600 hover:border-red-300 hover:bg-red-50 hover:shadow-sm'
+                            : 'p-2 text-red-500 hover:bg-red-50',
+                        RAIO,
+                        FOCO,
+                    )}
+                >
+                    <i className="fas fa-file-pdf" aria-hidden="true" />
+                    {grande && t('PDF')}
+                </a>
+            )}
+        </>
     );
 }

@@ -34,6 +34,8 @@ export type OpcoesDaCompra = {
     /** O FORNECEDOR RÁPIDO: se se pode criar aqui, e com que país por omissão. */
     criar_parte: CriarParte;
     permissoes: { pode_criar: boolean };
+    /** «Imprimir automaticamente ao gravar», das definições da empresa. */
+    imprimir_ao_gravar: boolean;
 };
 
 /** O CONTEÚDO COMERCIAL de uma compra: o que se aproveita ao duplicar. */
@@ -59,7 +61,8 @@ export type CompraDuplicada = {
     linhas: LinhaDaCompra[];
 };
 
-type Gravada = { id: number; numero: string; total: number; abrir: string; message: string };
+/** `estado` diz se ficou registada ou só em rascunho; `pdf` é o papel dela. */
+type Gravada = { id: number; numero: string; total: number; abrir: string; pdf: string; estado: string; message: string };
 
 /** O que o servidor diz depois de anular a compra. */
 type Mudada = { estado: string; message: string };

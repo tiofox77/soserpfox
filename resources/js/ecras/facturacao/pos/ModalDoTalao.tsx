@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import type { VendaFechada } from '@/api/pos';
 import { t } from '@/i18n';
+import { abrirOPapel } from '../imprimirAoGravar';
 import { Botao } from '@/ui/Botao';
 import { Modal } from '@/ui/Modal';
 import { FOCO, RAIO, cls, kz } from '@/ui/tokens';
@@ -59,9 +60,10 @@ export function ModalDoTalao({ venda, aoFechar }: { venda: VendaFechada | null; 
             /* segue para o plano B */
         }
 
-        const nova = window.open(`${morada}?imprimir=1`, '_blank', 'noopener');
-
-        if (!nova) {
+        // Sem `noopener` nas características: com ele o `window.open` devolve SEMPRE
+        // null, e o aviso «impressão bloqueada» aparecia mesmo com a janela aberta.
+        // A ligação de volta corta-se à mão (ver `abrirOPapel`).
+        if (!abrirOPapel(`${morada}?imprimir=1`)) {
             porAvisoDeImpressao(true);
         }
     }

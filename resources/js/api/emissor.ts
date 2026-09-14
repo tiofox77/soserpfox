@@ -69,6 +69,8 @@ export type OpcoesDoEmissor = {
      */
     criar_parte: CriarParte;
     permissoes: { pode_criar: boolean };
+    /** «Imprimir automaticamente ao gravar», das definições da empresa. */
+    imprimir_ao_gravar: boolean;
 };
 
 /** O CONTEÚDO COMERCIAL de uma proposta: o que se aproveita ao duplicar. */
@@ -111,7 +113,8 @@ export type PropostaDuplicada = {
     linhas: LinhaDoEditor[];
 };
 
-type Gravada = { id: number; numero: string; total: number; abrir: string; estado: string; message: string };
+/** A proposta gravada — com as moradas do papel, para o PDF e a pré-visualização. */
+type Gravada = { id: number; numero: string; total: number; abrir: string; pdf: string; preview: string; estado: string; message: string };
 
 export const emissor = {
     opcoes: (tipo: string) => api.ler<OpcoesDoEmissor>(`/emissor/${tipo}/opcoes`),

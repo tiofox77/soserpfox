@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Invoicing;
 
+use App\Helpers\DocumentConfigHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Invoicing\PurchaseInvoice;
 use App\Models\Invoicing\Warehouse;
@@ -212,6 +213,10 @@ class CompraApiController extends Controller
             'permissoes' => [
                 'pode_criar' => true,
             ],
+
+            // «Imprimir automaticamente ao gravar», das definições da empresa:
+            // o ecrã abre o PDF da compra assim que fica registada.
+            'imprimir_ao_gravar' => DocumentConfigHelper::shouldAutoPrint(),
         ]);
     }
 
@@ -310,6 +315,10 @@ class CompraApiController extends Controller
             'numero' => $f->invoice_number,
             'total' => round((float) $f->total, 2),
             'abrir' => '/invoicing/purchases/invoices',
+            // O papel da compra e o estado com que ficou: um rascunho não se
+            // imprime sozinho, uma compra registada sim.
+            'pdf' => '/invoicing/purchases/invoices/' . $f->id . '/pdf',
+            'estado' => $f->status,
             'message' => $existente
                 ? __('Factura de compra :n actualizada.', ['n' => $f->invoice_number])
                 : __('Factura de compra :n registada.', ['n' => $f->invoice_number]),

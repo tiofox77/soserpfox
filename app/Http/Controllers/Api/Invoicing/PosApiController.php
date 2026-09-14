@@ -1075,11 +1075,8 @@ class PosApiController extends Controller
                  */
                 'agt' => $this->seloDaAgt($d, $naAgt->get($d->doc_id)),
 
-                // As duas moradas do papel, como no fecho da venda.
-                'papeis' => $d->doc_tipo === PosSalesReportQuery::TIPO_FACTURA ? [
-                    'talao' => "/invoicing/sales/invoices/{$d->doc_id}/talao",
-                    'a4' => "/invoicing/sales/invoices/{$d->doc_id}/preview",
-                ] : null,
+                // As moradas do papel e do PDF — ver `papeisDaLinha()`.
+                ...$this->papeisDaLinha($d),
             ])->values(),
 
             'meta' => [
@@ -1106,6 +1103,50 @@ class PosApiController extends Controller
                     : [],
             ],
         ]);
+    }
+
+    /**
+     * AS MORADAS DO PAPEL de uma linha do mapa: onde se imprime e onde está o PDF.
+     *
+     * A NOTA DE CRÉDITO FICAVA SEM PAPEL NENHUM. Na migração para React só a
+     * factura recebeu moradas, e a linha de uma devolução ficou sem botão —
+     * quando o ecrã em Livewire a ligava ao PDF da nota. Quem conferia o mapa
+     * ao fim do dia via a devolução e não tinha como abrir o documento que a
+     * justifica.
+     *
+     * Uma nota não tem talão: sai sempre em A4, e por isso as duas moradas do
+     * papel apontam para a mesma pré-visualização. Assim o ecrã não precisa de
+     * saber que tipo de documento tem à frente — imprime «no papel da casa» e
+     * a nota responde com o único que tem.
+     *
+     * O mapa só junta facturas e notas de crédito (o `PosSalesReportQuery` não
+     * lê notas de débito). Se uma terceira espécie entrar na união, é uma
+     * linha a mais no `match` — e até lá sai sem papel em vez de com o errado.
+     *
+     * @param  object  $d  A linha do mapa
+     * @return array{papeis: array{talao: string, a4: string}|null, pdf: string|null}
+     */
+    private function papeisDaLinha($d): array
+    {
+        $id = (int) $d->doc_id;
+
+        return match ($d->doc_tipo) {
+            PosSalesReportQuery::TIPO_FACTURA => [
+                'papeis' => [
+                    'talao' => "/invoicing/sales/invoices/{$id}/talao",
+                    'a4' => "/invoicing/sales/invoices/{$id}/preview",
+                ],
+                'pdf' => "/invoicing/sales/invoices/{$id}/pdf",
+            ],
+            PosSalesReportQuery::TIPO_NOTA => [
+                'papeis' => [
+                    'talao' => "/invoicing/credit-notes/{$id}/preview",
+                    'a4' => "/invoicing/credit-notes/{$id}/preview",
+                ],
+                'pdf' => "/invoicing/credit-notes/{$id}/pdf",
+            ],
+            default => ['papeis' => null, 'pdf' => null],
+        };
     }
 
     /**

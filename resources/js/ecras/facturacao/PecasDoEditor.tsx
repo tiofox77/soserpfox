@@ -152,6 +152,7 @@ export function PainelDeSucesso({
     mensagem,
     agt,
     icone = 'fa-circle-check',
+    aviso,
     children,
 }: {
     numero: string;
@@ -159,6 +160,11 @@ export function PainelDeSucesso({
     /** O que a AGT respondeu, quando o documento passa por lá. */
     agt?: string | null;
     icone?: string;
+    /**
+     * O que correu mal DEPOIS de gravar — hoje, a janela do PDF que o browser
+     * não deixou abrir. Fica por cima dos botões, que é onde está o remédio.
+     */
+    aviso?: ReactNode;
     /** Os botões do que se faz a seguir. */
     children: ReactNode;
 }) {
@@ -186,8 +192,27 @@ export function PainelDeSucesso({
                 </p>
             )}
 
+            {aviso && <div className="px-6 pt-5">{aviso}</div>}
+
             <div className="flex flex-wrap justify-center gap-2 px-6 py-5">{children}</div>
         </div>
+    );
+}
+
+/**
+ * A IMPRESSÃO AO GRAVAR FOI BLOQUEADA.
+ *
+ * A empresa pediu o PDF aberto sozinho depois de gravar, e o browser recusou
+ * a janela — ver `imprimirAoGravar.ts`. Dizê-lo é metade do remédio; a outra
+ * metade é o botão «PDF» logo abaixo, que abre a mesma morada com um clique
+ * que o bloqueador já não trava.
+ */
+export function PapelBloqueado() {
+    return (
+        <Aviso icone="fa-print">
+            <strong className="block">{t('A impressão foi bloqueada')}</strong>
+            {t('O browser não deixou abrir a janela do PDF. Carregue em «PDF» para o abrir, ou permita pop-ups para este site.')}
+        </Aviso>
     );
 }
 
