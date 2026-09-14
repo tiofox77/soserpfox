@@ -91,6 +91,34 @@ describe('carrinho das transferências', () => {
         expect(quantidade.value).toBe('9');
     });
 
+    it('o + e o − acertam a quantidade: o − pára no 1, o + no que o armazém tem', async () => {
+        render(<ComEstado />);
+
+        fireEvent.change(screen.getByRole('combobox'), { target: { value: 'd' } });
+        await esperarProcura();
+        fireEvent.click(screen.getByRole('button', { name: /DICLOFENAC gel/ }));
+
+        const quantidade = screen.getByRole('spinbutton', { name: 'Quantidade de DICLOFENAC gel' }) as HTMLInputElement;
+        const mais = screen.getByRole('button', { name: 'Mais um de DICLOFENAC gel' }) as HTMLButtonElement;
+        const menos = screen.getByRole('button', { name: 'Menos um de DICLOFENAC gel' }) as HTMLButtonElement;
+
+        expect(menos.disabled).toBe(true);
+        fireEvent.click(mais);
+        fireEvent.click(mais);
+        expect(quantidade.value).toBe('3');
+        expect(menos.disabled).toBe(false);
+
+        fireEvent.click(menos);
+        expect(quantidade.value).toBe('2');
+
+        // Há 9 no armazém: chegado aí, o + apaga-se.
+        fireEvent.change(quantidade, { target: { value: '8.5' } });
+        fireEvent.click(mais);
+        expect(quantidade.value).toBe('9');
+        expect(mais.disabled).toBe(true);
+        expect(screen.getByText(/3|unidade/, { selector: '[data-contas-do-carrinho]' }).textContent).toContain('9');
+    });
+
     it('o leitor de código de barras: Enter junta o artigo do código exacto', async () => {
         render(<ComEstado />);
 

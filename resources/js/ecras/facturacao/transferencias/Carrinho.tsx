@@ -114,6 +114,17 @@ export function Carrinho({ armazem, itens, aoMudar, comTecto, soComStock = true 
         }));
     };
 
+    /*
+     * O − E O +: um de cada vez, sem ter de apagar e escrever. O − pára no 1
+     * (para tirar o artigo há o caixote); o + pára no que o armazém tem quando
+     * há tecto. As casas decimais de quem escreveu 2,5 mantêm-se: 2,5 + 1 = 3,5.
+     */
+    const passo = (k: number, delta: 1 | -1) => {
+        const actual = Number(itens[k]?.quantity) || 0;
+        const seguinte = Math.round((actual + delta) * 100) / 100;
+        mudarQuantidade(k, String(delta < 0 ? Math.max(1, seguinte) : seguinte));
+    };
+
     return (
         <div className="space-y-3">
             <div ref={zona}>
@@ -165,7 +176,9 @@ export function Carrinho({ armazem, itens, aoMudar, comTecto, soComStock = true 
                 </p>
             )}
 
-            <div className={cls('overflow-x-auto border border-slate-200', RAIO)}>
+            <div className={cls('overflow-hidden border border-slate-200', RAIO)}>
+                {/* As contas fora da parte que rola: numa janela estreita a
+                    tabela rola para o lado e o total ficava cortado. */}
                 {itens.length > 0 && (
                     <div className="flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-indigo-50 to-violet-50 px-3 py-2 text-xs font-semibold text-indigo-900">
                         <span><i className="fas fa-cart-flatbed mr-2 text-indigo-500" aria-hidden="true" />{t('Artigos a movimentar')}</span>
@@ -180,7 +193,8 @@ export function Carrinho({ armazem, itens, aoMudar, comTecto, soComStock = true 
                         <p className="text-sm">{t('Sem artigos. Procure e junte.')}</p>
                     </div>
                 ) : (
-                    <table className="min-w-[580px] w-full text-sm">
+                    <div className="overflow-x-auto">
+                    <table className="min-w-[560px] w-full text-sm">
                         <thead><tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-600"><th className="px-3 py-2 font-bold">{t('Artigo')}</th><th className="px-3 py-2 text-right font-bold">{t('Tem')}</th><th className="px-3 py-2 text-right font-bold">{t('Qtd.')}</th><th className="w-10 px-3 py-2"></th></tr></thead>
                         <tbody ref={tabela} className="divide-y divide-slate-100">
                             {itens.map((i, k) => (
@@ -197,12 +211,47 @@ export function Carrinho({ armazem, itens, aoMudar, comTecto, soComStock = true 
                                         </span>
                                     </td>
                                     <td className="px-3 py-2 text-right tabular-nums text-slate-500">{i.disponivel.toLocaleString('pt-PT')} {i.unit}</td>
-                                    <td className="w-32 px-3 py-2"><input type="number" min="0.01" step="0.01" value={i.quantity} onChange={(e) => mudarQuantidade(k, e.target.value)} aria-label={t('Quantidade de :artigo', { artigo: i.product_name })} className={cls(entrada, 'h-8 py-0 text-right font-bold tabular-nums')} /></td>
+                                    <td className="w-44 px-3 py-2">
+                                        <span className="flex items-center justify-end gap-1" data-quantidade>
+                                            <button
+                                                type="button"
+                                                onClick={() => passo(k, -1)}
+                                                disabled={(Number(i.quantity) || 0) <= 1}
+                                                aria-label={t('Menos um de :artigo', { artigo: i.product_name })}
+                                                title={t('Menos um')}
+                                                className={cls('grid h-8 w-8 flex-none place-items-center rounded-lg bg-slate-100 text-slate-600 transition-all duration-200 hover:scale-110 hover:bg-red-100 hover:text-red-700 active:scale-95 disabled:pointer-events-none disabled:opacity-40', FOCO)}
+                                            >
+                                                <i className="fas fa-minus text-xs" aria-hidden="true" />
+                                            </button>
+                                            <input
+                                                type="number"
+                                                min="0.01"
+                                                step="0.01"
+                                                inputMode="decimal"
+                                                value={i.quantity}
+                                                onChange={(e) => mudarQuantidade(k, e.target.value)}
+                                                onFocus={(e) => e.target.select()}
+                                                aria-label={t('Quantidade de :artigo', { artigo: i.product_name })}
+                                                className={cls(entrada, 'h-8 w-16 px-1 py-0 text-center font-bold tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none')}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => passo(k, 1)}
+                                                disabled={comTecto && (Number(i.quantity) || 0) >= i.disponivel}
+                                                aria-label={t('Mais um de :artigo', { artigo: i.product_name })}
+                                                title={comTecto && (Number(i.quantity) || 0) >= i.disponivel ? t('É tudo o que há neste armazém') : t('Mais um')}
+                                                className={cls('grid h-8 w-8 flex-none place-items-center rounded-lg bg-indigo-100 text-indigo-700 transition-all duration-200 hover:scale-110 hover:bg-indigo-600 hover:text-white active:scale-95 disabled:pointer-events-none disabled:opacity-40', FOCO)}
+                                            >
+                                                <i className="fas fa-plus text-xs" aria-hidden="true" />
+                                            </button>
+                                        </span>
+                                    </td>
                                     <td className="px-3 py-2 text-right"><button type="button" onClick={() => aoMudar(itens.filter((_, j) => j !== k))} aria-label={t('Tirar :artigo', { artigo: i.product_name })} className={cls('grid h-8 w-8 place-items-center rounded-lg transition-all duration-200 hover:scale-110', CORES.perigo.suave, FOCO)}><i className="fas fa-trash" aria-hidden="true" /></button></td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
+                    </div>
                 )}
             </div>
         </div>
