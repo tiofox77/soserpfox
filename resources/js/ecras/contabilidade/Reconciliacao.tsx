@@ -13,6 +13,7 @@ import { Cartao } from '@/ui/Cartao';
 import { CartaoNumero } from '@/ui/CartaoNumero';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
+import { Paginacao } from '@/ui/Paginacao';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
 import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
@@ -257,27 +258,15 @@ export default function Reconciliacao() {
                         </table>
                     </div>
 
-                    {d.meta.last_page > 1 && (
-                        <div className="flex items-center justify-end gap-3 border-t border-slate-100 px-4 py-3 text-sm text-slate-600">
-                            <Botao
-                                icone="fa-chevron-left"
-                                altura="pequeno"
-                                disabled={d.meta.current_page <= 1}
-                                onClick={() => porFiltros((f) => ({ ...f, page: d.meta.current_page - 1 }))}
-                            >
-                                {t('Anterior')}
-                            </Botao>
-                            <span>{t('Página :pagina de :ultima', { pagina: d.meta.current_page, ultima: d.meta.last_page })}</span>
-                            <Botao
-                                icone="fa-chevron-right"
-                                altura="pequeno"
-                                disabled={d.meta.current_page >= d.meta.last_page}
-                                onClick={() => porFiltros((f) => ({ ...f, page: d.meta.current_page + 1 }))}
-                            >
-                                {t('Seguinte')}
-                            </Botao>
-                        </div>
-                    )}
+                    <Paginacao
+                        pagina={d.meta.current_page}
+                        ultima={d.meta.last_page}
+                        aMudar={(p) => porFiltros((f) => ({ ...f, page: p }))}
+                        total={d.meta.total}
+                        de={d.meta.from}
+                        ate={d.meta.to}
+                        aCarregar={lista.isFetching}
+                    />
                 </section>
             )}
 

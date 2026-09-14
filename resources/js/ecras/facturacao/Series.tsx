@@ -10,6 +10,7 @@ import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
+import { Paginacao } from '@/ui/Paginacao';
 import { FOCO, RAIO, cls } from '@/ui/tokens';
 import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t, tPartes } from '@/i18n';
@@ -145,14 +146,14 @@ export default function Series() {
                         </tbody>
                     </table>
                 </div>
-                {contas && contas.last_page > 1 && (
-                    <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-sm text-slate-500">
-                        <span>{t('Página :pagina de :paginas', { pagina: contas.current_page, paginas: contas.last_page })}</span>
-                        <span className="flex gap-1">
-                            <Botao icone="fa-chevron-left" disabled={contas.current_page <= 1} onClick={() => porFiltros((f) => ({ ...f, page: contas.current_page - 1 }))}>{t('Anterior')}</Botao>
-                            <Botao icone="fa-chevron-right" disabled={contas.current_page >= contas.last_page} onClick={() => porFiltros((f) => ({ ...f, page: contas.current_page + 1 }))}>{t('Seguinte')}</Botao>
-                        </span>
-                    </div>
+                {contas && (
+                    <Paginacao
+                        pagina={contas.current_page}
+                        ultima={contas.last_page}
+                        total={contas.total}
+                        aCarregar={lista.isFetching}
+                        aMudar={(p) => porFiltros((f) => ({ ...f, page: p }))}
+                    />
                 )}
             </Cartao>
 

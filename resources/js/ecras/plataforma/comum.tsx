@@ -9,6 +9,7 @@ import { Botao } from '@/ui/Botao';
 import { Modal } from '@/ui/Modal';
 import { duracaoPara } from '@/ui/useRecadoNoCanto';
 import { FOCO, RAIO, TRANSICAO, cls } from '@/ui/tokens';
+import { Paginacao } from '@/ui/Paginacao';
 
 /**
  * AS PEÇAS QUE OS ECRÃS DA PLATAFORMA REPETEM.
@@ -99,16 +100,9 @@ export function SemEfeito() {
     );
 }
 
-export function Paginas({ pagina, ultima, aMudar }: { pagina: number; ultima: number; aMudar: (p: number) => void }) {
-    if (ultima <= 1) return null;
-
-    return (
-        <nav className="flex items-center justify-between pt-2" aria-label={t('Páginas')}>
-            <Botao icone="fa-chevron-left" altura="pequeno" disabled={pagina <= 1} onClick={() => aMudar(pagina - 1)}>{t('Anterior')}</Botao>
-            <span className="text-sm tabular-nums text-slate-600">{t('Página :pagina de :paginas', { pagina, paginas: ultima })}</span>
-            <Botao icone="fa-chevron-right" altura="pequeno" disabled={pagina >= ultima} onClick={() => aMudar(pagina + 1)}>{t('Seguinte')}</Botao>
-        </nav>
-    );
+/** A paginação por número da casa (`@/ui/Paginacao`), com o nome que os ecrãs da plataforma já usam. */
+export function Paginas({ pagina, ultima, aMudar, total, de, ate }: { pagina: number; ultima: number; aMudar: (p: number) => void; total?: number | null; de?: number | null; ate?: number | null }) {
+    return <Paginacao pagina={pagina} ultima={ultima} aMudar={aMudar} total={total} de={de} ate={ate} emCartao className="mt-2" />;
 }
 
 /** Um segredo guardado: nunca se mostra, diz-se só que existe. */

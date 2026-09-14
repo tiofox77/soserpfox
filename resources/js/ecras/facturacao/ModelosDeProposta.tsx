@@ -10,6 +10,7 @@ import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
+import { Paginacao } from '@/ui/Paginacao';
 import { CARTAO, FOCO, RAIO, RAIO_GRANDE, cls } from '@/ui/tokens';
 import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t } from '@/i18n';
@@ -112,15 +113,14 @@ export default function ModelosDeProposta() {
                 ))}
             </div>
 
-            {meta.last_page > 1 && (
-                <div className="flex items-center justify-between text-sm text-slate-500">
-                    <span>{t('Página :actual de :total', { actual: meta.current_page, total: meta.last_page })}</span>
-                    <span className="flex gap-1">
-                        <Botao icone="fa-chevron-left" disabled={meta.current_page <= 1} onClick={() => porPagina(meta.current_page - 1)}>{t('Anterior')}</Botao>
-                        <Botao icone="fa-chevron-right" disabled={meta.current_page >= meta.last_page} onClick={() => porPagina(meta.current_page + 1)}>{t('Seguinte')}</Botao>
-                    </span>
-                </div>
-            )}
+            <Paginacao
+                emCartao
+                pagina={meta.current_page}
+                ultima={meta.last_page}
+                total={meta.total}
+                aCarregar={lista.isFetching}
+                aMudar={porPagina}
+            />
 
             <Modal aberto={novo} aoFechar={() => porNovo(false)} titulo={t('Novo modelo de proposta')} largura="lg" rodape={<Botao onClick={() => porNovo(false)}>{t('Cancelar')}</Botao>}>
                 <div className="grid gap-3 sm:grid-cols-2" data-arranque>

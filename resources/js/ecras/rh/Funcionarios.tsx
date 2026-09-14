@@ -18,6 +18,7 @@ import { CartaoNumero } from '@/ui/CartaoNumero';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
+import { Paginacao } from '@/ui/Paginacao';
 import { PainelDoSeparador, Separadores } from '@/ui/Separadores';
 import { PorPagina } from '@/ui/FiltrosComuns';
 import { ACCAO_DA_FAIXA, Faixa } from '@/ecras/facturacao/faixa';
@@ -255,16 +256,17 @@ export default function Funcionarios() {
                 </Cartao>
             )}
 
-            {contas && contas.last_page > 1 && (
-                <nav className={cls(CARTAO, 'flex items-center justify-between px-5 py-3')} aria-label={t('Páginas')}>
-                    <Botao icone="fa-chevron-left" altura="pequeno" disabled={contas.current_page <= 1}
-                        onClick={() => porFiltros((f) => ({ ...f, page: contas.current_page - 1 }))}>{t('Anterior')}</Botao>
-                    <span className="text-sm tabular-nums text-slate-600">
-                        {t('Página :pagina de :paginas', { pagina: contas.current_page, paginas: contas.last_page })}
-                    </span>
-                    <Botao icone="fa-chevron-right" altura="pequeno" disabled={contas.current_page >= contas.last_page}
-                        onClick={() => porFiltros((f) => ({ ...f, page: contas.current_page + 1 }))}>{t('Seguinte')}</Botao>
-                </nav>
+            {contas && (
+                <Paginacao
+                    pagina={contas.current_page}
+                    ultima={contas.last_page}
+                    aMudar={(p) => porFiltros((f) => ({ ...f, page: p }))}
+                    total={contas.total}
+                    de={contas.from}
+                    ate={contas.to}
+                    aCarregar={lista.isFetching}
+                    emCartao
+                />
             )}
 
             {formulario && (

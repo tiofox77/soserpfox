@@ -12,6 +12,7 @@ import { Carregando } from '@/ui/Carregando';
 import { EscolherIcone } from '@/ui/EscolherIcone';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
+import { Paginacao } from '@/ui/Paginacao';
 import { PainelDoSeparador, Separadores } from '@/ui/Separadores';
 import { PorPagina } from '@/ui/FiltrosComuns';
 import { SemNada, cascata } from '@/ui/SemNada';
@@ -329,31 +330,17 @@ export default function Servicos({ separador }: { separador?: string }) {
                     </div>
 
                     {meta && meta.last_page > 1 && (
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                            <p className="text-xs text-slate-500">
-                                {t('A mostrar :de a :ate de :total', {
-                                    de: String(meta.from ?? 0), ate: String(meta.to ?? 0), total: String(meta.total),
-                                })}
-                            </p>
-                            <div className="flex items-center gap-2">
-                                <PorPagina valor={filtros.por_pagina} aoMudar={(n) => porFiltros({ ...filtros, por_pagina: n, page: 1 })} />
-                                <Botao
-                                    altura="pequeno" icone="fa-chevron-left"
-                                    disabled={meta.current_page <= 1}
-                                    onClick={() => porFiltros({ ...filtros, page: meta.current_page - 1 })}
-                                    aria-label={t('Página anterior')}
-                                />
-                                <span className="text-xs font-semibold tabular-nums text-slate-600">
-                                    {meta.current_page}/{meta.last_page}
-                                </span>
-                                <Botao
-                                    altura="pequeno" icone="fa-chevron-right"
-                                    disabled={meta.current_page >= meta.last_page}
-                                    onClick={() => porFiltros({ ...filtros, page: meta.current_page + 1 })}
-                                    aria-label={t('Página seguinte')}
-                                />
-                            </div>
-                        </div>
+                        <Paginacao
+                            pagina={meta.current_page}
+                            ultima={meta.last_page}
+                            aMudar={(p) => porFiltros({ ...filtros, page: p })}
+                            total={meta.total}
+                            de={meta.from}
+                            ate={meta.to}
+                            aCarregar={lista.isFetching}
+                            emCartao
+                            extra={<PorPagina valor={filtros.por_pagina} aoMudar={(n) => porFiltros({ ...filtros, por_pagina: n, page: 1 })} />}
+                        />
                     )}
                 </div>
             </PainelDoSeparador>

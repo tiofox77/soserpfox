@@ -16,6 +16,7 @@ import { CartaoNumero, type TomDoCartao } from '@/ui/CartaoNumero';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
+import { Paginacao } from '@/ui/Paginacao';
 import { ACCAO_DA_FAIXA, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls, data } from '@/ui/tokens';
 import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
@@ -299,6 +300,15 @@ export default function Presencas() {
                                     </tbody>
                                 </table>
                             </div>
+                            {/* O servidor manda 25 de cada vez: sem isto, o 26.º ponto não se via. */}
+                            {lista.data?.meta && (
+                                <Paginacao
+                                    pagina={lista.data.meta.current_page}
+                                    ultima={lista.data.meta.last_page}
+                                    aMudar={(p) => porFiltros((f) => ({ ...f, page: p }))}
+                                    aCarregar={lista.isFetching}
+                                />
+                            )}
                         </Cartao>
                     )}
                 </>

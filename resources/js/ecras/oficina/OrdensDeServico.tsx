@@ -20,6 +20,7 @@ import { CartaoNumero } from '@/ui/CartaoNumero';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
+import { Paginacao } from '@/ui/Paginacao';
 import { PorPagina } from '@/ui/FiltrosComuns';
 import { SemNada } from '@/ui/SemNada';
 import { Separadores } from '@/ui/Separadores';
@@ -334,22 +335,16 @@ export default function OrdensDeServico() {
                     </div>
                 )}
 
-                {contas && contas.last_page > 1 && (
-                    <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 text-sm">
-                        <span className="text-slate-500">
-                            {t('Página :actual de :total', { actual: contas.current_page, total: contas.last_page })}
-                        </span>
-                        <span className="flex gap-2">
-                            <Botao disabled={contas.current_page <= 1} icone="fa-chevron-left"
-                                onClick={() => porFiltros((f) => ({ ...f, page: (f.page ?? 1) - 1 }))}>
-                                {t('Anterior')}
-                            </Botao>
-                            <Botao disabled={contas.current_page >= contas.last_page} icone="fa-chevron-right"
-                                onClick={() => porFiltros((f) => ({ ...f, page: (f.page ?? 1) + 1 }))}>
-                                {t('Seguinte')}
-                            </Botao>
-                        </span>
-                    </div>
+                {contas && (
+                    <Paginacao
+                        pagina={contas.current_page}
+                        ultima={contas.last_page}
+                        aMudar={(p) => porFiltros((f) => ({ ...f, page: p }))}
+                        total={contas.total}
+                        de={contas.total > 0 ? (contas.current_page - 1) * contas.per_page + 1 : null}
+                        ate={contas.total > 0 ? Math.min(contas.current_page * contas.per_page, contas.total) : null}
+                        aCarregar={lista.isFetching}
+                    />
                 )}
             </div>
 

@@ -10,6 +10,7 @@ import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
+import { Paginacao } from '@/ui/Paginacao';
 import { FOCO, RAIO, cls } from '@/ui/tokens';
 import { t } from '@/i18n';
 import { ACCAO_DA_FAIXA, Faixa, SemNada, cascata } from './faixa';
@@ -101,15 +102,16 @@ export default function HistoricoDeTurnos() {
                         </tbody>
                     </table>
                 </div>
-                {meta.last_page > 1 && (
-                    <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-sm text-slate-500">
-                        <span>{t('Página :pagina de :ultima · :total turnos', { pagina: meta.current_page, ultima: meta.last_page, total: meta.total })}</span>
-                        <span className="flex gap-1">
-                            <Botao icone="fa-chevron-left" disabled={meta.current_page <= 1} onClick={() => porFiltros((f) => ({ ...f, page: meta.current_page - 1 }))}>{t('Anterior')}</Botao>
-                            <Botao icone="fa-chevron-right" disabled={meta.current_page >= meta.last_page} onClick={() => porFiltros((f) => ({ ...f, page: meta.current_page + 1 }))}>{t('Seguinte')}</Botao>
-                        </span>
-                    </div>
-                )}
+                {/* A meta não traz `from`/`to`: tiram-se da página e do tamanho dela. */}
+                <Paginacao
+                    pagina={meta.current_page}
+                    ultima={meta.last_page}
+                    aMudar={(p) => porFiltros((f) => ({ ...f, page: p }))}
+                    total={meta.total}
+                    de={(meta.current_page - 1) * meta.per_page + 1}
+                    ate={Math.min(meta.current_page * meta.per_page, meta.total)}
+                    aCarregar={q.isFetching}
+                />
             </Cartao>
 
             {aberto !== null && <Detalhe id={aberto} aoFechar={() => porAberto(null)} />}

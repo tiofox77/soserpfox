@@ -19,6 +19,7 @@ import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { PdfDoEcra } from '@/ui/PdfDoEcra';
 import { Modal } from '@/ui/Modal';
+import { Paginacao } from '@/ui/Paginacao';
 import { IntervaloDeDatas, PorPagina } from '@/ui/FiltrosComuns';
 import { Dado } from './ExtratoDaParte';
 import { ACCAO_DA_FAIXA, Faixa } from './faixa';
@@ -396,28 +397,15 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
                 </Cartao>
             )}
 
-            {contas && contas.last_page > 1 && (
-                <nav className={cls(CARTAO, 'flex items-center justify-between px-5 py-3')} aria-label={t('Páginas')}>
-                    <Botao
-                        icone="fa-chevron-left"
-                        altura="pequeno"
-                        disabled={contas.current_page <= 1}
-                        onClick={() => porFiltros((f) => ({ ...f, page: contas.current_page - 1 }))}
-                    >
-                        {t('Anterior')}
-                    </Botao>
-                    <span className="text-sm tabular-nums text-slate-600">
-                        {t('Página :pagina de :paginas', { pagina: contas.current_page, paginas: contas.last_page })}
-                    </span>
-                    <Botao
-                        icone="fa-chevron-right"
-                        altura="pequeno"
-                        disabled={contas.current_page >= contas.last_page}
-                        onClick={() => porFiltros((f) => ({ ...f, page: contas.current_page + 1 }))}
-                    >
-                        {t('Seguinte')}
-                    </Botao>
-                </nav>
+            {contas && (
+                <Paginacao
+                    emCartao
+                    pagina={contas.current_page}
+                    ultima={contas.last_page}
+                    total={contas.total}
+                    aCarregar={lista.isFetching}
+                    aMudar={(p) => porFiltros((f) => ({ ...f, page: p }))}
+                />
             )}
 
             {/* ELIMINAR — pergunta-se antes: não se desfaz. */}

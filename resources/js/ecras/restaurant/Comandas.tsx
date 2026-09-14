@@ -3,12 +3,12 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { restaurante, type FiltrosDasComandas } from '@/api/restaurant';
 import { AvisoDeErro } from '@/ui/AvisoDeErro';
-import { Botao } from '@/ui/Botao';
 import { Campo, entrada } from '@/ui/Campo';
 import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { PorPagina } from '@/ui/FiltrosComuns';
+import { Paginacao } from '@/ui/Paginacao';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls, dataHora, kz } from '@/ui/tokens';
@@ -211,34 +211,17 @@ export default function Comandas({ order }: { order?: number }) {
                     </div>
 
                     {meta && meta.last_page > 1 && (
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                            <p className="text-xs text-slate-500">
-                                {t('A mostrar :de a :ate de :total', {
-                                    de: String(meta.from ?? 0), ate: String(meta.to ?? 0), total: String(meta.total),
-                                })}
-                            </p>
-                            <div className="flex items-center gap-2">
-                                <PorPagina
-                                    valor={filtros.por_pagina ?? 12}
-                                    aoMudar={(n) => porFiltros({ ...filtros, por_pagina: n, page: 1 })}
-                                />
-                                <Botao
-                                    altura="pequeno" icone="fa-chevron-left"
-                                    disabled={meta.current_page <= 1}
-                                    onClick={() => porFiltros({ ...filtros, page: meta.current_page - 1 })}
-                                    aria-label={t('Página anterior')}
-                                />
-                                <span className="text-xs font-semibold tabular-nums text-slate-600">
-                                    {meta.current_page}/{meta.last_page}
-                                </span>
-                                <Botao
-                                    altura="pequeno" icone="fa-chevron-right"
-                                    disabled={meta.current_page >= meta.last_page}
-                                    onClick={() => porFiltros({ ...filtros, page: meta.current_page + 1 })}
-                                    aria-label={t('Página seguinte')}
-                                />
-                            </div>
-                        </div>
+                        <Paginacao
+                            pagina={meta.current_page}
+                            ultima={meta.last_page}
+                            aMudar={(p) => porFiltros({ ...filtros, page: p })}
+                            total={meta.total}
+                            de={meta.from}
+                            ate={meta.to}
+                            aCarregar={lista.isFetching}
+                            emCartao
+                            extra={<PorPagina valor={filtros.por_pagina ?? 12} aoMudar={(n) => porFiltros({ ...filtros, por_pagina: n, page: 1 })} />}
+                        />
                     )}
                 </div>
 

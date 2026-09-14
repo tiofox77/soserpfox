@@ -11,6 +11,7 @@ import { CartaoNumero } from '@/ui/CartaoNumero';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
+import { Paginacao } from '@/ui/Paginacao';
 import { CARTAO, CORES, FOCO, RAIO, cls, kz, type Cor } from '@/ui/tokens';
 import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t, tPartes } from '@/i18n';
@@ -286,14 +287,18 @@ export default function Stock() {
                         </tbody>
                     </table>
                 </div>
-                {contas && contas.last_page > 1 && (
-                    <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
-                        <span>{t('Página :pagina de :ultima · :linhas linhas', { pagina: contas.current_page, ultima: contas.last_page, linhas: contas.total })}</span>
-                        <span className="flex gap-1">
-                            <Botao icone="fa-chevron-left" disabled={contas.current_page <= 1} onClick={() => porFiltros((f) => ({ ...f, page: contas.current_page - 1 }))}>{t('Anterior')}</Botao>
-                            <Botao icone="fa-chevron-right" disabled={contas.current_page >= contas.last_page} onClick={() => porFiltros((f) => ({ ...f, page: contas.current_page + 1 }))}>{t('Seguinte')}</Botao>
-                        </span>
-                    </div>
+                {/* O servidor não manda o `from`/`to`: tiram-se da página e do
+                    tamanho dela, para o total de linhas continuar à vista. */}
+                {contas && (
+                    <Paginacao
+                        pagina={contas.current_page}
+                        ultima={contas.last_page}
+                        total={contas.total}
+                        de={(contas.current_page - 1) * contas.per_page + 1}
+                        ate={Math.min(contas.current_page * contas.per_page, contas.total)}
+                        aCarregar={lista.isFetching}
+                        aMudar={(p) => porFiltros((f) => ({ ...f, page: p }))}
+                    />
                 )}
             </Cartao>
 

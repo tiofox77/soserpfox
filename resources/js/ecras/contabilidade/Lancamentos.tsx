@@ -14,6 +14,7 @@ import { CartaoNumero } from '@/ui/CartaoNumero';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { IntervaloDeDatas, PorPagina } from '@/ui/FiltrosComuns';
 import { Modal } from '@/ui/Modal';
+import { Paginacao } from '@/ui/Paginacao';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
 import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
@@ -344,31 +345,17 @@ export default function Lancamentos() {
                     </table>
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3">
-                    <PorPagina valor={filtros.por_pagina} aoMudar={(n) => mudar({ por_pagina: n })} />
-
-                    {contas && contas.last_page > 1 && (
-                        <div className="flex items-center gap-3 text-sm text-slate-600">
-                            <Botao
-                                icone="fa-chevron-left"
-                                altura="pequeno"
-                                disabled={contas.current_page <= 1}
-                                onClick={() => porFiltros((f) => ({ ...f, page: contas.current_page - 1 }))}
-                            >
-                                {t('Anterior')}
-                            </Botao>
-                            <span>{t('Página :pagina de :ultima', { pagina: contas.current_page, ultima: contas.last_page })}</span>
-                            <Botao
-                                icone="fa-chevron-right"
-                                altura="pequeno"
-                                disabled={contas.current_page >= contas.last_page}
-                                onClick={() => porFiltros((f) => ({ ...f, page: contas.current_page + 1 }))}
-                            >
-                                {t('Seguinte')}
-                            </Botao>
-                        </div>
-                    )}
-                </div>
+                {/* O «Por página» fica à vista mesmo com uma página só. */}
+                <Paginacao
+                    pagina={contas?.current_page ?? 1}
+                    ultima={contas?.last_page ?? 1}
+                    aMudar={(p) => porFiltros((f) => ({ ...f, page: p }))}
+                    total={contas?.total}
+                    de={contas?.from}
+                    ate={contas?.to}
+                    aCarregar={lista.isFetching}
+                    extra={<PorPagina valor={filtros.por_pagina} aoMudar={(n) => mudar({ por_pagina: n })} />}
+                />
             </section>
 
             <ModalDoLancamento

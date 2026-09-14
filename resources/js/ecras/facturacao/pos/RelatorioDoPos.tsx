@@ -10,6 +10,7 @@ import { CartaoNumero } from '@/ui/CartaoNumero';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
+import { Paginacao } from '@/ui/Paginacao';
 import { CORES_DE_ECRA, FOCO, RAIO, cls, data as fmtData, kz } from '@/ui/tokens';
 
 /**
@@ -463,27 +464,13 @@ export default function RelatorioDoPos({ sourceModule }: { sourceModule?: string
                     </div>
                 )}
 
-                {(mapa.data?.meta.paginas ?? 1) > 1 && (
-                    <nav className="flex items-center justify-between border-t border-slate-200 px-5 py-3" aria-label={t('Páginas')}>
-                        <Botao
-                            icone="fa-chevron-left"
-                            disabled={filtros.page <= 1}
-                            onClick={() => porFiltros((f) => ({ ...f, page: f.page - 1 }))}
-                        >
-                            {t('Anterior')}
-                        </Botao>
-                        <span className="text-sm text-slate-500">
-                            {t('Página :n de :total', { n: filtros.page, total: mapa.data?.meta.paginas ?? 1 })}
-                        </span>
-                        <Botao
-                            icone="fa-chevron-right"
-                            disabled={filtros.page >= (mapa.data?.meta.paginas ?? 1)}
-                            onClick={() => porFiltros((f) => ({ ...f, page: f.page + 1 }))}
-                        >
-                            {t('Seguinte')}
-                        </Botao>
-                    </nav>
-                )}
+                <Paginacao
+                    pagina={filtros.page}
+                    ultima={mapa.data?.meta.paginas ?? 1}
+                    total={mapa.data?.meta.total}
+                    aCarregar={mapa.isFetching}
+                    aMudar={(p) => porFiltros((f) => ({ ...f, page: p }))}
+                />
             </Cartao>
 
             <Modal

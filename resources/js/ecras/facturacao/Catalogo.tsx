@@ -12,6 +12,7 @@ import { Carregando } from '@/ui/Carregando';
 import { EscolherIcone } from '@/ui/EscolherIcone';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
+import { Paginacao } from '@/ui/Paginacao';
 import { IntervaloDeDatas, PorPagina } from '@/ui/FiltrosComuns';
 import { ACCAO_DA_FAIXA, Faixa, type TomDaFaixa } from './faixa';
 import { Dado, JanelaDoExtrato, Seccao } from './ExtratoDaParte';
@@ -508,14 +509,16 @@ function UmCatalogo({ tipo }: { tipo: string }) {
                         </tbody>
                     </table>
                 </div>
-                {contas && contas.last_page > 1 && (
-                    <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-sm text-slate-500">
-                        <span>{t(':inicio–:fim de :total', { inicio: contas.from ?? '', fim: contas.to ?? '', total: contas.total })}</span>
-                        <span className="flex gap-1">
-                            <Botao icone="fa-chevron-left" disabled={contas.current_page <= 1} onClick={() => porFiltros((f) => ({ ...f, page: contas.current_page - 1 }))}>{t('Anterior')}</Botao>
-                            <Botao icone="fa-chevron-right" disabled={contas.current_page >= contas.last_page} onClick={() => porFiltros((f) => ({ ...f, page: contas.current_page + 1 }))}>{t('Seguinte')}</Botao>
-                        </span>
-                    </div>
+                {contas && (
+                    <Paginacao
+                        pagina={contas.current_page}
+                        ultima={contas.last_page}
+                        aMudar={(p) => porFiltros((f) => ({ ...f, page: p }))}
+                        total={contas.total}
+                        de={contas.from}
+                        ate={contas.to}
+                        aCarregar={lista.isFetching}
+                    />
                 )}
             </Cartao>
 

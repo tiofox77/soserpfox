@@ -16,6 +16,7 @@ import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
+import { Paginacao } from '@/ui/Paginacao';
 import { PdfDoEcra } from '@/ui/PdfDoEcra';
 import { CARTAO, FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
 import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
@@ -361,10 +362,15 @@ export default function ListaDeFacturas({ tipo }: { tipo?: 'FT' | 'FR' }) {
                 </Cartao>
             )}
 
-            {contas && contas.last_page > 1 && (
+            {contas && (
                 <Paginacao
+                    emCartao
                     pagina={contas.current_page}
-                    paginas={contas.last_page}
+                    ultima={contas.last_page}
+                    total={contas.total}
+                    de={contas.from}
+                    ate={contas.to}
+                    aCarregar={lista.isFetching}
                     aMudar={irParaPagina}
                 />
             )}
@@ -806,40 +812,6 @@ function Campo({ etiqueta, children }: { etiqueta: string; children: React.React
             </span>
             {children}
         </label>
-    );
-}
-
-function Paginacao({
-    pagina,
-    paginas,
-    aMudar,
-}: {
-    pagina: number;
-    paginas: number;
-    aMudar: (p: number) => void;
-}) {
-    return (
-        <nav className={cls(CARTAO, 'flex items-center justify-between px-5 py-3')} aria-label={t('Páginas')}>
-            <Botao
-                icone="fa-chevron-left"
-                disabled={pagina <= 1}
-                onClick={() => aMudar(pagina - 1)}
-                altura="pequeno"
-            >
-                {t('Anterior')}
-            </Botao>
-            <span className="text-sm tabular-nums text-slate-600">
-                {t('Página :pagina de :paginas', { pagina, paginas })}
-            </span>
-            <Botao
-                icone="fa-chevron-right"
-                disabled={pagina >= paginas}
-                onClick={() => aMudar(pagina + 1)}
-                altura="pequeno"
-            >
-                {t('Seguinte')}
-            </Botao>
-        </nav>
     );
 }
 

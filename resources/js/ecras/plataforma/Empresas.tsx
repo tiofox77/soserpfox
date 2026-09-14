@@ -9,6 +9,7 @@ import { Botao } from '@/ui/Botao';
 import { Rotulo, entrada } from '@/ui/Campo';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
+import { Paginacao } from '@/ui/Paginacao';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { CARTAO, FOCO, RAIO, TRANSICAO, cls, kz } from '@/ui/tokens';
 import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
@@ -253,29 +254,16 @@ export default function Empresas() {
                 </div>
             )}
 
-            {paginacao.ultima > 1 && (
-                <nav className={cls(CARTAO, 'flex items-center justify-between px-5 py-3')} aria-label={t('Páginas')}>
-                    <Botao
-                        icone="fa-chevron-left"
-                        altura="pequeno"
-                        disabled={paginacao.pagina <= 1}
-                        onClick={() => porFiltros((f) => ({ ...f, pagina: paginacao.pagina - 1 }))}
-                    >
-                        {t('Anterior')}
-                    </Botao>
-                    <span className="text-sm tabular-nums text-slate-600">
-                        {t('Página :pagina de :paginas', { pagina: paginacao.pagina, paginas: paginacao.ultima })}
-                    </span>
-                    <Botao
-                        icone="fa-chevron-right"
-                        altura="pequeno"
-                        disabled={paginacao.pagina >= paginacao.ultima}
-                        onClick={() => porFiltros((f) => ({ ...f, pagina: paginacao.pagina + 1 }))}
-                    >
-                        {t('Seguinte')}
-                    </Botao>
-                </nav>
-            )}
+            <Paginacao
+                pagina={paginacao.pagina}
+                ultima={paginacao.ultima}
+                aMudar={(p) => porFiltros((f) => ({ ...f, pagina: p }))}
+                total={paginacao.total}
+                de={empresas.length > 0 ? (paginacao.pagina - 1) * paginacao.por_pagina + 1 : null}
+                ate={empresas.length > 0 ? (paginacao.pagina - 1) * paginacao.por_pagina + empresas.length : null}
+                aCarregar={lista.isFetching}
+                emCartao
+            />
 
             {aEditar !== null && (
                 <Formulario

@@ -14,6 +14,7 @@ import { Carregando } from '@/ui/Carregando';
 import { CartaoNumero } from '@/ui/CartaoNumero';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
+import { Paginacao } from '@/ui/Paginacao';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { PainelDoSeparador, Separadores } from '@/ui/Separadores';
 import { CARTAO, FOCO, RAIO, TRANSICAO, cls, kz } from '@/ui/tokens';
@@ -438,7 +439,7 @@ function Subscricoes({ opcoes, aoFazer }: { opcoes: FacturacaoDaPlataforma['opco
                             </article>
                         );
                     })}
-                    <Paginas pagina={lista.data.paginacao.pagina} ultima={lista.data.paginacao.ultima} aMudar={(p) => porF({ ...f, pagina: p })} />
+                    <Paginacao pagina={lista.data.paginacao.pagina} ultima={lista.data.paginacao.ultima} aMudar={(p) => porF({ ...f, pagina: p })} total={lista.data.paginacao.total} aCarregar={lista.isFetching} emCartao />
                 </div>
             )}
 
@@ -781,7 +782,7 @@ function Facturas({ opcoes, aoFazer }: { opcoes: FacturacaoDaPlataforma['opcoes'
                             </article>
                         );
                     })}
-                    <Paginas pagina={lista.data.paginacao.pagina} ultima={lista.data.paginacao.ultima} aMudar={(p) => porF({ ...f, pagina: p })} />
+                    <Paginacao pagina={lista.data.paginacao.pagina} ultima={lista.data.paginacao.ultima} aMudar={(p) => porF({ ...f, pagina: p })} total={lista.data.paginacao.total} aCarregar={lista.isFetching} emCartao />
                 </div>
             )}
 
@@ -933,18 +934,6 @@ function DiasRestantes({ dias }: { dias: number | null }) {
     if (dias === 0) return <span className="text-orange-600">{t('Termina hoje')}</span>;
 
     return <span className={dias <= 7 ? 'text-orange-600' : 'text-emerald-600'}>{t(':n dia(s)', { n: dias })}</span>;
-}
-
-function Paginas({ pagina, ultima, aMudar }: { pagina: number; ultima: number; aMudar: (p: number) => void }) {
-    if (ultima <= 1) return null;
-
-    return (
-        <nav className="flex items-center justify-between pt-2" aria-label={t('Páginas')}>
-            <Botao icone="fa-chevron-left" altura="pequeno" disabled={pagina <= 1} onClick={() => aMudar(pagina - 1)}>{t('Anterior')}</Botao>
-            <span className="text-sm tabular-nums text-slate-600">{t('Página :pagina de :paginas', { pagina, paginas: ultima })}</span>
-            <Botao icone="fa-chevron-right" altura="pequeno" disabled={pagina >= ultima} onClick={() => aMudar(pagina + 1)}>{t('Seguinte')}</Botao>
-        </nav>
-    );
 }
 
 const ESTADOS_DA_SUBSCRICAO = (): Array<{ valor: string; rotulo: string; cor: Cor }> => [
