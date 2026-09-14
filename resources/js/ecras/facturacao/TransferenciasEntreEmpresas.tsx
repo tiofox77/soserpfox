@@ -11,7 +11,7 @@ import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { Paginacao } from '@/ui/Paginacao';
-import { FOCO, RAIO, cls } from '@/ui/tokens';
+import { FOCO, RAIO, cls, dataHora } from '@/ui/tokens';
 import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t } from '@/i18n';
 import { Carrinho, Comprovativo } from '@/ecras/facturacao/transferencias/Carrinho';
@@ -88,7 +88,7 @@ export default function TransferenciasEntreEmpresas() {
             <Cartao semPadding>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                        <thead><tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-600"><th className="px-4 py-3 font-bold"><i className="fas fa-clock mr-1.5 text-slate-400" aria-hidden="true" />{t('Quando')}</th><th className="px-4 py-3 font-bold">{t('Sentido')}</th><th className="px-4 py-3 font-bold"><i className="fas fa-box mr-1.5 text-indigo-500" aria-hidden="true" />{t('Artigo')}</th><th className="px-4 py-3 font-bold"><i className="fas fa-warehouse mr-1.5 text-blue-500" aria-hidden="true" />{t('Armazém')}</th><th className="px-4 py-3 text-right font-bold">{t('Qtd.')}</th><th className="px-4 py-3 font-bold">{t('Referência')}</th><th className="px-4 py-3 font-bold">{t('Notas')}</th></tr></thead>
+                        <thead><tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-600"><th className="px-4 py-3 font-bold"><i className="fas fa-clock mr-1.5 text-slate-400" aria-hidden="true" />{t('Quando')}</th><th className="px-4 py-3 font-bold">{t('Sentido')}</th><th className="px-4 py-3 font-bold"><i className="fas fa-box mr-1.5 text-indigo-500" aria-hidden="true" />{t('Artigo')}</th><th className="px-4 py-3 font-bold"><i className="fas fa-warehouse mr-1.5 text-blue-500" aria-hidden="true" />{t('Armazém')}</th><th className="px-4 py-3 text-right font-bold">{t('Qtd.')}</th><th className="px-4 py-3 font-bold"><i className="fas fa-hashtag mr-1.5 text-purple-500" aria-hidden="true" />{t('Referência')}</th><th className="px-4 py-3 font-bold">{t('Notas')}</th></tr></thead>
                         <tbody className={cls('divide-y divide-slate-100', historico.isFetching && 'opacity-60')}>
                             {linhas.length === 0 && (
                                 <tr>
@@ -109,12 +109,22 @@ export default function TransferenciasEntreEmpresas() {
                             )}
                             {linhas.map((m, i) => (
                                 <tr key={m.id} style={cascata(i)} className="entra transition-all duration-200 hover:bg-purple-50/60">
-                                    <td className="px-4 py-2 tabular-nums text-slate-600">{m.quando}</td>
+                                    <td className="whitespace-nowrap px-4 py-2 tabular-nums text-slate-600">{dataHora(m.quando.replace(' ', 'T'))}</td>
                                     <td className="px-4 py-2"><Etiqueta cor={m.sentido === 'entrada' ? 'bom' : 'aviso'} icone={m.sentido === 'entrada' ? 'fa-arrow-down' : 'fa-arrow-up'}>{m.sentido === 'entrada' ? t('Recebido') : t('Enviado')}</Etiqueta></td>
                                     <td className="px-4 py-2 font-medium text-slate-800">{m.artigo}{m.codigo && <span className="ml-2 font-mono text-xs font-normal text-slate-400">{m.codigo}</span>}</td>
                                     <td className="px-4 py-2">{m.armazem ? <Etiqueta cor="neutra" icone="fa-warehouse">{m.armazem}</Etiqueta> : <span className="text-slate-300">—</span>}</td>
                                     <td className="px-4 py-2 text-right font-bold tabular-nums text-slate-900">{m.quantidade.toLocaleString('pt-PT')}</td>
-                                    <td className="px-4 py-2 font-mono text-xs">{m.referencia}</td>
+                                    <td className="px-4 py-2">
+                                        {m.referencia ? (
+                                            <span className="flex items-center gap-1.5 whitespace-nowrap">
+                                                <span className="mr-1 font-mono text-xs font-bold text-indigo-700">{m.referencia}</span>
+                                                {m.preview && <a href={m.preview} target="_blank" rel="noreferrer" title={t('Pré-visualizar / Imprimir')} aria-label={t('Pré-visualizar :referencia', { referencia: m.referencia })} className={cls('grid h-8 w-8 place-items-center rounded-lg bg-emerald-50 text-emerald-700 transition-all duration-200 hover:scale-110 hover:bg-emerald-100', FOCO)}><i className="fas fa-print" aria-hidden="true" /></a>}
+                                                {m.pdf && <a href={m.pdf} target="_blank" rel="noreferrer" title={t('PDF')} aria-label={t('PDF de :referencia', { referencia: m.referencia })} className={cls('grid h-8 w-8 place-items-center rounded-lg bg-red-50 text-red-700 transition-all duration-200 hover:scale-110 hover:bg-red-100', FOCO)}><i className="fas fa-file-pdf" aria-hidden="true" /></a>}
+                                            </span>
+                                        ) : (
+                                            <span className="text-slate-300">—</span>
+                                        )}
+                                    </td>
                                     <td className="px-4 py-2 text-xs text-slate-500">{m.notas}</td>
                                 </tr>
                             ))}

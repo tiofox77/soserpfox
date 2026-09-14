@@ -2463,12 +2463,15 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
     // Documento do lote de movimentação (MOV/AAAA/NNNNNN).
     // A referência leva barras, daí o `where` — sem ele o Laravel parte o
     // parâmetro no primeiro '/' e a rota nunca corresponde.
+    // Quem vê a lista de transferências abre o papel do lote: só com
+    // `stock.view` aqui, quem transfere sem mexer em stock via os ícones e
+    // levava 403 — o controlador já aceitava estas permissões todas.
     Route::get('/stock/movimentacao/{reference}/pdf', [\App\Http\Controllers\Invoicing\StockMovementController::class, 'batchPdf'])
         ->where('reference', '[A-Za-z0-9/_-]+')
-        ->middleware('permission:invoicing.stock.view')->name('stock.batch-pdf');
+        ->middleware('permission:invoicing.stock.view|invoicing.stock.edit|invoicing.warehouse-transfer.view|invoicing.warehouse-transfer.create|invoicing.inter-company-transfer.view|invoicing.inter-company-transfer.create')->name('stock.batch-pdf');
     Route::get('/stock/movimentacao/{reference}/preview', [\App\Http\Controllers\Invoicing\StockMovementController::class, 'batchPreview'])
         ->where('reference', '[A-Za-z0-9/_-]+')
-        ->middleware('permission:invoicing.stock.view')->name('stock.batch-preview');
+        ->middleware('permission:invoicing.stock.view|invoicing.stock.edit|invoicing.warehouse-transfer.view|invoicing.warehouse-transfer.create|invoicing.inter-company-transfer.view|invoicing.inter-company-transfer.create')->name('stock.batch-preview');
     Route::get('/product-batches', \App\Support\EcraReact::pagina('facturacao/lotes', 'Lotes e Validades'))->middleware('permission:invoicing.product-batches.view')->name('product-batches');
     Route::get('/warehouse-transfer', \App\Support\EcraReact::pagina('facturacao/transferencias-entre-armazens', 'Transferências e Ajustes de Stock'))->middleware('permission:invoicing.warehouse-transfer.view')->name('warehouse-transfer');
     Route::get('/inter-company-transfer', \App\Support\EcraReact::pagina('facturacao/transferencias-entre-empresas', 'Transferências Inter-Empresas'))->middleware('permission:invoicing.inter-company-transfer.view')->name('inter-company-transfer');

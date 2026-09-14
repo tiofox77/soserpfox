@@ -304,5 +304,9 @@ class TransferenciaInterEmpresasTest extends TenantTestCase
         $this->assertEqualsWithDelta(4, $linhas[0]['quantidade'], 0.001);
         $this->assertSame($this->produto->name, $linhas[0]['artigo']);
         $this->assertSame($this->user->name, $linhas[0]['quem']);
+
+        // O papel do lote ao lado da referência, como no ecrã de sempre.
+        $this->assertStringEndsWith($linhas[0]['referencia'] . '/pdf', $linhas[0]['pdf']);
+        $this->assertStringEndsWith($linhas[0]['referencia'] . '/preview', $linhas[0]['preview']);
     }
 }

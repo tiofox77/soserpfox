@@ -238,6 +238,34 @@ class TransferenciaArmazemRastreioTest extends TenantTestCase
         $papel->assertSee('Armazém de destino');
     }
 
+    /**
+     * QUEM VÊ A LISTA ABRE O PAPEL.
+     *
+     * A rota do documento pedia `stock.view` e o controlador aceitava quem só
+     * transfere: a lista mostrava os ícones de PDF e o clique levava 403.
+     */
+    public function test_quem_so_ve_as_transferencias_abre_o_papel_do_lote(): void
+    {
+        $this->comStock($this->armazem, 20);
+        $referencia = $this->transferir(5)->assertCreated()->json('referencia');
+
+        $this->user->syncPermissions([]);
+        $this->comPermissoes('invoicing.warehouse-transfer.view');
+
+        $this->get(route('invoicing.stock.batch-preview', ['reference' => $referencia]))->assertOk()->assertSee($referencia);
+        $this->get(route('invoicing.stock.batch-pdf', ['reference' => $referencia]))->assertOk();
+
+        // E a lista dá as duas moradas.
+        $linha = collect($this->getJson('/api/v1/invoicing/react/transferencias/historico')->assertOk()->json('data'))->firstWhere('referencia', $referencia);
+        $this->assertStringEndsWith($referencia . '/pdf', $linha['pdf']);
+        $this->assertStringEndsWith($referencia . '/preview', $linha['preview']);
+
+        // Sem nenhuma das permissões, não abre.
+        $this->user->syncPermissions([]);
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        $this->get(route('invoicing.stock.batch-preview', ['reference' => $referencia]))->assertForbidden();
+    }
+
     public function test_uma_transferencia_nao_usa_o_documento_de_entradas_e_saidas(): void
     {
         // O documento de entradas/saídas tem UM armazém e uma linha por

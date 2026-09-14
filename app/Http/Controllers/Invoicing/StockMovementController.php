@@ -142,7 +142,10 @@ class StockMovementController extends Controller
         abort_unless(
             $utilizador?->can('invoicing.stock.view')
             || $utilizador?->can('invoicing.stock.edit')
-            || $utilizador?->can('invoicing.warehouse-transfer.create'),
+            || $utilizador?->can('invoicing.warehouse-transfer.view')
+            || $utilizador?->can('invoicing.warehouse-transfer.create')
+            || $utilizador?->can('invoicing.inter-company-transfer.view')
+            || $utilizador?->can('invoicing.inter-company-transfer.create'),
             403,
             'Sem permissão para ver movimentações de stock.'
         );

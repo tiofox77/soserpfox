@@ -187,6 +187,10 @@ class TransferenciasApiController extends Controller
                 'id' => $m->id, 'quando' => (string) $m->created_at, 'sentido' => $m->type === 'in' ? 'entrada' : 'saida',
                 'artigo' => $m->product?->name, 'codigo' => $m->product?->code, 'armazem' => $m->warehouse?->name,
                 'quantidade' => round(abs((float) $m->quantity), 3), 'referencia' => $m->batch_reference, 'notas' => $m->notes, 'quem' => $m->user?->name,
+                // A pré-visualização e o PDF do lote — o ecrã de sempre tinha-os
+                // ao lado da referência, e a migração deixou-os cair.
+                'preview' => $m->batch_reference ? '/invoicing/stock/movimentacao/' . $m->batch_reference . '/preview' : null,
+                'pdf' => $m->batch_reference ? '/invoicing/stock/movimentacao/' . $m->batch_reference . '/pdf' : null,
             ])->values(),
             'meta' => ['current_page' => $pagina->currentPage(), 'last_page' => $pagina->lastPage(), 'per_page' => $pagina->perPage(), 'total' => $pagina->total()],
         ]);

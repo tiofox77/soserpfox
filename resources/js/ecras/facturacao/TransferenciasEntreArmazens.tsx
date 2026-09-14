@@ -11,7 +11,7 @@ import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { Paginacao } from '@/ui/Paginacao';
-import { CORES, FOCO, RAIO, cls, type Cor } from '@/ui/tokens';
+import { CORES, FOCO, RAIO, cls, dataHora, type Cor } from '@/ui/tokens';
 import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t } from '@/i18n';
 import { Carrinho, Comprovativo } from '@/ecras/facturacao/transferencias/Carrinho';
@@ -95,7 +95,7 @@ export default function TransferenciasEntreArmazens() {
             <Cartao semPadding>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                        <thead><tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-600"><th className="px-4 py-3 font-bold"><i className="fas fa-hashtag mr-1.5 text-purple-500" aria-hidden="true" />{t('Referência')}</th><th className="px-4 py-3 font-bold">{t('Tipo')}</th><th className="px-4 py-3 font-bold"><i className="fas fa-clock mr-1.5 text-slate-400" aria-hidden="true" />{t('Quando')}</th><th className="px-4 py-3 font-bold"><i className="fas fa-warehouse mr-1.5 text-blue-500" aria-hidden="true" />{t('Armazém')}</th><th className="px-4 py-3 text-right font-bold">{t('Artigos')}</th><th className="px-4 py-3 text-right font-bold">{t('Unidades')}</th><th className="px-4 py-3 font-bold">{t('Quem')}</th><th className="w-24 px-4 py-3 text-right font-bold">{t('Documento')}</th></tr></thead>
+                        <thead><tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-600"><th className="px-4 py-3 font-bold"><i className="fas fa-hashtag mr-1.5 text-purple-500" aria-hidden="true" />{t('Referência')}</th><th className="px-4 py-3 font-bold">{t('Tipo')}</th><th className="px-4 py-3 font-bold"><i className="fas fa-clock mr-1.5 text-slate-400" aria-hidden="true" />{t('Quando')}</th><th className="px-4 py-3 font-bold"><i className="fas fa-warehouse mr-1.5 text-blue-500" aria-hidden="true" />{t('Armazém')}</th><th className="px-4 py-3 text-right font-bold">{t('Artigos')}</th><th className="px-4 py-3 text-right font-bold">{t('Unidades')}</th><th className="px-4 py-3 font-bold">{t('Quem')}</th><th className="sticky right-0 z-10 w-24 bg-slate-50 px-4 py-3 text-right font-bold shadow-[-10px_0_12px_-10px_rgba(15,23,42,0.25)]">{t('Documento')}</th></tr></thead>
                         <tbody className={cls('divide-y divide-slate-100', historico.isFetching && 'opacity-60')}>
                             {linhas.length === 0 && (
                                 <tr>
@@ -115,15 +115,19 @@ export default function TransferenciasEntreArmazens() {
                                 </tr>
                             )}
                             {linhas.map((l, i) => (
-                                <tr key={l.id} style={cascata(i)} className="entra transition-all duration-200 hover:bg-purple-50/60">
-                                    <td className="px-4 py-2 font-mono font-semibold text-slate-900">{l.referencia ?? <span className="text-xs italic text-slate-400">#{l.reference_id}</span>}</td>
+                                <tr key={l.id} style={cascata(i)} className="entra group transition-all duration-200 hover:bg-purple-50/60">
+                                    <td className="whitespace-nowrap px-4 py-2 font-mono font-semibold text-slate-900">{l.referencia ?? <span className="text-xs italic text-slate-400">#{l.reference_id}</span>}</td>
                                     <td className="px-4 py-2"><Etiqueta cor={l.tipo === 'transfer' ? 'primaria' : 'aviso'} icone={l.tipo === 'transfer' ? 'fa-exchange-alt' : 'fa-sliders'}>{l.tipo_rotulo}</Etiqueta></td>
-                                    <td className="px-4 py-2 tabular-nums text-slate-600">{l.quando}</td>
+                                    <td className="whitespace-nowrap px-4 py-2 tabular-nums text-slate-600">{dataHora(l.quando.replace(' ', 'T'))}</td>
                                     <td className="px-4 py-2">{l.armazem ? <Etiqueta cor="neutra" icone="fa-warehouse">{l.armazem}</Etiqueta> : <span className="text-slate-300">—</span>}</td>
                                     <td className="px-4 py-2 text-right font-semibold tabular-nums">{l.produtos}</td>
                                     <td className="px-4 py-2 text-right font-bold tabular-nums text-slate-900">{l.quantidade.toLocaleString('pt-PT')}</td>
                                     <td className="px-4 py-2">{l.quem}</td>
-                                    <td className="px-4 py-2 text-right">
+                                    {/* PRESA À DIREITA: numa janela estreita (a barra lateral
+                                        aberta) a tabela rola para o lado, e era esta coluna — a
+                                        dos papéis — que ficava fora da vista. Parecia que os
+                                        ícones do PDF tinham desaparecido. */}
+                                    <td className="sticky right-0 bg-white px-4 py-2 text-right shadow-[-10px_0_12px_-10px_rgba(15,23,42,0.25)] transition-colors duration-200 group-hover:bg-purple-50">
                                         <span className="flex justify-end gap-1.5">
                                             <button type="button" onClick={() => porDetalhe(l)} title={t('Detalhe')} aria-label={t('Detalhe de :referencia', { referencia: l.referencia ?? l.reference_id ?? '' })} className={accao('primaria')}><i className="fas fa-list" aria-hidden="true" /></button>
                                             {/* A PRÉ-VISUALIZAÇÃO abre no browser e é de lá

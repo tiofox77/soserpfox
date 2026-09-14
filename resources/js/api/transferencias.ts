@@ -19,7 +19,7 @@ export type LoteDoHistorico = {
 
 export type LinhaDoLote = { id: number; artigo: string | null; codigo: string | null; armazem: string | null; quantidade: number; antes: number | null; depois: number | null; notas: string | null; quem: string | null };
 
-export type MovimentoEntreEmpresas = { id: number; quando: string; sentido: 'entrada' | 'saida'; artigo: string | null; codigo: string | null; armazem: string | null; quantidade: number; referencia: string | null; notas: string | null; quem: string | null };
+export type MovimentoEntreEmpresas = { id: number; quando: string; sentido: 'entrada' | 'saida'; artigo: string | null; codigo: string | null; armazem: string | null; quantidade: number; referencia: string | null; notas: string | null; quem: string | null; preview: string | null; pdf: string | null };
 
 export type Resumo = Record<string, string | number | null>;
 
