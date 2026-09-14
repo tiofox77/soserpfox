@@ -6065,6 +6065,8 @@
     "Mínimo 0,01 — a coluna guarda dois decimais.": "Minimum 0.01 — the column holds two decimals.",
     "Nenhum artigo com stock neste filtro.": "No item with stock under this filter.",
     "Nenhum artigo encontrado.": "No item found.",
+    "Artigos a movimentar": "Items to move",
+    ":artigos artigo(s) · :unidades unidade(s)": ":artigos item(s) · :unidades unit(s)",
     "Nenhum desperdício lançado.": "No waste recorded.",
     "Nenhum prato anulado depois de produzido.": "No dish voided after being produced.",
     "Nenhum prato servido neste período.": "No dish served in this period.",

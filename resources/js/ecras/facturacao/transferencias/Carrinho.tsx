@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 
 import { transferencias, type ArtigoParaTransferir, type ItemDaTransferencia } from '@/api/transferencias';
 import { Campo, entrada } from '@/ui/Campo';
@@ -16,6 +16,13 @@ import { t } from '@/i18n';
  * O ASPECTO É O DE SEMPRE: o quadrado de gradiente ao lado de cada artigo, a
  * caixa a tracejado enquanto o carrinho está vazio, e o comprovativo com o
  * visto num círculo verde.
+ *
+ * A LISTA DE SUGESTÕES SÓ ABRE QUANDO SE PROCURA. Estava sempre aberta e por
+ * cima da tabela: carregava-se num artigo, a lista voltava a abrir sem ele e
+ * tapava a linha onde se acerta a quantidade — parecia que não tinha entrado.
+ * Agora fecha ao juntar, a linha nova acende e fica à vista, e o cursor volta
+ * à procura (o leitor de código de barras continua a funcionar: Enter junta
+ * o artigo quando só há um, ou quando o código é exactamente esse).
  */
 
 /** O atraso da linha `i` na entrada em cascata (ver `.entra` no layout). */
@@ -29,26 +36,71 @@ export function Carrinho({ armazem, itens, aoMudar, comTecto, soComStock = true 
     soComStock?: boolean;
 }) {
     const [procura, porProcura] = useState('');
-    const [sugestoes, porSugestoes] = useState<ArtigoParaTransferir[]>([]);
+    const [resultado, porResultado] = useState<ArtigoParaTransferir[]>([]);
+    const [aberta, porAberta] = useState(false);
+    const [aProcurar, porAProcurar] = useState(false);
     const [aviso, porAviso] = useState('');
+    /* A linha que acabou de entrar: acende e rola para a vista. */
+    const [nova, porNova] = useState<number | null>(null);
+    const caixa = useRef<HTMLInputElement>(null);
+    const zona = useRef<HTMLDivElement>(null);
+    const tabela = useRef<HTMLTableSectionElement>(null);
 
+    /* A procura só corre com a lista aberta — e já não depende dos itens:
+       mudar uma quantidade ia ao servidor a cada tecla. */
     useEffect(() => {
-        if (!armazem) { porSugestoes([]); return; }
+        if (!armazem || !aberta) { porResultado([]); return; }
         let cancelado = false;
+        porAProcurar(true);
         const h = setTimeout(() => {
             transferencias.artigos({ procura: procura.trim(), armazem, so_com_stock: soComStock })
-                .then((r) => { if (!cancelado) porSugestoes(r.data.filter((a) => !itens.some((i) => i.product_id === a.id))); })
-                .catch(() => { if (!cancelado) porSugestoes([]); });
+                .then((r) => { if (!cancelado) porResultado(r.data); })
+                .catch(() => { if (!cancelado) porResultado([]); })
+                .finally(() => { if (!cancelado) porAProcurar(false); });
         }, 300);
         return () => { cancelado = true; clearTimeout(h); };
-    }, [procura, armazem, itens, soComStock]);
+    }, [procura, armazem, soComStock, aberta]);
+
+    /* Fora da caixa e da lista, a lista fecha. */
+    useEffect(() => {
+        if (!aberta) return;
+        const fora = (e: MouseEvent) => { if (zona.current && !zona.current.contains(e.target as Node)) porAberta(false); };
+        document.addEventListener('mousedown', fora);
+        return () => document.removeEventListener('mousedown', fora);
+    }, [aberta]);
+
+    /* A linha nova à vista, e o acender apaga-se sozinho. */
+    useEffect(() => {
+        if (nova === null) return;
+        tabela.current?.querySelector(`[data-artigo="${nova}"]`)?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+        const h = setTimeout(() => porNova(null), 1600);
+        return () => clearTimeout(h);
+    }, [nova]);
+
+    const sugestoes = resultado.filter((a) => !itens.some((i) => i.product_id === a.id));
 
     const juntar = (a: ArtigoParaTransferir) => {
         if (comTecto && a.disponivel <= 0) { porAviso(t('Não há :artigo neste armazém.', { artigo: a.name })); return; }
         porAviso('');
         aoMudar([...itens, { product_id: a.id, product_name: a.name, product_code: a.code, unit: a.unit, quantity: comTecto ? Math.min(1, a.disponivel) : 1, disponivel: a.disponivel, unit_cost: a.custo }]);
         porProcura('');
+        porAberta(false);
+        porNova(a.id);
+        caixa.current?.focus();
     };
+
+    /* Enter junta quando não há dúvida: um só resultado, ou o código exacto (leitor de barras). */
+    const aoTeclar = (e: KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Escape' && aberta) { e.preventDefault(); e.stopPropagation(); porAberta(false); return; }
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        const termo = procura.trim().toLowerCase();
+        const exacto = sugestoes.find((a) => (a.code ?? '').toLowerCase() === termo);
+        const escolhido = exacto ?? (sugestoes.length === 1 ? sugestoes[0] : undefined);
+        if (escolhido) juntar(escolhido);
+    };
+
+    const quantos = itens.reduce((soma, i) => soma + (Number(i.quantity) || 0), 0);
 
     const mudarQuantidade = (k: number, valor: string) => {
         const n = Number(valor);
@@ -64,19 +116,41 @@ export function Carrinho({ armazem, itens, aoMudar, comTecto, soComStock = true 
 
     return (
         <div className="space-y-3">
-            <div className="relative">
+            <div ref={zona}>
                 <Campo etiqueta={t('Juntar artigo')}>
-                    <input value={procura} onChange={(e) => porProcura(e.target.value)} disabled={!armazem} placeholder={armazem ? t('Nome, código ou código de barras') : t('Escolha primeiro o armazém de origem')} className={entrada} />
+                    <span className="relative block">
+                        <i className={cls('fas pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400', aProcurar && aberta ? 'fa-spinner fa-spin' : 'fa-magnifying-glass')} aria-hidden="true" />
+                        <input
+                            ref={caixa}
+                            value={procura}
+                            onChange={(e) => { porProcura(e.target.value); porAberta(true); }}
+                            onClick={() => porAberta(true)}
+                            onKeyDown={aoTeclar}
+                            disabled={!armazem}
+                            role="combobox"
+                            aria-expanded={aberta && sugestoes.length > 0}
+                            placeholder={armazem ? t('Nome, código ou código de barras') : t('Escolha primeiro o armazém de origem')}
+                            className={cls(entrada, 'pl-9')}
+                        />
+                    </span>
                 </Campo>
-                {sugestoes.length > 0 && (
-                    <ul className={cls('absolute z-10 mt-1 max-h-64 w-full overflow-auto border border-slate-200 bg-white shadow-xl', RAIO)} role="listbox">
+                {/* Na página e não por cima: dentro da janela, uma lista flutuante
+                    era cortada pelo fundo e tapava o carrinho. */}
+                {aberta && armazem && (sugestoes.length > 0 || (!aProcurar && procura.trim() !== '')) && (
+                    <ul className={cls('animate-scale-in mt-1 max-h-64 w-full overflow-auto border border-slate-200 bg-white shadow-lg', RAIO)} role="listbox">
+                        {sugestoes.length === 0 && (
+                            <li className="px-3 py-3 text-center text-sm text-slate-400"><i className="fas fa-box-open mr-2" aria-hidden="true" />{t('Nenhum artigo encontrado.')}</li>
+                        )}
                         {sugestoes.map((a, i) => (
                             <li key={a.id} style={cascata(i)} className="entra border-b border-slate-100 last:border-0">
-                                <button type="button" onClick={() => juntar(a)} className={cls('flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-all duration-200 hover:bg-indigo-50/60', FOCO)}>
-                                    <span><span className="font-semibold text-slate-900">{a.name}</span>{a.code && <span className="ml-2 font-mono text-xs text-slate-400">{a.code}</span>}</span>
-                                    <span className={cls('text-xs font-semibold', a.disponivel > 0 ? 'text-slate-500' : 'text-red-500')}>
-                                        <i className={cls('fas mr-1', a.disponivel > 0 ? 'fa-cubes' : 'fa-ban')} aria-hidden="true" />
-                                        {t('tem :quanto', { quanto: a.disponivel.toLocaleString('pt-PT') })}
+                                <button type="button" onClick={() => juntar(a)} className={cls('group flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-all duration-200 hover:bg-indigo-50/60', FOCO)}>
+                                    <span className="min-w-0"><span className="font-semibold text-slate-900">{a.name}</span>{a.code && <span className="ml-2 font-mono text-xs text-slate-400">{a.code}</span>}</span>
+                                    <span className="flex flex-none items-center gap-2">
+                                        <span className={cls('text-xs font-semibold', a.disponivel > 0 ? 'text-slate-500' : 'text-red-500')}>
+                                            <i className={cls('fas mr-1', a.disponivel > 0 ? 'fa-cubes' : 'fa-ban')} aria-hidden="true" />
+                                            {t('tem :quanto', { quanto: a.disponivel.toLocaleString('pt-PT') })}
+                                        </span>
+                                        <span className="grid h-6 w-6 place-items-center rounded-full bg-indigo-100 text-indigo-600 opacity-0 transition-all duration-200 group-hover:scale-110 group-hover:opacity-100 group-focus-visible:opacity-100" aria-hidden="true"><i className="fas fa-plus text-[10px]" /></span>
                                     </span>
                                 </button>
                             </li>
@@ -92,6 +166,12 @@ export function Carrinho({ armazem, itens, aoMudar, comTecto, soComStock = true 
             )}
 
             <div className={cls('overflow-x-auto border border-slate-200', RAIO)}>
+                {itens.length > 0 && (
+                    <div className="flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-indigo-50 to-violet-50 px-3 py-2 text-xs font-semibold text-indigo-900">
+                        <span><i className="fas fa-cart-flatbed mr-2 text-indigo-500" aria-hidden="true" />{t('Artigos a movimentar')}</span>
+                        <span className="tabular-nums" data-contas-do-carrinho>{t(':artigos artigo(s) · :unidades unidade(s)', { artigos: itens.length, unidades: quantos.toLocaleString('pt-PT') })}</span>
+                    </div>
+                )}
                 {itens.length === 0 ? (
                     /* A caixa a tracejado do ecrã de sempre: falta alguma coisa,
                        mas não é um erro — é um convite. */
@@ -102,9 +182,9 @@ export function Carrinho({ armazem, itens, aoMudar, comTecto, soComStock = true 
                 ) : (
                     <table className="min-w-[580px] w-full text-sm">
                         <thead><tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-600"><th className="px-3 py-2 font-bold">{t('Artigo')}</th><th className="px-3 py-2 text-right font-bold">{t('Tem')}</th><th className="px-3 py-2 text-right font-bold">{t('Qtd.')}</th><th className="w-10 px-3 py-2"></th></tr></thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody ref={tabela} className="divide-y divide-slate-100">
                             {itens.map((i, k) => (
-                                <tr key={i.product_id} style={cascata(k)} className="entra transition-all duration-200 hover:bg-indigo-50/60">
+                                <tr key={i.product_id} data-artigo={i.product_id} style={cascata(k)} className={cls('entra transition-all duration-500 hover:bg-indigo-50/60', nova === i.product_id && 'bg-emerald-50 ring-2 ring-inset ring-emerald-300')}>
                                     <td className="px-3 py-2">
                                         <span className="flex items-center gap-2.5">
                                             <span className="grid h-9 w-9 flex-none place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-md">

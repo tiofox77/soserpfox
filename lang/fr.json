@@ -6065,6 +6065,8 @@
     "Mínimo 0,01 — a coluna guarda dois decimais.": "Minimum 0,01 — la colonne garde deux décimales.",
     "Nenhum artigo com stock neste filtro.": "Aucun article en stock avec ce filtre.",
     "Nenhum artigo encontrado.": "Aucun article trouvé.",
+    "Artigos a movimentar": "Articles à déplacer",
+    ":artigos artigo(s) · :unidades unidade(s)": ":artigos article(s) · :unidades unité(s)",
     "Nenhum desperdício lançado.": "Aucune perte saisie.",
     "Nenhum prato anulado depois de produzido.": "Aucun plat annulé après production.",
     "Nenhum prato servido neste período.": "Aucun plat servi sur cette période.",
