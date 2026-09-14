@@ -63,6 +63,28 @@ class ProductApiController extends Controller
      */
     private const MAXIMO_DA_GALERIA = 10;
 
+    /**
+     * AS REGRAS DE UMA IMAGEM — as mesmas para o destaque e para a galeria.
+     *
+     * O ecrã reduz as fotografias antes de subir (resources/js/ui/prepararImagem.ts),
+     * e por isso quase nada passa de 1 MB. O tecto de 5 MB é para quem chega
+     * sem essa redução. O SVG fica de fora: é um documento com scripts, não
+     * uma fotografia.
+     */
+    private const REGRAS_DA_IMAGEM = ['file', 'image', 'mimes:jpg,jpeg,png,gif,webp', 'max:5120'];
+
+    /** As mensagens que se percebem — «The imagem failed to upload» não diz nada a ninguém. */
+    private function mensagensDaImagem(string $campo): array
+    {
+        return [
+            "{$campo}.required" => __('Escolha uma imagem.'),
+            "{$campo}.uploaded" => __('A imagem não chegou ao servidor — é provável que seja grande demais. Tente uma mais pequena.'),
+            "{$campo}.image" => __('O ficheiro escolhido não é uma imagem.'),
+            "{$campo}.mimes" => __('Use uma imagem JPG, PNG, GIF ou WebP.'),
+            "{$campo}.max" => __('A imagem passa dos 5 MB.'),
+        ];
+    }
+
     /** Lista fechada: o género alimenta filtros e relatórios. */
     private const GENEROS = [
         'masculino' => 'Masculino', 'feminino' => 'Feminino',
@@ -354,7 +376,7 @@ class ProductApiController extends Controller
 
         $artigo = $this->doCatalogo($id);
 
-        $request->validate(['imagem' => ['required', 'image', 'max:2048']]);
+        $request->validate(['imagem' => ['required', ...self::REGRAS_DA_IMAGEM]], $this->mensagensDaImagem('imagem'));
 
         $anterior = $artigo->featured_image;
         $ficheiro = $request->file('imagem');
@@ -379,7 +401,8 @@ class ProductApiController extends Controller
 
         $artigo->update(['featured_image' => $caminho]);
 
-        return new ProductResource($artigo->fresh()->load(['category', 'taxRate']));
+        return (new ProductResource($artigo->fresh()->load(['category', 'taxRate'])))
+            ->additional(['message' => __('Imagem de destaque guardada.')]);
     }
 
     /** Tira a imagem de destaque — do artigo e do disco. */
@@ -392,7 +415,8 @@ class ProductApiController extends Controller
         $this->apagarDoDisco($artigo->featured_image);
         $artigo->update(['featured_image' => null]);
 
-        return new ProductResource($artigo->fresh()->load(['category', 'taxRate']));
+        return (new ProductResource($artigo->fresh()->load(['category', 'taxRate'])))
+            ->additional(['message' => __('Imagem de destaque apagada.')]);
     }
 
     /** Junta imagens à galeria. ACRESCENTA — nunca substitui o que já lá está. */
@@ -404,7 +428,10 @@ class ProductApiController extends Controller
 
         $request->validate([
             'imagens' => ['required', 'array', 'min:1', 'max:' . self::MAXIMO_DA_GALERIA],
-            'imagens.*' => ['image', 'max:2048'],
+            'imagens.*' => self::REGRAS_DA_IMAGEM,
+        ], [
+            'imagens.required' => __('Escolha pelo menos uma imagem.'),
+            ...collect($this->mensagensDaImagem('imagens.*'))->except('imagens.*.required')->all(),
         ]);
 
         $galeria = array_values(array_filter($artigo->gallery ?? []));
@@ -436,7 +463,8 @@ class ProductApiController extends Controller
 
         $artigo->update(['gallery' => $galeria]);
 
-        return new ProductResource($artigo->fresh()->load(['category', 'taxRate']));
+        return (new ProductResource($artigo->fresh()->load(['category', 'taxRate'])))
+            ->additional(['message' => trans_choice('{1} Imagem juntada à galeria.|[2,*] :n imagens juntadas à galeria.', $aChegar, ['n' => $aChegar])]);
     }
 
     /** Tira UMA imagem da galeria. */
@@ -464,7 +492,8 @@ class ProductApiController extends Controller
 
         $artigo->update(['gallery' => array_values(array_filter($galeria, fn ($c) => $c !== $pedido))]);
 
-        return new ProductResource($artigo->fresh()->load(['category', 'taxRate']));
+        return (new ProductResource($artigo->fresh()->load(['category', 'taxRate'])))
+            ->additional(['message' => __('Imagem tirada da galeria.')]);
     }
 
     public function opcoes(Request $request): JsonResponse

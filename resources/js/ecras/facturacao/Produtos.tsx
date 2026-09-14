@@ -23,6 +23,7 @@ import { Modal } from '@/ui/Modal';
 import { Paginacao } from '@/ui/Paginacao';
 import { IntervaloDeDatas, PorPagina } from '@/ui/FiltrosComuns';
 import { ACCAO_DA_FAIXA, Faixa } from './faixa';
+import { ImagensDoArtigo } from './produtos/ImagensDoArtigo';
 import { CARTAO, FOCO, GRADIENTES, RAIO, cls, data, kz } from '@/ui/tokens';
 import { etiquetaIntl, t, tPartes } from '@/i18n';
 
@@ -115,6 +116,13 @@ type Recado = { texto: string; mau: boolean };
 /** O que sobe numa gravação: a ficha, e os ficheiros que ainda não têm morada. */
 type Envio = { dados: ArtigoParaGravar; destaque: File | null; galeria: File[] };
 
+/** A frase de um envio de imagem que falhou. */
+function mensagemDoEnvio(e: unknown): string {
+    return e instanceof ErroDaApi
+        ? (e.erros.imagem?.[0] ?? e.erros.imagens?.[0] ?? Object.values(e.erros).flat()[0] ?? e.message)
+        : t('Não foi possível enviar a imagem.');
+}
+
 function preenchido(v: unknown): boolean {
     return v !== null && v !== undefined && String(v).trim() !== '';
 }
@@ -183,14 +191,25 @@ export default function Produtos({ tipo, titulo, subtitulo }: {
                 if (destaque) {
                     artigo = (await produtos.imagem(artigo.id, destaque)).data;
                 }
-                if (galeria.length > 0) {
-                    artigo = (await produtos.galeria(artigo.id, galeria)).data;
-                }
             } catch (e) {
-                avisoDaImagem =
-                    e instanceof ErroDaApi
-                        ? (e.erros.imagem?.[0] ?? e.erros.imagens?.[0] ?? e.message)
-                        : t('Não foi possível enviar a imagem.');
+                avisoDaImagem = mensagemDoEnvio(e);
+            }
+
+            // A galeria sobe UMA A UMA: várias fotografias num pedido só passavam o
+            // limite do servidor e perdiam-se todas. Uma que falhe não leva as outras.
+            let falhadas = 0;
+
+            for (const f of galeria) {
+                try {
+                    artigo = (await produtos.galeria(artigo.id, [f])).data;
+                } catch (e) {
+                    falhadas += 1;
+                    avisoDaImagem ??= mensagemDoEnvio(e);
+                }
+            }
+
+            if (falhadas > 1) {
+                avisoDaImagem = t(':n imagens da galeria ficaram por enviar: :aviso', { n: falhadas, aviso: avisoDaImagem ?? '' });
             }
 
             return { artigo, avisoDaImagem, editava: aEditar !== null };
@@ -1621,7 +1640,7 @@ function Formulario({
                     aoMudar={aoMudar}
                 />
 
-                <Imagens
+                <ImagensDoArtigo
                     key={`imagens-${chaveDaFicha}`}
                     artigo={aEditar}
                     destaque={destaque}
@@ -3057,227 +3076,6 @@ function BotaoDeRamo({
             <i className={cls('fas mr-1', icone)} aria-hidden="true" />
             {children}
         </button>
-    );
-}
-
-/* ─── As imagens ──────────────────────────────────────────────────────── */
-
-/**
- * Imagem de destaque e galeria.
- *
- * A ESCOLHER NÃO SOBE NADA. Os ficheiros ficam à espera e sobem quando se
- * carrega em «Guardar» — a criar, é a única altura possível, porque antes
- * disso o artigo ainda não tem número. Apagar uma imagem JÁ GUARDADA é
- * diferente: essa vai já, porque é uma acção sobre um artigo que existe.
- */
-function Imagens({
-    artigo,
-    destaque,
-    galeria,
-    aoEscolherDestaque,
-    aoJuntarAGaleria,
-    aoTirarDaGaleria,
-}: {
-    artigo: Artigo | null;
-    destaque: File | null;
-    galeria: File[];
-    aoEscolherDestaque: (f: File | null) => void;
-    aoJuntarAGaleria: (fs: File[]) => void;
-    aoTirarDaGaleria: (indice: number) => void;
-}) {
-    const cache = useQueryClient();
-
-    const [guardado, porGuardado] = useState({
-        imagem: artigo?.imagem ?? null,
-        galeria: artigo?.galeria ?? [],
-    });
-
-    const previaDoDestaque = useMemo(
-        () => (destaque ? URL.createObjectURL(destaque) : null),
-        [destaque],
-    );
-
-    const previasDaGaleria = useMemo(() => galeria.map((f) => URL.createObjectURL(f)), [galeria]);
-
-    // Cada `createObjectURL` segura o ficheiro em memória até se lhe chamar
-    // `revoke`. Sem isto, abrir e fechar a janela vinte vezes deixava vinte
-    // fotografias penduradas no browser.
-    useEffect(() => {
-        return () => {
-            if (previaDoDestaque) URL.revokeObjectURL(previaDoDestaque);
-        };
-    }, [previaDoDestaque]);
-
-    useEffect(() => {
-        return () => previasDaGaleria.forEach((u) => URL.revokeObjectURL(u));
-    }, [previasDaGaleria]);
-
-    const remover = useMutation({
-        mutationFn: (caminho: string | null) =>
-            caminho === null
-                ? produtos.apagarImagem(artigo!.id)
-                : produtos.apagarDaGaleria(artigo!.id, caminho),
-        onSuccess: (r) => {
-            porGuardado({ imagem: r.data.imagem, galeria: r.data.galeria });
-            void cache.invalidateQueries({ queryKey: ['produtos'] });
-        },
-    });
-
-    const podeApagarNoServidor = artigo !== null && !remover.isPending;
-
-    return (
-        <div className="sm:col-span-3 grid gap-4 sm:grid-cols-2">
-            <div>
-                <Rotulo>{t('Imagem de destaque')}</Rotulo>
-
-                <div className="flex items-start gap-3">
-                    {previaDoDestaque ? (
-                        <figure className="text-center">
-                            <img
-                                src={previaDoDestaque}
-                                alt={t('A imagem escolhida, ainda por enviar')}
-                                className={cls('h-24 w-24 border border-emerald-300 object-cover', RAIO)}
-                            />
-                            <figcaption className="mt-1 text-[11px] font-semibold text-emerald-700">
-                                {t('por enviar')}
-                            </figcaption>
-                        </figure>
-                    ) : guardado.imagem ? (
-                        <img
-                            src={guardado.imagem}
-                            alt={t('Imagem de :nome', { nome: artigo?.name ?? t('artigo') })}
-                            className={cls('h-24 w-24 border border-slate-200 object-cover', RAIO)}
-                        />
-                    ) : (
-                        <div
-                            className={cls(
-                                'grid h-24 w-24 place-items-center border border-dashed border-slate-300 text-slate-300',
-                                RAIO,
-                            )}
-                            aria-hidden="true"
-                        >
-                            <i className="fas fa-image text-2xl" />
-                        </div>
-                    )}
-
-                    <div className="flex-1 space-y-2">
-                        <label
-                            className={cls(
-                                'inline-flex cursor-pointer items-center gap-2 bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200',
-                                RAIO,
-                            )}
-                        >
-                            <i className="fas fa-upload" aria-hidden="true" />
-                            {t('Escolher imagem')}
-                            <input
-                                type="file"
-                                accept="image/*"
-                                className="sr-only"
-                                onChange={(e) => aoEscolherDestaque(e.target.files?.[0] ?? null)}
-                            />
-                        </label>
-
-                        <p className="text-xs text-slate-500">{t('Até 2 MB — PNG, JPG ou GIF.')}</p>
-
-                        {destaque && (
-                            <button
-                                type="button"
-                                onClick={() => aoEscolherDestaque(null)}
-                                className={cls('text-xs text-red-600 underline decoration-dotted', FOCO)}
-                            >
-                                {t('Cancelar a escolha')}
-                            </button>
-                        )}
-
-                        {!destaque && guardado.imagem && podeApagarNoServidor && (
-                            <button
-                                type="button"
-                                onClick={() => remover.mutate(null)}
-                                className={cls('block text-xs text-red-600 underline decoration-dotted', FOCO)}
-                            >
-                                {t('Apagar a imagem')}
-                            </button>
-                        )}
-                    </div>
-                </div>
-            </div>
-
-            <div>
-                <Rotulo>{t('Galeria')}</Rotulo>
-
-                <div className="flex flex-wrap gap-2">
-                    {guardado.galeria.map((g) => (
-                        <div key={g.caminho} className="relative">
-                            <img
-                                src={g.url}
-                                alt=""
-                                className={cls('h-20 w-20 border border-slate-200 object-cover', RAIO)}
-                            />
-                            {podeApagarNoServidor && (
-                                <button
-                                    type="button"
-                                    onClick={() => remover.mutate(g.caminho)}
-                                    aria-label={t('Apagar imagem da galeria')}
-                                    className="absolute -right-2 -top-2 grid h-6 w-6 place-items-center rounded-full bg-red-600 text-xs text-white"
-                                >
-                                    <i className="fas fa-times" aria-hidden="true" />
-                                </button>
-                            )}
-                        </div>
-                    ))}
-
-                    {previasDaGaleria.map((u, i) => (
-                        <div key={u} className="relative">
-                            <img
-                                src={u}
-                                alt={t('Imagem escolhida, ainda por enviar')}
-                                className={cls('h-20 w-20 border border-emerald-300 object-cover', RAIO)}
-                            />
-                            <button
-                                type="button"
-                                onClick={() => aoTirarDaGaleria(i)}
-                                aria-label={t('Tirar a imagem escolhida')}
-                                className="absolute -right-2 -top-2 grid h-6 w-6 place-items-center rounded-full bg-slate-700 text-xs text-white"
-                            >
-                                <i className="fas fa-times" aria-hidden="true" />
-                            </button>
-                        </div>
-                    ))}
-                </div>
-
-                <label
-                    className={cls(
-                        'mt-2 inline-flex cursor-pointer items-center gap-2 bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200',
-                        RAIO,
-                    )}
-                >
-                    <i className="fas fa-images" aria-hidden="true" />
-                    {t('Juntar à galeria')}
-                    <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        className="sr-only"
-                        onChange={(e) => {
-                            aoJuntarAGaleria(Array.from(e.target.files ?? []));
-                            // Sem isto, escolher o MESMO ficheiro outra vez não
-                            // dispara `change` e parece que o botão não faz nada.
-                            e.target.value = '';
-                        }}
-                    />
-                </label>
-
-                <p className="mt-1 text-xs text-slate-500">{t('Até 10 imagens, 2 MB cada.')}</p>
-
-                {remover.isError && (
-                    <p role="alert" className="mt-2 text-xs text-red-700">
-                        {remover.error instanceof ErroDaApi
-                            ? remover.error.message
-                            : t('Não foi possível apagar a imagem.')}
-                    </p>
-                )}
-            </div>
-        </div>
     );
 }
 

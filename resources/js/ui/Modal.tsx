@@ -76,11 +76,20 @@ export function Modal({
             aria-describedby={subtitulo ? idSubtitulo : undefined}
             // O Escape dispara `cancel`; sem isto o `<dialog>` fechava-se
             // sozinho e o React continuava a achar que estava aberto.
+            //
+            // SÓ O `cancel` DA PRÓPRIA JANELA. O Chrome dispara também `cancel`
+            // num `<input type="file">` quando se fecha o seletor sem escolher
+            // (ou se escolhe o mesmo ficheiro) — e esse SOBE até aqui. Fechava
+            // a ficha do artigo inteira, com o que se tinha escrito, só por
+            // desistir de uma fotografia.
             onCancel={(e) => {
+                if (e.target !== e.currentTarget) return;
                 e.preventDefault();
                 aoFechar();
             }}
-            onClose={aoFechar}
+            onClose={(e) => {
+                if (e.target === e.currentTarget) aoFechar();
+            }}
             // Clicar FORA fecha. O clique no `<dialog>` só chega ao próprio
             // elemento quando cai no fundo escurecido, nunca no conteúdo.
             onClick={(e) => {

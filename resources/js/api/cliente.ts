@@ -96,7 +96,10 @@ async function pedir<T>(raiz: string, caminho: string, opcoes: RequestInit = {},
         // Uma resposta de erro nem sempre é JSON: um 500 do PHP vem em HTML, e
         // tentar lê-lo como JSON esconderia o erro verdadeiro atrás de um
         // «Unexpected token <».
-        let mensagem = `O servidor respondeu ${resposta.status}.`;
+        // O 413 vem do próprio servidor web, antes do Laravel: nunca traz JSON.
+        let mensagem = resposta.status === 413
+            ? 'O ficheiro é grande demais para o servidor. Tente um mais pequeno.'
+            : `O servidor respondeu ${resposta.status}.`;
         let erros: Record<string, string[]> = {};
         let inteiro: Record<string, unknown> = {};
 

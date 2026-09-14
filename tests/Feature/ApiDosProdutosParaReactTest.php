@@ -569,6 +569,41 @@ class ApiDosProdutosParaReactTest extends TenantTestCase
         }
     }
 
+    /**
+     * UMA FOTOGRAFIA DE 3 MB ENTRA — era recusada pelo tecto de 2 MB.
+     *
+     * O ecrã reduz as fotografias antes de subir, mas quem chega sem essa
+     * redução não é recusado por uma de telemóvel. Acima dos 5 MB, e o que
+     * não é JPG/PNG/GIF/WebP, recusa-se com uma frase que se percebe.
+     *
+     * @test
+     */
+    public function a_imagem_aceita_ate_5_mb_e_recusa_com_frase_que_se_percebe(): void
+    {
+        $this->disco();
+        $this->comPermissoes('invoicing.products.edit');
+
+        $artigo = $this->artigo();
+        $raiz = self::RAIZ . '/' . $artigo->id;
+
+        $this->enviar($raiz . '/imagem', ['imagem' => UploadedFile::fake()->image('telemovel.jpg')->size(3000)])
+            ->assertOk()
+            ->assertJsonPath('message', 'Imagem de destaque guardada.');
+
+        $this->enviar($raiz . '/galeria', ['imagens' => [UploadedFile::fake()->image('telemovel.webp')->size(4500)]])
+            ->assertOk()
+            ->assertJsonPath('message', 'Imagem juntada à galeria.');
+
+        $this->enviar($raiz . '/imagem', ['imagem' => UploadedFile::fake()->image('enorme.jpg')->size(6000)])
+            ->assertJsonValidationErrors(['imagem' => 'A imagem passa dos 5 MB.']);
+
+        $this->enviar($raiz . '/galeria', ['imagens' => [UploadedFile::fake()->create('lista.pdf', 10, 'application/pdf')]])
+            ->assertJsonValidationErrors('imagens.0');
+
+        $this->enviar($raiz . '/imagem', ['imagem' => UploadedFile::fake()->create('logo.svg', 5, 'image/svg+xml')])
+            ->assertJsonValidationErrors('imagem');
+    }
+
     /** A galeria tem tecto: sem ele, uma tecla presa enchia o disco da empresa. @test */
     public function a_galeria_recusa_passar_do_tecto(): void
     {

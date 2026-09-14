@@ -268,19 +268,19 @@ export const produtos = {
         const corpo = new FormData();
         corpo.append('imagem', ficheiro);
 
-        return api.enviar<{ data: Artigo }>(`/products/${id}/imagem`, corpo);
+        return api.enviar<{ data: Artigo; message?: string }>(`/products/${id}/imagem`, corpo);
     },
 
-    apagarImagem: (id: number) => api.apagar<{ data: Artigo }>(`/products/${id}/imagem`),
+    apagarImagem: (id: number) => api.apagar<{ data: Artigo; message?: string }>(`/products/${id}/imagem`),
 
     /** A galeria ACRESCENTA: o que já lá está não se perde. */
     galeria: (id: number, ficheiros: File[]) => {
         const corpo = new FormData();
         ficheiros.forEach((f) => corpo.append('imagens[]', f));
 
-        return api.enviar<{ data: Artigo }>(`/products/${id}/galeria`, corpo);
+        return api.enviar<{ data: Artigo; message?: string }>(`/products/${id}/galeria`, corpo);
     },
 
     apagarDaGaleria: (id: number, caminho: string) =>
-        api.apagar<{ data: Artigo }>(`/products/${id}/galeria?caminho=${encodeURIComponent(caminho)}`),
+        api.apagar<{ data: Artigo; message?: string }>(`/products/${id}/galeria?caminho=${encodeURIComponent(caminho)}`),
 };
