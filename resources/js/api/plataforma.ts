@@ -500,7 +500,8 @@ export const definicoes = {
         prontidao: (empresa: number) => apiDaPlataforma.ler<{
             ambiente: string; itens: Array<{ chave: string; rotulo: string; ok: boolean }>;
         }>(`/software/empresas/${empresa}/prontidao`),
-        aplicarAmbiente: (empresa: number, ambiente: string) => apiDaPlataforma.guardar<Recado>('/software/ambiente', { empresa, ambiente }),
+        // `confirmar`: o servidor recusa mudar o ambiente fiscal de uma empresa sem ele.
+        aplicarAmbiente: (empresa: number, ambiente: string) => apiDaPlataforma.guardar<Recado>('/software/ambiente', { empresa, ambiente, confirmar: true }),
         testarAgt: (empresa: number, ambiente: string) =>
             apiDaPlataforma.criar<Record<string, unknown>>('/software/agt/testar', { empresa, ambiente }),
         operacaoAgt: (dados: Record<string, unknown>) =>

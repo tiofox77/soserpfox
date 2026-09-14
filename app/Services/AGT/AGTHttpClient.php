@@ -90,7 +90,7 @@ class AGTHttpClient
             $errorList = $body['errorList'] ?? [];
             $hasErrors = !empty($errorList) && $errorList !== [''];
             $success   = $response->successful() && !$hasErrors;
-            $errorMsg  = $this->extractError($body);
+            [$errorMsg, $errorCode] = $this->extractError($body);
 
             // 429: a AGT manda abrandar. Não diz nada sobre o documento, e o
             // corpo vem vazio — sem esta mensagem ficava um erro sem texto,
@@ -114,27 +114,35 @@ class AGTHttpClient
                 $body,
                 $elapsed,
                 $success,
-                $errorMsg
+                $errorMsg,
+                // O ambiente DESTE pedido, e não o que a empresa tem activo
+                // quando o registo se grava: são o mesmo quase sempre, mas
+                // uma troca a meio punha a resposta de um no histórico do outro.
+                ambiente: $this->environment
             );
 
             return [
-                'ok'        => $success,
-                'status'    => $status,
-                'response'  => $body,
-                'requestID' => $body['requestID'] ?? null,
-                'error'     => $errorMsg,
-                'elapsed'   => $elapsed,
-                'log_id'    => $log?->id,
+                'ok'         => $success,
+                'status'     => $status,
+                'response'   => $body,
+                'requestID'  => $body['requestID'] ?? null,
+                'error'      => $errorMsg,
+                // O código da AGT (E39, E43, E70…), para quem grava a recusa
+                // não ter de o voltar a pescar no texto.
+                'error_code' => $errorCode,
+                'elapsed'    => $elapsed,
+                'log_id'     => $log?->id,
             ];
         } catch (\Throwable $e) {
             return [
-                'ok'        => false,
-                'status'    => 0,
-                'response'  => [],
-                'requestID' => null,
-                'error'     => $e->getMessage(),
-                'elapsed'   => (int) ((microtime(true) - $startTime) * 1000),
-                'log_id'    => null,
+                'ok'         => false,
+                'status'     => 0,
+                'response'   => [],
+                'requestID'  => null,
+                'error'      => $e->getMessage(),
+                'error_code' => null,
+                'elapsed'    => (int) ((microtime(true) - $startTime) * 1000),
+                'log_id'     => null,
             ];
         }
     }
@@ -166,15 +174,27 @@ class AGTHttpClient
             ]);
     }
 
-    private function extractError(array $body): ?string
+    /**
+     * A mensagem E o código.
+     *
+     * Devolvia só as descrições, sem o `idError`: a submissão ficava gravada
+     * como «AGT_REGISTER» e o E43 ou o E70 — que é por onde se sabe o que
+     * corrigir — só se via a abrir a resposta em bruto.
+     *
+     * @return array{0: ?string, 1: ?string}
+     */
+    private function extractError(array $body): array
     {
         $errors = $body['errorList'] ?? null;
         if (empty($errors) || $errors === ['']) {
-            return null;
+            return [null, null];
         }
-        if (is_array($errors) && isset($errors[0]['descriptionError'])) {
-            return collect($errors)->pluck('descriptionError')->implode('; ');
+        if (!is_array($errors)) {
+            return [(string) $errors, null];
         }
-        return is_array($errors) ? implode('; ', array_filter($errors)) : (string) $errors;
+
+        $mensagem = AGTErrorCode::formatList($errors);
+
+        return [$mensagem !== '' ? $mensagem : null, AGTErrorCode::primeiroCodigo($errors)];
     }
 }

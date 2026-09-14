@@ -21,6 +21,16 @@ class AGTSubmission extends Model
     const STATUS_REJECTED = 'rejected';
     const STATUS_CANCELLED = 'cancelled';
 
+    /**
+     * As tentativas que o botão «Reenviar» dá, e a partir das quais só
+     * «Repor e reenviar» a desbloqueia. Uma constante só: o `canRetry()`, o
+     * serviço que recusa e o ecrã que mostra o botão liam cada um o seu 3.
+     *
+     * Não é o tecto do despacho automático (DespachoPendentes::TENTATIVAS_MAX),
+     * que insiste mais um pouco sozinho antes de desistir.
+     */
+    public const MAX_TENTATIVAS_DO_BOTAO = 3;
+
     protected $fillable = [
         'tenant_id',
         'agt_environment',
@@ -100,7 +110,17 @@ class AGTSubmission extends Model
         return $query->where('tenant_id', $tenantId);
     }
 
-    public function scopeNeedsRetry($query, $maxRetries = 3)
+    /**
+     * Só as do ambiente pedido. Homologação e produção são universos
+     * separados: uma submissão de um nunca pode ser enviada, consultada ou
+     * dada por validada pelo outro.
+     */
+    public function scopeDoAmbiente($query, string $ambiente)
+    {
+        return $query->where('agt_environment', $ambiente === 'production' ? 'production' : 'sandbox');
+    }
+
+    public function scopeNeedsRetry($query, $maxRetries = self::MAX_TENTATIVAS_DO_BOTAO)
     {
         return $query->whereIn('status', [self::STATUS_PENDING, self::STATUS_REJECTED])
             ->where('retry_count', '<', $maxRetries);
@@ -130,10 +150,38 @@ class AGTSubmission extends Model
         return $this->status === self::STATUS_REJECTED;
     }
 
-    public function canRetry(int $maxRetries = 3): bool
+    public function canRetry(int $maxRetries = self::MAX_TENTATIVAS_DO_BOTAO): bool
     {
-        return $this->retry_count < $maxRetries && 
+        return $this->retry_count < $maxRetries &&
                in_array($this->status, [self::STATUS_PENDING, self::STATUS_REJECTED]);
+    }
+
+    /** Pertence ao ambiente que a empresa tem activo? */
+    public function eDoAmbiente(string $ambiente): bool
+    {
+        return ($this->agt_environment === 'production' ? 'production' : 'sandbox')
+            === ($ambiente === 'production' ? 'production' : 'sandbox');
+    }
+
+    /** O botão «Reenviar»: por enviar ou recusada, com tentativas, e do ambiente activo. */
+    public function podeReenviar(string $ambienteActivo): bool
+    {
+        return $this->eDoAmbiente($ambienteActivo) && $this->canRetry();
+    }
+
+    /**
+     * O botão «Repor e reenviar»: SÓ quando o «Reenviar» já não chega.
+     *
+     * Uma enviada (`submitted`) está na AGT à espera de veredicto — repô-la
+     * era mandar outra vez um documento que ela pode estar a aceitar nesse
+     * instante. Uma cancelada acabou. E uma com tentativas por gastar não
+     * precisa de reposição nenhuma: repor apagava o rasto das que falharam.
+     */
+    public function podeRepor(string $ambienteActivo): bool
+    {
+        return $this->eDoAmbiente($ambienteActivo)
+            && in_array($this->status, [self::STATUS_PENDING, self::STATUS_REJECTED], true)
+            && (int) $this->retry_count >= self::MAX_TENTATIVAS_DO_BOTAO;
     }
 
     // =========================================
@@ -224,15 +272,27 @@ class AGTSubmission extends Model
         }
     }
 
-    public function markAsRejected(string $errorCode, string $errorMessage, array $responsePayload): void
+    /**
+     * @param bool $contarTentativa  true só no envio que a AGT recusou NA HORA.
+     *   A recusa que chega depois, pela consulta do estado, é o desfecho de um
+     *   envio que o markAsSubmitted() já contou — contá-la outra vez gastava
+     *   duas tentativas por documento.
+     */
+    public function markAsRejected(string $errorCode, string $errorMessage, array $responsePayload, bool $contarTentativa = false): void
     {
-        $this->update([
+        $campos = [
             'status' => self::STATUS_REJECTED,
-            'error_code' => $errorCode,
+            'error_code' => mb_substr($errorCode, 0, 255),
             'error_message' => $errorMessage,
             'response_payload' => $responsePayload,
             'rejected_at' => now(),
-        ]);
+        ];
+
+        if ($contarTentativa) {
+            $campos['retry_count'] = (int) $this->retry_count + 1;
+        }
+
+        $this->update($campos);
 
         // Atualizar documento original
         if ($this->document) {

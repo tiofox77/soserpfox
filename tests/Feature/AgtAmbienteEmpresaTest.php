@@ -81,6 +81,24 @@ class AgtAmbienteEmpresaTest extends TenantTestCase
         return InvoicingSettings::forTenant($this->tenant->id);
     }
 
+    /**
+     * O resto do que produção exige além do par do contribuinte: credenciais
+     * e número de certificação PRÓPRIOS de produção e a chave do produtor.
+     * Sem isto o activarAmbiente() recusa com a lista da prontidão — é outro
+     * ensaio (AgtProntidaoEConfirmacaoTest).
+     */
+    private function produtorProntoParaProducao(): void
+    {
+        config([
+            'services.agt.production.username' => 'produtor-producao',
+            'services.agt.production.password' => 'segredo-de-ensaio',
+        ]);
+        \App\Models\SoftwareSetting::set('invoicing', 'saft_software_cert_production', 'FE/324/AGT/2026', 'string');
+        Storage::disk('local')->put('saft/production/private_key.pem', 'chave de ensaio');
+        Storage::disk('local')->put('saft/production/public_key.pem', 'chave de ensaio');
+        \Illuminate\Support\Facades\Cache::flush();
+    }
+
     /** Instalar as chaves de um ambiente é sempre pelo ambiente pedido. */
     private function instalar(string $ambiente, array $par): void
     {
@@ -142,21 +160,36 @@ class AgtAmbienteEmpresaTest extends TenantTestCase
         $this->assertSame('sandbox', $this->definicoes()->fresh()->agt_environment);
 
         $this->instalar('production', $this->parRsa(1));
+        $this->produtorProntoParaProducao();
 
-        $this->postJson(self::RAIZ . '/ambiente', ['ambiente' => 'production'])
+        // A troca pede hoje um `confirmar` explícito (ver o teste seguinte).
+        $this->postJson(self::RAIZ . '/ambiente', ['ambiente' => 'production', 'confirmar' => true])
             ->assertOk()
             ->assertJsonPath('ambiente_activo', 'production');
 
         $this->assertSame('production', $this->definicoes()->fresh()->agt_environment);
     }
 
+    /**
+     * VOLTAR A HOMOLOGAÇÃO CONTINUA SEMPRE POSSÍVEL — mas já não às cegas.
+     *
+     * Era um POST sem mais nada. Com documentos de produção por enviar, essa
+     * troca mandava-os para a AGT de testes, que os «validava». O defeito
+     * fechou-se na raiz (o despacho, a consulta e o reenvio só tocam nas
+     * submissões do ambiente activo); a troca não se bloqueia, mas passa a
+     * exigir `confirmar: true`, para quem carrega ver antes quantas ficam à
+     * espera. Sem chaves de homologação instaladas, na mesma: é o recuo.
+     */
     public function test_voltar_a_homologacao_e_sempre_possivel(): void
     {
-        // Sem chaves de homologação instaladas: a saída de produção não pode
-        // ficar bloqueada, é o caminho de recuo.
         $this->definicoes()->update(['agt_environment' => 'production']);
 
         $this->postJson(self::RAIZ . '/ambiente', ['ambiente' => 'sandbox'])
+            ->assertStatus(422)
+            ->assertJsonPath('confirmar_necessario', true);
+        $this->assertSame('production', $this->definicoes()->fresh()->agt_environment, 'sem confirmar não muda');
+
+        $this->postJson(self::RAIZ . '/ambiente', ['ambiente' => 'sandbox', 'confirmar' => true])
             ->assertOk()
             ->assertJsonPath('ambiente_activo', 'sandbox');
 

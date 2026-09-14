@@ -69,6 +69,12 @@ class RegisterService
             'requestID'      => $result['requestID'],
             'response'       => $result['response'],
             'error'          => $result['error'],
+            // O estado HTTP e o código da AGT seguiam no cliente e morriam
+            // aqui. Sem o estado, o AGTService lia sempre 0 e tomava TODAS as
+            // recusas por falha de rede: um E43 ficava «pendente» com o código
+            // COMMS e voltava a ser enviado, igual, até esgotar as tentativas.
+            'status'         => $result['status'] ?? 0,
+            'error_code'     => $result['error_code'] ?? null,
             'payload'        => $payload,
             'submissionUUID' => $submissionUuid,
         ];

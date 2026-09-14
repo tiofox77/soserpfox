@@ -50,22 +50,33 @@ class DespachoPendentes
         }
 
         $definicoes = InvoicingSettings::forTenant($tenantId);
+        $ambiente = GestaoAgt::normalizar($definicoes->agt_environment);
 
         // Sem envio automático, não se envia nada por iniciativa própria — mas
         // consulta-se na mesma o que já seguiu, que é só leitura e é o que
         // tira os documentos de "Enviada".
-        $enviados = empty($definicoes->agt_auto_submit) ? 0 : $this->enviarPendentes($tenantId);
+        $enviados = empty($definicoes->agt_auto_submit) ? 0 : $this->enviarPendentes($tenantId, $ambiente);
 
         return [
             'enviados'    => $enviados,
-            'consultados' => $this->consultarSubmetidos($tenantId, $definicoes),
+            'consultados' => $this->consultarSubmetidos($tenantId, $definicoes, $ambiente),
         ];
     }
 
-    private function enviarPendentes(int $tenantId): int
+    /**
+     * SÓ AS DO AMBIENTE ACTIVO — nas duas metades.
+     *
+     * O envio e a consulta falam sempre com a AGT do ambiente activo. Com a
+     * empresa de volta a homologação, os documentos de produção por enviar
+     * seguiam para a AGT de testes e voltavam «validados»; e um `requestID` de
+     * produção perguntado à de testes não diz nada de verdadeiro. As do outro
+     * ambiente ficam como estão até a empresa lá voltar.
+     */
+    private function enviarPendentes(int $tenantId, string $ambiente): int
     {
         $pendentes = AGTSubmission::withoutGlobalScopes()
             ->where('tenant_id', $tenantId)
+            ->doAmbiente($ambiente)
             ->where('status', AGTSubmission::STATUS_PENDING)
             ->where('retry_count', '<', self::TENTATIVAS_MAX)
             ->orderBy('id')
@@ -106,10 +117,11 @@ class DespachoPendentes
         return $feitos;
     }
 
-    private function consultarSubmetidos(int $tenantId, InvoicingSettings $definicoes): int
+    private function consultarSubmetidos(int $tenantId, InvoicingSettings $definicoes, string $ambiente): int
     {
         $submetidas = AGTSubmission::withoutGlobalScopes()
             ->where('tenant_id', $tenantId)
+            ->doAmbiente($ambiente)
             ->where('status', AGTSubmission::STATUS_SUBMITTED)
             ->whereNotNull('agt_reference')
             // As mais recentes primeiro: é o desfecho delas que interessa a
@@ -135,14 +147,12 @@ class DespachoPendentes
                     $submissao->markAsValidated($submissao->agt_reference, $submissao->atcud, $corpo);
                     $feitos++;
                 } elseif ($codigo === '2') {
-                    $erros = collect($corpo['documentStatusList'] ?? [])
-                        ->flatMap(fn ($linha) => $linha['errorList'] ?? [])
-                        ->filter(fn ($e) => is_array($e) && !empty($e['descriptionError']))
-                        ->map(fn ($e) => ($e['idError'] ?? '') . ': ' . $e['descriptionError']);
-
+                    // Os erros do documento vêm em documentStatusList[].errorList;
+                    // o código real (E43, E70…) fica gravado, e o AGT_ESTADO só
+                    // quando a AGT não diz nenhum.
                     $submissao->markAsRejected(
-                        'AGT_ESTADO',
-                        $erros->implode(' | ') ?: 'Documento recusado pela AGT.',
+                        AGTErrorCode::primeiroCodigo($corpo) ?? 'AGT_ESTADO',
+                        AGTErrorCode::formatarResposta($corpo) ?: 'Documento recusado pela AGT.',
                         $corpo
                     );
                     $feitos++;
@@ -164,8 +174,11 @@ class DespachoPendentes
     /** Há trabalho por fazer? Barato, para não pagar o resto à toa. */
     public static function temTrabalho(int $tenantId): bool
     {
+        $ambiente = GestaoAgt::normalizar(InvoicingSettings::forTenant($tenantId)->agt_environment);
+
         return AGTSubmission::withoutGlobalScopes()
             ->where('tenant_id', $tenantId)
+            ->doAmbiente($ambiente)
             ->where(function ($q) {
                 $q->where(function ($q) {
                     $q->where('status', AGTSubmission::STATUS_PENDING)

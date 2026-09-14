@@ -44,6 +44,13 @@ class CheckAGTStatus implements ShouldQueue
             return;
         }
 
+        // O cliente pergunta ao ambiente ACTIVO: uma submissão do outro fica
+        // quieta (ver PollAGTStatusJob, que tem a mesma guarda).
+        $activo = \App\Services\AGT\AGTKeyStore::ambiente((int) $submission->tenant_id);
+        if (!$submission->eDoAmbiente($activo)) {
+            return;
+        }
+
         try {
             $client = new AGTClient($submission->tenant_id);
             $result = $client->getStatus($submission->agt_reference);

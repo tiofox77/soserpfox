@@ -202,7 +202,9 @@ function ConsolaAgt({ empresas }: { empresas: Array<{ id: number; nome: string; 
 
     const testar = useMutation({ mutationFn: () => definicoes.software.testarAgt(empresa!, ambiente), onSuccess: porTeste });
     const operar = useMutation({ mutationFn: () => definicoes.software.operacaoAgt({ empresa, ambiente, ...op }), onSuccess: porResultado });
-    const aplicar = useMutation({ mutationFn: () => definicoes.software.aplicarAmbiente(empresa!, ambiente), onSuccess: (r) => porRecado(r.message) });
+    const [aConfirmar, porAConfirmar] = useState(false);
+    const aplicar = useMutation({ mutationFn: () => definicoes.software.aplicarAmbiente(empresa!, ambiente), onSuccess: (r) => { porRecado(r.message); porAConfirmar(false); } });
+    const nomeDaEmpresa = empresas.find((e) => e.id === empresa)?.nome ?? '';
 
     const errosOp = operar.error instanceof ErroDaApi ? operar.error.erros : {};
 
@@ -210,6 +212,30 @@ function ConsolaAgt({ empresas }: { empresas: Array<{ id: number; nome: string; 
         <Cartao titulo={t('Consola da AGT')} icone="fa-terminal" subtitulo={t('Só leitura: testar, listar, consultar e obter o estado — nada é submetido')}>
             <div className="space-y-5">
                 <Recado texto={recado} aoFechar={() => porRecado(null)} />
+
+                {/* MUDAR O AMBIENTE FISCAL DE UMA EMPRESA PEDE CONFIRMAÇÃO — o mesmo que o ecrã
+                    AGT da empresa pede, e com as mesmas guardas no servidor (GestaoAgt). */}
+                {aConfirmar && (
+                    <Modal
+                        aberto
+                        aoFechar={() => porAConfirmar(false)}
+                        titulo={ambiente === 'production' ? t('Passar a empresa para Produção') : t('Passar a empresa para Homologação')}
+                        subtitulo={nomeDaEmpresa}
+                        icone="fa-triangle-exclamation"
+                        cor={ambiente === 'production' ? 'perigo' : 'aviso'}
+                        largura="sm"
+                        rodape={<><Botao onClick={() => porAConfirmar(false)}>{t('Cancelar')}</Botao><Botao cor={ambiente === 'production' ? 'perigo' : 'aviso'} tom="solida" icone="fa-check" aTrabalhar={aplicar.isPending} onClick={() => aplicar.mutate()}>{t('Confirmo, aplicar')}</Botao></>}
+                    >
+                        <div className="space-y-3 text-sm text-slate-700">
+                            <p>
+                                {ambiente === 'production'
+                                    ? t('Os documentos desta empresa passam a seguir para a AGT real, com valor fiscal. Confirme antes as chaves e o teste de ligação.')
+                                    : t('Os documentos desta empresa deixam de ter valor fiscal: seguem para o ambiente de testes da AGT.')}
+                            </p>
+                            <AvisoDeErro erro={aplicar.error} />
+                        </div>
+                    </Modal>
+                )}
 
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
@@ -247,7 +273,7 @@ function ConsolaAgt({ empresas }: { empresas: Array<{ id: number; nome: string; 
                         </select>
                     </Campo>
                     <div className="flex items-end gap-2">
-                        <Botao cor="aviso" tom="suave" icone="fa-arrow-right-arrow-left" disabled={!empresa} aTrabalhar={aplicar.isPending} onClick={() => aplicar.mutate()}>{t('Aplicar à empresa')}</Botao>
+                        <Botao cor={ambiente === 'production' ? 'perigo' : 'aviso'} tom="suave" icone="fa-arrow-right-arrow-left" disabled={!empresa} onClick={() => { aplicar.reset(); porAConfirmar(true); }}>{t('Aplicar à empresa')}</Botao>
                         <Botao cor="primaria" tom="solida" icone="fa-plug" disabled={!empresa} aTrabalhar={testar.isPending} onClick={() => testar.mutate()}>{t('Testar ligação')}</Botao>
                     </div>
                 </div>

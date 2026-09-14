@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Invoicing\CreditNote;
 use App\Models\Invoicing\PurchaseInvoice;
+use App\Models\Invoicing\SalesInvoice;
 use App\Models\Invoicing\SalesProforma;
 use App\Services\Invoicing\TiposDeDocumento;
 use Tests\TenantTestCase;
@@ -149,6 +150,67 @@ class ColunaAgtNasListasTest extends TenantTestCase
             $this->assertSame($rotulo, $linha['agt']['rotulo'], "o estado '{$estado}' devia dizer «{$rotulo}»");
             $this->assertSame($cor, $linha['agt']['cor'], 'a cor acompanha o rótulo — nunca só a cor');
         }
+    }
+
+    /**
+     * A LISTA DAS FACTURAS DE VENDA DIZ O MESMO QUE AS OUTRAS.
+     *
+     * Tinha uma regra sua, que lia o `jws_signature` — a assinatura LOCAL,
+     * posta ao emitir, antes de qualquer envio. Uma factura que a AGT recusou,
+     * ou que nunca lá chegou, aparecia a verde a dizer «Emitida no Portal AGT».
+     * Por isso todas as facturas daqui levam assinatura: o selo tem de a
+     * ignorar e ler só o que a AGT respondeu.
+     *
+     * @test
+     */
+    public function a_lista_das_facturas_de_venda_le_o_que_a_agt_respondeu_e_nao_a_assinatura(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.view');
+
+        $casos = [
+            'validada' => ['validated', 'sent', 'Emitida no Portal AGT', 'bom', true],
+            'enviada' => ['submitted', 'sent', 'Enviada — aguarda AGT', 'primaria', false],
+            'rejeitada' => ['rejected', 'sent', 'Falhou — reenviar à AGT', 'perigo', false],
+            'falhou' => ['failed', 'sent', 'Falhou — reenviar à AGT', 'perigo', false],
+            'por enviar' => [null, 'sent', 'Pendente de envio à AGT', 'aviso', false],
+            'rascunho' => [null, 'draft', 'Ainda não emitida', 'neutra', false],
+        ];
+
+        $ids = [];
+
+        foreach ($casos as $nome => [$agt, $estado]) {
+            $f = SalesInvoice::create([
+                'tenant_id' => $this->tenant->id,
+                'client_id' => $this->clienteEmpresa()->id,
+                'invoice_number' => 'FT TESTE/' . strtoupper(substr(uniqid(), -8)),
+                'invoice_date' => now()->toDateString(),
+                'status' => $estado,
+                'total' => 1000,
+                'created_by' => $this->user->id,
+            ]);
+
+            // Sem eventos: o que se põe aqui é o que a AGT teria respondido.
+            $f->forceFill(['agt_status' => $agt, 'jws_signature' => 'assinatura.local.do.documento'])->saveQuietly();
+
+            $ids[$nome] = $f->id;
+        }
+
+        $linhas = collect(
+            $this->getJson('/api/v1/invoicing/react/sales-invoices?por_pagina=100')->assertOk()->json('data')
+        );
+
+        foreach ($casos as $nome => [, , $rotulo, $cor, $comunicada]) {
+            $selo = $linhas->firstWhere('id', $ids[$nome])['agt'] ?? null;
+
+            $this->assertNotNull($selo, "a factura {$nome} tem de vir na lista");
+            $this->assertSame($rotulo, $selo['rotulo'], "a factura {$nome} devia dizer «{$rotulo}»");
+            $this->assertSame($cor, $selo['cor'], "{$nome}: a cor acompanha o rótulo");
+            $this->assertSame($comunicada, $selo['comunicada'], "{$nome}: só a validada conta como comunicada");
+        }
+
+        // E o ecrã desenha a cor que o servidor decidiu, não uma sua.
+        $fonte = file_get_contents(resource_path('js/ecras/facturacao/vendas/ListaDeFacturas.tsx'));
+        $this->assertStringContainsString('f.agt.cor', $fonte);
     }
 
     /** Um rascunho ainda não foi emitido: não há envio nenhum por fazer. @test */

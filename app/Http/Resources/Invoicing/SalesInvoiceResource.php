@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Invoicing;
 
+use App\Services\Invoicing\SeloDaAgt;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -50,12 +51,19 @@ class SalesInvoiceResource extends JsonResource
             'pago' => round((float) $this->paid_amount, 2),
             'saldo' => $this->porReceber(),
 
-            'agt' => [
-                'comunicada' => (bool) $this->jws_signature,
-                'rotulo' => $this->jws_signature
-                    ? __('Emitida no Portal AGT')
-                    : __('Por comunicar'),
-            ],
+            /*
+             * O SELO DA AGT É O MESMO DAS OUTRAS LISTAS (`SeloDaAgt`).
+             *
+             * Isto lia o `jws_signature` — a assinatura LOCAL, que o documento
+             * ganha ao ser emitido, antes de ir a lado nenhum. Uma factura que
+             * a AGT recusou, ou que nunca chegou a ser enviada, aparecia a
+             * verde a dizer «Emitida no Portal AGT». O que conta é o que a AGT
+             * respondeu, e isso está no `agt_status`.
+             *
+             * O `comunicada` fica, para quem ainda o lê, mas diz agora a
+             * verdade: só a factura validada pela AGT.
+             */
+            'agt' => $this->seloDaAgt(),
 
             'armazem' => $this->warehouse?->name,
             'autor' => $this->creator?->name,
@@ -126,6 +134,15 @@ class SalesInvoiceResource extends JsonResource
         }
 
         return max(0.0, round((float) $this->total - (float) $this->paid_amount, 2));
+    }
+
+    /** @return array{natureza: string, estado: ?string, rotulo: string, cor: string, comunicada: bool} */
+    private function seloDaAgt(): array
+    {
+        // A factura de venda é da empresa: comunica-a ela.
+        $selo = SeloDaAgt::de($this->resource, 'propria');
+
+        return $selo + ['comunicada' => $selo['cor'] === 'bom'];
     }
 
     /**

@@ -31,7 +31,7 @@ function factura(por: Partial<FacturaDeVenda> = {}): FacturaDeVenda {
         total: 2595187,
         pago: 0,
         saldo: 2595187,
-        agt: { comunicada: true, rotulo: 'Emitida no Portal AGT' },
+        agt: { natureza: 'propria', estado: 'validated', rotulo: 'Emitida no Portal AGT', cor: 'bom', comunicada: true },
         armazem: 'Central',
         autor: 'Carlos',
         pode_creditar: true,
@@ -113,6 +113,57 @@ describe('Lista de facturas de venda', () => {
         expect(await screen.findByText('FT SOSFT/000003')).toBeInTheDocument();
         expect(screen.getByText('FT4226S75324N/000003')).toBeInTheDocument();
         expect(screen.getByText('GABINETE PROVINCIAL DE SAÚDE DO BENGO')).toBeInTheDocument();
+    });
+
+    /**
+     * A COLUNA AGT DIZ O QUE A AGT RESPONDEU, COM A COR DO SELO.
+     *
+     * Antes, tudo o que tinha assinatura local saía verde a dizer «Emitida no
+     * Portal AGT» — incluindo a factura que a AGT recusou. O rótulo e a cor
+     * vêm do servidor (`SeloDaAgt`); o ecrã não os pode trocar.
+     */
+    it('a coluna AGT distingue a validada, a rejeitada e a por enviar', async () => {
+        vi.stubGlobal(
+            'fetch',
+            responder([
+                factura({ id: 1, numero: 'FT SOSFT/000001' }),
+                factura({
+                    id: 2,
+                    numero: 'FT SOSFT/000002',
+                    agt: { natureza: 'propria', estado: 'rejected', rotulo: 'Falhou — reenviar à AGT', cor: 'perigo', comunicada: false },
+                }),
+                factura({
+                    id: 3,
+                    numero: 'FT SOSFT/000004',
+                    agt: { natureza: 'propria', estado: null, rotulo: 'Pendente de envio à AGT', cor: 'aviso', comunicada: false },
+                }),
+            ]),
+        );
+
+        mostrar();
+
+        await screen.findByText('FT SOSFT/000001');
+
+        expect(screen.getByText('Emitida no Portal AGT')).toHaveClass('bg-emerald-50');
+
+        const rejeitada = screen.getByText('Falhou — reenviar à AGT');
+        expect(rejeitada).toHaveClass('bg-red-50');
+        expect(rejeitada).not.toHaveClass('bg-emerald-50');
+        expect(rejeitada.querySelector('.fa-triangle-exclamation')).not.toBeNull();
+
+        expect(screen.getByText('Pendente de envio à AGT')).toHaveClass('bg-amber-50');
+    });
+
+    /** Uma resposta sem cor não pinta de verde o que não foi validado. */
+    it('sem cor na resposta, o que nao foi comunicado nao sai verde', async () => {
+        vi.stubGlobal(
+            'fetch',
+            responder([factura({ agt: { rotulo: 'Pendente de envio à AGT', comunicada: false } })]),
+        );
+
+        mostrar();
+
+        expect(await screen.findByText('Pendente de envio à AGT')).not.toHaveClass('bg-emerald-50');
     });
 
     it('escreve o dinheiro à maneira daqui', async () => {

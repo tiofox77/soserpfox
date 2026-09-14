@@ -8,6 +8,7 @@ import {
     type EcraDasDefinicoes,
     type Serie,
 } from '@/api/definicoes';
+import { agt } from '@/api/agt';
 import { ErroDaApi } from '@/api/cliente';
 import { AvisoDeErro } from '@/ui/AvisoDeErro';
 import { Botao } from '@/ui/Botao';
@@ -19,6 +20,7 @@ import { Modal } from '@/ui/Modal';
 import { FOCO, RAIO, cls } from '@/ui/tokens';
 import { t } from '@/i18n';
 import { Faixa, SemNada, cascata } from './faixa';
+import { AvisoDeComunicacaoAgt } from './pecasDaAgt';
 
 /**
  * AS DEFINIÇÕES DA FACTURAÇÃO.
@@ -52,6 +54,22 @@ type ModalDeSerie =
 export default function Definicoes() {
     const fila = useQueryClient();
     const ecra = useQuery({ queryKey: ['definicoes'], queryFn: api.ler });
+
+    /*
+     * O AVISO DA AGT TAMBÉM AQUI. É nas definições da facturação que se vem
+     * quando «as facturas não aparecem na AGT», e o aviso de que os documentos
+     * não estão a ser comunicados só existia no ecrã da AGT, onde ninguém
+     * pensava ir. Só para quem pode ver a AGT: aos outros não se pergunta nada
+     * — e um erro na leitura deixa o ecrã sem o aviso, nunca sem as definições.
+     */
+    const veAgt = ecra.data?.permissoes.ve_agt === true;
+    const estadoDaAgt = useQuery({
+        queryKey: ['agt', 'estado', 'activo', 0],
+        queryFn: () => agt.estado(null),
+        enabled: veAgt,
+        retry: false,
+        staleTime: 60_000,
+    });
 
     const [separador, porSeparador] = useState<Separador>('padroes');
     const [forma, porForma] = useState<Valores | null>(null);
@@ -123,6 +141,8 @@ export default function Definicoes() {
                 titulo={t('Configurações de Facturação')}
                 subtitulo={t('Configure os padrões do sistema de facturação')}
             />
+
+            {veAgt && <AvisoDeComunicacaoAgt e={estadoDaAgt.data} corrigir="/invoicing/agt-settings" />}
 
             <AvisoDeErro erro={guardar.error} />
 

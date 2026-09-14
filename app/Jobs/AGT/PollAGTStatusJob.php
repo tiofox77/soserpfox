@@ -89,12 +89,34 @@ class PollAGTStatusJob implements ShouldQueue
             return;
         }
 
+        // A consulta vai à AGT do ambiente ACTIVO. Um requestID de produção
+        // perguntado à de testes (ou o contrário) não tem resposta verdadeira —
+        // e um «0» de lá dava por validado um documento que o fisco nunca viu.
+        // Fica quieta; o despacho retoma-a quando a empresa voltar ao ambiente.
+        if (!$submission->eDoAmbiente(\App\Services\AGT\GestaoAgt::normalizar($settings->agt_environment))) {
+            Log::info('PollAGTStatusJob: submissão de outro ambiente, não consultada', [
+                'submission_id' => $this->submissionId,
+                'da_submissao'  => $submission->agt_environment,
+                'activo'        => $settings->agt_environment,
+            ]);
+            return;
+        }
+
         $service = new QueryService($settings);
         $result  = $service->consultByRequestId($this->requestID);
 
         $body       = $result['response'] ?? [];
         $resultCode = $body['resultCode'] ?? null;
-        $errorList  = $body['requestErrorList'] ?? $body['errorList'] ?? [];
+        // Os erros do PEDIDO e os de CADA DOCUMENTO (documentStatusList[].errorList).
+        // Lia-se só os primeiros, e é nos segundos que vêm o E43 e o E70: a
+        // recusa ficava gravada sem código nem descrição.
+        $errorList  = collect(AGTErrorCode::lista($body))
+            ->map(fn (array $e) => array_filter([
+                'idError'          => $e['codigo'],
+                'descriptionError' => $e['descricao'],
+                'documentNo'       => $e['documento'],
+            ], fn ($v) => $v !== null))
+            ->all();
 
         Log::info('PollAGTStatusJob: estado', [
             'requestID'  => $this->requestID,
@@ -119,7 +141,7 @@ class PollAGTStatusJob implements ShouldQueue
 
             case '2': // Sem válidas
                 $submission->markAsRejected(
-                    'RESULT_CODE_2',
+                    AGTErrorCode::primeiroCodigo($body) ?? 'RESULT_CODE_2',
                     AGTErrorCode::formatList($errorList) ?: 'Todos os documentos foram considerados inválidos.',
                     $body
                 );

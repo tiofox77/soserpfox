@@ -76,6 +76,40 @@ class DadosDaEmpresaPermissaoTest extends TenantTestCase
             'o REGIME FISCAL mudou sem direito — propaga-se a impostos e produtos');
     }
 
+    /**
+     * O NIF DE UMA EMPRESA QUE JÁ COMUNICA COM A AGT EM PRODUÇÃO NÃO SE MUDA AQUI.
+     *
+     * Vai em cada série registada e documento assinado. Em homologação ainda se
+     * corrige (é aí que se acerta um NIF mal escrito no arranque).
+     *
+     * @test
+     */
+    public function o_nif_nao_muda_com_series_registadas_em_producao(): void
+    {
+        $this->comPermissoes('settings.view', 'settings.edit');
+        $this->actingAs($this->user);
+
+        $serie = \App\Models\Invoicing\InvoicingSeries::withoutGlobalScopes()->where('tenant_id', $this->tenant->id)->first()
+            ?? \App\Models\Invoicing\InvoicingSeries::create(['tenant_id' => $this->tenant->id, 'document_type' => 'invoice', 'prefix' => 'FT', 'name' => 'FT', 'is_active' => true]);
+
+        $corpo = fn (string $nif) => ['name' => $this->tenant->name, 'nif' => $nif, 'country' => 'AO', 'regime' => $this->tenant->regime ?? Tenant::REGIME_GERAL];
+        $nifAntes = (string) $this->tenant->nif;
+        $outro = '5000' . random_int(100000, 999999);
+
+        // Em homologação muda.
+        $serie->forceFill(['agt_series_id' => 'HML-1', 'agt_environment' => 'sandbox'])->save();
+        $this->putJson(self::RAIZ, $corpo($outro))->assertOk();
+        $nifAntes = $outro;
+
+        // Em produção não.
+        $serie->forceFill(['agt_series_id' => 'PRD-1', 'agt_environment' => 'production'])->save();
+        $this->putJson(self::RAIZ, $corpo('5000' . random_int(100000, 999999)))->assertStatus(422)->assertJsonValidationErrors('nif');
+        $this->assertSame($nifAntes, (string) $this->tenant->fresh()->nif);
+
+        // E gravar o resto com o MESMO NIF continua a funcionar.
+        $this->putJson(self::RAIZ, $corpo($nifAntes))->assertOk();
+    }
+
     /** Nem apaga o logótipo. */
     public function test_quem_so_ve_nao_apaga_o_logotipo(): void
     {

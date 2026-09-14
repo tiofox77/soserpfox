@@ -98,7 +98,8 @@ export type EcraDasDefinicoes = {
         por_tipo: Record<string, Serie[]>;
         outras: Serie[];
     };
-    permissoes: { pode_editar: boolean };
+    /** `ve_agt`: pode ler o estado da AGT (o aviso de «não está a comunicar»). Opcional: um servidor antigo não o manda. */
+    permissoes: { pode_editar: boolean; ve_agt?: boolean };
 };
 
 export type AvisoDeNumeracao = { nova: string; nova_proximo: number; em_uso: string; em_uso_proximo: number };

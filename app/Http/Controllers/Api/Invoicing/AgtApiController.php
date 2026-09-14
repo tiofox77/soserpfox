@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api\Invoicing;
 use App\Http\Controllers\Controller;
 use App\Models\AGT\AGTSubmission;
 use App\Models\Tenant;
+use App\Services\AGT\AGTErrorCode;
 use App\Services\AGT\AmbienteErradoException;
 use App\Services\AGT\GestaoAgt;
+use App\Services\AGT\RecusaComDetalhes;
 use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -48,25 +50,40 @@ class AgtApiController extends Controller
         [$g, $empresaId] = $this->gestao($request);
 
         $ambiente = $request->filled('ambiente') ? GestaoAgt::normalizar($request->input('ambiente')) : $g->ambienteActivo();
+        $activo = $g->ambienteActivo();
         $empresa = Tenant::findOrFail($empresaId);
+        $definicoes = $g->ler();
 
         return response()->json([
             'empresa' => ['id' => $empresa->id, 'nome' => $empresa->name, 'nif' => $empresa->nif],
             'ambiente' => $ambiente,
-            'definicoes' => $g->ler(),
+            'definicoes' => $definicoes,
             'ambientes' => $g->estadoAmbientes($ambiente),
             'chaves' => $g->chaves($ambiente),
             'em_falta' => $g->emFalta($ambiente),
             'relatorio' => $g->relatorio($ambiente),
+            // O que falta para PODER activar produção — o mesmo que o activarAmbiente() exige.
+            'prontidao_producao' => $g->prontidaoProducao(),
+            // Está mesmo a comunicar? O aviso que o ecrã de sempre tinha no topo.
+            'comunicacao' => $g->comunicacao(),
+            'pendentes_por_ambiente' => $g->pendentesPorAmbiente(),
+            'auto_submit' => $definicoes['agt_auto_submit'],
+            'aviso_auto_submit' => $definicoes['agt_auto_submit']
+                ? null
+                : __('O envio automático está desligado: os documentos só vão à AGT quando alguém os enviar à mão.'),
+            'cae_em_falta' => blank($definicoes['agt_eac_code']),
             'series' => $g->series($ambiente)->map(fn ($s) => [
                 'id' => $s->id,
                 'series_code' => $s->series_code,
                 'name' => $s->name,
                 'document_type' => $s->document_type,
+                'prefixo' => $s->prefix,
                 'agt_series_id' => $s->agt_series_id ?: null,
-                'registada' => $s->isAGTRegistered(),
-            ])->values(),
-            'submissoes' => $g->submissoes($ambiente)->map(fn (AGTSubmission $s) => $this->submissao($s))->values(),
+                'agt_environment' => $s->agt_environment,
+                // `registada` fica pela compatibilidade, mas agora é a do ambiente visto.
+                'registada' => filled($s->agt_series_id) && $s->agt_environment === $ambiente,
+            ] + GestaoAgt::estadoDaSerie($s, $ambiente))->values(),
+            'submissoes' => $g->submissoes($ambiente)->map(fn (AGTSubmission $s) => $this->submissao($s, $activo))->values(),
             'logs' => $g->logs($ambiente)->map(fn ($l) => [
                 'id' => $l->id,
                 'quando' => optional($l->created_at)->format('d/m/Y H:i:s'),
@@ -95,15 +112,20 @@ class AgtApiController extends Controller
     {
         $this->exigirEditar($request);
         [$g] = $this->gestao($request);
-        $d = $request->validate(['ambiente' => ['required', 'in:sandbox,production']]);
+        $d = $request->validate(['ambiente' => ['required', 'in:sandbox,production'], 'confirmar' => ['nullable', 'boolean']]);
 
         try {
-            $r = $g->activarAmbiente($d['ambiente']);
+            $r = $g->activarAmbiente($d['ambiente'], self::confirmou($request));
         } catch (DomainException $e) {
             return $this->recusa($e);
         }
 
-        return response()->json(['message' => $r['mensagem'], 'tipo' => $r['tipo'], 'ambiente_activo' => $g->ambienteActivo()]);
+        return response()->json([
+            'message' => $r['mensagem'],
+            'tipo' => $r['tipo'],
+            'ambiente_activo' => $g->ambienteActivo(),
+            'pendentes_por_ambiente' => $r['pendentes_por_ambiente'],
+        ]);
     }
 
     public function guardarChaves(Request $request): JsonResponse
@@ -114,21 +136,39 @@ class AgtApiController extends Controller
             'ambiente' => ['required', 'in:sandbox,production'],
             'contributorPublicKey' => ['required', 'string', 'max:20000'],
             'contributorPrivateKey' => ['required', 'string', 'max:20000'],
+            'confirmar' => ['nullable', 'boolean'],
         ]);
 
         // Uma chave errada sai do serviço como erro de validação, no campo certo.
-        return response()->json(['message' => $g->guardarChaves($d['ambiente'], $d['contributorPublicKey'], $d['contributorPrivateKey'])]);
+        try {
+            $mensagem = $g->guardarChaves($d['ambiente'], $d['contributorPublicKey'], $d['contributorPrivateKey'], self::confirmou($request));
+        } catch (DomainException $e) {
+            return $this->recusa($e);
+        }
+
+        return response()->json(['message' => $mensagem]);
     }
 
     public function removerChaves(Request $request): JsonResponse
     {
         $this->exigirEditar($request);
         [$g] = $this->gestao($request);
-        $d = $request->validate(['ambiente' => ['required', 'in:sandbox,production']]);
+        $d = $request->validate(['ambiente' => ['required', 'in:sandbox,production'], 'confirmar' => ['nullable', 'boolean']]);
 
-        return response()->json(['message' => $g->removerChaves($d['ambiente'])]);
+        try {
+            $mensagem = $g->removerChaves($d['ambiente'], self::confirmou($request));
+        } catch (DomainException $e) {
+            return $this->recusa($e);
+        }
+
+        return response()->json(['message' => $mensagem]);
     }
 
+    /**
+     * `{ok, mensagem, ambiente, http}` — e `message` com o mesmo texto, para o
+     * aviso no canto. Dizia «Conexão estabelecida» sempre que a AGT não
+     * devolvia 401, com a errorList dela a dizer o contrário.
+     */
     public function testarLigacao(Request $request): JsonResponse
     {
         $this->exigirVer($request);
@@ -141,10 +181,7 @@ class AgtApiController extends Controller
             return $this->recusa($e);
         }
 
-        return response()->json([
-            'data' => $r,
-            'message' => ($r['success'] ?? false) ? __('Conexão estabelecida com sucesso!') : ($r['error'] ?? 'Falha na conexão'),
-        ]);
+        return response()->json($r + ['message' => $r['mensagem']]);
     }
 
     public function sincronizarSeries(Request $request): JsonResponse
@@ -165,7 +202,9 @@ class AgtApiController extends Controller
             default => "{$r['success']} série(s) sincronizada(s) com sucesso!",
         };
 
-        return response()->json(['data' => $r, 'message' => $mensagem]);
+        // `details` também à cabeça: é a lista, série a série, do que a AGT
+        // aceitou e recusou — com o código dela (E39…) quando o deu.
+        return response()->json(['data' => $r, 'details' => $r['details'] ?? [], 'message' => $mensagem]);
     }
 
     public function actualizarEstados(Request $request): JsonResponse
@@ -200,16 +239,20 @@ class AgtApiController extends Controller
         return response()->json([
             'data' => $r,
             'message' => $ok ? __('Documento reenviado com sucesso!') : ($r['error'] ?? 'Falha no reenvio'),
+            'ambiente_errado' => (bool) ($r['ambiente_errado'] ?? false),
         ], $ok ? 200 : 422);
     }
 
+    /** `{ok, mensagem, http, ms, testado_em, data}` — e `message`, para o aviso no canto. */
     public function consultar(Request $request): JsonResponse
     {
         $this->exigirVer($request);
         [$g] = $this->gestao($request);
         $d = $request->validate(GestaoAgt::regrasDaConsulta() + ['ambiente' => ['required', 'in:sandbox,production']]);
 
-        return response()->json(['data' => $g->consultar($d['apiOperation'], $d, $d['ambiente'])]);
+        $r = $g->consultar($d['apiOperation'], $d, $d['ambiente']);
+
+        return response()->json($r + ['message' => $r['mensagem']]);
     }
 
     public function contribuinte(Request $request): JsonResponse
@@ -223,9 +266,29 @@ class AgtApiController extends Controller
     public function guardarContribuinte(Request $request): JsonResponse
     {
         $this->exigirEditar($request);
-        [$g] = $this->gestao($request);
+        [$g, $empresaId] = $this->gestao($request);
 
-        $g->guardarContribuinte($request->validate(GestaoAgt::regrasDoContribuinte()));
+        $d = $request->validate(GestaoAgt::regrasDoContribuinte());
+
+        /*
+         * O NIF É DA EMPRESA, e mudá-lo é o direito de quem edita os dados da
+         * empresa (`settings.edit`), não de quem configura a AGT. Por aqui
+         * passava por baixo da guarda do ecrã da empresa. Só se pede quando o
+         * NIF muda de facto: a ficha manda-o sempre, igual, em cada gravação.
+         */
+        if ($g->nifMuda($d)) {
+            abort_unless(
+                $this->podeNaEmpresa($request, $empresaId, 'settings.edit'),
+                403,
+                __('Mudar o NIF da empresa exige a permissão de editar os dados da empresa.')
+            );
+        }
+
+        try {
+            $g->guardarContribuinte($d);
+        } catch (DomainException $e) {
+            return $this->recusa($e);
+        }
 
         return response()->json(['message' => __('Configuração AGT guardada com sucesso.'), 'data' => $g->lerContribuinte()]);
     }
@@ -261,8 +324,13 @@ class AgtApiController extends Controller
     {
         $this->exigirEditar($request);
         [$g] = $this->gestao($request);
+        $request->validate(['confirmar' => ['nullable', 'boolean']]);
 
-        $g->removerChaveLegado();
+        try {
+            $g->removerChaveLegado(self::confirmou($request));
+        } catch (DomainException $e) {
+            return $this->recusa($e);
+        }
 
         return response()->json([
             'message' => __('Chave privada do contribuinte removida.'),
@@ -303,32 +371,75 @@ class AgtApiController extends Controller
         return [new GestaoAgt($id), $id];
     }
 
+    /**
+     * O `confirmar` das acções que pedem um sim escrito (trocar de ambiente,
+     * mexer nas chaves que assinam). Só um verdadeiro booleano conta — um
+     * campo esquecido, vazio ou «0» é um não.
+     */
+    private static function confirmou(Request $request): bool
+    {
+        return filter_var($request->input('confirmar'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) === true;
+    }
+
     private function recusa(DomainException $e): JsonResponse
     {
         return response()->json([
             'message' => $e->getMessage(),
             'ambiente_errado' => $e instanceof AmbienteErradoException,
-        ], 422);
+        ] + ($e instanceof RecusaComDetalhes ? $e->detalhes : []), 422);
     }
 
-    private function submissao(AGTSubmission $s): array
+    private function submissao(AGTSubmission $s, string $activo): array
     {
         $validada = $s->status === AGTSubmission::STATUS_VALIDATED;
+        $terminal = in_array($s->status, [AGTSubmission::STATUS_VALIDATED, AGTSubmission::STATUS_SUBMITTED, AGTSubmission::STATUS_CANCELLED], true);
 
         return [
             'id' => $s->id,
             'quando' => optional($s->created_at)->format('d/m/Y H:i'),
             'document_type_code' => $s->document_type_code,
             'document_number' => $s->document_number,
+            'agt_environment' => $s->agt_environment,
             'status' => $s->status,
             'agt_reference' => $s->agt_reference,
             'atcud' => $s->atcud,
             'error_code' => $s->error_code,
             'error_message' => $s->error_message,
+            // A descrição da AGT e a explicação local, lado a lado.
+            'erros' => AGTErrorCode::lista(is_array($s->response_payload) ? $s->response_payload : []),
             'retry_count' => (int) $s->retry_count,
-            'pode_reenviar' => !$validada && $s->canRetry(),
-            'esgotada' => !$validada && !$s->canRetry(),
+            'tentativas_max' => AGTSubmission::MAX_TENTATIVAS_DO_BOTAO,
+            // As regras são do modelo, as mesmas que o serviço aplica ao recusar.
+            'pode_reenviar' => $s->podeReenviar($activo),
+            'pode_repor' => $s->podeRepor($activo),
+            'esgotada' => !$terminal && !$s->canRetry(),
         ];
+    }
+
+    /**
+     * A permissão NA EMPRESA onde se mexe — a mesma troca de equipa do
+     * gestao(), para uma permissão que não é a da acção.
+     */
+    private function podeNaEmpresa(Request $request, int $empresaId, string $permissao): bool
+    {
+        $user = $request->user();
+
+        if ($user?->isPlatformSuperAdmin()) {
+            return true;
+        }
+
+        if ($empresaId === (int) activeTenantId()) {
+            return (bool) $user?->can($permissao);
+        }
+
+        $activa = getPermissionsTeamId();
+        setPermissionsTeamId($empresaId);
+        $user->unsetRelation('roles')->unsetRelation('permissions');
+        $pode = $user->can($permissao);
+        setPermissionsTeamId($activa);
+        $user->unsetRelation('roles')->unsetRelation('permissions');
+
+        return $pode;
     }
 
     private function podeEditar(Request $request): bool

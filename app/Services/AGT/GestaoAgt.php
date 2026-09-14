@@ -6,14 +6,19 @@ use App\Models\AGT\AGTCommunicationLog;
 use App\Models\AGT\AGTSubmission;
 use App\Models\Invoicing\InvoicingSeries;
 use App\Models\Invoicing\InvoicingSettings;
+use App\Models\Invoicing\SalesInvoice;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Rules\NifDeEmpresa;
+use App\Services\Audit\AuditRecorder;
+use Closure;
 use DomainException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -36,7 +41,42 @@ class GestaoAgt
 {
     public const AMBIENTES = ['sandbox' => 'Homologação', 'production' => 'Produção'];
 
-    public const OPERACOES = ['listarFacturas' => 'Listar facturas', 'consultarFactura' => 'Consultar factura', 'obterEstado' => 'Obter estado do pedido'];
+    /**
+     * O ListarFacturas NÃO lista o que a empresa emitiu: devolve os documentos
+     * em que ela é o ADQUIRENTE. Com o rótulo «Listar facturas» quem só emite
+     * via sempre zero e concluía que nada tinha chegado à AGT.
+     */
+    public const OPERACOES = [
+        'listarFacturas' => 'Listar documentos RECEBIDOS (a empresa como adquirente)',
+        'consultarFactura' => 'Consultar factura',
+        'obterEstado' => 'Obter estado do pedido',
+    ];
+
+    /** Tipo AGT da série (o prefixo) por extenso, para o ecrã. */
+    public const TIPOS_DE_SERIE = [
+        'FT' => 'Factura',
+        'FR' => 'Factura-recibo',
+        'FA' => 'Factura de adiantamento',
+        'FG' => 'Factura global',
+        'GF' => 'Factura genérica',
+        'AC' => 'Aviso de cobrança',
+        'AR' => 'Aviso de cobrança/recibo',
+        'TV' => 'Talão de venda',
+        'RC' => 'Recibo',
+        'RG' => 'Outros recibos',
+        'RE' => 'Estorno ou anulação de recibo',
+        'ND' => 'Nota de débito',
+        'NC' => 'Nota de crédito',
+        'AF' => 'Factura/recibo de autofacturação',
+        'RP' => 'Prémio ou recibo de prémio',
+        'RA' => 'Resseguro aceite',
+        'CS' => 'Imputação a co-seguradoras',
+        'LD' => 'Imputação a co-seguradora líder',
+        'PR' => 'Proforma',
+        'GT' => 'Guia de transporte',
+        'AD' => 'Adiantamento',
+        'FC' => 'Factura de compra',
+    ];
 
     public function __construct(private readonly int $tenantId)
     {
@@ -163,17 +203,189 @@ class GestaoAgt
     }
 
     /**
-     * Séries registadas noutro ambiente não são mostradas como registadas:
-     * uma série de homologação não existe em produção.
+     * Todas as séries activas — e o estado de cada uma é o DESTE ambiente.
+     *
+     * Escondiam-se as registadas no outro ambiente, para uma série de
+     * homologação não passar por registada em produção. Mas escondê-las tirava
+     * do ecrã exactamente as que é preciso registar depois de mudar de
+     * ambiente. Aparecem, «por registar» aqui (ver estadoDaSerie()).
      */
     public function series(string $ambiente): Collection
     {
-        $ambiente = self::normalizar($ambiente);
-
         return InvoicingSeries::where('tenant_id', $this->tenantId)
             ->where('is_active', true)
-            ->where(fn ($q) => $q->whereNull('agt_series_id')->orWhere('agt_environment', $ambiente))
+            ->orderBy('document_type')
+            ->orderBy('id')
             ->get();
+    }
+
+    /**
+     * Uma série vista de um ambiente: registada lá, por registar, recusada
+     * pela AGT, ou fora da AGT (tipos não fiscais).
+     *
+     * @return array{estado: string, tipo_rotulo: string, atcud: ?string, erros: array<int, array{codigo: ?string, descricao: string}>}
+     */
+    public static function estadoDaSerie(InvoicingSeries $s, string $ambiente): array
+    {
+        $ambiente = self::normalizar($ambiente);
+        $prefixo = strtoupper((string) $s->prefix);
+        $rotulo = self::TIPOS_DE_SERIE[$prefixo]
+            ?? (InvoicingSeries::prefixoDe((string) $s->document_type) ? (self::TIPOS_DE_SERIE[InvoicingSeries::prefixoDe((string) $s->document_type)] ?? null) : null)
+            ?? ($prefixo !== '' ? $prefixo : (string) $s->document_type);
+
+        if (!$s->isAGTEligible()) {
+            return ['estado' => 'nao_aplicavel', 'tipo_rotulo' => $rotulo, 'atcud' => null, 'erros' => []];
+        }
+
+        $desteAmbiente = $s->agt_environment === $ambiente;
+
+        // Só os erros que a AGT deu NESTE ambiente: a recusa de homologação
+        // não diz nada sobre o registo em produção.
+        $erros = $desteAmbiente
+            ? collect(AGTErrorCode::lista(is_array($s->agt_response) ? $s->agt_response : []))
+                ->map(fn (array $e) => ['codigo' => $e['codigo'], 'descricao' => $e['descricao']])
+                ->values()->all()
+            : [];
+
+        $estado = match (true) {
+            filled($s->agt_series_id) && $desteAmbiente => 'registada',
+            $erros !== [] => 'rejeitada',
+            default => 'por_registar',
+        };
+
+        return [
+            'estado' => $estado,
+            'tipo_rotulo' => $rotulo,
+            'atcud' => $estado === 'registada' ? ($s->atcud_validation_code ?: $s->agt_series_id) : null,
+            'erros' => $estado === 'registada' ? [] : $erros,
+        ];
+    }
+
+    /**
+     * PRONTO PARA PRODUÇÃO? A lista, item a item.
+     *
+     * Activar produção só com o par RSA do contribuinte não chegava: as
+     * credenciais do produtor e o número de certificação caem, sem aviso,
+     * nos valores partilhados de homologação — e a AGT real recusa-os todos
+     * (401 nas credenciais, E39 no número). A empresa ficava «em produção»
+     * a falhar cada documento. Aqui exige-se o de PRODUÇÃO de cada um.
+     *
+     * A mesma lista vai no `estado` e na recusa do activarAmbiente(), para o
+     * ecrã mostrar o que falta antes de alguém carregar no botão.
+     *
+     * @return array<int, array{chave: string, rotulo: string, ok: bool}>
+     */
+    public function prontidaoProducao(): array
+    {
+        $tenant = Tenant::find($this->tenantId);
+        $credenciais = AGTProducerStore::credenciais('production');
+
+        return [
+            [
+                'chave' => 'rsa_contribuinte',
+                'rotulo' => __('Par RSA de Produção do contribuinte (Portal do Contribuinte)'),
+                'ok' => AGTKeyStore::hasKeyPair($this->tenantId, 'production'),
+            ],
+            [
+                'chave' => 'produtor',
+                'rotulo' => __('Credenciais do produtor próprias de Produção'),
+                'ok' => $credenciais['proprias'] && $credenciais['username'] !== '' && $credenciais['password'] !== '',
+            ],
+            [
+                'chave' => 'rsa_produtor',
+                'rotulo' => __('Chave RSA do produtor'),
+                'ok' => AGTProducerStore::temChaves('production'),
+            ],
+            [
+                'chave' => 'certificado',
+                'rotulo' => __('Número de certificação de Produção próprio'),
+                'ok' => AGTProducerStore::temCertificacaoPropria('production'),
+            ],
+            [
+                'chave' => 'nif',
+                'rotulo' => __('NIF da empresa'),
+                'ok' => filled($tenant?->nif ?? $tenant?->tax_id ?? null),
+            ],
+        ];
+    }
+
+    /**
+     * Quantas submissões ainda estão a meio (por enviar ou à espera do
+     * veredicto) em cada ambiente. É o que o ecrã tem de dizer antes de uma
+     * troca: essas ficam paradas até a empresa voltar ao ambiente delas.
+     *
+     * @return array{sandbox: int, production: int}
+     */
+    public function pendentesPorAmbiente(): array
+    {
+        $contagem = AGTSubmission::where('tenant_id', $this->tenantId)
+            ->whereIn('status', [AGTSubmission::STATUS_PENDING, AGTSubmission::STATUS_SUBMITTED])
+            ->selectRaw('agt_environment, COUNT(*) as n')
+            ->groupBy('agt_environment')
+            ->pluck('n', 'agt_environment');
+
+        return [
+            'sandbox' => (int) ($contagem['sandbox'] ?? 0),
+            'production' => (int) ($contagem['production'] ?? 0),
+        ];
+    }
+
+    /**
+     * A EMPRESA ESTÁ MESMO A COMUNICAR À AGT?
+     *
+     * É o aviso do antigo componente `agt/aviso-comunicacao`: ligar o envio
+     * automático não chega. Sem chaves o documento não se assina, sem CAE a AGT
+     * recusa, em homologação o que segue não tem valor fiscal, e sem o
+     * produtor configurado nem sequer há com quem falar. Em todos os casos a
+     * venda faz-se e imprime-se na mesma — e ninguém dá por nada. Uma farmácia
+     * chegou às 1108 facturas emitidas e nenhuma comunicada.
+     *
+     * A contagem segue a regra das Inconsistências da plataforma (facturas de
+     * venda sem estado de comunicação), acrescida das que ficaram «pendentes»
+     * ou recusadas: nenhuma dessas chegou ao fisco.
+     *
+     * @return array{comunica: bool, motivos: array<int, string>, emitidos_30d: int, por_comunicar: int}
+     */
+    public function comunicacao(): array
+    {
+        $d = $this->ler();
+        $ambiente = $d['agt_environment'];
+        $motivos = [];
+
+        if (!AGTKeyStore::hasKeyPair($this->tenantId, $ambiente)) {
+            $motivos[] = __('Não há chaves RSA instaladas para o ambiente activo. Sem elas o documento não pode ser assinado, e a AGT só aceita documentos assinados.');
+        }
+        if (blank($d['agt_eac_code'])) {
+            $motivos[] = __('O código CAE não está definido. A AGT exige-o em todas as submissões e recusa as que chegam sem ele.');
+        }
+        if ($ambiente !== 'production') {
+            $motivos[] = __('O ambiente activo é o de homologação (testes). O que for enviado fica no ambiente de testes da AGT e não conta como documento comunicado.');
+        }
+        if (!$d['agt_auto_submit']) {
+            $motivos[] = __('O envio automático está desligado: os documentos só vão à AGT quando alguém os enviar à mão.');
+        }
+        if (!(AGTProducerStore::temCredenciais($ambiente) && AGTProducerStore::temChaves($ambiente))) {
+            $motivos[] = __('O produtor do software não está configurado para o ambiente activo (credenciais ou chave). Contacte o suporte.');
+        }
+
+        // Sem o escopo da empresa ACTIVA: o super admin vê aqui outra empresa,
+        // e o escopo contava as facturas da dele. O filtro por esta vai à mão.
+        $base = SalesInvoice::withoutGlobalScope('tenant')
+            ->where('tenant_id', $this->tenantId)
+            ->where('created_at', '>=', now()->subDays(30))
+            ->where(fn ($q) => $q->whereNull('status')->orWhere('status', '!=', 'draft'));
+
+        $emitidos = (clone $base)->count();
+        $porComunicar = (clone $base)
+            ->where(fn ($q) => $q->whereNull('agt_status')->orWhereNotIn('agt_status', ['submitted', 'validated']))
+            ->count();
+
+        return [
+            'comunica' => $motivos === [],
+            'motivos' => $motivos,
+            'emitidos_30d' => $emitidos,
+            'por_comunicar' => $porComunicar,
+        ];
     }
 
     /** Classes CAE (5 dígitos) — é o nível que a AGT espera em eacCode. */
@@ -207,13 +419,55 @@ class GestaoAgt
 
     /* ─── Definições ──────────────────────────────────────────────────── */
 
+    /**
+     * Os dois interruptores são OBRIGATÓRIOS.
+     *
+     * Com `boolean` apenas, um POST que só trouxesse o CAE gravava
+     * `agt_auto_submit` como falso (o `?? false` do guardar) — e a empresa
+     * deixava de comunicar à AGT por ter corrigido um código. Quem grava as
+     * definições diz o que quer em cada um.
+     */
     public static function regras(): array
     {
         return [
-            'agt_auto_submit' => ['boolean'],
-            'agt_eac_code' => ['nullable', 'string', 'max:8'],
-            'agt_require_validation' => ['boolean'],
+            'agt_auto_submit' => ['required', 'boolean'],
+            'agt_eac_code' => ['nullable', 'string', 'max:8', self::regraDoCae()],
+            'agt_require_validation' => ['required', 'boolean'],
         ];
+    }
+
+    /**
+     * O CAE tem de existir no catálogo — o mesmo que o ecrã oferece (classes,
+     * 5 dígitos, activas).
+     *
+     * Um código inventado grava-se sem queixa e só aparece na primeira
+     * submissão recusada. Numa instalação onde o catálogo ainda não foi
+     * carregado não há contra o quê comparar: aí exige-se só a forma de uma
+     * classe, para não impedir ninguém de configurar a empresa.
+     */
+    public static function regraDoCae(): Closure
+    {
+        return function (string $atributo, mixed $valor, Closure $falhar): void {
+            $codigo = trim((string) $valor);
+
+            if ($codigo === '') {
+                return;
+            }
+
+            $catalogo = self::classesCae();
+
+            if ($catalogo->isEmpty()) {
+                if (!preg_match('/^\d{5}$/', $codigo)) {
+                    $falhar(__('O código CAE tem cinco dígitos (a classe da actividade).'));
+                }
+
+                return;
+            }
+
+            if (!$catalogo->contains(fn ($c) => (string) $c->code === $codigo)) {
+                $falhar(__('O código CAE :codigo não existe no catálogo da AGT.', ['codigo' => $codigo]));
+            }
+        };
     }
 
     /**
@@ -235,27 +489,76 @@ class GestaoAgt
      * Guardar: é ela que decide se os documentos desta empresa vão para a
      * AGT real ou para a de testes.
      *
-     * @return array{tipo: string, mensagem: string}
+     * DUAS GUARDAS, por esta ordem:
+     *
+     *  · produção só com a prontidão toda (prontidaoProducao()) — senão a
+     *    empresa ficava «em produção» a falhar cada documento;
+     *  · em qualquer sentido, só com `confirmar`. Voltar a homologação com
+     *    documentos de produção por enviar era mandá-los para a AGT de testes
+     *    (fechado na raiz: o despacho, a consulta e o reenvio já só tocam nas
+     *    submissões do ambiente activo). Não se bloqueia a troca, mas quem
+     *    carrega no botão tem de ver quantas ficam à espera — e dizer que sim.
+     *
+     * @return array{tipo: string, mensagem: string, pendentes_por_ambiente: array{sandbox: int, production: int}}
+     *
+     * @throws RecusaComDetalhes  `prontidao` quando falta algo; `confirmar_necessario` sem confirmação
      */
-    public function activarAmbiente(string $novo): array
+    public function activarAmbiente(string $novo, bool $confirmar = false): array
     {
         $novo = self::normalizar($novo);
+        $anterior = $this->ambienteActivo();
+        $pendentes = $this->pendentesPorAmbiente();
 
-        if ($novo === $this->ambienteActivo()) {
-            return ['tipo' => 'info', 'mensagem' => __('Já é este o ambiente activo.')];
+        if ($novo === $anterior) {
+            return ['tipo' => 'info', 'mensagem' => __('Já é este o ambiente activo.'), 'pendentes_por_ambiente' => $pendentes];
         }
 
-        // Activar produção sem o par RSA de produção não dá para assinar
-        // documento nenhum: a empresa ficava a falhar toda a facturação.
-        if ($novo === 'production' && !AGTKeyStore::hasKeyPair($this->tenantId, 'production')) {
-            throw new DomainException(__('Instale primeiro o par RSA de Produção do Portal do Contribuinte. Sem ele nenhum documento é assinado.'));
+        if ($novo === 'production') {
+            $prontidao = $this->prontidaoProducao();
+            $falta = array_values(array_filter($prontidao, fn ($item) => !$item['ok']));
+
+            if ($falta !== []) {
+                // O par RSA à cabeça: sem ele não se assina documento nenhum.
+                $mensagem = collect($falta)->contains('chave', 'rsa_contribuinte')
+                    ? __('Instale primeiro o par RSA de Produção do Portal do Contribuinte. Sem ele nenhum documento é assinado.')
+                    : __('Ainda não é possível activar Produção. Falta: :lista.', [
+                        'lista' => collect($falta)->pluck('rotulo')->implode('; '),
+                    ]);
+
+                throw new RecusaComDetalhes($mensagem, ['prontidao' => $prontidao]);
+            }
+        }
+
+        if (!$confirmar) {
+            throw new RecusaComDetalhes(
+                __('Confirme a troca para :ambiente. :n submissão(ões) de :anterior ficam à espera até a empresa voltar a esse ambiente.', [
+                    'ambiente' => self::rotulo($novo),
+                    'n' => $pendentes[$anterior],
+                    'anterior' => self::rotulo($anterior),
+                ]),
+                ['confirmar_necessario' => true, 'pendentes_por_ambiente' => $pendentes]
+            );
         }
 
         $this->definicoes()->update(['agt_environment' => $novo]);
 
-        $rotulo = $novo === 'production' ? 'PRODUÇÃO' : 'Homologação';
+        $this->auditar('agt.ambiente.activado', [
+            'de' => $anterior,
+            'para' => $novo,
+            'pendentes_por_ambiente' => $pendentes,
+        ]);
 
-        return ['tipo' => 'success', 'mensagem' => "Ambiente activo: {$rotulo}. Os próximos documentos seguem por aqui."];
+        $rotulo = $novo === 'production' ? 'PRODUÇÃO' : 'Homologação';
+        $mensagem = "Ambiente activo: {$rotulo}. Os próximos documentos seguem por aqui.";
+
+        if ($pendentes[$anterior] > 0) {
+            $mensagem .= ' ' . __(':n submissão(ões) de :anterior ficam à espera até a empresa voltar a esse ambiente.', [
+                'n' => $pendentes[$anterior],
+                'anterior' => self::rotulo($anterior),
+            ]);
+        }
+
+        return ['tipo' => 'success', 'mensagem' => $mensagem, 'pendentes_por_ambiente' => $pendentes];
     }
 
     /* ─── Chaves do contribuinte ──────────────────────────────────────── */
@@ -264,7 +567,7 @@ class GestaoAgt
      * Valida o par e guarda-o no ambiente pedido, sem sobrepor o outro.
      * As chaves erradas saem como erros de validação com o campo certo.
      */
-    public function guardarChaves(string $ambiente, string $publica, string $privada): string
+    public function guardarChaves(string $ambiente, string $publica, string $privada, bool $confirmar = false): string
     {
         $publica = trim($publica) . PHP_EOL;
         $privada = trim($privada) . PHP_EOL;
@@ -289,15 +592,47 @@ class GestaoAgt
         }
 
         $ambiente = self::normalizar($ambiente);
+        $substitui = AGTKeyStore::hasKeyPair($this->tenantId, $ambiente);
+
+        // Trocar o par que está a ASSINAR os documentos da empresa é um acto
+        // com consequência imediata: um par errado e a próxima factura sai
+        // assinada com uma chave que a AGT não conhece.
+        $this->exigirConfirmacaoNoActivo($ambiente, $substitui, $confirmar, __('Estas são as chaves que assinam os documentos de :ambiente, o ambiente activo. Confirme para as substituir.', [
+            'ambiente' => self::rotulo($ambiente),
+        ]));
+
+        $anterior = $substitui ? $this->impressaoDaPublica($ambiente) : null;
+
         AGTKeyStore::store($this->tenantId, $publica, $privada, $ambiente);
+
+        $this->auditar('agt.chaves.guardadas', [
+            'ambiente' => $ambiente,
+            'substituiu' => $substitui,
+            'publica_sha256' => hash('sha256', $publica),
+            'publica_anterior_sha256' => $anterior,
+        ]);
 
         return 'Par de chaves guardado para ' . self::rotulo($ambiente) . '. O outro ambiente não foi alterado.';
     }
 
     /** Só as do ambiente pedido — o outro par tem de sobreviver. */
-    public function removerChaves(string $ambiente): string
+    public function removerChaves(string $ambiente, bool $confirmar = false): string
     {
         $ambiente = self::normalizar($ambiente);
+        $existem = AGTKeyStore::hasKeyPair($this->tenantId, $ambiente)
+            || Storage::disk('local')->exists(AGTKeyStore::publicKeyPath($this->tenantId, $ambiente))
+            || Storage::disk('local')->exists(AGTKeyStore::privateKeyPath($this->tenantId, $ambiente));
+
+        // Apagar as do ambiente ACTIVO pára a facturação no instante seguinte:
+        // nenhum documento se assina. Pede-se um sim explícito.
+        $this->exigirConfirmacaoNoActivo($ambiente, $existem, $confirmar, __('Estas são as chaves que assinam os documentos de :ambiente, o ambiente activo. Sem elas nenhum documento é assinado. Confirme para as remover.', [
+            'ambiente' => self::rotulo($ambiente),
+        ]));
+
+        // A impressão digital da PÚBLICA, lida antes de apagar: é o que permite
+        // saber mais tarde que par foi retirado. A chave em si nunca vai à trilha.
+        $impressao = $this->impressaoDaPublica($ambiente);
+
         $dir = AGTKeyStore::directory($this->tenantId, $ambiente);
         Storage::disk('local')->delete(["{$dir}/public_key.pem", "{$dir}/private_key.pem"]);
 
@@ -306,6 +641,16 @@ class GestaoAgt
         if ($ambiente === 'sandbox') {
             $legado = AGTKeyStore::legacyDirectory($this->tenantId);
             Storage::disk('local')->delete(["{$legado}/public_key.pem", "{$legado}/private_key.pem"]);
+        }
+
+        // Só fica na trilha quando havia o que remover: um clique sobre um
+        // ambiente já vazio não é um acto sobre chave nenhuma.
+        if ($existem) {
+            $this->auditar('agt.chaves.removidas', [
+                'ambiente' => $ambiente,
+                'era_o_activo' => $ambiente === $this->ambienteActivo(),
+                'publica_sha256' => $impressao,
+            ]);
         }
 
         return 'Chaves de ' . self::rotulo($ambiente) . ' removidas. O outro ambiente não foi alterado.';
@@ -318,15 +663,30 @@ class GestaoAgt
      * produção antes de as pôr a emitir. Sem os pré-requisitos não sai
      * pedido nenhum.
      */
+    /**
+     * @return array{ok: bool, mensagem: string, ambiente: string, http: ?int}
+     */
     public function testarLigacao(string $ambiente): array
     {
+        $ambiente = self::normalizar($ambiente);
         $this->exigirPreRequisitos($ambiente);
 
         try {
-            return (new AGTClient($this->tenantId, self::normalizar($ambiente)))->testConnection();
+            $r = (new AGTClient($this->tenantId, $ambiente))->testConnection();
         } catch (\Exception $e) {
-            return ['success' => false, 'error' => $e->getMessage()];
+            $r = ['success' => false, 'error' => $e->getMessage()];
         }
+
+        $ok = (bool) ($r['success'] ?? false);
+
+        return [
+            'ok' => $ok,
+            'mensagem' => (string) ($ok
+                ? ($r['message'] ?? __('Conexão estabelecida com sucesso!'))
+                : ($r['error'] ?? __('Falha na conexão'))),
+            'ambiente' => (string) ($r['environment'] ?? $ambiente),
+            'http' => isset($r['http_status']) ? (int) $r['http_status'] : null,
+        ];
     }
 
     /**
@@ -354,16 +714,35 @@ class GestaoAgt
         $this->conferir($aVer, 'A sincronização de séries');
         $this->exigirPreRequisitos($aVer);
 
-        return (new AGTService($this->tenantId))->syncAllSeries();
+        $r = (new AGTService($this->tenantId))->syncAllSeries();
+
+        $this->auditar('agt.series.sincronizadas', [
+            'ambiente' => $this->ambienteActivo(),
+            'total' => $r['total'] ?? 0,
+            'registadas' => $r['success'] ?? 0,
+            'falharam' => $r['failed'] ?? 0,
+            'series' => collect($r['details'] ?? [])->map(fn ($d) => [
+                'serie_id' => $d['serie_id'] ?? null,
+                'ok' => $d['ok'] ?? false,
+                'codigo_erro' => $d['codigo_erro'] ?? null,
+                'ambiente_anterior' => $d['ambiente_anterior'] ?? null,
+            ])->values()->all(),
+        ]);
+
+        return $r;
     }
 
-    /** Pergunta à AGT pelo estado das submissões que ficaram a meio. */
+    /**
+     * Pergunta à AGT pelo estado das submissões que ficaram a meio — só as do
+     * ambiente activo, que é o único a quem a pergunta chega.
+     */
     public function actualizarEstados(): int
     {
         $service = new QueryService(InvoicingSettings::forTenant($this->tenantId));
         $actualizadas = 0;
 
         $submissoes = AGTSubmission::where('tenant_id', $this->tenantId)
+            ->doAmbiente($this->ambienteActivo())
             ->whereIn('status', ['pending', 'submitted'])
             ->whereNotNull('agt_reference')
             ->latest('id')
@@ -380,12 +759,9 @@ class GestaoAgt
                     $submissao->markAsValidated($submissao->agt_reference, $submissao->atcud, $corpo);
                     $actualizadas++;
                 } elseif ($codigo === '2') {
-                    $erros = collect($corpo['documentStatusList'] ?? [])
-                        ->flatMap(fn ($linha) => $linha['errorList'] ?? [])
-                        ->filter(fn ($erro) => is_array($erro) && !empty($erro['descriptionError']));
                     $submissao->markAsRejected(
-                        'RESULT_CODE_2',
-                        $erros->pluck('descriptionError')->implode('; ') ?: 'Documento rejeitado pela AGT.',
+                        AGTErrorCode::primeiroCodigo($corpo) ?? 'RESULT_CODE_2',
+                        AGTErrorCode::formatarResposta($corpo) ?: 'Documento rejeitado pela AGT.',
                         $corpo
                     );
                     $actualizadas++;
@@ -427,10 +803,19 @@ class GestaoAgt
     {
         $this->conferir($aVer, 'O reenvio do documento');
         $s = $this->submissao($id);
+        $this->exigirSubmissaoDoAmbienteActivo($s);
+        $this->exigirEstadoReenviavel($s);
 
-        if ($s->status === AGTSubmission::STATUS_VALIDATED) {
-            throw new DomainException(__('Este documento já foi validado pela AGT.'));
+        // Repor só quando o «Reenviar» já não chega. Com tentativas por gastar
+        // a reposição só servia para apagar o rasto das que falharam.
+        if (!$s->podeRepor($this->ambienteActivo())) {
+            throw new DomainException(__('Ainda restam tentativas (:feitas de :max). Use «Reenviar»; repor só é preciso depois de as esgotar.', [
+                'feitas' => (int) $s->retry_count,
+                'max' => AGTSubmission::MAX_TENTATIVAS_DO_BOTAO,
+            ]));
         }
+
+        $antes = ['status' => $s->status, 'retry_count' => (int) $s->retry_count, 'error_code' => $s->error_code];
 
         $s->update([
             'status' => AGTSubmission::STATUS_PENDING,
@@ -439,6 +824,13 @@ class GestaoAgt
             'error_message' => null,
         ]);
 
+        $this->auditar('agt.submissao.reposta', [
+            'submissao_id' => $s->id,
+            'documento' => $s->document_number,
+            'ambiente' => $s->agt_environment,
+            'antes' => $antes,
+        ], $s);
+
         return $this->reenviar($id, $aVer);
     }
 
@@ -446,6 +838,8 @@ class GestaoAgt
     {
         $this->conferir($aVer, 'O reenvio do documento');
         $s = $this->submissao($id);
+        $this->exigirSubmissaoDoAmbienteActivo($s);
+        $this->exigirEstadoReenviavel($s);
 
         if (!$s->canRetry()) {
             throw new DomainException(__('Máximo de tentativas atingido'));
@@ -470,7 +864,11 @@ class GestaoAgt
         ];
     }
 
-    /** Consulta: corre no ambiente que se está a ver. É só leitura. */
+    /**
+     * Consulta: corre no ambiente que se está a ver. É só leitura.
+     *
+     * @return array{ok: bool, mensagem: string, http: ?int, ms: int, testado_em: string, data: array}
+     */
     public function consultar(string $operacao, array $p, string $ambiente): array
     {
         $inicio = microtime(true);
@@ -490,11 +888,18 @@ class GestaoAgt
             $resultado = ['success' => false, 'error' => $e->getMessage()];
         }
 
-        return array_merge($resultado, [
-            'operation' => $operacao,
-            'elapsed_ms' => (int) ((microtime(true) - $inicio) * 1000),
-            'tested_at' => now()->format('d/m/Y H:i:s'),
-        ]);
+        $ok = (bool) ($resultado['success'] ?? false);
+
+        return [
+            'ok' => $ok,
+            'mensagem' => (string) ($ok
+                ? ($resultado['message'] ?? __('Consulta executada.'))
+                : ($resultado['error'] ?? __('A AGT não respondeu à consulta.'))),
+            'http' => isset($resultado['status']) ? (int) $resultado['status'] : null,
+            'ms' => (int) ((microtime(true) - $inicio) * 1000),
+            'testado_em' => now()->format('d/m/Y H:i:s'),
+            'data' => $resultado + ['operation' => $operacao, 'ambiente' => self::normalizar($ambiente)],
+        ];
     }
 
     /* ─── A ficha do contribuinte ─────────────────────────────────────── */
@@ -505,10 +910,50 @@ class GestaoAgt
             'tax_registration_number' => ['nullable', 'string', 'max:15'],
             'agt_establishment_number' => ['required', 'string', 'max:200'],
             'agt_notification_emails' => ['nullable', 'string', 'max:1000'],
-            'agt_eac_code' => ['nullable', 'string', 'max:8'],
+            'agt_eac_code' => ['nullable', 'string', 'max:8', self::regraDoCae()],
             'agt_auto_submit' => ['boolean'],
             'agt_require_validation' => ['boolean'],
         ];
+    }
+
+    /** O pedido traz um NIF DIFERENTE do que a empresa tem? */
+    public function nifMuda(array $d): bool
+    {
+        $novo = strtoupper(trim((string) ($d['tax_registration_number'] ?? '')));
+
+        if ($novo === '') {
+            return false;
+        }
+
+        $tenant = Tenant::find($this->tenantId);
+
+        return $novo !== strtoupper(trim((string) ($tenant?->nif ?? $tenant?->tax_id ?? '')));
+    }
+
+    /**
+     * MUDAR O NIF PELA FICHA DA AGT.
+     *
+     * O NIF vai em cada documento assinado e em cada série registada: é por
+     * ele que a AGT conhece a empresa. Trocá-lo depois de haver séries
+     * registadas ou documentos comunicados deixa uns e outros a apontar para
+     * um contribuinte que já não é este — as séries deixam de valer e os
+     * documentos seguintes são recusados. Isso é conversa com o suporte, não
+     * um campo que se edita. Antes disso, o número tem de ser de EMPRESA.
+     */
+    public function exigirNifMutavel(string $nif): void
+    {
+        $v = Validator::make(['tax_registration_number' => $nif], ['tax_registration_number' => [new NifDeEmpresa()]]);
+
+        if ($v->fails()) {
+            throw new ValidationException($v);
+        }
+
+        $temSeries = InvoicingSeries::where('tenant_id', $this->tenantId)->whereNotNull('agt_series_id')->exists();
+        $temSubmissoes = AGTSubmission::where('tenant_id', $this->tenantId)->exists();
+
+        if ($temSeries || $temSubmissoes) {
+            throw new DomainException(__('O NIF desta empresa já está em séries registadas ou documentos comunicados à AGT e não se muda aqui. Fale com o suporte.'));
+        }
     }
 
     public function lerContribuinte(): array
@@ -548,17 +993,31 @@ class GestaoAgt
             throw ValidationException::withMessages(['agt_notification_emails' => "Email inválido: {$invalido}"]);
         }
 
-        $this->definicoes()->update([
+        // O NIF primeiro: uma recusa aqui não pode deixar o resto gravado a meio.
+        $mudaNif = $this->nifMuda($d);
+        if ($mudaNif) {
+            $this->exigirNifMutavel(strtoupper(trim((string) $d['tax_registration_number'])));
+        }
+
+        $campos = [
             'agt_establishment_number' => $d['agt_establishment_number'],
-            'agt_auto_submit' => (bool) ($d['agt_auto_submit'] ?? false),
-            'agt_require_validation' => (bool) ($d['agt_require_validation'] ?? true),
             'agt_notification_emails' => ($d['agt_notification_emails'] ?? null) ?: null,
             'agt_eac_code' => ($d['agt_eac_code'] ?? null) ?: null,
-        ]);
+        ];
+
+        // Os interruptores só quando vêm no pedido. O `?? false` desligava o
+        // envio automático a quem gravasse só o estabelecimento.
+        foreach (['agt_auto_submit', 'agt_require_validation'] as $interruptor) {
+            if (array_key_exists($interruptor, $d) && $d[$interruptor] !== null) {
+                $campos[$interruptor] = (bool) $d[$interruptor];
+            }
+        }
+
+        $this->definicoes()->update($campos);
 
         // O NIF é da empresa, não das definições da facturação.
-        if (!empty($d['tax_registration_number'])) {
-            Tenant::find($this->tenantId)?->update(['nif' => $d['tax_registration_number']]);
+        if ($mudaNif) {
+            Tenant::find($this->tenantId)?->update(['nif' => strtoupper(trim((string) $d['tax_registration_number']))]);
         }
     }
 
@@ -584,12 +1043,41 @@ class GestaoAgt
             ]);
         }
 
-        Storage::disk('local')->put($this->caminhoDaChaveLegado(), $pem);
+        $caminho = $this->caminhoDaChaveLegado();
+        $anterior = $this->impressaoDaChavePrivada($caminho);
+
+        Storage::disk('local')->put($caminho, $pem);
+
+        $this->auditar('agt.chave_legado.guardada', [
+            'publica_sha256' => $this->impressaoDaChavePrivada($caminho),
+            'publica_anterior_sha256' => $anterior,
+        ]);
     }
 
-    public function removerChaveLegado(): void
+    /**
+     * Remover a chave do modo antigo pede o mesmo sim que as do ambiente
+     * activo: as empresas que ainda a usam deixam de assinar no instante
+     * seguinte.
+     */
+    public function removerChaveLegado(bool $confirmar = false): void
     {
-        Storage::disk('local')->delete($this->caminhoDaChaveLegado());
+        $caminho = $this->caminhoDaChaveLegado();
+        $existe = Storage::disk('local')->exists($caminho);
+
+        if ($existe && !$confirmar) {
+            throw new RecusaComDetalhes(
+                __('Esta chave pode estar a assinar os documentos da empresa. Confirme para a remover.'),
+                ['confirmar_necessario' => true]
+            );
+        }
+
+        $impressao = $this->impressaoDaChavePrivada($caminho);
+
+        Storage::disk('local')->delete($caminho);
+
+        if ($existe) {
+            $this->auditar('agt.chave_legado.removida', ['publica_sha256' => $impressao]);
+        }
     }
 
     /* ─── Por dentro ──────────────────────────────────────────────────── */
@@ -600,6 +1088,75 @@ class GestaoAgt
             ['tenant_id' => $this->tenantId],
             ['default_currency' => 'AOA']
         );
+    }
+
+    /**
+     * A submissão é do ambiente activo? Uma do outro fica quieta: reenviá-la
+     * mandava-a para a AGT errada, que é o defeito que isto fecha.
+     */
+    private function exigirSubmissaoDoAmbienteActivo(AGTSubmission $s): void
+    {
+        $activo = $this->ambienteActivo();
+
+        if (!$s->eDoAmbiente($activo)) {
+            throw new AmbienteErradoException(__('Esta submissão pertence a :dela e a empresa emite em :activo. Não se reenvia daqui: fica à espera até a empresa voltar a :dela.', [
+                'dela' => self::rotulo($s->agt_environment),
+                'activo' => self::rotulo($activo),
+            ]));
+        }
+    }
+
+    /** Os estados que nunca se reenviam, cada um com a sua razão. */
+    private function exigirEstadoReenviavel(AGTSubmission $s): void
+    {
+        match ($s->status) {
+            AGTSubmission::STATUS_VALIDATED => throw new DomainException(__('Este documento já foi validado pela AGT.')),
+            // Está na AGT à espera de veredicto: reenviar era pedir-lhe que
+            // o registasse outra vez enquanto ainda decide o primeiro.
+            AGTSubmission::STATUS_SUBMITTED => throw new DomainException(__('A AGT ainda está a processar — actualize o estado.')),
+            AGTSubmission::STATUS_CANCELLED => throw new DomainException(__('Esta submissão foi cancelada e não se reenvia.')),
+            default => null,
+        };
+    }
+
+    /** Pede `confirmar` quando se mexe no que está a assinar no ambiente activo. */
+    private function exigirConfirmacaoNoActivo(string $ambiente, bool $haQueMexer, bool $confirmar, string $mensagem): void
+    {
+        if ($haQueMexer && !$confirmar && $ambiente === $this->ambienteActivo()) {
+            throw new RecusaComDetalhes($mensagem, ['confirmar_necessario' => true]);
+        }
+    }
+
+    /** SHA-256 da chave pública do ambiente, ou nada. Nunca a chave. */
+    private function impressaoDaPublica(string $ambiente): ?string
+    {
+        $caminho = AGTKeyStore::publicKeyPath($this->tenantId, $ambiente);
+
+        return Storage::disk('local')->exists($caminho)
+            ? hash('sha256', (string) Storage::disk('local')->get($caminho))
+            : null;
+    }
+
+    /**
+     * SHA-256 da chave pública DERIVADA de uma privada. É a mesma impressão
+     * que a das chaves por ambiente — e a privada não sai do disco.
+     */
+    private function impressaoDaChavePrivada(string $caminho): ?string
+    {
+        if (!Storage::disk('local')->exists($caminho)) {
+            return null;
+        }
+
+        $recurso = @openssl_pkey_get_private((string) Storage::disk('local')->get($caminho));
+        $publica = $recurso ? (openssl_pkey_get_details($recurso)['key'] ?? null) : null;
+
+        return $publica ? hash('sha256', $publica) : null;
+    }
+
+    /** Um acto na trilha desta empresa. A trilha nunca rebenta com a acção. */
+    private function auditar(string $evento, array $metadata, ?\Illuminate\Database\Eloquent\Model $alvo = null): void
+    {
+        app(AuditRecorder::class)->acto($evento, $this->tenantId, $metadata, $alvo);
     }
 
     private function exigirPreRequisitos(string $ambiente): void

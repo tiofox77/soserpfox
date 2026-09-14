@@ -100,13 +100,21 @@ class AGTCommunicationLog extends Model
         float $responseTime,
         bool $success,
         ?string $errorMessage = null,
-        ?int $submissionId = null
+        ?int $submissionId = null,
+        ?string $ambiente = null
     ): self {
         return self::create([
             'tenant_id' => $tenantId,
-            // Separar homologação de produção — ver AGTSubmission::createForDocument
-            'agt_environment' => \App\Models\Invoicing\InvoicingSettings::forTenant($tenantId)
-                ->agt_environment ?: 'sandbox',
+            // Separar homologação de produção — ver AGTSubmission::createForDocument.
+            //
+            // O ambiente do PEDIDO, quando quem chama o sabe. Ler o activo da
+            // empresa etiquetava mal tudo o que corre noutro: o teste de
+            // ligação a produção, feito com a empresa ainda em homologação,
+            // aparecia no histórico de homologação — e a resposta da AGT real
+            // ficava a passar por resposta da de testes.
+            'agt_environment' => in_array($ambiente, ['sandbox', 'production'], true)
+                ? $ambiente
+                : (\App\Models\Invoicing\InvoicingSettings::forTenant($tenantId)->agt_environment ?: 'sandbox'),
             'submission_id' => $submissionId,
             'service' => $service,
             'method' => $method,

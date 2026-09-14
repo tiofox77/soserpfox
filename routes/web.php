@@ -2075,11 +2075,13 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::post('/agt/ambiente', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'activarAmbiente'])->name('agt.ambiente');
         Route::post('/agt/chaves', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'guardarChaves'])->name('agt.chaves');
         Route::post('/agt/chaves/remover', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'removerChaves'])->name('agt.chaves.remover');
-        Route::post('/agt/ligacao', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'testarLigacao'])->name('agt.ligacao');
-        Route::post('/agt/series/sincronizar', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'sincronizarSeries'])->name('agt.series.sincronizar');
-        Route::post('/agt/submissoes/actualizar', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'actualizarEstados'])->name('agt.submissoes.actualizar');
-        Route::post('/agt/submissoes/{id}/reenviar', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'reenviar'])->whereNumber('id')->name('agt.submissoes.reenviar');
-        Route::post('/agt/consulta', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'consultar'])->name('agt.consulta');
+        // O que FALA com a AGT tem limite por empresa e utilizador (ver AppServiceProvider, agt-comunicacao):
+        // um duplo clique repetido ou um script não martelam a AGT em nome da empresa.
+        Route::post('/agt/ligacao', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'testarLigacao'])->middleware('throttle:agt-comunicacao')->name('agt.ligacao');
+        Route::post('/agt/series/sincronizar', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'sincronizarSeries'])->middleware('throttle:agt-comunicacao')->name('agt.series.sincronizar');
+        Route::post('/agt/submissoes/actualizar', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'actualizarEstados'])->middleware('throttle:agt-comunicacao')->name('agt.submissoes.actualizar');
+        Route::post('/agt/submissoes/{id}/reenviar', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'reenviar'])->whereNumber('id')->middleware('throttle:agt-comunicacao')->name('agt.submissoes.reenviar');
+        Route::post('/agt/consulta', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'consultar'])->middleware('throttle:agt-comunicacao')->name('agt.consulta');
         Route::get('/agt/contribuinte', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'contribuinte'])->name('agt.contribuinte');
         Route::post('/agt/contribuinte', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'guardarContribuinte'])->name('agt.contribuinte.guardar');
         // A chave privada «do modo antigo»: cola-se e remove-se, e nunca volta na resposta.

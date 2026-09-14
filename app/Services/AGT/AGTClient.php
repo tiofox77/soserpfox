@@ -233,7 +233,9 @@ class AGTClient
                 $response->headers(),
                 $response->json(),
                 $responseTime,
-                $response->successful()
+                $response->successful(),
+                // O ambiente deste cliente — que pode ser o override da consola.
+                ambiente: $this->environment
             );
 
             if ($response->successful()) {
@@ -345,7 +347,8 @@ class AGTClient
                 $responseTime,
                 $response->successful(),
                 $response->successful() ? null : ($response->json()['message'] ?? 'Erro'),
-                $submission->id
+                $submission->id,
+                ambiente: $this->environment
             );
 
             $submission->markAsSubmitted($payload);
@@ -520,7 +523,9 @@ class AGTClient
                 $response->headers(),
                 $response->json(),
                 $responseTime,
-                $response->successful()
+                $response->successful(),
+                // O ambiente deste cliente — que pode ser o override da consola.
+                ambiente: $this->environment
             );
 
             if ($response->successful()) {
@@ -607,7 +612,9 @@ class AGTClient
                 $response->headers(),
                 $response->json(),
                 $responseTime,
-                $response->successful()
+                $response->successful(),
+                // O ambiente deste cliente — que pode ser o override da consola.
+                ambiente: $this->environment
             );
 
             if ($response->successful()) {
@@ -699,7 +706,9 @@ class AGTClient
                 $response->headers(),
                 $response->json(),
                 $responseTime,
-                $response->successful()
+                $response->successful(),
+                // O ambiente deste cliente — que pode ser o override da consola.
+                ambiente: $this->environment
             );
 
             if ($response->successful()) {
@@ -943,6 +952,32 @@ class AGTClient
                     'environment' => $this->environment,
                     'base_url' => $this->baseUrl,
                     'http_status' => $response->status(),
+                ];
+            }
+
+            /*
+             * «CREDENCIAIS VÁLIDAS» SÓ QUANDO A AGT NÃO SE QUEIXOU.
+             *
+             * Qualquer resposta que não fosse 401/403 contava como sucesso —
+             * um 200 com `errorList` a dizer E39 (assinatura do produtor fora
+             * do certificado) ou E40 (assinatura do contribuinte inválida)
+             * aparecia no ecrã a verde. A autenticação passou, mas nenhum
+             * documento ia passar; é isso que o botão tem de mostrar.
+             */
+            $corpo = $response->json() ?? [];
+            $erros = is_array($corpo) ? $this->responseErrors($corpo) : [];
+
+            if (!$response->successful() || $erros !== []) {
+                return [
+                    'success' => false,
+                    'error' => $erros !== []
+                        ? 'A AGT respondeu com erros: ' . $this->formatErrorList($erros)
+                        : 'A AGT respondeu com HTTP ' . $response->status() . '.',
+                    'errors' => $erros,
+                    'environment' => $this->environment,
+                    'base_url' => $this->baseUrl,
+                    'http_status' => $response->status(),
+                    'has_contributor_key' => $this->hasContributorKey(),
                 ];
             }
 

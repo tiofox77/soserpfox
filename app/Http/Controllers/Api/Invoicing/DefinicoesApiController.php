@@ -131,6 +131,15 @@ class DefinicoesApiController extends Controller
 
             'permissoes' => [
                 'pode_editar' => (bool) $request->user()?->can('invoicing.settings.edit'),
+
+                /*
+                 * SE PODE LER O ESTADO DA AGT — para o aviso de «os documentos
+                 * não estão a ser comunicados» aparecer também aqui, onde se
+                 * configura a facturação. Sem a permissão o ecrã nem pergunta:
+                 * pedir e levar 403 enchia a consola de erros a quem não tem
+                 * nada que ver com a AGT.
+                 */
+                've_agt' => (bool) ($request->user()?->isPlatformSuperAdmin() || $request->user()?->can('invoicing.agt.view')),
             ],
         ]);
     }

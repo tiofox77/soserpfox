@@ -559,10 +559,14 @@ function Tabela({
                             <td className="px-4 py-3">
                                 <Etiqueta cor={f.estado_cor}>{f.estado_rotulo}</Etiqueta>
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="px-4 py-3" data-selo-agt={f.agt.estado ?? ''}>
+                                {/* O rótulo E a cor vêm decididos do servidor
+                                    (`SeloDaAgt`), como nas outras listas. Uma
+                                    resposta antiga, sem cor, cai no que o
+                                    `comunicada` diz — nunca em verde por omissão. */}
                                 <Etiqueta
-                                    cor={f.agt.comunicada ? 'bom' : 'neutra'}
-                                    icone={f.agt.comunicada ? 'fa-circle-check' : 'fa-clock'}
+                                    cor={f.agt.cor ?? (f.agt.comunicada ? 'bom' : 'neutra')}
+                                    icone={SINAL_AGT[f.agt.cor ?? (f.agt.comunicada ? 'bom' : 'neutra')]}
                                 >
                                     {f.agt.rotulo}
                                 </Etiqueta>
@@ -826,6 +830,18 @@ function Campo({ etiqueta, children }: { etiqueta: string; children: React.React
 function cascata(i: number): React.CSSProperties {
     return { '--i': Math.min(i, 12) } as React.CSSProperties;
 }
+
+/**
+ * O ÍCONE DO SELO DA AGT acompanha a cor — nunca só a cor, para quem não
+ * distingue verde de vermelho. Os mesmos da lista dos outros documentos.
+ */
+const SINAL_AGT: Record<string, string> = {
+    bom: 'fa-circle-check',
+    primaria: 'fa-cloud-arrow-up',
+    perigo: 'fa-triangle-exclamation',
+    aviso: 'fa-clock',
+    neutra: 'fa-minus-circle',
+};
 
 /** Uma coluna do cabeçalho: o rótulo com o seu ícone, sempre no mesmo tom. */
 function Cabecalho({

@@ -202,6 +202,28 @@ class EmpresaApiController extends Controller
             ]);
         }
 
+        /*
+         * O NIF DE UMA EMPRESA QUE JÁ FALA COM A AGT EM PRODUÇÃO NÃO SE MUDA AQUI.
+         *
+         * Vai em cada documento assinado e em cada série registada: trocá-lo
+         * deixava as séries a apontar para outro contribuinte e os documentos
+         * seguintes recusados. É a mesma regra da ficha AGT (GestaoAgt::
+         * exigirNifMutavel), aqui só para PRODUÇÃO — em homologação nada tem
+         * valor fiscal, e é aí que se corrige um NIF mal escrito no arranque.
+         */
+        $novoNif = ! empty($dados['nif']) ? strtoupper(trim($dados['nif'])) : null;
+
+        if ($novoNif !== strtoupper(trim((string) $t->nif))) {
+            $falaComAgt = \App\Models\Invoicing\InvoicingSeries::where('tenant_id', $t->id)->whereNotNull('agt_series_id')->where('agt_environment', 'production')->exists()
+                || \App\Models\AGT\AGTSubmission::where('tenant_id', $t->id)->where('agt_environment', 'production')->exists();
+
+            if ($falaComAgt) {
+                throw ValidationException::withMessages([
+                    'nif' => [__('O NIF desta empresa já está em séries registadas ou documentos comunicados à AGT e não se muda aqui. Fale com o suporte.')],
+                ]);
+            }
+        }
+
         $valores = [
             'name' => trim($dados['name']),
             'company_name' => ! empty($dados['company_name']) ? trim($dados['company_name']) : null,

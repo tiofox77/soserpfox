@@ -23,10 +23,17 @@ class AgtDespachoPendentesTest extends TenantTestCase
         Cache::flush();
     }
 
+    /**
+     * No ambiente ACTIVO da empresa. O despacho passou a ignorar as submissões
+     * do outro ambiente (ver AgtAmbienteDasSubmissoesTest) — e sem o campo a
+     * coluna nasce em homologação, enquanto uma empresa nova emite em
+     * produção: o ensaio via «sem trabalho» por esse motivo, não pelo seu.
+     */
     private function submissao(string $estado, ?string $referencia = null, int $tentativas = 0): AGTSubmission
     {
         return AGTSubmission::create([
             'tenant_id'          => $this->tenant->id,
+            'agt_environment'    => InvoicingSettings::forTenant($this->tenant->id)->agt_environment ?: 'sandbox',
             'document_type'      => \App\Models\Invoicing\SalesInvoice::class,
             'document_id'        => 1,
             'document_type_code' => 'FT',

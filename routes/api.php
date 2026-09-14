@@ -14,7 +14,10 @@ use App\Http\Controllers\Api\AGTCallbackController;
 */
 
 // AGT Facturação Electrónica — Callback (POST da AGT para notificar resultado)
+// Porta pública e sem assinatura: limitada por IP (agt-callback, ver AppServiceProvider),
+// para não servir de martelo contra a base nem de sonda aos requestID existentes.
 Route::post('/facturacaoelectronica/callback', [AGTCallbackController::class, 'handle'])
+    ->middleware('throttle:agt-callback')
     ->name('api.agt.callback');
 
 // Servidor de licenças: check-in das instalações offline (phone-home). Sem

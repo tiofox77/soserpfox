@@ -160,10 +160,7 @@ class AGTService
                 }
             }
             $settings = \App\Models\Invoicing\InvoicingSettings::forTenant($this->tenantId);
-            $register = new RegisterService($settings);
-            $mapper   = new DocumentMapper();
 
-            $docPayload = $mapper->map($document);
             $submission = AGTSubmission::where('tenant_id', $this->tenantId)
                 ->where('document_type', get_class($document))
                 ->where('document_id', $document->id)
@@ -174,6 +171,43 @@ class AGTService
                     ELSE 4 END")
                 ->latest('id')
                 ->first();
+
+            /*
+             * UMA SUBMISSÃO DE OUTRO AMBIENTE FICA QUIETA.
+             *
+             * O cliente HTTP fala sempre com o ambiente ACTIVO. Voltar a
+             * homologação com documentos de produção por enviar mandava-os
+             * para a AGT de testes, que os aceitava — e ficavam marcados
+             * «validados» sem nunca terem existido para o fisco. O contrário
+             * (testes a ir para a AGT real) é igualmente grave. Recusa-se aqui,
+             * na porta por onde todos os envios passam; quando a empresa voltar
+             * ao ambiente dela, a submissão segue como estava.
+             */
+            $ambienteActivo = GestaoAgt::normalizar($settings->agt_environment);
+
+            if ($submission && !$submission->eDoAmbiente($ambienteActivo)) {
+                $erro = sprintf(
+                    'Este documento pertence a %s e a empresa emite agora em %s. Não foi enviado: fica à espera até a empresa voltar a %s.',
+                    GestaoAgt::rotulo($submission->agt_environment),
+                    GestaoAgt::rotulo($ambienteActivo),
+                    GestaoAgt::rotulo($submission->agt_environment)
+                );
+
+                Log::warning('AGTService::submitToAGT: submissão de outro ambiente não enviada', [
+                    'tenant_id'     => $this->tenantId,
+                    'submission_id' => $submission->id,
+                    'da_submissao'  => $submission->agt_environment,
+                    'activo'        => $ambienteActivo,
+                ]);
+
+                return [
+                    'success'         => false,
+                    'requestID'       => null,
+                    'submissionUUID'  => null,
+                    'error'           => $erro,
+                    'ambiente_errado' => true,
+                ];
+            }
 
             // Uma tentativa técnica não pode criar várias "submissões" para o
             // mesmo documento. Se a AGT já validou, nunca reenviar.
@@ -199,6 +233,14 @@ class AGTService
                     'alreadyValidated' => true,
                 ];
             }
+
+            // Montar e assinar só depois de saber que vai mesmo seguir: a
+            // recusa por ambiente, acima, não pode ficar escondida atrás de
+            // uma chave em falta do ambiente errado.
+            $register = new RegisterService($settings);
+            $mapper   = new DocumentMapper();
+
+            $docPayload = $mapper->map($document);
 
             if (!$submission) {
                 $submission = AGTSubmission::createForDocument(
@@ -248,10 +290,11 @@ class AGTService
                         'error' => $e->getMessage(),
                     ]);
                 }
-            } elseif ((int) ($result['status'] ?? 0) === 0 || (int) ($result['status'] ?? 0) === 429) {
-                // Não houve resposta, ou a AGT mandou abrandar (429).
+            } elseif (!$this->aAgtRecusouODocumento($result)) {
+                // Não houve resposta, ou a AGT mandou abrandar (429), ou
+                // respondeu sem dizer nada do documento (5xx, 401 sem errorList).
                 //
-                // Nenhum dos dois é uma recusa do documento. Marcá-los como
+                // Nenhum destes é uma recusa do documento. Marcá-los como
                 // rejeitado tirava-o da lista de pendentes e nunca mais era
                 // enviado.
                 //
@@ -270,11 +313,18 @@ class AGTService
                     'erro'          => $result['error'] ?? null,
                 ]);
             } else {
-                // A AGT respondeu e recusou. Isso sim é uma recusa.
+                // A AGT respondeu e recusou. Isso sim é uma recusa — e é um
+                // envio, que conta tentativa: sem isto uma recusa na hora não
+                // gastava nenhuma e o botão «Reenviar» ficava para sempre
+                // disponível para mandar o mesmo documento, igual.
+                //
+                // O código gravado é o da AGT (E43, E70…) quando ela o dá; o
+                // AGT_REGISTER fica só para a recusa sem código.
                 $submission->markAsRejected(
-                    'AGT_REGISTER',
+                    (string) (($result['error_code'] ?? null) ?: 'AGT_REGISTER'),
                     (string) ($result['error'] ?: 'Submissao rejeitada pela AGT'),
-                    $result['response'] ?? []
+                    $result['response'] ?? [],
+                    contarTentativa: true
                 );
             }
 
@@ -379,12 +429,29 @@ class AGTService
     /**
      * Sincronizar todas as séries do tenant com a AGT
      */
+    /**
+     * Regista na AGT as séries fiscais que ainda não estão registadas NO
+     * AMBIENTE ACTIVO.
+     *
+     * Pegava só nas que não tinham código nenhum. Uma série registada em
+     * homologação tem código — o de homologação —, e por isso a empresa que
+     * passava a produção carregava em «Sincronizar», via «0 pendentes» e
+     * ficava sem série nenhuma para emitir: o getIssuanceSeries() recusa, e
+     * bem, um código que a AGT de produção desconhece. Entram também as do
+     * outro ambiente, e o código novo substitui o antigo.
+     *
+     * @return array{total:int, success:int, failed:int, details: array<int, array{serie_id:int, codigo:string, ok:bool, erro:?string, codigo_erro:?string, ambiente_anterior:?string, recuperada:bool}>}
+     */
     public function syncAllSeries(): array
     {
+        // O ambiente em que o registo vai de facto: o do cliente que o envia.
+        $ambiente = GestaoAgt::normalizar($this->getClient()->getEnvironment());
+
         InvoicingSeries::where('tenant_id', $this->tenantId)
             ->where('is_active', true)
             ->whereIn('prefix', InvoicingSeries::AGT_DOCUMENT_TYPES)
             ->whereNotNull('agt_series_id')
+            ->where('agt_environment', $ambiente)
             ->whereNull('atcud_validation_code')
             ->get()
             ->each(function (InvoicingSeries $series): void {
@@ -398,7 +465,9 @@ class AGTService
         $series = InvoicingSeries::where('tenant_id', $this->tenantId)
             ->where('is_active', true)
             ->whereIn('prefix', InvoicingSeries::AGT_DOCUMENT_TYPES)
-            ->whereNull('agt_series_id')
+            ->where(fn ($q) => $q->whereNull('agt_series_id')
+                ->orWhereNull('agt_environment')
+                ->orWhere('agt_environment', '!=', $ambiente))
             ->get();
 
         $results = [
@@ -409,7 +478,17 @@ class AGTService
         ];
 
         foreach ($series as $s) {
-            $storedSeriesCode = data_get($s->agt_response, 'seriesFEResult.seriesCode');
+            $codigo = trim($s->prefix . ' ' . $s->series_code);
+            $doOutroAmbiente = filled($s->agt_series_id) && $s->agt_environment !== $ambiente;
+            $anterior = $doOutroAmbiente ? $s->agt_environment : null;
+
+            // Recuperar o código de uma resposta já recebida só vale se essa
+            // resposta for DESTE ambiente. A de homologação guardada numa série
+            // que agora vai para produção devolvia-lhe o código de testes.
+            $storedSeriesCode = !$doOutroAmbiente && $s->agt_environment === $ambiente
+                ? data_get($s->agt_response, 'seriesFEResult.seriesCode')
+                : null;
+
             if (filled($storedSeriesCode)) {
                 $s->forceFill([
                     'agt_series_id' => $storedSeriesCode,
@@ -421,28 +500,34 @@ class AGTService
 
                 $results['success']++;
                 $results['details'][] = [
-                    'series' => $s->prefix . ' ' . $s->series_code,
-                    'result' => [
-                        'success' => true,
-                        'recovered' => true,
-                        'seriesCode' => $storedSeriesCode,
-                        'message' => 'Código recuperado da resposta AGT já recebida.',
-                    ],
+                    'serie_id' => $s->id,
+                    'codigo' => $codigo,
+                    'ok' => true,
+                    'erro' => null,
+                    'codigo_erro' => null,
+                    'ambiente_anterior' => null,
+                    'recuperada' => true,
                 ];
                 continue;
             }
 
             $result = $this->registerSeries($s);
-            
-            if ($result['success']) {
+            $ok = (bool) ($result['success'] ?? false);
+
+            if ($ok) {
                 $results['success']++;
             } else {
                 $results['failed']++;
             }
-            
+
             $results['details'][] = [
-                'series' => $s->prefix . ' ' . $s->series_code,
-                'result' => $result,
+                'serie_id' => $s->id,
+                'codigo' => $codigo,
+                'ok' => $ok,
+                'erro' => $ok ? null : (string) ($result['error'] ?? 'A AGT não registou a série.'),
+                'codigo_erro' => $ok ? null : AGTErrorCode::primeiroCodigo($result['data'] ?? []),
+                'ambiente_anterior' => $anterior,
+                'recuperada' => false,
             ];
         }
 
@@ -602,6 +687,25 @@ class AGTService
     // =========================================
     // HELPERS
     // =========================================
+
+    /**
+     * É um veredicto da AGT sobre o documento, ou só uma conversa que falhou?
+     *
+     * Recusa é a AGT dizer o que está mal: vem com `errorList`. Sem resposta
+     * (0), abrandar (429), um erro dela (5xx) ou credenciais recusadas sem
+     * lista não dizem nada do documento — ficam por repetir, não recusados.
+     */
+    private function aAgtRecusouODocumento(array $result): bool
+    {
+        $estado = (int) ($result['status'] ?? 0);
+
+        if ($estado === 0 || $estado === 429) {
+            return false;
+        }
+
+        return AGTErrorCode::lista($result['response']['errorList'] ?? []) !== []
+            || filled($result['error_code'] ?? null);
+    }
 
     private function getDocumentTypeCode($document): string
     {

@@ -25,7 +25,18 @@ export type FacturaDeVenda = {
     total: number;
     pago: number;
     saldo: number;
-    agt: { comunicada: boolean; rotulo: string };
+    /**
+     * O selo do Portal AGT, o mesmo das outras listas (`SeloDaAgt`): lê o que
+     * a AGT respondeu, nunca a assinatura local. `comunicada` só é verdade na
+     * factura validada.
+     */
+    agt: {
+        natureza?: 'propria' | 'fornecedor' | 'nao-fiscal';
+        estado?: string | null;
+        rotulo: string;
+        cor?: Cor;
+        comunicada: boolean;
+    };
     armazem: string | null;
     autor: string | null;
     pode_creditar: boolean;

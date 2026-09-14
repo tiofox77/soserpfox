@@ -124,7 +124,9 @@ class ApiDaAgtParaReactTest extends TenantTestCase
         $this->comPermissoes('invoicing.agt.view', 'invoicing.agt.edit');
         $this->definicoes()->update(['agt_environment' => 'production']);
 
-        $this->postJson(self::RAIZ . '/definicoes', ['agt_eac_code' => '47730', 'agt_auto_submit' => true, 'ambiente' => 'sandbox'])->assertOk();
+        // Os dois interruptores vão sempre: um POST parcial desligava o envio
+        // automático em silêncio, e hoje é recusado (ver AgtDefinicoesEContribuinteTest).
+        $this->postJson(self::RAIZ . '/definicoes', ['agt_eac_code' => '47730', 'agt_auto_submit' => true, 'agt_require_validation' => true, 'ambiente' => 'sandbox'])->assertOk();
 
         $d = $this->definicoes()->fresh();
         $this->assertSame('production', $d->agt_environment, 'guardar o CAE não pode mudar o ambiente');
@@ -144,11 +146,20 @@ class ApiDaAgtParaReactTest extends TenantTestCase
 
         AGTKeyStore::store($this->tenant->id, 'pub', 'priv', 'production');
 
-        $this->postJson(self::RAIZ . '/ambiente', ['ambiente' => 'production'])->assertOk()->assertJsonPath('ambiente_activo', 'production');
+        // O par do contribuinte já não chega: produção exige também o produtor
+        // e a certificação PRÓPRIOS de produção (a lista está no
+        // AgtProntidaoEConfirmacaoTest). E a troca pede `confirmar`.
+        config(['services.agt.production.username' => 'produtor', 'services.agt.production.password' => 'segredo']);
+        \App\Models\SoftwareSetting::set('invoicing', 'saft_software_cert_production', 'FE/324/AGT/2026', 'string');
+        Storage::disk('local')->put('saft/production/private_key.pem', 'x');
+        Storage::disk('local')->put('saft/production/public_key.pem', 'x');
+        \Illuminate\Support\Facades\Cache::flush();
+
+        $this->postJson(self::RAIZ . '/ambiente', ['ambiente' => 'production', 'confirmar' => true])->assertOk()->assertJsonPath('ambiente_activo', 'production');
         $this->assertSame('production', $this->definicoes()->fresh()->agt_environment);
 
-        // Voltar a homologação é sempre possível: é o caminho de recuo.
-        $this->postJson(self::RAIZ . '/ambiente', ['ambiente' => 'sandbox'])->assertOk()->assertJsonPath('ambiente_activo', 'sandbox');
+        // Voltar a homologação é sempre possível: é o caminho de recuo (confirmado).
+        $this->postJson(self::RAIZ . '/ambiente', ['ambiente' => 'sandbox', 'confirmar' => true])->assertOk()->assertJsonPath('ambiente_activo', 'sandbox');
     }
 
     /** @test */
@@ -170,7 +181,10 @@ class ApiDaAgtParaReactTest extends TenantTestCase
         AGTKeyStore::store($this->tenant->id, 'pubA', 'privA', 'sandbox');
         AGTKeyStore::store($this->tenant->id, 'pubB', 'privB', 'production');
 
-        $this->postJson(self::RAIZ . '/chaves/remover', ['ambiente' => 'production'])->assertOk();
+        // A empresa de ensaio emite em produção: remover as chaves do activo
+        // pede `confirmar` (ver AgtChavesConfirmacaoTest). O que se prova aqui
+        // é outra coisa — que o outro ambiente fica intacto.
+        $this->postJson(self::RAIZ . '/chaves/remover', ['ambiente' => 'production', 'confirmar' => true])->assertOk();
 
         $this->assertFalse(AGTKeyStore::hasKeyPair($this->tenant->id, 'production'));
         $this->assertTrue(AGTKeyStore::hasKeyPair($this->tenant->id, 'sandbox'), 'apagar as de produção não pode levar as de homologação atrás');
@@ -320,7 +334,14 @@ class ApiDaAgtParaReactTest extends TenantTestCase
 
         $this->postJson(self::RAIZ . '/contribuinte/chave', ['contributor_private_key' => self::PEM])->assertOk();
 
+        // Sem o sim escrito não sai: as empresas que ainda assinam com ela
+        // deixavam de o fazer no instante seguinte.
         $this->postJson(self::RAIZ . '/contribuinte/chave/remover')
+            ->assertStatus(422)
+            ->assertJsonPath('confirmar_necessario', true);
+        Storage::disk('local')->assertExists($this->caminhoDaChaveLegado());
+
+        $this->postJson(self::RAIZ . '/contribuinte/chave/remover', ['confirmar' => true])
             ->assertOk()
             ->assertJsonPath('data.chave_legado', false);
 

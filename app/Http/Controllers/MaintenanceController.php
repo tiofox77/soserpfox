@@ -132,6 +132,9 @@ class MaintenanceController extends Controller
         // Só lê: os movimentos de transferência/ajuste sem lote que a lista
         // das transferências juntava numa «transferência» gigante.
         'stock:movimentos-sem-lote',
+        // Só lê: as submissões à AGT por ambiente, e as por concluir que
+        // ficam paradas por serem de outro ambiente que não o activo.
+        'agt:submissoes-por-ambiente',
         'clientes:importar',
         // Exporta os produtos de um tenant para JSON (só lê) — para gerar uma
         // lista de preços em PDF fora do sistema.

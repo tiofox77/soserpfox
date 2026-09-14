@@ -36,6 +36,15 @@ class AGTErrorCode
         'E16' => 'Total do documento inconsistente com soma das linhas.',
         'E17' => 'Imposto inconsistente (taxContribution não bate com taxPercentage).',
 
+        // Os que a AGT devolveu de facto nas recusas destes documentos, com o
+        // sentido que se apurou caso a caso (ver os comandos agt:ver-rejeicao,
+        // notas:acertar e o DocumentMapper). A descrição da AGT continua a ir
+        // ao lado: esta é só a explicação de quem já tropeçou nela.
+        'E23' => 'O netTotal do documento não corresponde à soma das linhas.',
+        'E39' => 'Os dados assinados do produtor (productId, productVersion, número de certificação) não coincidem com o Processo de Certificação deste ambiente.',
+        'E43' => 'A soma do que a nota anula excede o que o documento base ainda tem por anular.',
+        'E70' => 'O taxContribution de uma linha não corresponde ao imposto apurado pela AGT (arredondamento ao cêntimo por excesso sobre base × taxa).',
+
         // Adesão FE
         'E28' => 'Emissor não aderiu à Facturação Electrónica.',
         'E29' => 'Data de emissão anterior à adesão à FE.',
@@ -98,6 +107,12 @@ class AGTErrorCode
     /**
      * Formata uma errorList AGT para string única amigável.
      * Aceita tanto `[{idError, descriptionError, documentNo}]` como string simples.
+     *
+     * A DESCRIÇÃO DA AGT NUNCA SE PERDE. Trocava-se pelo texto local sempre que
+     * o código era conhecido — e o texto local de um código é o que se julgou
+     * que ele queria dizer, não o que a AGT disse daquele documento. Uma recusa
+     * E43 que traz o valor em causa na descrição ficava reduzida a uma frase
+     * genérica. Vão as duas: primeiro a da AGT, depois a explicação.
      */
     public static function formatList(mixed $errorList): string
     {
@@ -112,20 +127,126 @@ class AGTErrorCode
                 if (!empty($err)) $parts[] = (string) $err;
                 continue;
             }
-            $code = $err['idError'] ?? $err['errorCode'] ?? null;
-            $desc = $err['descriptionError'] ?? $err['errorDescription'] ?? null;
+            $code = self::codigoDe($err);
+            $desc = trim((string) ($err['descriptionError'] ?? $err['errorDescription'] ?? ''));
             $docNo = $err['documentNo'] ?? null;
+            $local = $code !== null ? (self::MESSAGES[$code] ?? null) : null;
 
-            $msg = $code ? self::translate($code, $desc) : ($desc ?? '');
+            $msg = match (true) {
+                $desc !== '' && $local !== null && $local !== $desc => "{$desc} — {$local}",
+                $desc !== '' => $desc,
+                $code !== null => self::translate($code),
+                default => '',
+            };
             if ($docNo) {
                 $msg .= " (doc {$docNo})";
             }
             if ($code) {
                 $msg = "[{$code}] {$msg}";
             }
-            if ($msg !== '') $parts[] = $msg;
+            if (trim($msg) !== '') $parts[] = $msg;
         }
         return implode('; ', $parts);
+    }
+
+    /**
+     * TODOS os erros de uma resposta, estejam onde estiverem.
+     *
+     * A AGT não os põe sempre no mesmo sítio: o registo devolve `errorList`,
+     * o obterEstado traz os do pedido em `requestErrorList` e os de cada
+     * documento em `documentStatusList[].errorList` — e é neste último que
+     * vêm o E43 e o E70. Ler só o primeiro deixava a recusa sem código.
+     *
+     * Aceita a resposta inteira ou já só uma lista de erros.
+     *
+     * @return array<int, array{codigo: ?string, descricao: string, explicacao: ?string}>
+     */
+    public static function lista(mixed $resposta): array
+    {
+        if (!is_array($resposta) || $resposta === []) {
+            return is_string($resposta) && trim($resposta) !== ''
+                ? [['codigo' => null, 'descricao' => trim($resposta), 'explicacao' => null]]
+                : [];
+        }
+
+        $brutos = [];
+        $eResposta = array_intersect_key($resposta, array_flip(['errorList', 'requestErrorList', 'documentStatusList', 'statusResult']));
+
+        if ($eResposta !== []) {
+            foreach (['errorList', 'requestErrorList'] as $campo) {
+                foreach ((array) ($resposta[$campo] ?? []) as $e) {
+                    $brutos[] = $e;
+                }
+            }
+            foreach ((array) data_get($resposta, 'statusResult.requestErrorList', []) as $e) {
+                $brutos[] = $e;
+            }
+            foreach ((array) ($resposta['documentStatusList'] ?? []) as $linha) {
+                foreach ((array) (is_array($linha) ? ($linha['errorList'] ?? []) : []) as $e) {
+                    $brutos[] = is_array($e) && !isset($e['documentNo']) && isset($linha['documentNo'])
+                        ? $e + ['documentNo' => $linha['documentNo']]
+                        : $e;
+                }
+            }
+        } elseif (array_is_list($resposta)) {
+            $brutos = $resposta;
+        }
+
+        $saida = [];
+        foreach ($brutos as $e) {
+            if (is_array($e)) {
+                $codigo = self::codigoDe($e);
+                $descricao = trim((string) ($e['descriptionError'] ?? $e['errorDescription'] ?? ''));
+                if ($codigo === null && $descricao === '') {
+                    continue;
+                }
+                $saida[] = [
+                    'codigo' => $codigo,
+                    'descricao' => $descricao !== '' ? $descricao : self::translate($codigo),
+                    'explicacao' => $codigo !== null ? (self::MESSAGES[$codigo] ?? null) : null,
+                    'documento' => isset($e['documentNo']) ? (string) $e['documentNo'] : null,
+                ];
+            } elseif (is_scalar($e) && trim((string) $e) !== '') {
+                $saida[] = ['codigo' => null, 'descricao' => trim((string) $e), 'explicacao' => null, 'documento' => null];
+            }
+        }
+
+        return $saida;
+    }
+
+    /** Uma resposta inteira numa frase: «[E43] descrição da AGT — explicação (doc …)». */
+    public static function formatarResposta(mixed $resposta): string
+    {
+        return collect(self::lista($resposta))->map(function (array $e) {
+            $texto = $e['descricao'];
+            if ($e['explicacao'] !== null && $e['explicacao'] !== $e['descricao']) {
+                $texto .= ' — ' . $e['explicacao'];
+            }
+            if ($e['documento'] !== null) {
+                $texto .= " (doc {$e['documento']})";
+            }
+
+            return $e['codigo'] !== null ? "[{$e['codigo']}] {$texto}" : $texto;
+        })->implode('; ');
+    }
+
+    /** O código da AGT do primeiro erro que o tenha (E39, E43…), ou nada. */
+    public static function primeiroCodigo(mixed $resposta): ?string
+    {
+        foreach (self::lista($resposta) as $e) {
+            if ($e['codigo'] !== null) {
+                return $e['codigo'];
+            }
+        }
+
+        return null;
+    }
+
+    private static function codigoDe(array $erro): ?string
+    {
+        $codigo = strtoupper(trim((string) ($erro['idError'] ?? $erro['errorCode'] ?? '')));
+
+        return $codigo !== '' ? $codigo : null;
     }
 
     /** Devolve array estruturado para UI (badge + mensagem). */

@@ -115,6 +115,36 @@ class AppServiceProvider extends ServiceProvider
             )->by('agent-write:' . $token);
         });
 
+        // As chamadas à AGT que se fazem por um botão — testar, consultar,
+        // sincronizar séries, actualizar estados, reenviar/repor.
+        //
+        // POR EMPRESA E UTILIZADOR: a quota de um não se gasta pelo colega, e
+        // o super admin que salta de empresa em empresa leva uma por cada.
+        // Cada pedido destes vai à AGT com as credenciais do produtor — que são
+        // as de TODAS as empresas. Um script, ou um botão carregado em ciclo,
+        // punha a AGT a responder 429 (E98) a toda a gente.
+        \Illuminate\Support\Facades\RateLimiter::for('agt-comunicacao', function ($request) {
+            // A empresa escolhida só conta se o utilizador lá puder entrar — a
+            // mesma regra do controlador. Senão bastava inventar `?tenant=` a
+            // cada pedido para ganhar uma quota nova.
+            $empresa = \App\Services\AGT\GestaoAgt::empresaPermitida($request->user(), $request->integer('tenant') ?: null)
+                ?? (int) (activeTenantId() ?: 0);
+
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(
+                (int) config('services.agt.limites.comunicacao_por_minuto', 10)
+            )->by('agt-comunicacao:' . $empresa . ':' . ($request->user()?->id ?: $request->ip()))
+                ->response(fn () => response()->json([
+                    'message' => __('Demasiados pedidos à AGT em pouco tempo. Espere um minuto e tente de novo.'),
+                ], 429));
+        });
+
+        // O callback público da AGT: sem sessão nem assinatura, conta-se por IP.
+        \Illuminate\Support\Facades\RateLimiter::for('agt-callback', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(
+                (int) config('services.agt.limites.callback_por_minuto', 60)
+            )->by('agt-callback:' . $request->ip());
+        });
+
         // O NIF de empresa também com nome, e não só como objecto.
         //
         // O ecrã de empresas do super admin guarda as regras numa PROPRIEDADE

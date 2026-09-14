@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Invoicing;
 
 use App\Http\Controllers\Controller;
 use App\Services\Invoicing\EmissorDeCompras;
+use App\Services\Invoicing\SeloDaAgt;
 use App\Services\Invoicing\TiposDeDocumento;
 use App\Traits\DocumentosPorAutor;
 use Illuminate\Http\JsonResponse;
@@ -860,44 +861,15 @@ class DocumentosApiController extends Controller
      * erro na AGT». Antes só as facturas o mostravam, e quem emitia uma nota
      * de crédito ficava sem saber se ela tinha sido aceite.
      *
-     * O selo distingue quatro coisas, e a quarta é a que evita o alarme falso:
-     * aceite, à espera, recusada — e NÃO COMUNICÁVEL, para a proforma, o
-     * orçamento e o adiantamento, que não são documentos fiscais e nunca são
-     * enviados. Sem essa distinção a coluna dizia «pendente de envio» numa
-     * proforma e mandava alguém procurar um envio que nunca vai existir.
+     * A regra vive no `SeloDaAgt`, e não aqui: a lista das facturas de venda
+     * tem Resource próprio e tinha uma regra sua, que lia a assinatura local
+     * e dava por comunicada uma factura que a AGT recusou.
      *
      * @return array{natureza: string, estado: ?string, rotulo: string, cor: string}
      */
     private function selo($d, array $def): array
     {
-        $natureza = $def['agt'] ?? 'nao-fiscal';
-        $estado = strtolower(trim((string) ($d->agt_status ?? '')));
-
-        if ($natureza === 'nao-fiscal') {
-            return ['natureza' => $natureza, 'estado' => null,
-                'rotulo' => __('Não comunicável à AGT'), 'cor' => 'neutra'];
-        }
-
-        // Quem comunica uma factura de compra é o fornecedor que a emitiu.
-        if ($natureza === 'fornecedor') {
-            return ['natureza' => $natureza, 'estado' => null,
-                'rotulo' => __('Responsabilidade do fornecedor'), 'cor' => 'neutra'];
-        }
-
-        // Um rascunho ainda não foi emitido: não há envio nenhum por fazer.
-        if (($d->status ?? null) === 'draft') {
-            return ['natureza' => $natureza, 'estado' => null,
-                'rotulo' => __('Ainda não emitida'), 'cor' => 'neutra'];
-        }
-
-        [$rotulo, $cor] = match ($estado) {
-            'validated', 'accepted', 'approved', 'success' => [__('Emitida no Portal AGT'), 'bom'],
-            'submitted', 'processing', 'sent' => [__('Enviada — aguarda AGT'), 'primaria'],
-            'rejected', 'failed', 'error' => [__('Falhou — reenviar à AGT'), 'perigo'],
-            default => [__('Pendente de envio à AGT'), 'aviso'],
-        };
-
-        return ['natureza' => $natureza, 'estado' => $estado ?: null, 'rotulo' => $rotulo, 'cor' => $cor];
+        return SeloDaAgt::de($d, $def['agt'] ?? 'nao-fiscal');
     }
 
     private function rotuloDoEstado(?string $estado): string

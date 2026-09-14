@@ -10,7 +10,10 @@ use App\Models\SoftwareSetting;
 use App\Models\Tenant;
 use App\Services\AGT\AGTClient;
 use App\Services\AGT\AGTProducerStore;
+use App\Services\AGT\GestaoAgt;
+use App\Services\AGT\RecusaComDetalhes;
 use App\Services\Plataforma\FicheiroDeAmbiente;
+use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -170,18 +173,41 @@ class SoftwareApiController extends Controller
         ]);
     }
 
+    /**
+     * O SUPER ADMIN TROCA O AMBIENTE PELA MESMA PORTA QUE A EMPRESA.
+     *
+     * Escrevia `agt_environment` directamente: saltava a prontidão de produção
+     * e a confirmação — e era, das duas portas, a de quem mexe em muitas
+     * empresas de seguida. Passa pelo GestaoAgt::activarAmbiente(), com as
+     * mesmas guardas, o mesmo `confirmar` e o mesmo rasto na trilha da empresa.
+     */
     public function aplicarAmbiente(Request $request): JsonResponse
     {
         $d = $request->validate([
             'empresa' => ['required', 'integer', 'exists:tenants,id'],
             'ambiente' => ['required', 'in:sandbox,production'],
+            'confirmar' => ['nullable', 'boolean'],
         ]);
 
-        InvoicingSettings::firstOrCreate(['tenant_id' => $d['empresa']], ['default_currency' => 'AOA'])
-            ->update(['agt_environment' => $d['ambiente']]);
+        $gestao = new GestaoAgt((int) $d['empresa']);
+        $confirmar = filter_var($request->input('confirmar'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) === true;
+
+        try {
+            $r = $gestao->activarAmbiente($d['ambiente'], $confirmar);
+        } catch (DomainException $e) {
+            return response()->json(
+                ['message' => $e->getMessage()] + ($e instanceof RecusaComDetalhes ? $e->detalhes : []),
+                422
+            );
+        }
 
         return response()->json([
-            'message' => __('Ambiente AGT da empresa passou a :ambiente.', ['ambiente' => $this->rotulo($d['ambiente'])]),
+            'message' => $r['tipo'] === 'info'
+                ? $r['mensagem']
+                : __('Ambiente AGT da empresa passou a :ambiente.', ['ambiente' => $this->rotulo($d['ambiente'])]),
+            'tipo' => $r['tipo'],
+            'ambiente_activo' => $gestao->ambienteActivo(),
+            'pendentes_por_ambiente' => $r['pendentes_por_ambiente'],
         ]);
     }
 

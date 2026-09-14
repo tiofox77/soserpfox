@@ -58,14 +58,19 @@ class AGTCallbackController extends Controller
         // Localizar submissão pelo requestID (guardado em agt_reference)
         $submission = AGTSubmission::where('agt_reference', $requestID)->first();
 
+        /*
+         * A MESMA RESPOSTA, EXISTA OU NÃO O requestID.
+         *
+         * Respondia 200 «requestID não encontrado» a um e 202 «registado» ao
+         * outro: a porta é pública, e bastava ir tentando números para saber
+         * quais são pedidos verdadeiros deste sistema. A diferença fica no log.
+         */
         if (!$submission) {
             Log::warning('AGT Callback: submissão não encontrada', [
                 'requestID' => $requestID,
             ]);
-            return response()->json([
-                'status' => 'received',
-                'message' => 'requestID não encontrado no sistema',
-            ], 200);
+
+            return $this->recebido();
         }
 
         /*
@@ -84,6 +89,11 @@ class AGTCallbackController extends Controller
             'requestID' => $requestID, 'submission' => $submission->id, 'resultCode' => $resultCode,
         ]);
 
+        return $this->recebido();
+    }
+
+    private function recebido(): JsonResponse
+    {
         return response()->json([
             'status' => 'received',
             'message' => 'Callback registado',

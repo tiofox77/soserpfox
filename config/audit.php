@@ -354,6 +354,11 @@ return [
     |   impressao                               documento que saiu em papel
     |   manutencao.comando                      comando corrido por HTTP na produção
     |   agt.*                                   comunicação ao Estado
+    |     agt.ambiente.activado                   trocou o ambiente que emite (de, para, pendentes)
+    |     agt.chaves.guardadas / .removidas       par RSA do contribuinte (sha256 da PÚBLICA)
+    |     agt.chave_legado.guardada / .removida   chave do modo antigo (sha256 da pública derivada)
+    |     agt.series.sincronizadas                registo de séries na AGT (série a série)
+    |     agt.submissao.reposta                   «Repor e reenviar» (contador e erro de antes)
     |   agente.*                                decisões do agente externo
     |
     | ⚠️ Os metadados de um acto NÃO passam pela lista `redacted` abaixo — essa
