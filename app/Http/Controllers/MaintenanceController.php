@@ -129,6 +129,9 @@ class MaintenanceController extends Controller
         // clientes). SÓ MOSTRA por omissão; grava apenas com --aplicar, e
         // nunca toca em documentos emitidos.
         'acentos:corrigir',
+        // Só lê: os movimentos de transferência/ajuste sem lote que a lista
+        // das transferências juntava numa «transferência» gigante.
+        'stock:movimentos-sem-lote',
         'clientes:importar',
         // Exporta os produtos de um tenant para JSON (só lê) — para gerar uma
         // lista de preços em PDF fora do sistema.
