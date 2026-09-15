@@ -18,6 +18,7 @@ import { ACCAO_DA_FAIXA, Faixa, type TomDaFaixa } from './faixa';
 import { Dado, JanelaDoExtrato, Seccao } from './ExtratoDaParte';
 import { FichaDaViatura } from '../oficina/FichaDaViatura';
 import { CabecaDaViatura } from '../oficina/CabecaDaViatura';
+import { ChapaDaMatricula } from '../oficina/ChapaDaMatricula';
 import { FotografiasDaViatura, type ListasDasFotos, type LoteParaSubir } from '../oficina/FotografiasDaViatura';
 import { fotografiasDaViatura } from '@/api/oficina';
 import { avisar } from '@/casca/avisos';
@@ -1048,6 +1049,8 @@ function Celula({ c, l }: { c: Coluna; l: Linha }) {
     const v = l[c.chave];
 
     switch (c.formato) {
+        case 'matricula':
+            return v ? <ChapaDaMatricula matricula={String(v)} tamanho="pequeno" /> : <span className="text-slate-300">—</span>;
         case 'escolha': {
             const cor = (c.opcoes ?? []).find((op) => op.valor === String(v ?? ''))?.cor;
 

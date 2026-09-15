@@ -1697,7 +1697,8 @@ final class Catalogos
             'pesquisa_ajuda' => 'Matrícula, nº, dono, marca, modelo ou chassis',
             'ordem' => [['created_at', 'desc']],
             'colunas' => [
-                ['chave' => 'plate', 'rotulo' => 'Matrícula', 'formato' => 'texto'],
+                // A chapa pequena, como a matrícula nova de Angola.
+                ['chave' => 'plate', 'rotulo' => 'Matrícula', 'formato' => 'matricula'],
                 ['chave' => 'vehicle_number', 'rotulo' => 'Nº', 'formato' => 'texto'],
                 ['chave' => 'owner_name', 'rotulo' => 'Proprietário', 'formato' => 'texto'],
                 ['chave' => 'brand', 'rotulo' => 'Marca', 'formato' => 'texto'],

@@ -2,6 +2,8 @@ import type { OpcoesDoCatalogo } from '@/api/catalogos';
 import { t, tn } from '@/i18n';
 import { RAIO_GRANDE, TRANSICAO, cls } from '@/ui/tokens';
 
+import { ChapaDaMatricula } from './ChapaDaMatricula';
+
 /**
  * O CARTÃO VIVO DA VIATURA — por cima do formulário de adicionar e editar.
  *
@@ -58,14 +60,7 @@ export function CabecaDaViatura({ valores, o, fotos = 0 }: { valores: Record<str
 
             <div className="relative flex flex-wrap items-center gap-4">
                 {/* A CHAPA DA MATRÍCULA */}
-                <div className={cls('flex items-stretch overflow-hidden rounded-md border-2 border-slate-900 bg-white text-slate-900 shadow-md', TRANSICAO, matricula ? 'scale-100' : 'opacity-70')}>
-                    <span className="flex w-6 flex-col items-center justify-center bg-blue-700 text-[8px] font-bold leading-none text-white">
-                        <span>ANG</span>
-                    </span>
-                    <span className="min-w-[8.5rem] px-3 py-1.5 text-center font-mono text-lg font-black tracking-[0.18em] sm:text-xl">
-                        {matricula || 'LD-00-00-XX'}
-                    </span>
-                </div>
+                <ChapaDaMatricula matricula={matricula} />
 
                 <div className="min-w-0 flex-1 basis-[15rem]">
                     <p className="flex flex-wrap items-center gap-x-2 break-words text-lg font-bold leading-tight">

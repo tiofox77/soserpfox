@@ -74,7 +74,9 @@ export type Coluna = {
     formato: 'texto' | 'escolha' | 'booleano' | 'numero' | 'percentagem' | 'cor' | 'icone' | 'padrao' | 'dinheiro'
         // `referencia` mostra o NOME que vem no `rotulos`, e não o id: faltava
         // aqui e na célula, e a coluna «Banco» das contas bancárias escrevia «7».
-        | 'referencia' | 'hora' | 'dias' | 'data' | 'validade' | 'multi' | 'etiquetas';
+        | 'referencia' | 'hora' | 'dias' | 'data' | 'validade' | 'multi' | 'etiquetas'
+        // A chapa da matrícula de Angola (as viaturas).
+        | 'matricula';
     alinhar?: 'direita';
     /** Nas colunas `multi` os rótulos das chaves; nas `rapido`, a lista que muda o valor na tabela. */
     opcoes?: Escolha[];

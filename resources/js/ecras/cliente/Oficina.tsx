@@ -8,6 +8,7 @@ import { Etiqueta } from '@/ui/Etiqueta';
 import { SemNada, cascata } from '@/ui/SemNada';
 import { CARTAO, FOCO, RAIO, TRANSICAO, cls, data, dataHora } from '@/ui/tokens';
 
+import { ChapaDaMatricula } from '../oficina/ChapaDaMatricula';
 import { Cabecalho, Numero, kwanzas } from './comum';
 
 /**
@@ -59,7 +60,7 @@ export default function Oficina() {
                                         <i className="fas fa-car icon-float" aria-hidden="true" />
                                     </span>
                                     <div className="min-w-0 flex-1 basis-40">
-                                        <p className="font-mono text-lg font-bold text-gray-900">{v.matricula}</p>
+                                        <ChapaDaMatricula matricula={v.matricula} className="mb-1.5" />
                                         <p className="truncate text-sm text-gray-600">{[v.viatura, v.ano, v.cor].filter(Boolean).join(' · ')}</p>
                                         {v.km > 0 && <p className="text-xs text-gray-500">{t(':km km', { km: v.km.toLocaleString() })}</p>}
                                     </div>
