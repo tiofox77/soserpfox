@@ -604,6 +604,11 @@
         },
         {
             "tag": "a",
+            "href": "/workshop/vehicle-statuses",
+            "texto": "Estados de Viatura"
+        },
+        {
+            "tag": "a",
             "href": "/workshop/mechanics",
             "texto": "Mecânicos"
         },

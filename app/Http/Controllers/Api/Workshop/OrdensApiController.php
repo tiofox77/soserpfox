@@ -54,8 +54,9 @@ class OrdensApiController extends Controller
             'estados' => self::escolhas(OrdensDeServico::ESTADOS),
             'prioridades' => self::escolhas(OrdensDeServico::PRIORIDADES),
             'categorias_de_anexo' => self::escolhas(OrdensDeServico::CATEGORIAS_DE_ANEXO),
+            // As viaturas num estado que pode receber ordens (catálogo Estados de Viatura).
             'viaturas' => Vehicle::where('tenant_id', $tenantId)
-                ->where('status', 'active')->orderBy('plate')
+                ->whereIn('status', \App\Models\Workshop\VehicleStatus::aceitamOrdens($tenantId))->orderBy('plate')
                 ->get(['id', 'plate', 'brand', 'model', 'owner_name', 'mileage'])
                 ->map(fn (Vehicle $v) => [
                     'valor' => (string) $v->id,

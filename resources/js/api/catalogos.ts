@@ -9,7 +9,8 @@ import { api, type Pagina } from './cliente';
  * desenha-o.
  */
 
-export type Escolha = { valor: string; rotulo: string };
+/** `cor`: só nas escolhas que a têm (os estados de viatura) — pinta a etiqueta. */
+export type Escolha = { valor: string; rotulo: string; cor?: string };
 
 /** Um grupo da galeria de ícones — «Dinheiro», «Comida e bebida». */
 export type GrupoDeIcones = {
@@ -67,8 +68,10 @@ export type Coluna = {
         // aqui e na célula, e a coluna «Banco» das contas bancárias escrevia «7».
         | 'referencia' | 'hora' | 'dias' | 'data' | 'validade' | 'multi' | 'etiquetas';
     alinhar?: 'direita';
-    /** Só nas colunas `multi`: os rótulos das chaves gravadas. */
+    /** Nas colunas `multi` os rótulos das chaves; nas `rapido`, a lista que muda o valor na tabela. */
     opcoes?: Escolha[];
+    /** Muda-se na própria tabela, sem abrir a ficha (o estado da viatura). */
+    rapido?: boolean;
 };
 
 export type Filtro = {
@@ -176,6 +179,10 @@ export const catalogos = {
         api.guardar<{ data: Linha; message: string }>(`/catalogos/${tipo}/${id}`, dados),
 
     apagar: (tipo: string, id: number) => api.apagar<{ message: string }>(`/catalogos/${tipo}/${id}`),
+
+    /** Mudar um valor na própria tabela — só nas colunas `rapido`. */
+    campo: (tipo: string, id: number, chave: string, valor: string) =>
+        api.criar<{ data: Linha; message: string }>(`/catalogos/${tipo}/${id}/campo`, { chave, valor }),
 
     accao: (tipo: string, id: number, accao: 'activar' | 'padrao') =>
         api.criar<{ data: Linha; message: string }>(`/catalogos/${tipo}/${id}/${accao}`, {}),

@@ -100,6 +100,7 @@ final class Catalogos
              */
             'mecanicos' => self::mecanicos(),
             'viaturas' => self::viaturas(),
+            'estados-de-viatura' => self::estadosDeViatura(),
             'servicos' => self::servicos(),
 
             /*
@@ -1701,15 +1702,21 @@ final class Catalogos
                 ['chave' => 'registration_expiry', 'rotulo' => 'Livrete', 'formato' => 'validade'],
                 ['chave' => 'insurance_expiry', 'rotulo' => 'Seguro', 'formato' => 'validade'],
                 ['chave' => 'inspection_expiry', 'rotulo' => 'Inspecção', 'formato' => 'validade'],
-                ['chave' => 'status', 'rotulo' => 'Estado', 'formato' => 'escolha'],
+                /*
+                 * O ESTADO MUDA-SE NA PRÓPRIA TABELA (`rapido`) — pedido de 15/09/2026:
+                 * abrir a ficha inteira para passar de «Em serviço» a «Pronta
+                 * para entrega» era trabalho a mais para a mudança mais frequente.
+                 */
+                ['chave' => 'status', 'rotulo' => 'Estado', 'formato' => 'escolha', 'rapido' => true],
             ],
             'filtros' => [
-                ['chave' => 'status', 'rotulo' => 'Estado', 'opcoes' => self::ESTADOS_DE_VIATURA],
+                ['chave' => 'status', 'rotulo' => 'Estado', 'referencia' => 'estados'],
                 ['chave' => 'fuel_type', 'rotulo' => 'Combustível', 'opcoes' => self::COMBUSTIVEIS],
             ],
             'campos' => [
                 self::campo('plate', 'Matrícula', 'texto', obrigatorio: true, ajuda: 'Única nesta empresa.'),
-                self::campo('status', 'Estado', 'escolha', obrigatorio: true, omissao: 'active', opcoes: self::ESTADOS_DE_VIATURA),
+                // Os estados são um catálogo de cada oficina (Estados de Viatura).
+                self::campo('status', 'Estado', 'escolha', obrigatorio: true, omissao: 'active', referencia: 'estados'),
                 /*
                  * O DONO PODE SER UM CLIENTE DA FACTURAÇÃO — e é o que liga a
                  * ordem de serviço à factura. Escolhê-lo aqui não substitui os
@@ -1760,14 +1767,24 @@ final class Catalogos
                 'insurance_policy' => 'nullable|string|max:100',
                 'insurance_expiry' => 'nullable|date',
                 'inspection_expiry' => 'nullable|date',
-                'status' => 'required|in:active,in_service,completed,inactive',
+                'status' => 'required|string|max:40',
                 'notes' => 'nullable|string|max:2000',
             ],
             'validar' => self::tudoIsto([
                 // A MATRÍCULA É ÚNICA POR EMPRESA — a regra do ecrã de sempre.
                 self::codigoUnico(\App\Models\Workshop\Vehicle::class, 'Esta matrícula já está registada.', 'plate'),
                 self::daCasa('client_id', \App\Models\Client::class, 'Esse cliente não é desta empresa.'),
+                // O estado tem de ser um dos desta oficina.
+                function (array $d, ?Model $m, int $tenantId) {
+                    // Gravar antes de alguém ter aberto a lista também tem os estados padrão.
+                    \App\Models\Workshop\VehicleStatus::garantirCatalogo($tenantId);
+
+                    return collect(\App\Models\Workshop\VehicleStatus::todosDe($tenantId))->contains('valor', (string) ($d['status'] ?? ''))
+                        ? [] : ['status' => __('Esse estado não existe nesta oficina.')];
+                },
             ]),
+            // Uma oficina sem estados recebe os padrões à primeira vista.
+            'antes' => fn (int $tenantId) => \App\Models\Workshop\VehicleStatus::garantirCatalogo($tenantId),
             'preparar' => fn (array $d) => array_merge($d, [
                 // A matrícula lê-se sempre igual: sem espaços à volta e em
                 // maiúsculas, senão «LD-42-11-AA» e «ld-42-11-aa» são duas.
@@ -1783,6 +1800,7 @@ final class Catalogos
                 'clientes' => \App\Models\Client::withoutGlobalScopes()
                     ->where('tenant_id', $t)->orderBy('name')
                     ->get(['id', 'name'])->map(fn ($c) => ['valor' => (string) $c->id, 'rotulo' => $c->name])->all(),
+                'estados' => \App\Models\Workshop\VehicleStatus::todosDe($t),
             ],
             /*
              * O NÚMERO INTERNO É GERADO, e de forma atómica: a coluna tem
@@ -1801,12 +1819,99 @@ final class Catalogos
         ];
     }
 
-    private const ESTADOS_DE_VIATURA = [
-        ['valor' => 'active', 'rotulo' => 'Activa'],
-        ['valor' => 'in_service', 'rotulo' => 'Em serviço'],
-        ['valor' => 'completed', 'rotulo' => 'Concluída'],
-        ['valor' => 'inactive', 'rotulo' => 'Inactiva'],
-    ];
+    /**
+     * OS ESTADOS DE VIATURA — cada oficina cria os seus (15/09/2026).
+     *
+     * Eram quatro fixos. Nascem oito padrões à primeira vista; o código de cada
+     * um nasce do nome e não muda, para as viaturas não perderem o estado quando
+     * ele é renomeado. «Pode receber ordens» decide se a viatura aparece ao
+     * abrir uma ordem de serviço nova.
+     */
+    private static function estadosDeViatura(): array
+    {
+        $modelo = \App\Models\Workshop\VehicleStatus::class;
+
+        return [
+            'modelo' => $modelo,
+            'titulo' => 'Estados de Viatura',
+            'singular' => 'Estado de viatura',
+            'icone' => 'fa-traffic-light',
+            'cor' => 'primaria',
+            'descricao' => 'Os estados que as viaturas da oficina podem ter',
+            'novo' => 'Novo Estado',
+            'rota' => '/workshop/vehicle-statuses',
+            'permissoes' => ['ver' => 'workshop.vehicles.view', 'criar' => 'workshop.vehicles.edit', 'editar' => 'workshop.vehicles.edit', 'apagar' => 'workshop.vehicles.edit'],
+            'pesquisa' => ['name', 'code'],
+            'pesquisa_ajuda' => 'Nome ou código',
+            'ordem' => [['sort_order', 'asc'], ['name', 'asc']],
+            'antes' => fn (int $tenantId) => $modelo::garantirCatalogo($tenantId),
+            // O código nasce no `preparar` e não é campo do formulário.
+            'extras' => ['code'],
+            'colunas' => [
+                ['chave' => 'name', 'rotulo' => 'Nome', 'formato' => 'texto'],
+                ['chave' => 'color', 'rotulo' => 'Cor', 'formato' => 'escolha'],
+                ['chave' => 'accepts_orders', 'rotulo' => 'Recebe ordens', 'formato' => 'booleano'],
+                ['chave' => 'is_default', 'rotulo' => 'Padrão', 'formato' => 'padrao'],
+                ['chave' => 'is_active', 'rotulo' => 'Activo', 'formato' => 'booleano'],
+            ],
+            'filtros' => [],
+            'campos' => [
+                self::campo('name', 'Nome', 'texto', obrigatorio: true, ajuda: 'Como aparece na lista das viaturas.'),
+                self::campo('color', 'Cor', 'escolha', obrigatorio: true, omissao: 'azul', opcoes: [
+                    ['valor' => 'verde', 'rotulo' => 'Verde'], ['valor' => 'azul', 'rotulo' => 'Azul'],
+                    ['valor' => 'ambar', 'rotulo' => 'Âmbar'], ['valor' => 'laranja', 'rotulo' => 'Laranja'],
+                    ['valor' => 'teal', 'rotulo' => 'Verde-azulado'], ['valor' => 'roxo', 'rotulo' => 'Roxo'],
+                    ['valor' => 'vermelho', 'rotulo' => 'Vermelho'], ['valor' => 'cinza', 'rotulo' => 'Cinzento'],
+                ]),
+                self::campo('accepts_orders', 'Pode receber ordens de serviço', 'booleano', omissao: true,
+                    ajuda: 'Desligado, a viatura não aparece ao abrir uma ordem nova (ex.: abatida ou vendida).'),
+                self::campo('is_default', 'Estado das viaturas novas', 'booleano', omissao: false),
+                self::campo('is_active', 'Activo', 'booleano', omissao: true),
+            ],
+            'regras' => [
+                'name' => 'required|string|max:80',
+                'color' => 'required|in:' . implode(',', $modelo::CORES),
+                'accepts_orders' => 'boolean',
+                'is_default' => 'boolean',
+                'is_active' => 'boolean',
+            ],
+            'validar' => function (array $d, ?Model $m, int $tenantId) use ($modelo) {
+                $repetido = $modelo::withoutGlobalScopes()->where('tenant_id', $tenantId)->where('name', $d['name'])
+                    ->when($m, fn ($q) => $q->whereKeyNot($m->id))->exists();
+
+                return $repetido ? ['name' => __('Já existe um estado com esse nome.')] : [];
+            },
+            'preparar' => function (array $d, ?Model $m, int $tenantId) use ($modelo) {
+                $d['accepts_orders'] = (bool) ($d['accepts_orders'] ?? true);
+                $d['is_default'] = (bool) ($d['is_default'] ?? false);
+                $d['is_active'] = (bool) ($d['is_active'] ?? true);
+
+                if (! $m) {
+                    $d['code'] = $modelo::codigoPara($tenantId, (string) $d['name']);
+                    $d['sort_order'] = (int) $modelo::withoutGlobalScopes()->where('tenant_id', $tenantId)->max('sort_order') + 1;
+                }
+
+                return $d;
+            },
+            // Só um é o das viaturas novas.
+            'depois' => function (Model $m) use ($modelo) {
+                if ($m->is_default) {
+                    $modelo::withoutGlobalScopes()->where('tenant_id', $m->tenant_id)->whereKeyNot($m->id)->update(['is_default' => false]);
+                    $modelo::esquecer();
+                }
+            },
+            'padrao' => function (Model $m) use ($modelo) {
+                $modelo::withoutGlobalScopes()->where('tenant_id', $m->tenant_id)->update(['is_default' => false]);
+                $m->update(['is_default' => true]);
+            },
+            // UM ESTADO EM USO NÃO SE APAGA: as viaturas ficavam com um código que
+            // já não se lê. Desactiva-se, e deixa de aparecer para as novas.
+            'pode_apagar' => fn (Model $m) => ! $m->is_default
+                && ! \App\Models\Workshop\Vehicle::withoutGlobalScopes()->where('tenant_id', $m->tenant_id)->where('status', $m->code)->exists(),
+            'porque_nao_apaga' => 'Há viaturas neste estado (ou é o estado padrão). Desactive-o em vez de o apagar.',
+            'accoes' => ['activar' => true, 'padrao' => true, 'logotipo' => false, 'apagar' => true],
+        ];
+    }
 
     private const COMBUSTIVEIS = [
         ['valor' => 'Gasolina', 'rotulo' => 'Gasolina'],
@@ -3271,7 +3376,9 @@ final class Catalogos
             }
 
             if ($c['tipo'] === 'escolha') {
-                $linha['rotulos'][$c['chave']] = collect($c['opcoes'])->firstWhere('valor', (string) $valor)['rotulo'] ?? (string) $valor;
+                // As opções podem vir de uma referência (os estados de viatura de cada oficina).
+                $opcoes = isset($c['referencia']) ? ($referencias[$c['referencia']] ?? []) : ($c['opcoes'] ?? []);
+                $linha['rotulos'][$c['chave']] = collect($opcoes)->firstWhere('valor', (string) $valor)['rotulo'] ?? (string) $valor;
             } elseif ($c['tipo'] === 'referencia') {
                 $linha['rotulos'][$c['chave']] = collect($referencias[$c['referencia']] ?? [])->firstWhere('valor', (string) $valor)['rotulo'] ?? '';
             } elseif ($c['tipo'] === 'pais') {

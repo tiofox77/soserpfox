@@ -899,6 +899,9 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             ->where('tipo', '[a-z-]+')->whereNumber('id')->name('catalogos.atribuiveis');
         Route::post('/catalogos/{tipo}/{id}/atribuir', [\App\Http\Controllers\Api\Invoicing\CatalogoApiController::class, 'atribuir'])
             ->where('tipo', '[a-z-]+')->whereNumber('id')->name('catalogos.atribuir');
+        // Mudar um valor na própria tabela — só colunas `rapido` (o estado da viatura).
+        Route::post('/catalogos/{tipo}/{id}/campo', [\App\Http\Controllers\Api\Invoicing\CatalogoApiController::class, 'campo'])
+            ->where('tipo', '[a-z-]+')->whereNumber('id')->name('catalogos.campo');
         Route::post('/catalogos/{tipo}/{id}/{accao}', [\App\Http\Controllers\Api\Invoicing\CatalogoApiController::class, 'accao'])
             ->where('tipo', '[a-z-]+')->whereNumber('id')->where('accao', 'activar|padrao')->name('catalogos.accao');
 
@@ -3011,6 +3014,9 @@ Route::middleware(['auth', 'tenant.module:oficina'])->prefix('workshop')->name('
      */
     Route::middleware('permission:invoicing.clients.view')
         ->get('/clients', \App\Support\EcraReact::pagina('facturacao/clientes', 'Clientes'))->name('clients');
+    // Os estados que as viaturas podem ter — cada oficina cria os seus.
+    Route::middleware('permission:workshop.vehicles.view')
+        ->get('/vehicle-statuses', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Estados de Viatura', ['tipo' => 'estados-de-viatura']))->name('vehicle-statuses');
     Route::middleware('permission:workshop.vehicles.view')
         ->get('/vehicles', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Viaturas', ['tipo' => 'viaturas']))->name('vehicles');
     Route::middleware('permission:workshop.mechanics.view')

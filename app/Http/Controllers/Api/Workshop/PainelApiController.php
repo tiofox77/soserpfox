@@ -106,7 +106,8 @@ class PainelApiController extends Controller
             ] : null,
             'viaturas' => [
                 'total' => Vehicle::where('tenant_id', $tenantId)->count(),
-                'activas' => Vehicle::where('tenant_id', $tenantId)->where('status', 'active')->count(),
+                // «Activas» = num estado que pode receber ordens (catálogo Estados de Viatura).
+                'activas' => Vehicle::where('tenant_id', $tenantId)->whereIn('status', \App\Models\Workshop\VehicleStatus::aceitamOrdens($tenantId))->count(),
             ],
             'series' => [
                 'mensal' => $this->receitaPorMes($tenantId, $veDinheiro),
@@ -222,7 +223,7 @@ class PainelApiController extends Controller
         $limite = now()->addDays(30);
 
         return Vehicle::where('tenant_id', $tenantId)
-            ->where('status', 'active')
+            ->whereIn('status', \App\Models\Workshop\VehicleStatus::aceitamOrdens($tenantId))
             ->where(fn ($q) => $q
                 ->where('registration_expiry', '<=', $limite)
                 ->orWhere('insurance_expiry', '<=', $limite)

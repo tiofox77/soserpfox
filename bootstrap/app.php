@@ -21,6 +21,13 @@ return Application::configure(basePath: dirname(__DIR__))
         // nem chegar à sessão nem ao CSRF.
         $middleware->prepend(\App\Http\Middleware\SeparadorDeAntesDoReact::class);
 
+        // UM CLIENTE SEM SESSÃO VAI À ENTRADA DO PORTAL, e não à dos funcionários:
+        // o `/client/dashboard` mandava para `/login`, onde a senha do portal
+        // não serve e o cliente ficava sem perceber porquê.
+        $middleware->redirectGuestsTo(fn (\Illuminate\Http\Request $request) => $request->is('client', 'client/*')
+            ? route('client.login')
+            : route('login'));
+
         // Cabeçalhos de segurança em todas as respostas (HSTS, CSP, X-Frame,
         // nosniff, Referrer-Policy, Permissions-Policy; remove X-Powered-By).
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);

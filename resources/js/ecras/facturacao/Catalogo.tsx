@@ -152,6 +152,12 @@ function UmCatalogo({ tipo }: { tipo: string }) {
         onSuccess: (r) => { invalidar(); porRecado(r.message); },
     });
 
+    /* MUDAR NA TABELA — o estado da viatura sem abrir a ficha. */
+    const rapido = useMutation({
+        mutationFn: ({ l, chave, valor }: { l: Linha; chave: string; valor: string }) => catalogos.campo(tipo, l.id, chave, valor),
+        onSuccess: (r) => { invalidar(); porRecado(r.message); },
+    });
+
     const logotipo = useMutation({
         mutationFn: ({ l, ficheiro }: { l: Linha; ficheiro: File }) => catalogos.logotipo(tipo, l.id, ficheiro),
         onSuccess: (r) => { invalidar(); porRecado(r.message); },
@@ -446,7 +452,13 @@ function UmCatalogo({ tipo }: { tipo: string }) {
                                             {l.logo ? <img src={l.logo} alt="" className="h-8 w-8 rounded object-contain" /> : <span className="inline-block h-8 w-8 rounded bg-slate-100" aria-hidden="true" />}
                                         </td>
                                     )}
-                                    {o.colunas.map((c) => <td key={c.chave} className={cls('px-4 py-2', c.alinhar === 'direita' && 'text-right tabular-nums')}><Celula c={c} l={l} /></td>)}
+                                    {o.colunas.map((c) => (
+                                        <td key={c.chave} className={cls('px-4 py-2', c.alinhar === 'direita' && 'text-right tabular-nums')}>
+                                            {c.rapido && o.permissoes.pode_escrever
+                                                ? <EscolhaRapida c={c} l={l} aTrabalhar={rapido.isPending && rapido.variables?.l.id === l.id} aoMudar={(valor) => rapido.mutate({ l, chave: c.chave, valor })} />
+                                                : <Celula c={c} l={l} />}
+                                        </td>
+                                    ))}
                                     <td className="px-4 py-2 text-right">
                                         <span className="flex justify-end gap-1">
                                             {/* VER A FICHA — só onde há uma para ver, e
@@ -938,14 +950,68 @@ function DataDaCelula({ valor, validade }: { valor: unknown; validade: boolean }
     );
 }
 
+/* ─── Mudar na tabela ─────────────────────────────────────────────── */
+
+/** As cores das escolhas que a têm (os estados de viatura), em classes que o Tailwind conhece. */
+const COR_DA_ESCOLHA: Record<string, string> = {
+    verde: 'bg-emerald-50 text-emerald-800 ring-emerald-200',
+    azul: 'bg-blue-50 text-blue-800 ring-blue-200',
+    ambar: 'bg-amber-50 text-amber-800 ring-amber-200',
+    laranja: 'bg-orange-50 text-orange-800 ring-orange-200',
+    teal: 'bg-teal-50 text-teal-800 ring-teal-200',
+    roxo: 'bg-purple-50 text-purple-800 ring-purple-200',
+    vermelho: 'bg-red-50 text-red-800 ring-red-200',
+    cinza: 'bg-slate-100 text-slate-700 ring-slate-200',
+};
+
+const PONTO_DA_ESCOLHA: Record<string, string> = {
+    verde: 'bg-emerald-500', azul: 'bg-blue-500', ambar: 'bg-amber-500', laranja: 'bg-orange-500',
+    teal: 'bg-teal-500', roxo: 'bg-purple-500', vermelho: 'bg-red-500', cinza: 'bg-slate-400',
+};
+
+/**
+ * UMA LISTA NA CÉLULA — o estado da viatura muda-se aqui (15/09/2026).
+ *
+ * Parece a etiqueta de sempre, com a cor do estado e uma seta; carregar abre a
+ * lista. Grava logo ao escolher, com o aviso no canto, e a linha volta a
+ * desenhar-se com o valor que o servidor gravou.
+ */
+function EscolhaRapida({ c, l, aTrabalhar, aoMudar }: { c: Coluna; l: Linha; aTrabalhar: boolean; aoMudar: (valor: string) => void }) {
+    const valor = l[c.chave] === null || l[c.chave] === undefined ? '' : String(l[c.chave]);
+    const actual = (c.opcoes ?? []).find((op) => op.valor === valor);
+    const cor = actual?.cor ?? 'cinza';
+
+    return (
+        <span className={cls('relative inline-flex items-center rounded-full ring-1 ring-inset transition-all duration-200 hover:shadow-sm', COR_DA_ESCOLHA[cor] ?? COR_DA_ESCOLHA.cinza)}>
+            <span aria-hidden="true" className={cls('pointer-events-none absolute left-2.5 h-1.5 w-1.5 rounded-full', aTrabalhar ? 'animate-ping' : '', PONTO_DA_ESCOLHA[cor] ?? PONTO_DA_ESCOLHA.cinza)} />
+            <select
+                value={valor}
+                disabled={aTrabalhar}
+                onChange={(e) => { if (e.target.value !== valor) aoMudar(e.target.value); }}
+                aria-label={t(':campo de :nome', { campo: c.rotulo, nome: String(l.plate ?? l.name ?? l.id) })}
+                className="cursor-pointer appearance-none rounded-full border-0 bg-transparent py-1 pl-6 pr-7 text-xs font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-wait"
+            >
+                {!actual && valor && <option value={valor}>{l.rotulos[c.chave] ?? valor}</option>}
+                {(c.opcoes ?? []).map((op) => <option key={op.valor} value={op.valor}>{op.rotulo}</option>)}
+            </select>
+            <i aria-hidden="true" className={cls('fas pointer-events-none absolute right-2.5 text-[10px]', aTrabalhar ? 'fa-spinner fa-spin' : 'fa-chevron-down')} />
+        </span>
+    );
+}
+
 /* ─── Uma célula, pelo formato da coluna ────────────────────────────── */
 
 function Celula({ c, l }: { c: Coluna; l: Linha }) {
     const v = l[c.chave];
 
     switch (c.formato) {
-        case 'escolha':
-            return <>{l.rotulos[c.chave] ?? (v === null || v === undefined ? '' : String(v))}</>;
+        case 'escolha': {
+            const cor = (c.opcoes ?? []).find((op) => op.valor === String(v ?? ''))?.cor;
+
+            return cor
+                ? <span className={cls('inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset', COR_DA_ESCOLHA[cor] ?? COR_DA_ESCOLHA.cinza)}>{l.rotulos[c.chave] ?? String(v ?? '')}</span>
+                : <>{l.rotulos[c.chave] ?? (v === null || v === undefined ? '' : String(v))}</>;
+        }
         /*
          * UMA REFERÊNCIA MOSTRA O NOME, não o id.
          *

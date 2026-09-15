@@ -71,7 +71,12 @@ class CatalogoApiController extends Controller
             'colunas' => array_map(function ($c) use ($def, $tenantId) {
                 $c['rotulo'] = __($c['rotulo']);
 
-                if (($c['formato'] ?? '') === 'multi' && ! isset($c['opcoes'])) {
+                /*
+                 * UMA COLUNA `multi` OU `rapido` LEVA AS OPÇÕES — uma para os
+                 * rótulos das chaves, a outra para a lista que muda o valor na
+                 * própria tabela (o estado da viatura).
+                 */
+                if (((($c['formato'] ?? '') === 'multi') || ! empty($c['rapido'])) && ! isset($c['opcoes'])) {
                     $campo = collect($def['campos'])->firstWhere('chave', $c['chave']);
 
                     if (isset($campo['opcoes'])) {
@@ -99,7 +104,7 @@ class CatalogoApiController extends Controller
                  * opções resolvidas aqui, o ecrã e a coluna da tabela tratam-na
                  * como qualquer outra lista fechada.
                  */
-                if (($c['tipo'] ?? '') === 'multi' && isset($c['referencia']) && ! isset($c['opcoes'])) {
+                if (in_array($c['tipo'] ?? '', ['multi', 'escolha'], true) && isset($c['referencia']) && ! isset($c['opcoes'])) {
                     $c['opcoes'] = $this->referencias($def, $tenantId)[$c['referencia']] ?? [];
                 }
 
@@ -296,6 +301,49 @@ class CatalogoApiController extends Controller
     }
 
     /** Activar/desactivar, ou tornar padrão — o que o esquema permitir. */
+    /**
+     * MUDAR UM VALOR NA PRÓPRIA TABELA — só nas colunas marcadas `rapido`.
+     *
+     * Pedido de 15/09/2026: o estado da viatura muda-se na lista, sem abrir a
+     * ficha. A permissão é a de editar o catálogo, e o valor tem de ser uma das
+     * opções dessa coluna (as desta empresa, quando vêm de uma referência): não
+     * é uma porta para escrever qualquer coisa em qualquer coluna.
+     */
+    public function campo(Request $request, string $tipo, int $id): JsonResponse
+    {
+        $def = $this->definicao($tipo);
+        $this->exigir($request, $def['permissoes']['editar']);
+        $this->soAPlataformaEscreveNoPartilhado($request, $def);
+
+        $dados = $request->validate([
+            'chave' => ['required', 'string', 'max:60'],
+            'valor' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $coluna = collect($def['colunas'])->firstWhere('chave', $dados['chave']);
+        abort_unless($coluna && ! empty($coluna['rapido']), 404);
+
+        $tenantId = activeTenantId();
+        $this->antes($def, $tenantId);
+
+        $campo = collect($def['campos'])->firstWhere('chave', $dados['chave']) ?? [];
+        $referencias = $this->referencias($def, $tenantId);
+        $opcoes = isset($campo['referencia']) ? ($referencias[$campo['referencia']] ?? []) : ($campo['opcoes'] ?? []);
+        $escolhida = collect($opcoes)->firstWhere('valor', (string) ($dados['valor'] ?? ''));
+
+        if (! $escolhida) {
+            throw ValidationException::withMessages(['valor' => [__('Esse valor não existe nesta lista.')]]);
+        }
+
+        $m = $this->encontrar($def, $tenantId, $id);
+        $m->update([$dados['chave'] => $escolhida['valor']]);
+
+        return response()->json([
+            'data' => Catalogos::linha($def, $m->fresh(), $this->referencias($def, $tenantId)),
+            'message' => __(':campo passou a «:valor».', ['campo' => __($coluna['rotulo']), 'valor' => $escolhida['rotulo']]),
+        ]);
+    }
+
     public function accao(Request $request, string $tipo, int $id, string $accao): JsonResponse
     {
         $def = $this->definicao($tipo);
@@ -745,7 +793,9 @@ class CatalogoApiController extends Controller
             $dados = ($def['preparar'])($dados, $existente, $tenantId);
         }
 
-        return array_intersect_key($dados, array_flip(array_merge($chaves, ['sort_order', 'saft_code', 'compound_tax', 'address', 'country', 'province', 'municipality', 'neighbourhood', 'city', 'postal_code'])));
+        // `extras`: as colunas que o `preparar` de um catálogo escreve sem serem campos
+        // do formulário (o código gerado de um estado de viatura).
+        return array_intersect_key($dados, array_flip(array_merge($chaves, ['sort_order', 'saft_code', 'compound_tax', 'address', 'country', 'province', 'municipality', 'neighbourhood', 'city', 'postal_code'], $def['extras'] ?? [])));
     }
 
     private function depois(array $def, Model $m): void
