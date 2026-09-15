@@ -227,6 +227,8 @@ return [
         \App\Models\Workshop\WorkOrderCheckin::class,
         \App\Models\Workshop\InspectionTemplate::class,
         \App\Models\Workshop\WorkOrderInspection::class,
+        \App\Models\Workshop\Bay::class,
+        \App\Models\Workshop\Appointment::class,
         \App\Models\Workshop\Mechanic::class,
         \App\Models\Workshop\Service::class,
 

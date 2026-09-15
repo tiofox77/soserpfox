@@ -102,6 +102,7 @@ final class Catalogos
             'viaturas' => self::viaturas(),
             'estados-de-viatura' => self::estadosDeViatura(),
             'modelos-de-inspeccao' => self::modelosDeInspeccao(),
+            'lugares-da-oficina' => self::lugaresDaOficina(),
             'servicos' => self::servicos(),
 
             /*
@@ -1870,6 +1871,72 @@ final class Catalogos
      * Os pontos escrevem-se um por linha, «Secção: ponto». Uma empresa que nunca
      * abriu a lista recebe a «Revisão geral» com 33 pontos.
      */
+    /**
+     * OS ELEVADORES E BAIAS (15/09/2026, OF-05) — os lugares da agenda.
+     */
+    private static function lugaresDaOficina(): array
+    {
+        $modelo = \App\Models\Workshop\Bay::class;
+        $cores = [
+            ['valor' => 'azul', 'rotulo' => 'Azul'], ['valor' => 'verde', 'rotulo' => 'Verde'], ['valor' => 'ambar', 'rotulo' => 'Âmbar'],
+            ['valor' => 'laranja', 'rotulo' => 'Laranja'], ['valor' => 'roxo', 'rotulo' => 'Roxo'], ['valor' => 'teal', 'rotulo' => 'Verde-azulado'],
+            ['valor' => 'vermelho', 'rotulo' => 'Vermelho'], ['valor' => 'cinza', 'rotulo' => 'Cinzento'],
+        ];
+
+        return [
+            'modelo' => $modelo,
+            'titulo' => 'Elevadores e Baias',
+            'singular' => 'Lugar',
+            'icone' => 'fa-warehouse',
+            'cor' => 'ciano',
+            'descricao' => 'Os lugares onde se trabalha nos carros — é por eles que a agenda mede a capacidade',
+            'novo' => 'Novo Lugar',
+            'rota' => '/workshop/bays',
+            'permissoes' => ['ver' => 'workshop.work-orders.view', 'criar' => 'workshop.work-orders.edit', 'editar' => 'workshop.work-orders.edit', 'apagar' => 'workshop.work-orders.edit'],
+            'pesquisa' => ['name'],
+            'pesquisa_ajuda' => 'Nome',
+            'ordem' => [['sort_order', 'asc'], ['name', 'asc']],
+            'antes' => fn (int $tenantId) => $modelo::garantirCatalogo($tenantId),
+            'colunas' => [
+                ['chave' => 'name', 'rotulo' => 'Nome', 'formato' => 'texto'],
+                ['chave' => 'kind', 'rotulo' => 'Tipo', 'formato' => 'escolha'],
+                ['chave' => 'color', 'rotulo' => 'Cor', 'formato' => 'escolha'],
+                ['chave' => 'sort_order', 'rotulo' => 'Ordem', 'formato' => 'numero', 'alinhar' => 'direita'],
+                ['chave' => 'is_active', 'rotulo' => 'Activo', 'formato' => 'booleano'],
+            ],
+            'filtros' => [],
+            'campos' => [
+                self::campo('name', 'Nome', 'texto', obrigatorio: true, ajuda: 'Ex.: Elevador 1, Cabine de pintura.'),
+                self::campo('kind', 'Tipo', 'escolha', obrigatorio: true, omissao: 'elevador', opcoes: collect($modelo::TIPOS)->map(fn ($r, $v) => ['valor' => $v, 'rotulo' => $r])->values()->all()),
+                self::campo('color', 'Cor na agenda', 'escolha', obrigatorio: true, omissao: 'azul', opcoes: $cores),
+                self::campo('sort_order', 'Ordem na agenda', 'numero', omissao: 0, passo: 1, min: 0),
+                self::campo('is_active', 'Activo', 'booleano', omissao: true),
+            ],
+            'regras' => [
+                'name' => 'required|string|max:80',
+                'kind' => 'required|in:' . implode(',', array_keys($modelo::TIPOS)),
+                'color' => 'required|in:' . implode(',', $modelo::CORES),
+                'sort_order' => 'nullable|integer|min:0|max:999',
+                'is_active' => 'boolean',
+            ],
+            'validar' => function (array $d, ?Model $m, int $tenantId) use ($modelo) {
+                $repetido = $modelo::withoutGlobalScopes()->where('tenant_id', $tenantId)->where('name', $d['name'] ?? '')
+                    ->when($m, fn ($q) => $q->whereKeyNot($m->id))->exists();
+
+                return $repetido ? ['name' => __('Já existe um lugar com esse nome.')] : [];
+            },
+            'preparar' => function (array $d) {
+                $d['sort_order'] = (int) ($d['sort_order'] ?? 0);
+                $d['is_active'] = (bool) ($d['is_active'] ?? true);
+
+                return $d;
+            },
+            // As marcações guardam o lugar como nulo se ele for apagado; desactivar é o caminho.
+            'pode_apagar' => fn (Model $m) => ! \App\Models\Workshop\Appointment::where('bay_id', $m->id)->whereIn('status', \App\Models\Workshop\Appointment::OCUPAM)->where('ends_at', '>', now())->exists(),
+            'accoes' => ['activar' => true, 'padrao' => false, 'logotipo' => false, 'apagar' => true],
+        ];
+    }
+
     private static function modelosDeInspeccao(): array
     {
         $modelo = \App\Models\Workshop\InspectionTemplate::class;

@@ -2033,6 +2033,18 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::delete('/{id}/inspeccoes/{inspeccao}/pontos/{ponto}/foto', [$n, 'tirarFoto'])->whereNumber('id')->whereNumber('inspeccao')->whereNumber('ponto')->name('inspeccoes.tirar-foto');
         });
 
+        // A agenda da oficina (OF-05): marcações por elevador/baia e mecânico.
+        Route::prefix('oficina/agenda')->name('oficina.agenda.')->group(function () {
+            $c = \App\Http\Controllers\Api\Workshop\AgendaDaOficinaApiController::class;
+
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'store'])->name('store');
+            Route::put('/{id}', [$c, 'update'])->whereNumber('id')->name('update');
+            Route::delete('/{id}', [$c, 'destroy'])->whereNumber('id')->name('destroy');
+            Route::post('/{id}/estado', [$c, 'estado'])->whereNumber('id')->name('estado');
+            Route::post('/{id}/chegou', [$c, 'chegou'])->whereNumber('id')->name('chegou');
+        });
+
         // As fotografias da viatura — antes, durante, depois e danos (bate-chapa, pintura…).
         Route::prefix('oficina/viaturas/{id}/fotografias')->whereNumber('id')->name('oficina.viaturas.fotografias.')->group(function () {
             $c = \App\Http\Controllers\Api\Workshop\FotografiasDaViaturaApiController::class;
@@ -3098,6 +3110,11 @@ Route::middleware(['auth', 'tenant.module:oficina'])->prefix('workshop')->name('
         ]))->name('parts');
     Route::middleware('permission:workshop.work-orders.view')
         ->get('/work-orders', \App\Support\EcraReact::pagina('oficina/ordens', 'Ordens de Serviço'))->name('work-orders');
+    // A agenda (OF-05) e os elevadores e baias onde se trabalha.
+    Route::middleware('permission:workshop.work-orders.view')
+        ->get('/schedule', \App\Support\EcraReact::pagina('oficina/agenda', 'Agenda da Oficina'))->name('schedule');
+    Route::middleware('permission:workshop.work-orders.view')
+        ->get('/bays', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Elevadores e Baias', ['tipo' => 'lugares-da-oficina']))->name('bays');
     // O quadro de trabalho (OF-04): as ordens em colunas por estado, arrastáveis.
     Route::middleware('permission:workshop.work-orders.view')
         ->get('/board', \App\Support\EcraReact::pagina('oficina/quadro', 'Quadro de Trabalho'))->name('board');

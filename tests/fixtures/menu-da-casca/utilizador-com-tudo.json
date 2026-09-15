@@ -609,6 +609,11 @@
         },
         {
             "tag": "a",
+            "href": "/workshop/bays",
+            "texto": "Elevadores e Baias"
+        },
+        {
+            "tag": "a",
             "href": "/workshop/inspection-templates",
             "texto": "Modelos de Inspecção"
         },
@@ -626,6 +631,11 @@
             "tag": "a",
             "href": "/workshop/parts",
             "texto": "Peças"
+        },
+        {
+            "tag": "a",
+            "href": "/workshop/schedule",
+            "texto": "Agenda"
         },
         {
             "tag": "a",

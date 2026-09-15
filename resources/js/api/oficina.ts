@@ -594,3 +594,64 @@ export const quadroDaOficina = {
     mecanico: (id: number, mecanicoId: string) =>
         api.criar<{ message: string }>(`/oficina/ordens/${id}/mecanico`, { mechanic_id: mecanicoId === '' ? null : Number(mecanicoId) }),
 };
+
+/* ─── A agenda da oficina (OF-05) ───────────────────────────────────── */
+
+export type MarcacaoDaAgenda = {
+    id: number;
+    /** `2026-09-16T09:00`, na hora local da oficina. */
+    inicio: string;
+    fim: string;
+    duracao: number;
+    estado: 'marcada' | 'confirmada' | 'chegou' | 'faltou' | 'cancelada';
+    estado_rotulo: string;
+    servico: string;
+    notas: string | null;
+    vehicle_id: number | null;
+    matricula: string | null;
+    viatura: string | null;
+    cliente: string | null;
+    telefone: string | null;
+    plate: string | null;
+    customer_name: string | null;
+    customer_phone: string | null;
+    bay_id: number | null;
+    lugar: string | null;
+    cor: string | null;
+    mechanic_id: number | null;
+    mecanico: string | null;
+    ordem_id: number | null;
+    ordem: string | null;
+};
+
+export type AgendaDaOficina = {
+    marcacoes: MarcacaoDaAgenda[];
+    lugares: Array<Escolha & { cor: string; tipo: string }>;
+    mecanicos: Escolha[];
+    estados: Escolha[];
+    horario: { abre: string; fecha: string };
+    pode_criar: boolean;
+    pode_editar: boolean;
+};
+
+export type MarcacaoParaGravar = {
+    vehicle_id: string;
+    plate: string;
+    customer_name: string;
+    customer_phone: string;
+    bay_id: string;
+    mechanic_id: string;
+    inicio: string;
+    duracao: string;
+    service: string;
+    notes: string;
+};
+
+export const agendaDaOficina = {
+    ler: (de: string, ate: string) => api.ler<AgendaDaOficina>('/oficina/agenda', { de, ate }),
+    criar: (d: MarcacaoParaGravar) => api.criar<{ data: MarcacaoDaAgenda; message: string }>('/oficina/agenda', d),
+    guardar: (id: number, d: MarcacaoParaGravar) => api.guardar<{ data: MarcacaoDaAgenda; message: string }>(`/oficina/agenda/${id}`, d),
+    estado: (id: number, estado: string) => api.criar<{ data: MarcacaoDaAgenda; message: string }>(`/oficina/agenda/${id}/estado`, { estado }),
+    chegou: (id: number) => api.criar<{ data: MarcacaoDaAgenda; ordem_id: number; message: string }>(`/oficina/agenda/${id}/chegou`, {}),
+    apagar: (id: number) => api.apagar<{ message: string }>(`/oficina/agenda/${id}`),
+};
