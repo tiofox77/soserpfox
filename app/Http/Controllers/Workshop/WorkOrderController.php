@@ -21,6 +21,8 @@ class WorkOrderController extends Controller
             'items.mechanic',
             // O check-in (OF-01): danos no desenho, combustível, acessórios e a assinatura.
             'checkin',
+            // O termo de entrega (OF-13): km à saída, o conferido e a assinatura de quem levantou.
+            'handover',
         ])
         ->where('tenant_id', activeTenantId())
         ->findOrFail($id);

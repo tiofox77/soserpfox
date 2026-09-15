@@ -33,6 +33,7 @@ import { TemposDaOrdem } from './TemposDaOrdem';
 import { GuardarComoPacote, JuntarPacote } from './PacoteNaOrdem';
 import { PecasEmFalta } from './PecasEmFalta';
 import { AdiarLinha, RecomendacoesDaViatura } from './RecomendacoesNaOrdem';
+import { EntregaDaViatura } from './EntregaDaViatura';
 import { AprovacaoDoCliente, SeloDaAprovacao } from './AprovacaoDoCliente';
 import { etiquetaIntl, t, tPartes } from '@/i18n';
 
@@ -626,6 +627,8 @@ export function FichaDaOrdemModal({ id, o, abaInicial = 'info', aoFechar, aoMuda
         // OF-06: o registo de tempos por tarefa.
         { chave: 'tempos', rotulo: t('Tempos'), icone: 'fa-stopwatch' },
         { chave: 'contas', rotulo: t('Contas'), icone: 'fa-calculator' },
+        // OF-13: o termo de entrega — km à saída, o conferido e a assinatura de quem levanta.
+        { chave: 'entrega', rotulo: t('Entrega'), icone: 'fa-handshake' },
         { chave: 'historico', rotulo: t('Histórico'), icone: 'fa-clock-rotate-left' },
         { chave: 'anexos', rotulo: t('Anexos'), icone: 'fa-paperclip' },
         { chave: 'factura', rotulo: t('Facturação'), icone: 'fa-file-invoice' },
@@ -727,6 +730,10 @@ export function FichaDaOrdemModal({ id, o, abaInicial = 'info', aoFechar, aoMuda
                         <Texto titulo={t('Trabalho realizado')} icone="fa-screwdriver-wrench" tom="verde" corpo={f.trabalho} />
                         <Texto titulo={t('Recomendações')} icone="fa-lightbulb" tom="ambar" corpo={f.recomendacoes} />
                         <Texto titulo={t('Notas')} icone="fa-note-sticky" tom="cinza" corpo={f.notas} />
+                    </div>
+
+                    <div hidden={aba !== 'entrega'}>
+                        {aba === 'entrega' && <EntregaDaViatura id={id} aoMudar={aoMudar} />}
                     </div>
 
                     <div hidden={aba !== 'checkin'}>

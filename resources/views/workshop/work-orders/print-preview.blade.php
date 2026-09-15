@@ -329,6 +329,31 @@
             </div>
             @endif
 
+            {{-- O TERMO DE ENTREGA (OF-13): como o carro saiu, o que se conferiu e quem o levantou. --}}
+            @if($workOrder->handover)
+            @php
+                $en = $workOrder->handover;
+                $conferir = \App\Models\Workshop\WorkOrderHandover::CHECKLIST;
+                $entregaValida = $en->signature && hash_equals((string) $en->signed_hash, $en->conteudoAssinado((float) $workOrder->total));
+            @endphp
+            <div class="info-section p-3 mt-3 page-break-avoid">
+                <h3 class="text-xs font-bold text-purple-700 mb-2 border-b border-purple-200 pb-1">TERMO DE ENTREGA</h3>
+                <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                    <div><span class="font-semibold text-gray-500">Km à saída:</span> {{ $en->mileage_out !== null ? number_format($en->mileage_out, 0, ',', '.') : '—' }} (entrada: {{ number_format((int) $workOrder->mileage_in, 0, ',', '.') }})</div>
+                    <div><span class="font-semibold text-gray-500">Combustível à saída:</span> {{ $en->fuel_level !== null ? $en->fuel_level . '/8' : '—' }}</div>
+                    <div class="col-span-2"><span class="font-semibold text-gray-500">Conferido com o cliente:</span>
+                        @foreach($conferir as $chave => $nome)
+                            <span class="whitespace-nowrap">{{ in_array($chave, $en->checklist ?? [], true) ? '☑' : '☐' }} {{ $nome }}</span>
+                        @endforeach
+                    </div>
+                    <div><span class="font-semibold text-gray-500">Levantada por:</span> {{ $en->received_by ?? '—' }}@if($en->received_by_document) · Doc. {{ $en->received_by_document }}@endif</div>
+                    @if($en->balance_due !== null)
+                    <div><span class="font-semibold text-gray-500">Em falta à entrega:</span> {{ number_format((float) $en->balance_due, 2, ',', '.') }} Kz</div>
+                    @endif
+                </div>
+            </div>
+            @endif
+
             {{-- Totais + Assinaturas (lado a lado) --}}
             <div class="grid grid-cols-2 gap-4 mt-3 page-break-avoid">
                 {{-- Totais --}}
@@ -370,9 +395,15 @@
                             @endif
                         </div>
                         <div class="text-center">
+                            @if(!empty($entregaValida))
+                                <img src="{{ $workOrder->handover->signature }}" alt="Assinatura" style="height: 38px; max-width: 150px; margin: 0 auto; object-fit: contain;">
+                            @endif
                             <div class="border-t-2 border-gray-800 mx-2 pt-1"></div>
                             <p class="font-bold text-xs">Cliente</p>
-                            <p class="text-xs text-gray-500">{{ $workOrder->vehicle->owner_name }}</p>
+                            <p class="text-xs text-gray-500">{{ !empty($entregaValida) ? $workOrder->handover->received_by : $workOrder->vehicle?->owner_name }}</p>
+                            @if(!empty($entregaValida))
+                                <p style="font-size: 9px; color: #64748b;">Levantou a viatura em {{ $workOrder->handover->signed_at?->format('d/m/Y H:i') }}</p>
+                            @endif
                         </div>
                     </div>
                 </div>

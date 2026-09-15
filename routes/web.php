@@ -2040,6 +2040,13 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::put('/{id}/tempos/{registo}', [$tp, 'corrigir'])->whereNumber('id')->whereNumber('registo')->name('tempos.corrigir');
             Route::delete('/{id}/tempos/{registo}', [$tp, 'destroy'])->whereNumber('id')->whereNumber('registo')->name('tempos.apagar');
 
+            // A entrega da viatura com assinatura (OF-13).
+            $en = \App\Http\Controllers\Api\Workshop\EntregaDaOrdemApiController::class;
+            Route::get('/{id}/entrega', [$en, 'show'])->whereNumber('id')->name('entrega.ver');
+            Route::put('/{id}/entrega', [$en, 'update'])->whereNumber('id')->name('entrega.gravar');
+            Route::post('/{id}/entrega/assinar', [$en, 'assinar'])->whereNumber('id')->name('entrega.assinar');
+            Route::delete('/{id}/entrega/assinatura', [$en, 'tirarAssinatura'])->whereNumber('id')->name('entrega.tirar-assinatura');
+
             // As recomendações adiadas da viatura (OF-12).
             $ra = \App\Http\Controllers\Api\Workshop\RecomendacoesAdiadasApiController::class;
             Route::get('/{id}/recomendacoes', [$ra, 'daOrdem'])->whereNumber('id')->name('recomendacoes.lista');

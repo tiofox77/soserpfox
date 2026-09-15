@@ -149,6 +149,12 @@ class WorkOrder extends Model
         return $this->hasOne(WorkOrderCheckin::class, 'work_order_id');
     }
 
+    /** OF-13: o termo de entrega — como o carro saiu e quem o levantou. */
+    public function handover()
+    {
+        return $this->hasOne(WorkOrderHandover::class, 'work_order_id');
+    }
+
     /** As inspecções digitais desta ordem (OF-02). */
     public function inspections()
     {

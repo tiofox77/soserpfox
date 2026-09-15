@@ -884,3 +884,45 @@ export const recomendacoesAdiadas = {
     descartar: (id: number, nota: string) => api.criar<{ message: string }>(`/oficina/recomendacoes/${id}/descartar`, { nota }),
     reabrir: (id: number) => api.criar<{ message: string }>(`/oficina/recomendacoes/${id}/reabrir`, {}),
 };
+
+/* ─── A entrega da viatura com assinatura (OF-13) ───────────────────── */
+
+export type EntregaParaGravar = {
+    km_saida: number | null;
+    combustivel: number | null;
+    conferido: string[];
+    nome: string;
+    documento: string;
+    notas: string;
+};
+
+export type RespostaDaEntrega = {
+    data: {
+        existe: boolean;
+        km_saida: number | null;
+        combustivel: number | null;
+        conferido: string[];
+        nome: string | null;
+        documento: string | null;
+        notas: string | null;
+        assinatura: string | null;
+        assinado_em: string | null;
+        falta_ao_assinar: number | null;
+        assinatura_valida: boolean;
+        registado_por: string | null;
+    };
+    entrada: { km: number; combustivel: number | null; chaves: number | null; objectos: string | null; em: string | null };
+    contas: { total: number; pago: number; falta: number; factura: { id: number; numero: string; estado_rotulo: string; morada: string } | null };
+    ordem: { estado: string; estado_rotulo: string; dono: string | null; entregue_em: string | null };
+    listas: { checklist: Escolha[] };
+    pode_editar: boolean;
+    message?: string;
+};
+
+export const entregaDaOrdem = {
+    ler: (id: number) => api.ler<RespostaDaEntrega>(`/oficina/ordens/${id}/entrega`),
+    gravar: (id: number, d: EntregaParaGravar) => api.guardar<RespostaDaEntrega>(`/oficina/ordens/${id}/entrega`, d),
+    assinar: (id: number, d: EntregaParaGravar & { assinatura: string; entregar: boolean }) =>
+        api.criar<RespostaDaEntrega>(`/oficina/ordens/${id}/entrega/assinar`, d),
+    tirarAssinatura: (id: number) => api.apagar<RespostaDaEntrega>(`/oficina/ordens/${id}/entrega/assinatura`),
+};
