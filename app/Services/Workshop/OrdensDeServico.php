@@ -106,6 +106,8 @@ final class OrdensDeServico
          * mudanças venham elas de onde vierem; este método é uma delas.
          */
         if ($falhas) {
+            AvisosDaOficina::estadoMudou($ordem, $novo);
+
             // Antes dizia sempre «Estoque baixado automaticamente», mesmo
             // quando a baixa rebentava por falta de stock e o erro só ia para
             // o log — quem estava no ecrã ficava a acreditar que tinha saído.
@@ -113,6 +115,9 @@ final class OrdensDeServico
                 'quais' => implode(' | ', $falhas),
             ]), $falhas];
         }
+
+        // OF-10: o cliente fica a saber (email/SMS pelo módulo Notificações, depois da resposta).
+        AvisosDaOficina::estadoMudou($ordem, $novo);
 
         $mensagem = match (true) {
             in_array($novo, ['completed', 'delivered'], true) => __('Estado alterado. Peças descontadas do stock.'),

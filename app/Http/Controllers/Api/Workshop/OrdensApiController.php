@@ -81,6 +81,8 @@ class OrdensApiController extends Controller
                     'preco' => (float) $s->labor_cost,
                     'horas' => (float) $s->estimated_hours,
                 ])->values(),
+            // OF-10: se o cliente é avisado por SMS/email quando a ordem muda (módulo Notificações).
+            'avisos_ao_cliente' => \App\Services\Workshop\AvisosDaOficina::activos($tenantId),
             'permissoes' => [
                 'pode_criar' => (bool) $request->user()?->can('workshop.work-orders.create'),
                 'pode_editar' => (bool) $request->user()?->can('workshop.work-orders.edit'),

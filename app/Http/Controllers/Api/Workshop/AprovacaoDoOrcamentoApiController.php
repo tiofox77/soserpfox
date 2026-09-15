@@ -63,6 +63,9 @@ class AprovacaoDoOrcamentoApiController extends Controller
 
         WorkOrderHistory::logAction($ordem->id, WorkOrderHistory::ACTION_COMMENT, __('Aprovação do orçamento pedida ao cliente.'));
 
+        // OF-10: com o módulo Notificações, o link segue por SMS/email.
+        \App\Services\Workshop\AvisosDaOficina::orcamento($ordem->fresh(), route('oficina.aprovar-orcamento', $ordem->approval_token));
+
         return response()->json(['data' => self::resumo($ordem->fresh()), 'message' => __('Link de aprovação pronto a enviar.')]);
     }
 

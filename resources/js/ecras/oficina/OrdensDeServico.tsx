@@ -685,6 +685,12 @@ export function FichaDaOrdemModal({ id, o, abaInicial = 'info', aoFechar, aoMuda
                                     </button>
                                 );
                             })}
+                            {/* OF-10: quem muda o estado sabe que o cliente vai receber a mensagem. */}
+                            <a href="/notifications/templates" className={cls('ml-auto inline-flex items-center gap-1.5 text-xs', o.avisos_ao_cliente ? 'text-emerald-700 hover:underline' : 'text-slate-400 hover:text-slate-600', FOCO, RAIO)}
+                                title={o.avisos_ao_cliente ? t('Os textos mudam-se em Notificações › Modelos') : t('Com o módulo Notificações e o SMS ou o email configurados, o cliente é avisado quando a viatura fica pronta.')}>
+                                <i className={cls('fas', o.avisos_ao_cliente ? 'fa-bell' : 'fa-bell-slash')} aria-hidden="true" />
+                                {o.avisos_ao_cliente ? t('O cliente é avisado por SMS/email') : t('Avisos ao cliente desligados')}
+                            </a>
                         </div>
                     )}
 

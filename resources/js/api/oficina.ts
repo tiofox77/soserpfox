@@ -118,6 +118,8 @@ export type OpcoesDasOrdens = {
     viaturas: ViaturaParaEscolher[];
     mecanicos: Escolha[];
     servicos: ServicoParaEscolher[];
+    /** OF-10: o cliente recebe SMS/email quando a ordem muda (módulo Notificações configurado). */
+    avisos_ao_cliente?: boolean;
     permissoes: {
         pode_criar: boolean;
         pode_editar: boolean;
