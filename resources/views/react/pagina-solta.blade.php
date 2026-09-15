@@ -31,5 +31,6 @@
     <x-ecra-react :nome="$ecra" :props="$props ?? []" class="min-h-screen" />
 
     @include('partials.react-pacote')
+    @include('partials.consentimento')
 </body>
 </html>

@@ -138,6 +138,9 @@ class MaintenanceController extends Controller
         // Só lê: uma empresa acabada de inscrever ficou completa? Dono, papéis,
         // subscrição, módulos e permissões, impostos, armazém, séries e erros.
         'empresa:diagnostico',
+        // Prazos de conservação dos dados pessoais (RGPD/LGPD/Lei 22/11).
+        // Simulação por omissão; só grava com ?args=--aplicar, e só por ordem.
+        'privacidade:reter',
         // Só lê: de onde vem cada número do cartão da empresa na plataforma
         // (relógios, última entrada por pessoa, documentos por tipo).
         'plataforma:sinais',

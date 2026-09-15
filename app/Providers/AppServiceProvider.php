@@ -90,6 +90,10 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->prepararSuiteEmParalelo();
 
+        // A regra de senha única (8 caracteres, letras e números) — ver
+        // App\Support\Seguranca\RegraDaSenha.
+        \Illuminate\Validation\Rules\Password::defaults(fn () => \App\Support\Seguranca\RegraDaSenha::regra());
+
         // Limites de chamadas da API do agente externo.
         //
         // A contagem é por TOKEN, não por IP: dois agentes atrás do mesmo

@@ -191,6 +191,11 @@ class RegistarEmpresa
     {
         $origem = session('registration_acquisition', []);
 
+        // O registo conta-se sempre (é o contrato a nascer); o IP, o browser e
+        // os identificadores das campanhas só com o consentimento de cada coisa.
+        $estatisticas = \App\Services\Privacidade\Consentimentos::permite('estatisticas');
+        $marketing = \App\Services\Privacidade\Consentimentos::permite('marketing');
+
         try {
             $evento = [
                 'visitor_id' => session('registration_visitor_id', (string) Str::uuid()),
@@ -205,21 +210,24 @@ class RegistarEmpresa
                 'utm_campaign' => $origem['utm_campaign'] ?? null,
                 'utm_term' => $origem['utm_term'] ?? null,
                 'utm_content' => $origem['utm_content'] ?? null,
-                'ip' => request()->ip(),
+                'ip' => $estatisticas ? \App\Support\Privacidade\Ip::anonimizar(request()->ip()) : null,
                 'user_id' => $user->id,
                 'meta' => [
                     'tenant_id' => $tenant->id,
                     'plan_id' => $plan->id,
                     'plan_slug' => $plan->slug,
                     'subscription_status' => $estado,
-                    'fbclid' => $origem['fbclid'] ?? null,
-                    'gclid' => $origem['gclid'] ?? null,
+                    'fbclid' => $marketing ? ($origem['fbclid'] ?? null) : null,
+                    'gclid' => $marketing ? ($origem['gclid'] ?? null) : null,
                 ],
-                'user_agent' => substr((string) request()->userAgent(), 0, 500),
+                'user_agent' => $estatisticas ? substr((string) request()->userAgent(), 0, 500) : null,
                 'created_at' => now(),
             ];
             if (Schema::hasColumn('analytics_events', 'tenant_id')) {
                 $evento['tenant_id'] = $tenant->id;
+            }
+            if (Schema::hasColumn('analytics_events', 'anonimo')) {
+                $evento['anonimo'] = ! $estatisticas;
             }
             AnalyticsEvent::create($evento);
         } catch (\Throwable $e) {

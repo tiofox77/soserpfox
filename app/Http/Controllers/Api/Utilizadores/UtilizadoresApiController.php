@@ -370,7 +370,7 @@ class UtilizadoresApiController extends Controller
         $dados = $request->validate([
             'name' => ['required', 'string', 'min:3', 'max:150'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($id)],
-            'password' => [$id ? 'nullable' : 'required', 'string', 'min:6', 'confirmed'],
+            'password' => [$id ? 'nullable' : 'required', 'string', 'confirmed', \App\Support\Seguranca\RegraDaSenha::regra()],
             'is_active' => ['boolean'],
             'empresas' => ['required', 'array', 'min:1'],
             'empresas.*' => ['integer'],

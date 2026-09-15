@@ -458,7 +458,7 @@ export default function ListaDeUtilizadores() {
                                 etiqueta={t('Palavra-passe')}
                                 obrigatorio={!aEditar}
                                 erro={erros.password}
-                                ajuda={aEditar ? t('Deixe em branco para não mudar.') : t('Mínimo 6 caracteres.')}
+                                ajuda={aEditar ? t('Deixe em branco para não mudar.') : t('Mínimo 8 caracteres, com letras e números.')}
                             >
                                 <input type="password" autoComplete="new-password" value={formulario.password}
                                     onChange={(e) => porFormulario({ ...formulario, password: e.target.value })}

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\AnalyticsEvent;
+use App\Services\Privacidade\Consentimentos;
+use App\Support\Privacidade\Ip;
 use Illuminate\Http\Request;
 
 class AnalyticsController extends Controller
@@ -23,7 +25,12 @@ class AnalyticsController extends Controller
             'utm_term' => 'nullable|string|max:100',
             'utm_content' => 'nullable|string|max:100',
             'language' => 'nullable|string|max:10',
-            'meta' => 'nullable|array',
+            // Com tecto: um `meta` sem limite deixava quem quisesse gravar
+            // megabytes por pedido numa rota pública.
+            'meta' => 'nullable|array|max:20',
+            'meta.*' => 'nullable|string|max:200',
+            // Sem consentimento de estatísticas o browser manda `anonimo`.
+            'anonimo' => 'nullable|boolean',
             // Termo pesquisado e tempo em página. Em colunas próprias e não
             // dentro do `meta`: um JSON não se agrupa, e "os mais pesquisados"
             // é precisamente um GROUP BY.
@@ -49,14 +56,40 @@ class AnalyticsController extends Controller
         $ua = $request->userAgent();
         $device = $this->detectDevice($ua);
 
+        /*
+         * QUEM NÃO ACEITOU ESTATÍSTICAS CONTA COMO VISITA, E MAIS NADA.
+         *
+         * RGPD e Directiva ePrivacy: um identificador guardado no aparelho, o IP
+         * e a cidade pedem consentimento. Sem ele a visita grava-se sem IP (logo
+         * sem cidade — a localização resolve-se a partir do IP), sem user agent,
+         * sem ligação à conta e sem o que vem depois do «?» do endereço. O país
+         * vem do cabeçalho do CDN e o aparelho é só a categoria. O browser e o
+         * servidor decidem cada um: basta um dos dois dizer que não há
+         * consentimento para a visita ser anónima.
+         *
+         * Com consentimento, o IP guarda-se TRUNCADO (x.x.x.0): a região resolve
+         * na mesma, e deixa de apontar para uma ligação concreta.
+         */
+        $anonimo = ! empty($data['anonimo']) || ! Consentimentos::permite('estatisticas', $request);
+        unset($data['anonimo']);
+
+        if ($anonimo) {
+            $data['url'] = isset($data['url']) ? strtok($data['url'], '?') : null;
+            $data['referrer'] = isset($data['referrer']) && $data['referrer'] !== ''
+                ? (parse_url($data['referrer'], PHP_URL_SCHEME) ?: 'https') . '://' . parse_url($data['referrer'], PHP_URL_HOST) . '/'
+                : null;
+            $data['meta'] = null;
+        }
+
         AnalyticsEvent::create(array_merge($data, [
-            'ip' => $request->ip(),
+            'ip' => $anonimo ? null : Ip::anonimizar($request->ip()),
             'country' => $this->detectCountry($request),
             'device_type' => $device['type'],
             'browser' => $device['browser'],
             'os' => $device['os'],
-            'user_id' => auth()->id(),
-            'user_agent' => substr($ua ?? '', 0, 500),
+            'user_id' => $anonimo ? null : auth()->id(),
+            'user_agent' => $anonimo ? null : substr($ua ?? '', 0, 500),
+            'anonimo' => $anonimo,
             'created_at' => now(),
         ]));
 

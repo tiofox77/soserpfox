@@ -89,10 +89,19 @@ export default function Convite(p: Props) {
                     <Formulario acao={p.acao} csrf={p.csrf} className="space-y-4">
                         {(aEnviar) => (
                             <>
-                                <CampoDeEntrada nome="password" tipo="password" rotulo={`${t('Criar Senha')} *`} icone="fa-lock" minimo={6}
-                                    erro={p.erros?.password} dica={t('Mínimo 6 caracteres')} autoComplete="new-password" focar />
-                                <CampoDeEntrada nome="password_confirmation" tipo="password" rotulo={`${t('Confirmar Senha')} *`} icone="fa-lock" minimo={6}
+                                <CampoDeEntrada nome="password" tipo="password" rotulo={`${t('Criar Senha')} *`} icone="fa-lock" minimo={8}
+                                    erro={p.erros?.password} dica={t('Mínimo 8 caracteres, com letras e números.')} autoComplete="new-password" focar />
+                                <CampoDeEntrada nome="password_confirmation" tipo="password" rotulo={`${t('Confirmar Senha')} *`} icone="fa-lock" minimo={8}
                                     dica={t('Digite a senha novamente')} autoComplete="new-password" />
+                                <p className="flex items-start gap-2 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-900">
+                                    <i className="fas fa-shield-halved mt-0.5 text-blue-500" aria-hidden="true" />
+                                    <span>
+                                        {t('Ao criar a conta aceita os')}{' '}
+                                        <a href="/termos" target="_blank" rel="noreferrer" className="font-semibold underline">{t('Termos de Serviço')}</a>{' '}
+                                        {t('e declara ter lido a')}{' '}
+                                        <a href="/privacidade" target="_blank" rel="noreferrer" className="font-semibold underline">{t('Política de Privacidade')}</a>.
+                                    </span>
+                                </p>
                                 <div className="pt-2">
                                     <BotaoDeEnviar aEnviar={aEnviar} icone="fa-check-circle">{t('Aceitar Convite e Criar Conta')}</BotaoDeEnviar>
                                 </div>

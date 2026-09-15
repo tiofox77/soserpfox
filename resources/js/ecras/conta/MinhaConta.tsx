@@ -17,6 +17,7 @@ import { PainelDoSeparador, Separadores } from '@/ui/Separadores';
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
 import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
+import { Privacidade } from './Privacidade';
 import { etiquetaIntl, t } from '@/i18n';
 
 /**
@@ -97,7 +98,7 @@ export default function MinhaConta() {
         const q = new URLSearchParams(window.location.search);
         const t = q.get('tab');
 
-        if (t && ['empresas', 'plano', 'facturas', 'perfil', 'seguranca'].includes(t)) porAba(t);
+        if (t && ['empresas', 'plano', 'facturas', 'perfil', 'seguranca', 'privacidade'].includes(t)) porAba(t);
         if (q.get('select')) porAba('plano');
     }, []);
 
@@ -217,6 +218,7 @@ export default function MinhaConta() {
         ] : []),
         { chave: 'perfil', rotulo: t('Perfil'), icone: 'fa-user-circle' },
         { chave: 'seguranca', rotulo: t('Segurança'), icone: 'fa-shield-halved' },
+        { chave: 'privacidade', rotulo: t('Privacidade'), icone: 'fa-user-shield' },
     ];
 
     /*
@@ -836,7 +838,7 @@ export default function MinhaConta() {
                             </Campo>
 
                             <Campo etiqueta={t('Senha nova')} obrigatorio erro={erros(mudarSenha.error).nova}
-                                ajuda={t('Pelo menos 8 caracteres, e diferente da actual.')}>
+                                ajuda={t('Mínimo 8 caracteres, com letras e números, e diferente da actual.')}>
                                 <input type="password" autoComplete="new-password" value={senha.nova}
                                     onChange={(e) => porSenha({ ...senha, nova: e.target.value })}
                                     className={entrada} />
@@ -870,6 +872,13 @@ export default function MinhaConta() {
                         </ul>
                     </div>
                 </div>
+            </PainelDoSeparador>
+
+            {/* ─── A privacidade (RGPD / LGPD / Lei 22/11) ────────────────
+                Só se monta quando se abre: são sessões, entradas e o
+                inventário, e ninguém os precisa para mudar o nome. */}
+            <PainelDoSeparador chave="privacidade" activa={activa}>
+                {activa === 'privacidade' && <Privacidade />}
             </PainelDoSeparador>
 
             {/* ─── A empresa ─────────────────────────────────────────── */}

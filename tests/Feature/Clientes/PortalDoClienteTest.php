@@ -168,13 +168,16 @@ class PortalDoClienteTest extends TenantTestCase
         auth()->logout();
         RateLimiter::clear('portal-cliente:'.strtolower($this->doPortal->email).'|127.0.0.1');
 
-        for ($i = 0; $i < 5; $i++) {
+        // A regra das três portas (TravaoDeEntradas): a quinta falha já fecha
+        // a porta — responde 429 — durante 10 minutos.
+        for ($i = 0; $i < 4; $i++) {
             $this->postJson('/client/login', ['email' => $this->doPortal->email, 'password' => 'errada'])->assertStatus(422);
         }
+        $this->postJson('/client/login', ['email' => $this->doPortal->email, 'password' => 'errada'])->assertStatus(429);
 
         // Nem a senha certa entra enquanto dura o travão.
         $this->postJson('/client/login', ['email' => $this->doPortal->email, 'password' => 'SenhaDoPortal1'])
-            ->assertStatus(422)
+            ->assertStatus(429)
             ->assertJsonPath('errors.email.0', fn ($m) => str_contains($m, 'Demasiadas tentativas'));
     }
 }

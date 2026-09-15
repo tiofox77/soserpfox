@@ -29,10 +29,14 @@ class ForgotPasswordController extends Controller
     /*
      * A MESMA RESPOSTA EXISTA OU NÃO A CONTA. «Não encontramos esse email»
      * dizia a quem perguntasse que emails têm conta no sistema.
+     *
+     * E o «Aguarde antes de tentar novamente» também: só aparecia a quem pedia
+     * duas vezes o link de um email QUE EXISTE (um inexistente nunca fica em
+     * espera) — era a mesma fuga por outra porta (auditoria de 2026-09-15).
      */
     protected function sendResetLinkFailedResponse(\Illuminate\Http\Request $request, $response)
     {
-        if ($response === \Illuminate\Support\Facades\Password::INVALID_USER) {
+        if (in_array($response, [\Illuminate\Support\Facades\Password::INVALID_USER, \Illuminate\Support\Facades\Password::RESET_THROTTLED], true)) {
             return $this->sendResetLinkResponse($request, \Illuminate\Support\Facades\Password::RESET_LINK_SENT);
         }
 

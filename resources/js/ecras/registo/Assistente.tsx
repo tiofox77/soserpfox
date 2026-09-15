@@ -88,7 +88,9 @@ export default function Assistente({ estado: inicial, regimes, conta, site, entr
     const temDireitoATeste = plano?.com_teste ?? false;
     const temPassoDePlano = !estado.plano_veio_do_link;
 
-    const corpo = () => ({ ...campos, ...senha, passo });
+    // `website` é a armadilha para robôs: um campo que nenhuma pessoa vê.
+    const armadilha = useRef<HTMLInputElement>(null);
+    const corpo = () => ({ ...campos, ...senha, passo, website: armadilha.current?.value ?? '' });
 
     // O que o servidor devolve passa a ser o estado — menos a palavra-passe,
     // que nunca sai do browser para a sessão.
@@ -204,6 +206,13 @@ export default function Assistente({ estado: inicial, regimes, conta, site, entr
 
                     <form onSubmit={submeter} noValidate className="p-5 sm:p-8">
                         <div key={passo} className="animate-fade-in">
+                            {/* A ARMADILHA PARA ROBÔS: fora do ecrã, fora do Tab e dos
+                                leitores de ecrã. Uma pessoa nunca a preenche. */}
+                            <div aria-hidden="true" className="pointer-events-none absolute -left-[9999px] top-0 h-px w-px overflow-hidden">
+                                <label htmlFor="registo-website">Website</label>
+                                <input ref={armadilha} id="registo-website" name="website" type="text" tabIndex={-1} autoComplete="off" defaultValue="" />
+                            </div>
+
                             {passo === 1 && (
                                 <Seccao titulo={t('Crie sua conta')} nota={t('Comece informando seus dados pessoais')}>
                                     <Entrada icone="fa-user" rotulo={t('Nome Completo')} obrigatorio erro={erros.name}>
@@ -213,7 +222,7 @@ export default function Assistente({ estado: inicial, regimes, conta, site, entr
                                         <input type="email" className={cls(CAMPO, 'focus:border-blue-500 focus:ring-blue-500', erros.email && 'border-red-500')} autoComplete="email" placeholder="joao@empresa.vip" value={campos.email} onChange={muda('email')} />
                                     </Entrada>
                                     <Entrada icone="fa-lock" rotulo={t('Senha')} obrigatorio erro={erros.password}>
-                                        <input type="password" className={cls(CAMPO, 'focus:border-blue-500 focus:ring-blue-500', erros.password && 'border-red-500')} autoComplete="new-password" placeholder={t('Mínimo 6 caracteres')}
+                                        <input type="password" className={cls(CAMPO, 'focus:border-blue-500 focus:ring-blue-500', erros.password && 'border-red-500')} autoComplete="new-password" placeholder={t('Mínimo 8 caracteres, com letras e números.')}
                                             value={senha.password} onChange={(e) => porSenha({ ...senha, password: e.target.value })} />
                                     </Entrada>
                                     <Entrada icone="fa-lock" rotulo={t('Confirmar Senha')} obrigatorio>
@@ -357,7 +366,12 @@ export default function Assistente({ estado: inicial, regimes, conta, site, entr
                                                 className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
                                             <span className="ml-3 text-sm text-gray-700">
                                                 {t('Concordo com os')} <a href="/termos" target="_blank" rel="noreferrer" className="font-semibold text-blue-600 hover:text-blue-800">{t('Termos de Serviço')}</a>{' '}
-                                                {t('e')} <a href="/privacidade" target="_blank" rel="noreferrer" className="font-semibold text-blue-600 hover:text-blue-800">{t('Política de Privacidade')}</a>
+                                                {t('e li a')} <a href="/privacidade" target="_blank" rel="noreferrer" className="font-semibold text-blue-600 hover:text-blue-800">{t('Política de Privacidade')}</a>
+                                                {' '}{t('— que dados guardamos (incluindo IP e morada), para quê e durante quanto tempo.')}
+                                                <span className="mt-1 block text-xs text-gray-500">
+                                                    <i className="fas fa-shield-halved mr-1 text-blue-500" aria-hidden="true" />
+                                                    {t('Pode ver, descarregar ou pedir o apagamento dos seus dados a qualquer momento em Minha conta → Privacidade.')}
+                                                </span>
                                             </span>
                                         </label>
                                         <Erro erro={erros.aceito_termos} />

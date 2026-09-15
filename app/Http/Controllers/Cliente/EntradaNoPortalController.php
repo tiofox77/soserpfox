@@ -3,11 +3,10 @@
 namespace App\Http\Controllers\Cliente;
 
 use App\Http\Controllers\Controller;
+use App\Support\Seguranca\TravaoDeEntradas;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -21,8 +20,6 @@ use Illuminate\Validation\ValidationException;
  */
 class EntradaNoPortalController extends Controller
 {
-    private const TENTATIVAS = 5;
-
     public function entrar(Request $request): JsonResponse
     {
         $dados = $request->validate([
@@ -31,12 +28,14 @@ class EntradaNoPortalController extends Controller
             'remember' => ['boolean'],
         ]);
 
-        $chave = 'portal-cliente:'.Str::lower($dados['email']).'|'.$request->ip();
+        // A regra das três portas: 5 falhas fecham 10 minutos, e 20 falhas do
+        // mesmo IP em quaisquer emails também (TravaoDeEntradas).
+        $travao = TravaoDeEntradas::para('portal-cliente');
 
-        if (RateLimiter::tooManyAttempts($chave, self::TENTATIVAS)) {
+        if ($segundos = $travao->bloqueadoPor($dados['email'], $request->ip())) {
             throw ValidationException::withMessages([
-                'email' => __('Demasiadas tentativas. Tente de novo dentro de :s segundos.', ['s' => RateLimiter::availableIn($chave)]),
-            ]);
+                'email' => TravaoDeEntradas::mensagemDeBloqueio($segundos),
+            ])->status(429);
         }
 
         $entrou = Auth::guard('client')->attempt([
@@ -47,14 +46,14 @@ class EntradaNoPortalController extends Controller
         ], (bool) ($dados['remember'] ?? false));
 
         if (! $entrou) {
-            RateLimiter::hit($chave, 60);
+            $restam = $travao->falhou($dados['email'], $request->ip());
 
             throw ValidationException::withMessages([
-                'email' => __('As credenciais fornecidas não correspondem aos nossos registros ou você não tem acesso ao portal.'),
-            ]);
+                'email' => TravaoDeEntradas::mensagemDeFalha($restam, __('As credenciais fornecidas não correspondem aos nossos registros ou você não tem acesso ao portal.')),
+            ])->status($restam === 0 ? 429 : 422);
         }
 
-        RateLimiter::clear($chave);
+        $travao->entrou($dados['email'], $request->ip());
         Auth::guard('client')->user()->update(['last_login_at' => now()]);
         $request->session()->regenerate();
 

@@ -28,7 +28,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // A barra lateral aberta ou encolhida: escrito pelo React no browser,
         // lido pelo layout para desenhar o lugar da barra com a largura certa.
         // Cifrado, o servidor não o conseguia ler — e não guarda nada sensível.
-        $middleware->encryptCookies(except: ['casca_aberta']);
+        // `sos_consentimento`: escrito e lido pelo JavaScript do aviso de cookies
+        // (App\Services\Privacidade\Consentimentos) — cifrado, o servidor não o lia.
+        $middleware->encryptCookies(except: ['casca_aberta', 'sos_consentimento']);
 
         // Que língua fala este pedido (utilizador → empresa → cookie → pt).
         // Em append e não prepend: precisa da sessão iniciada (auth) e dos

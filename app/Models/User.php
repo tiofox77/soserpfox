@@ -225,11 +225,11 @@ class User extends Authenticatable
             session(['active_tenant_id' => $tenantId]);
             setPermissionsTeamId($tenantId);
             
-            \Log::info("User {$this->id} ({$this->email}) switched to tenant {$tenantId}");
+            \Log::info("User {$this->id} switched to tenant {$tenantId}");
             return true;
         }
         
-        \Log::warning("User {$this->id} ({$this->email}) tried to switch to tenant {$tenantId} without permission");
+        \Log::warning("User {$this->id} tried to switch to tenant {$tenantId} without permission");
         return false;
     }
     
@@ -347,7 +347,7 @@ class User extends Authenticatable
         // Usar o método hasModule do Tenant que já valida is_active
         $hasModule = $activeTenant->hasModule($moduleSlug);
 
-        \Log::info("Check module '{$moduleSlug}' for user {$this->id} ({$this->email}), tenant {$activeTenant->id} (active: {$activeTenant->is_active}): " . ($hasModule ? 'YES' : 'NO'));
+        \Log::info("Check module '{$moduleSlug}' for user {$this->id}, tenant {$activeTenant->id} (active: {$activeTenant->is_active}): " . ($hasModule ? 'YES' : 'NO'));
 
         return $hasModule;
     }

@@ -78,7 +78,7 @@ class InvitationController extends Controller
         
         // Validar dados
         $validated = $request->validate([
-            'password' => 'required|min:6|confirmed',
+            'password' => ['required', 'confirmed', \App\Support\Seguranca\RegraDaSenha::regra()],
         ]);
         
         DB::beginTransaction();
@@ -152,7 +152,13 @@ class InvitationController extends Controller
             $invitation->markAsAccepted($user->id);
             
             DB::commit();
-            
+
+            // Aceitar o convite é aceitar os Termos e ter visto a Política —
+            // o ecrã di-lo junto ao botão; fica a prova (RGPD art. 7.º).
+            foreach (['termos', 'privacidade'] as $tipo) {
+                \App\Services\Privacidade\Consentimentos::registar($tipo, true, 'convite', $user, null, $request);
+            }
+
             // Login automático
             Auth::login($user);
             

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ApiToken;
 use App\Models\User;
+use App\Support\Seguranca\TravaoDeEntradas;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -15,6 +16,9 @@ use Illuminate\Support\Facades\Hash;
  */
 class AuthController extends Controller
 {
+    /** bcrypt de uma senha que ninguém tem — só para gastar o mesmo tempo. */
+    private const HASH_DE_DISFARCE = '$2y$12$4XPcdx2eom2T4V3tjNvkiu/y8h7uLd6.zIfU1loYIHXRPtaSzoPTe';
+
     public function login(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -24,26 +28,36 @@ class AuthController extends Controller
         ]);
 
         /*
-         * TENTATIVAS CONTADAS. O /login do site limita a cinco por minuto; esta
-         * porta paralela não limitava nada — adivinhava-se a senha de qualquer
-         * email sem travão (auditoria de segurança de 2026-09-13).
+         * TENTATIVAS CONTADAS, com a regra do site: 5 falhas e a porta fecha
+         * 10 minutos; 20 falhas do mesmo IP em quaisquer emails, também
+         * (App\Support\Seguranca\TravaoDeEntradas). Auditorias de 2026-09-13 e
+         * 2026-09-15.
          */
-        $chave = 'api-login:' . mb_strtolower($data['email']) . '|' . $request->ip();
+        $travao = TravaoDeEntradas::para('api');
 
-        if (\Illuminate\Support\Facades\RateLimiter::tooManyAttempts($chave, 5)) {
+        if ($segundos = $travao->bloqueadoPor($data['email'], $request->ip())) {
             return response()->json([
-                'message' => __('Demasiadas tentativas. Tente de novo dentro de :s segundos.', ['s' => \Illuminate\Support\Facades\RateLimiter::availableIn($chave)]),
+                'message' => TravaoDeEntradas::mensagemDeBloqueio($segundos),
+                'bloqueado_segundos' => $segundos,
             ], 429);
         }
 
         $user = User::where('email', $data['email'])->first();
-        if (!$user || !Hash::check($data['password'], $user->password) || !$user->is_active) {
-            \Illuminate\Support\Facades\RateLimiter::hit($chave, 60);
 
-            return response()->json(['message' => 'Credenciais inválidas.'], 422);
+        // O MESMO TRABALHO exista ou não a conta: sem o Hash::check a um hash
+        // qualquer, um email inexistente respondia em milissegundos e um
+        // existente demorava o bcrypt — o relógio dizia que contas há.
+        $senhaCerta = Hash::check($data['password'], $user?->password ?? self::HASH_DE_DISFARCE);
+
+        if (!$user || !$senhaCerta || !$user->is_active) {
+            $restam = $travao->falhou($data['email'], $request->ip());
+
+            return response()->json([
+                'message' => TravaoDeEntradas::mensagemDeFalha($restam, __('Credenciais inválidas.')),
+            ], $restam === 0 ? 429 : 422);
         }
 
-        \Illuminate\Support\Facades\RateLimiter::clear($chave);
+        $travao->entrou($data['email'], $request->ip());
 
         // Tenant ativo (default do utilizador / 1º que pertence)
         $tenant = method_exists($user, 'activeTenant') ? $user->activeTenant() : null;

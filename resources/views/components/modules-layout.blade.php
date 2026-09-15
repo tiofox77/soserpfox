@@ -34,7 +34,7 @@
     {{-- v=2: o recolector passou a medir o tempo em página e a registar
          pesquisas. Sem subir a versão, os browsers serviam o ficheiro antigo
          da cache e nada disso chegava cá. --}}
-    <script src="{{ asset('js/sos-tracker.js') }}?v=2" defer></script>
+    <script src="{{ asset('js/sos-tracker.js') }}?v=3" data-versao="{{ config('privacidade.versao') }}" defer></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
         .feature-card { transition: all 0.3s; }
@@ -189,9 +189,10 @@
                 <div>
                     <h3 class="text-white font-bold mb-4">Legal</h3>
                     <ul class="space-y-2 text-sm">
-                        <li><a href="#" class="hover:text-white">Termos de Uso</a></li>
-                        <li><a href="#" class="hover:text-white">Privacidade</a></li>
-                        <li><a href="#" class="hover:text-white">Cookies</a></li>
+                        <li><a href="{{ route('legal.termos') }}" class="hover:text-white">Termos de Uso</a></li>
+                        <li><a href="{{ route('legal.privacidade') }}" class="hover:text-white">Privacidade</a></li>
+                        <li><a href="{{ route('legal.cookies') }}" class="hover:text-white">Cookies</a></li>
+                        <li><a href="#" data-abrir-consentimento class="hover:text-white"><i class="fas fa-sliders mr-1"></i>Preferências de cookies</a></li>
                     </ul>
                 </div>
 
@@ -238,5 +239,6 @@
         </div>
     </footer>
 
+    @include('partials.consentimento')
 </body>
 </html>

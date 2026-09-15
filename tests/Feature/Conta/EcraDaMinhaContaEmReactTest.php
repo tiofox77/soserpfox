@@ -288,17 +288,17 @@ class EcraDaMinhaContaEmReactTest extends TenantTestCase
 
         $this->actingAs($this->user)->putJson(self::RAIZ.'/senha', [
             'actual' => 'a-errada',
-            'nova' => 'uma-senha-nova',
-            'nova_confirmation' => 'uma-senha-nova',
+            'nova' => 'uma-senha-nova-1',
+            'nova_confirmation' => 'uma-senha-nova-1',
         ])->assertStatus(422)->assertJsonValidationErrors('actual');
 
         $this->actingAs($this->user)->putJson(self::RAIZ.'/senha', [
             'actual' => 'a-minha-senha',
-            'nova' => 'uma-senha-nova',
-            'nova_confirmation' => 'uma-senha-nova',
+            'nova' => 'uma-senha-nova-1',
+            'nova_confirmation' => 'uma-senha-nova-1',
         ])->assertOk();
 
-        $this->assertTrue(\Hash::check('uma-senha-nova', $this->user->fresh()->password));
+        $this->assertTrue(\Hash::check('uma-senha-nova-1', $this->user->fresh()->password));
         $this->assertNotNull($this->user->fresh()->last_password_changed);
     }
 

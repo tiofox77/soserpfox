@@ -82,7 +82,15 @@ return [
     'not_in' => 'O :attribute selecionado é inválido.',
     'not_regex' => 'O formato do campo :attribute é inválido.',
     'numeric' => 'O campo :attribute deve ser um número.',
-    'password' => 'A palavra-passe está incorreta.',
+    // As mensagens da regra Password (letras, números…). Era uma frase só, e o
+    // Laravel procura `password.letters`: aparecia a chave em vez da mensagem.
+    'password' => [
+        'letters' => 'O campo :attribute tem de ter pelo menos uma letra.',
+        'mixed' => 'O campo :attribute tem de ter pelo menos uma maiúscula e uma minúscula.',
+        'numbers' => 'O campo :attribute tem de ter pelo menos um número.',
+        'symbols' => 'O campo :attribute tem de ter pelo menos um símbolo.',
+        'uncompromised' => 'Esta :attribute apareceu numa fuga de dados. Escolha outra.',
+    ],
     'present' => 'O campo :attribute deve estar presente.',
     'regex' => 'O formato do campo :attribute é inválido.',
     'required' => 'O campo :attribute é obrigatório.',

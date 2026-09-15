@@ -9,6 +9,9 @@
     const COOKIE_NAME = 'sos_vid';
     const SESSION_KEY = 'sos_sid';
 
+    // A versão das regras de consentimento em vigor (vem do servidor).
+    const VERSAO = (document.currentScript && document.currentScript.dataset.versao) || '';
+
     // ----- UUID v4 -----
     function uuid() {
         if (crypto?.randomUUID) return crypto.randomUUID();
@@ -30,30 +33,58 @@
         document.cookie = `${name}=${value}; expires=${exp}; path=/; SameSite=Lax`;
     }
 
-    // ----- IDs persistentes -----
-    let visitorId = getCookie(COOKIE_NAME);
-    if (!visitorId) {
-        visitorId = uuid();
-        setCookie(COOKIE_NAME, visitorId);
+    // ----- Consentimento (RGPD / ePrivacy) -----
+    //
+    // Sem o «sim» às estatísticas não se guarda NADA no aparelho: nem o cookie
+    // do visitante, nem as campanhas, nem o sessionStorage. A visita conta-se
+    // com identificadores que vivem só nesta página e vai marcada `anonimo` —
+    // o servidor não lhe guarda IP, cidade nem browser. Aceitar a meio da
+    // página passa a contar a partir daí (evento do consentimento.js).
+    function consentiu() {
+        const m = /^v([0-9-]{10})\.e([01])\.m([01])$/.exec(getCookie('sos_consentimento') || '');
+        return !!(m && (!VERSAO || m[1] === VERSAO) && m[2] === '1');
     }
-    let sessionId = sessionStorage.getItem(SESSION_KEY);
-    if (!sessionId) {
-        sessionId = uuid();
-        sessionStorage.setItem(SESSION_KEY, sessionId);
-    }
+    let comConsentimento = consentiu();
 
-    // ----- UTMs (extrai e persiste 30d) -----
+    // ----- IDs -----
+    let visitorId;
+    let sessionId;
+    function prepararIds() {
+        if (comConsentimento) {
+            visitorId = getCookie(COOKIE_NAME) || visitorId || uuid();
+            setCookie(COOKIE_NAME, visitorId);
+            try {
+                sessionId = sessionStorage.getItem(SESSION_KEY) || sessionId || uuid();
+                sessionStorage.setItem(SESSION_KEY, sessionId);
+            } catch (e) { sessionId = sessionId || uuid(); }
+        } else {
+            visitorId = visitorId || uuid();
+            sessionId = sessionId || uuid();
+        }
+    }
+    prepararIds();
+
+    // ----- UTMs (da morada; guardadas 30d só com consentimento) -----
     const url = new URL(window.location.href);
     const utms = {};
-    ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'].forEach(k => {
-        const v = url.searchParams.get(k);
-        if (v) {
-            utms[k] = v;
-            setCookie('sos_' + k, v, 30);
-        } else {
-            const stored = getCookie('sos_' + k);
-            if (stored) utms[k] = stored;
-        }
+    function lerUtms() {
+        ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'].forEach(k => {
+            const v = url.searchParams.get(k);
+            if (v) {
+                utms[k] = v;
+                if (comConsentimento) setCookie('sos_' + k, v, 30);
+            } else if (comConsentimento) {
+                const stored = getCookie('sos_' + k);
+                if (stored) utms[k] = stored;
+            }
+        });
+    }
+    lerUtms();
+
+    window.addEventListener('sos:consentimento', function (e) {
+        comConsentimento = !!(e.detail && e.detail.escolha && e.detail.escolha.estatisticas);
+        prepararIds();
+        lerUtms();
     });
 
     // ----- CSRF token (se existir) -----
@@ -69,6 +100,7 @@
                 path: location.pathname,
                 referrer: document.referrer.substring(0, 500),
                 language: navigator.language,
+                anonimo: !comConsentimento,
                 ...utms,
                 ...payload,
             });
@@ -223,5 +255,5 @@
     }
 
     // Expose for manual tracking
-    window.SosTracker = { send, visitorId, sessionId };
+    window.SosTracker = { send, get visitorId() { return visitorId; }, get sessionId() { return sessionId; } };
 })();

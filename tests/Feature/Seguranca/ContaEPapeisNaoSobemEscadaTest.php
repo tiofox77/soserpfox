@@ -100,9 +100,11 @@ class ContaEPapeisNaoSobemEscadaTest extends TenantTestCase
     {
         auth()->logout();
 
-        for ($i = 0; $i < 5; $i++) {
+        // A quinta falha já fecha a porta (TravaoDeEntradas: 5 falhas, 10 minutos).
+        for ($i = 0; $i < 4; $i++) {
             $this->postJson('/api/v1/auth/login', ['email' => 'alvo@empresa.ao', 'password' => 'errada' . $i])->assertStatus(422);
         }
+        $this->postJson('/api/v1/auth/login', ['email' => 'alvo@empresa.ao', 'password' => 'errada-4'])->assertStatus(429);
 
         $this->postJson('/api/v1/auth/login', ['email' => 'alvo@empresa.ao', 'password' => 'mais-uma'])->assertStatus(429);
     }

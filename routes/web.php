@@ -47,7 +47,12 @@ if (config('licensing.enforce')) {
 }
 
 // Analytics tracking (sem auth, sem CSRF — público)
-Route::post('/api/analytics/track', [\App\Http\Controllers\AnalyticsController::class, 'track'])->name('analytics.track');
+//
+// Com limite: sem ele, e sem CSRF, qualquer um enchia a tabela sem fim
+// (auditoria de segurança de 2026-09-15).
+Route::post('/api/analytics/track', [\App\Http\Controllers\AnalyticsController::class, 'track'])->middleware('throttle:120,1')->name('analytics.track');
+// A escolha do aviso de cookies (RGPD): grava a prova e devolve o cookie.
+Route::post('/api/analytics/consentimento', [\App\Http\Controllers\Privacidade\ConsentimentoController::class, 'guardar'])->middleware('throttle:30,1')->name('privacidade.consentimento');
 
 // PWA: manifest dinâmico, ícones a partir do logo do sistema, service worker com versão automática
 Route::get('/manifest.webmanifest', [\App\Http\Controllers\PwaController::class, 'manifest'])->name('pwa.manifest');
@@ -71,6 +76,7 @@ Route::get('/', [App\Http\Controllers\LandingController::class, 'home'])->name('
 // alguém que ainda não é cliente, e são referenciados no registo).
 Route::view('/termos', 'legal.termos')->name('legal.termos');
 Route::view('/privacidade', 'legal.privacidade')->name('legal.privacidade');
+Route::view('/cookies', 'legal.cookies')->name('legal.cookies');
 
 // O sitemap: só o que se indexa, com as páginas públicas das empresas. Ver o controlador.
 Route::get('/sitemap.xml', [App\Http\Controllers\SitemapController::class, 'index'])->name('sitemap');
@@ -114,17 +120,20 @@ Route::get('/subscrever/{plan}', function (string $plan) {
 // O registo de uma conta nova: a página e as acções do assistente (React).
 Route::get('/register', [\App\Http\Controllers\Registo\RegistoController::class, 'index'])->name('register');
 Route::prefix('register')->name('register.')->controller(\App\Http\Controllers\Registo\RegistoController::class)->group(function () {
-    Route::post('/seguinte', 'seguinte')->name('seguinte');
-    Route::post('/anterior', 'anterior')->name('anterior');
-    Route::post('/outro-plano', 'outroPlano')->name('outro-plano');
-    Route::put('/progresso', 'guardar')->name('guardar');
-    Route::delete('/progresso', 'recomecar')->name('recomecar');
+    // COM LIMITE (auditoria de 2026-09-15): o «Próximo» diz se um email ou um
+    // NIF já estão registados, e sem travão perguntava-se isso sem fim — a
+    // lista de quem é cliente, a um pedido de cada vez.
+    Route::post('/seguinte', 'seguinte')->middleware('throttle:20,10')->name('seguinte');
+    Route::post('/anterior', 'anterior')->middleware('throttle:60,1')->name('anterior');
+    Route::post('/outro-plano', 'outroPlano')->middleware('throttle:60,1')->name('outro-plano');
+    Route::put('/progresso', 'guardar')->middleware('throttle:120,1')->name('guardar');
+    Route::delete('/progresso', 'recomecar')->middleware('throttle:20,1')->name('recomecar');
     Route::post('/', 'registar')->middleware('throttle:10,1')->name('registar');
 });
 
 // User Invitation Routes
 Route::get('/invitation/{token}', [App\Http\Controllers\InvitationController::class, 'show'])->name('invitation.accept');
-Route::post('/invitation/{token}', [App\Http\Controllers\InvitationController::class, 'accept'])->name('invitation.accept.post');
+Route::post('/invitation/{token}', [App\Http\Controllers\InvitationController::class, 'accept'])->middleware('throttle:10,10')->name('invitation.accept.post');
 
 // Auth routes (sem register padrão)
 Auth::routes(['register' => false]);
@@ -1856,7 +1865,17 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::put('/perfil', [$c, 'perfil'])->name('perfil');
             Route::post('/avatar', [$c, 'avatar'])->name('avatar');
             Route::delete('/avatar', [$c, 'apagarAvatar'])->name('apagar-avatar');
-            Route::put('/senha', [$c, 'senha'])->name('senha');
+            // A senha actual confere-se aqui: sem travão, uma sessão esquecida
+            // aberta deixava adivinhá-la sem fim.
+            Route::put('/senha', [$c, 'senha'])->middleware('throttle:5,10')->name('senha');
+
+            // Privacidade: os direitos do titular (RGPD / LGPD / Lei 22/11).
+            $p = \App\Http\Controllers\Api\Conta\PrivacidadeApiController::class;
+            Route::get('/privacidade', [$p, 'mostrar'])->name('privacidade');
+            Route::get('/privacidade/exportar', [$p, 'exportar'])->middleware('throttle:5,10')->name('privacidade.exportar');
+            Route::put('/privacidade/consentimentos', [$p, 'consentimentos'])->middleware('throttle:20,1')->name('privacidade.consentimentos');
+            Route::post('/privacidade/sessoes/terminar', [$p, 'terminarSessoes'])->middleware('throttle:10,10')->name('privacidade.terminar-sessoes');
+            Route::post('/privacidade/pedidos', [$p, 'pedir'])->middleware('throttle:5,60')->name('privacidade.pedir');
 
             Route::post('/contratar', [$c, 'contratar'])->name('contratar');
             Route::post('/pedidos/{id}/comprovativo', [$c, 'comprovativo'])->whereNumber('id')->name('comprovativo');

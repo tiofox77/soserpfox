@@ -655,7 +655,7 @@ class MinhaContaApiController extends Controller
 
         $dados = $request->validate([
             'actual' => ['required', 'string'],
-            'nova' => ['required', 'string', 'min:8', 'different:actual', 'confirmed'],
+            'nova' => ['required', 'string', 'different:actual', 'confirmed', \App\Support\Seguranca\RegraDaSenha::regra()],
             'nova_confirmation' => ['required'],
         ], [
             'nova.min' => __('A senha nova tem de ter pelo menos 8 caracteres.'),

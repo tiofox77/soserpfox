@@ -503,5 +503,6 @@
     @include('partials.react-pacote')
 
     @stack('scripts')
+    @include('partials.consentimento', ['silencioso' => true])
 </body>
 </html>

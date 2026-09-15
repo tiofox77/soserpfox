@@ -390,6 +390,14 @@ return [
         'agt_client_secret',
         'two_factor_secret',
         'two_factor_recovery_codes',
+        // O PIN de turno é a senha do POS: a impressão cifrada de um PIN de 4 a
+        // 6 dígitos adivinha-se em segundos, e a trilha não se apaga.
+        'pos_pin_hash',
+        'pin_hash',
+        'pin',
+        'senha',
+        'palavra_passe',
+        'current_password',
     ],
 
     /*

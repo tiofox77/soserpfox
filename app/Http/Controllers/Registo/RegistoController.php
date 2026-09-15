@@ -22,9 +22,15 @@ use Illuminate\Support\Facades\Log;
  */
 class RegistoController extends Controller
 {
+    /** Menos do que isto, do abrir da página ao «Criar conta», não é uma pessoa. */
+    private const SEGUNDOS_MINIMOS = 5;
+
     public function index(Request $request)
     {
         $a = AssistenteDeRegisto::abrir($request);
+        if (! session()->has('registo_aberto_em')) {
+            session(['registo_aberto_em' => time()]);
+        }
 
         return EcraReact::solta('registo/assistente', 'Criar conta', [
             'estado' => $a->paraEcra(),
@@ -42,6 +48,7 @@ class RegistoController extends Controller
 
     public function seguinte(Request $request): JsonResponse
     {
+        $this->travarRobos($request);
         $a = AssistenteDeRegisto::doPedido($request);
 
         try {
@@ -96,15 +103,26 @@ class RegistoController extends Controller
 
     public function registar(Request $request, RegistarEmpresa $registar): JsonResponse
     {
+        $this->travarRobos($request, final: true);
         $a = AssistenteDeRegisto::doPedido($request);
         $a->validarTudo();
 
         try {
             $r = $registar->registar($a);
         } catch (\Throwable $e) {
-            Log::error('ERRO AO CRIAR CONTA', ['message' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
+            // A mensagem da excepção FICA NO LOG. Ia para o browser: uma
+            // QueryException traz o SQL com os valores — email, a impressão da
+            // senha, o NIF (auditoria de segurança de 2026-09-15).
+            $referencia = strtoupper(\Illuminate\Support\Str::random(8));
+            Log::error('ERRO AO CRIAR CONTA', ['referencia' => $referencia, 'message' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
 
-            return response()->json(['message' => __('Erro ao criar conta: :erro', ['erro' => $e->getMessage()])], 500);
+            return response()->json(['message' => __('Não foi possível criar a conta. Tente de novo; se voltar a acontecer, contacte o suporte com a referência :ref.', ['ref' => $referencia])], 500);
+        }
+
+        // A PROVA DE QUE ACEITOU. A caixa dos Termos e da Política validava-se e
+        // não ficava em lado nenhum — o RGPD pede para o poder demonstrar.
+        foreach (['termos', 'privacidade'] as $tipo) {
+            \App\Services\Privacidade\Consentimentos::registar($tipo, true, 'registo', $r['utilizador'], null, $request);
         }
 
         AssistenteDeRegisto::esquecer();
@@ -121,5 +139,29 @@ class RegistoController extends Controller
         });
 
         return response()->json(['ir_para' => route('home'), 'estado' => $r['estado']]);
+    }
+
+    /**
+     * DUAS ARMADILHAS PARA ROBÔS, sem captcha a incomodar pessoas.
+     *
+     *  · o campo `website` está escondido de quem vê a página e dos leitores de
+     *    ecrã; um robô que preenche tudo preenche-o;
+     *  · ninguém escreve os dados, a empresa, escolhe o plano e aceita os termos
+     *    em menos de cinco segundos.
+     *
+     * A resposta é a de um erro vulgar: dizer «apanhámos-te» ensinava o robô.
+     */
+    private function travarRobos(Request $request, bool $final = false): void
+    {
+        $aberto = (int) session('registo_aberto_em', 0);
+        $depressa = $final && $aberto > 0 && (time() - $aberto) < self::SEGUNDOS_MINIMOS;
+
+        if (filled($request->input('website')) || $depressa) {
+            Log::warning('Registo recusado pelas armadilhas de robôs', ['campo' => filled($request->input('website')), 'depressa' => $depressa]);
+
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'email' => [__('Não foi possível continuar. Recarregue a página e tente de novo.')],
+            ]);
+        }
     }
 }

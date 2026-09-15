@@ -365,6 +365,44 @@ class OperacoesController extends Controller
     }
 
     /** Sugestões de funcionalidades e mensagens do formulário de contacto. */
+    /**
+     * Os pedidos dos titulares dos dados — acesso, rectificação, apagamento…
+     *
+     * Têm prazo legal (um mês). `atrasados` são os que passaram do prazo sem
+     * resposta: é o que o agente deve dizer primeiro.
+     */
+    public function pedidosDePrivacidade(Request $request)
+    {
+        $d = $request->validate([
+            'estado' => 'nullable|in:recebido,em_analise,respondido,recusado,abertos,todos',
+            'limite' => 'nullable|integer|min:1|max:200',
+        ]);
+
+        if (! \Illuminate\Support\Facades\Schema::hasTable('pedidos_de_privacidade')) {
+            return response()->json(['pedidos' => [], 'resumo' => ['abertos' => 0, 'atrasados' => 0]]);
+        }
+
+        $base = fn () => \Illuminate\Support\Facades\DB::table('pedidos_de_privacidade');
+        $abertos = fn ($q) => $q->whereIn('estado', ['recebido', 'em_analise']);
+
+        $q = $base()->orderByDesc('id');
+        match ($d['estado'] ?? 'abertos') {
+            'todos' => null,
+            'abertos' => $abertos($q),
+            default => $q->where('estado', $d['estado']),
+        };
+
+        return response()->json([
+            'resumo' => [
+                'abertos' => $abertos($base())->count(),
+                'atrasados' => $abertos($base())->where('prazo_em', '<', now())->count(),
+            ],
+            'pedidos' => $q->limit((int) ($d['limite'] ?? 100))
+                ->get(['id', 'user_id', 'nome', 'email', 'tipo', 'mensagem', 'estado', 'prazo_em', 'respondido_em', 'created_at'])
+                ->map(fn ($p) => (array) $p + ['atrasado' => in_array($p->estado, ['recebido', 'em_analise'], true) && $p->prazo_em && $p->prazo_em < now()->toDateTimeString()]),
+        ]);
+    }
+
     public function feedback(Request $request)
     {
         $limite = (int) $request->integer('limite', 30);

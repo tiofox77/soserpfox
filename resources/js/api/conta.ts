@@ -62,6 +62,40 @@ export type PlanoDisponivel = {
     recusa: string | null;
 };
 
+/* ─── Privacidade (RGPD / LGPD / Lei 22/11) ─────────────────────────── */
+
+export type CategoriaDeDados = {
+    chave: string; icone: string; titulo: string; dados: string[];
+    finalidade: string; base_legal: string; retencao: string; destinatarios: string; onde: string[];
+};
+
+export type DireitoDoTitular = { chave: string; icone: string; nome: string; descricao: string; artigos: string };
+
+export type EstadoDoConsentimento = { aceite: boolean; versao: string; quando: string; origem: string } | null;
+
+export type Privacidade = {
+    versao: string;
+    actualizada_em: string;
+    responsavel: { nome: string; morada: string; email: string };
+    prazo_de_resposta_dias: number;
+    politica: string;
+    cookies: string;
+    inventario: CategoriaDeDados[];
+    direitos: DireitoDoTitular[];
+    escolha_neste_browser: { estatisticas: boolean; marketing: boolean } | null;
+    tipos_de_pedido: Array<{ valor: string; rotulo: string }>;
+    dados: {
+        perfil: { id: number; nome: string; email: string; telefone: string | null; lingua: string | null; criada_em: string | null; ultima_entrada: string | null; senha_mudada_em: string | null; tem_pin_de_turno: boolean };
+        empresas: Array<{ id: number; nome: string; nif: string | null; morada: string | null; telefone: string | null; email: string | null; entrou_em: string | null; activo: boolean; ultimo_acesso: string | null }>;
+        sessoes: Array<{ esta: boolean; ip: string | null; aparelho: string; browser: string; ultima_actividade: string }>;
+        entradas: Array<{ evento: string; ip: string | null; aparelho: string; quando: string }>;
+        aparelhos: Array<{ plataforma: string | null; aparelho: string; visto_pela_primeira_vez: string | null; visto_pela_ultima_vez: string | null }>;
+        estatisticas: { eventos: number; primeiro?: string | null; ultimo?: string | null; paises?: string[]; cidades?: string[] };
+        consentimentos: Record<'termos' | 'privacidade' | 'estatisticas' | 'marketing', EstadoDoConsentimento>;
+        pedidos: Array<{ id: number; tipo: string; mensagem: string | null; estado: string; resposta: string | null; prazo_em: string | null; respondido_em: string | null; created_at: string }>;
+    };
+};
+
 export type FacturaDaConta = {
     id: number;
     numero: string;
@@ -159,6 +193,18 @@ export const conta = {
         if (comprovativo) corpo.append('comprovativo', comprovativo);
 
         return api.enviar<Recado & { activado: boolean; pedido?: number }>(`${C}/contratar`, corpo);
+    },
+
+    privacidade: {
+        ler: () => api.ler<Privacidade>(`${C}/privacidade`),
+        /** Descarrega-se por ligação normal: a resposta traz Content-Disposition. */
+        exportar: `/api/v1/invoicing/react${C}/privacidade/exportar`,
+        consentimentos: (dados: { estatisticas: boolean; marketing: boolean }) =>
+            api.guardar<Recado>(`${C}/privacidade/consentimentos`, dados),
+        terminarSessoes: (incluir_aplicacao: boolean) =>
+            api.criar<Recado & { sessoes: number; tokens: number }>(`${C}/privacidade/sessoes/terminar`, { incluir_aplicacao }),
+        pedir: (dados: { tipo: string; mensagem: string }) =>
+            api.criar<Recado & { id: number }>(`${C}/privacidade/pedidos`, dados),
     },
 
     comprovativo: (pedido: number, ficheiro: File) =>

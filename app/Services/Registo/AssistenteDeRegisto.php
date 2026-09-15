@@ -403,7 +403,7 @@ class AssistenteDeRegisto
         $this->validar([
             'name' => ['required', 'min:3', new NomeQueParecePessoa()],
             'email' => ['required', 'email', 'unique:users,email', new EmailQueExiste()],
-            'password' => 'required|min:6|confirmed',
+            'password' => ['required', 'confirmed', \App\Support\Seguranca\RegraDaSenha::regra()],
         ]);
     }
 

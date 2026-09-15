@@ -139,6 +139,8 @@ Route::prefix('api/agent/v1')
             Route::middleware('agent.scope:support:read')->group(function () {
                 Route::get('support/tickets', [OperacoesController::class, 'suporte']);
                 Route::get('support/feedback', [OperacoesController::class, 'feedback']);
+                // Pedidos dos titulares (RGPD/LGPD/Lei 22/11), com o prazo de cada um.
+                Route::get('support/privacidade', [OperacoesController::class, 'pedidosDePrivacidade']);
             });
 
             // Contactos REAIS, por mascarar. Escopo próprio, dado à mão:

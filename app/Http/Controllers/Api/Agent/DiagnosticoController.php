@@ -79,6 +79,7 @@ class DiagnosticoController extends Controller
         'GET billing/ciclo' => 'Períodos a acabar e facturas da plataforma por pagar',
         'GET support/tickets' => 'Pedidos de suporte',
         'GET support/feedback' => 'Sugestões e mensagens de contacto',
+        'GET support/privacidade' => 'Pedidos dos titulares dos dados (RGPD/LGPD/Lei 22/11): abertos, atrasados e prazo de cada um',
     ];
 
     private function agente(): AgenteAutenticado

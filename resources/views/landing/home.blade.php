@@ -90,7 +90,7 @@
 
     {{-- v=2: o recolector passou a medir o tempo em página e a registar
          pesquisas. Sem subir a versão, os browsers serviam o antigo da cache. --}}
-    <script src="{{ asset('js/sos-tracker.js') }}?v=2" defer></script>
+    <script src="{{ asset('js/sos-tracker.js') }}?v=3" data-versao="{{ config('privacidade.versao') }}" defer></script>
 
     {{--
         OS DADOS ESTRUTURADOS — um grafo só, feito em App\Support\DadosEstruturados.
@@ -114,10 +114,12 @@
         \App\Support\DadosEstruturados::perguntas($urlDaPagina, $perguntasFrequentes),
     ]) !!}
 
+    {{-- Google, Tag Manager e Meta SÓ DEPOIS DO CONSENTIMENTO: ficam como
+         text/plain e é o partials/consentimento que os acorda (RGPD). --}}
     @if(!empty($settings['google_analytics_id']))
     <!-- Google Analytics (GA4) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id={{ $settings['google_analytics_id'] }}"></script>
-    <script>
+    <script type="text/plain" data-consentimento="estatisticas" data-src="https://www.googletagmanager.com/gtag/js?id={{ $settings['google_analytics_id'] }}"></script>
+    <script type="text/plain" data-consentimento="estatisticas">
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
@@ -127,7 +129,7 @@
     
     @if(!empty($settings['gtm_id']))
     <!-- Google Tag Manager -->
-    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    <script type="text/plain" data-consentimento="estatisticas">(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
     new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
     j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
@@ -136,7 +138,7 @@
     
     @if(!empty($settings['facebook_pixel_id']))
     <!-- Facebook Pixel -->
-    <script>
+    <script type="text/plain" data-consentimento="marketing">
     !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
     n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
     n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
@@ -145,7 +147,7 @@
     fbq('init', '{{ $settings['facebook_pixel_id'] }}');
     fbq('track', 'PageView');
     </script>
-    <noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id={{ $settings['facebook_pixel_id'] }}&ev=PageView&noscript=1" alt=""/></noscript>
+
     @endif
     
     <!-- Preconnect para Performance -->
@@ -1925,9 +1927,10 @@
                 <div>
                     <h3 class="text-white font-bold mb-4">Legal</h3>
                     <ul class="space-y-2 text-sm">
-                        <li><a href="#" class="hover:text-white">Termos de Uso</a></li>
-                        <li><a href="#" class="hover:text-white">Privacidade</a></li>
-                        <li><a href="#" class="hover:text-white">Cookies</a></li>
+                        <li><a href="{{ route('legal.termos') }}" class="hover:text-white">Termos de Uso</a></li>
+                        <li><a href="{{ route('legal.privacidade') }}" class="hover:text-white">Privacidade</a></li>
+                        <li><a href="{{ route('legal.cookies') }}" class="hover:text-white">Cookies</a></li>
+                        <li><a href="#" data-abrir-consentimento class="hover:text-white"><i class="fas fa-sliders mr-1"></i>Preferências de cookies</a></li>
                     </ul>
                 </div>
                 
@@ -2035,5 +2038,6 @@
         }
     </script>
 
+    @include('partials.consentimento')
 </body>
 </html>

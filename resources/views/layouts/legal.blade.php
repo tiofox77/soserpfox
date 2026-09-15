@@ -28,6 +28,34 @@
         .doc a { color: #1d4ed8; text-decoration: underline; text-underline-offset: 2px; }
         .doc a:hover { color: #ea580c; }
 
+        /* O inventário dos dados e as tabelas de cookies: cartões e tabelas em
+           CSS próprio (não dependem das classes compiladas do site público). */
+        .doc .fichas { display: grid; gap: 1rem; margin: 1.25rem 0 1.5rem; }
+        @media (min-width: 900px) { .doc .fichas { grid-template-columns: 1fr 1fr; } }
+        .doc .ficha { border: 1px solid #e2e8f0; border-radius: 1rem; padding: 1.1rem 1.2rem; background: #fff;
+                      transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
+        .doc .ficha:hover { transform: translateY(-2px); box-shadow: 0 14px 30px -18px rgba(15,23,42,.45); border-color: #fdba74; }
+        .doc .ficha h3 { margin: 0 0 .5rem; display: flex; align-items: center; gap: .6rem; }
+        .doc .ficha h3 i { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: .6rem;
+                           background: #fff7ed; color: #ea580c; font-size: .85rem; flex: none; }
+        .doc .ficha ul { margin-bottom: .6rem; }
+        .doc .ficha li, .doc .ficha p { font-size: .9rem; line-height: 1.6; }
+        .doc .ficha dl { display: grid; grid-template-columns: auto 1fr; gap: .25rem .75rem; margin: .5rem 0 0; font-size: .82rem; }
+        .doc .ficha dt { font-weight: 700; color: #64748b; }
+        .doc .ficha dd { margin: 0; color: #334155; }
+        .doc .tabela { overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #e2e8f0; border-radius: .9rem; }
+        .doc table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+        .doc th { background: #f8fafc; text-align: left; font-weight: 700; color: #475569; padding: .6rem .8rem; border-bottom: 1px solid #e2e8f0; }
+        .doc td { padding: .6rem .8rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+        .doc tr:last-child td { border-bottom: 0; }
+        .doc .destaque { border-radius: 1rem; background: #eff6ff; border: 1px solid #bfdbfe; padding: 1rem 1.2rem; margin: 1rem 0 1.5rem; }
+        .doc .destaque p:last-child { margin-bottom: 0; }
+        .doc .botao-doc { display: inline-flex; align-items: center; gap: .5rem; border-radius: .8rem; padding: .6rem 1rem;
+                          background: #1e3a8a; color: #fff !important; text-decoration: none !important; font-weight: 700; font-size: .9rem;
+                          transition: background .2s, transform .15s; }
+        .doc .botao-doc:hover { background: #ea580c; transform: translateY(-1px); }
+        @media (prefers-reduced-motion: reduce) { .doc .ficha, .doc .botao-doc { transition: none; } }
+
         .indice a { display: block; padding: .45rem .75rem; border-radius: .6rem;
                     font-size: .82rem; font-weight: 600; color: #475569; line-height: 1.35; }
         .indice a:hover { background: #fff7ed; color: #c2410c; }
@@ -70,7 +98,7 @@
             </p>
             <h1 class="mt-2 text-3xl md:text-4xl font-black">@yield('titulo')</h1>
             <p class="mt-2 text-sm text-blue-200">
-                Última actualização: {{ $atualizado ?? '24 de Agosto de 2026' }}
+                Última actualização: @yield('atualizado', $atualizado ?? '24 de Agosto de 2026')
             </p>
         </div>
     </div>
@@ -86,6 +114,8 @@
                 <div class="mt-4 border-t border-slate-100 pt-3 px-2">
                     <a href="{{ route('legal.termos') }}" class="block text-xs font-bold text-slate-500 hover:text-orange-700 py-1">Termos de Utilização</a>
                     <a href="{{ route('legal.privacidade') }}" class="block text-xs font-bold text-slate-500 hover:text-orange-700 py-1">Política de Privacidade</a>
+                    <a href="{{ route('legal.cookies') }}" class="block text-xs font-bold text-slate-500 hover:text-orange-700 py-1">Política de Cookies</a>
+                    <a href="#" data-abrir-consentimento class="block text-xs font-bold text-slate-500 hover:text-orange-700 py-1"><i class="fas fa-sliders mr-1"></i>Preferências de cookies</a>
                 </div>
             </aside>
 
@@ -99,8 +129,8 @@
                         <i class="fas fa-circle-question text-orange-500 mr-1.5"></i>
                         Dúvidas sobre este documento? Fale connosco.
                     </p>
-                    <a href="mailto:suporte@soserp.vip" class="rounded-xl bg-blue-900 hover:bg-blue-800 px-4 py-2 text-sm font-bold text-white transition">
-                        <i class="fas fa-envelope mr-1.5"></i>suporte@soserp.vip
+                    <a href="mailto:{{ config('privacidade.responsavel.email') }}" class="rounded-xl bg-blue-900 hover:bg-blue-800 px-4 py-2 text-sm font-bold text-white transition">
+                        <i class="fas fa-envelope mr-1.5"></i>{{ config('privacidade.responsavel.email') }}
                     </a>
                 </div>
             </article>
@@ -124,6 +154,8 @@
                 <p class="font-black text-white mb-2 uppercase text-xs tracking-widest">Legal</p>
                 <a href="{{ route('legal.termos') }}" class="block py-1 hover:text-orange-300">Termos de Utilização</a>
                 <a href="{{ route('legal.privacidade') }}" class="block py-1 hover:text-orange-300">Política de Privacidade</a>
+                <a href="{{ route('legal.cookies') }}" class="block py-1 hover:text-orange-300">Política de Cookies</a>
+                <a href="#" data-abrir-consentimento class="block py-1 hover:text-orange-300"><i class="fas fa-sliders mr-1"></i>Preferências de cookies</a>
             </div>
             <div class="text-sm">
                 <p class="font-black text-white mb-2 uppercase text-xs tracking-widest">SOS ERP</p>
@@ -169,5 +201,6 @@
             titulos.forEach((h) => observador.observe(h));
         })();
     </script>
+    @include('partials.consentimento')
 </body>
 </html>

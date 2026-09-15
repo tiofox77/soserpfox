@@ -20,7 +20,7 @@ export default function NovaSenha(p: Props) {
                             erro={p.erros?.email} dica="seu@email.com" autoComplete="email" focar={!p.email} />
 
                         <CampoDeEntrada nome="password" tipo="password" rotulo={t('Nova palavra-passe')} icone="fa-lock"
-                            erro={p.erros?.password} dica={t('Mínimo 8 caracteres')} autoComplete="new-password" focar={!!p.email} />
+                            erro={p.erros?.password} dica={t('Mínimo 8 caracteres, com letras e números.')} autoComplete="new-password" focar={!!p.email} />
 
                         <CampoDeEntrada nome="password_confirmation" tipo="password" rotulo={t('Confirmar palavra-passe')} icone="fa-lock"
                             dica={t('Repita a palavra-passe')} autoComplete="new-password" />
