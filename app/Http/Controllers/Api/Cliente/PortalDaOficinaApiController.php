@@ -38,6 +38,7 @@ class PortalDaOficinaApiController extends Controller
         $cliente = $request->user('client');
         $viaturas = $this->viaturasDe($cliente);
         $ordens = $this->ordensDe($cliente, $viaturas->pluck('id')->all());
+        $estados = $this->estadosDe($cliente, $viaturas, $ordens);
 
         $contas = \App\Models\Treasury\Account::withoutGlobalScopes()->with('bank')
             ->where('tenant_id', $cliente->tenant_id)
@@ -59,7 +60,7 @@ class PortalDaOficinaApiController extends Controller
                     $this->documento(__('Inspecção'), $v->inspection_expiry),
                 ])),
                 'na_oficina' => $ordens->where('vehicle_id', $v->id)->whereNotIn('status', ['delivered', 'cancelled'])->count() > 0,
-            ])->values(),
+            ] + $estados[$v->id])->values(),
             'ordens' => $ordens->map(fn (WorkOrder $o) => $this->ordem($o, $cliente))->values(),
             'contas' => $contas->map(fn ($c) => [
                 'banco' => $c->bank?->name ?? $c->account_name,
@@ -77,12 +78,160 @@ class PortalDaOficinaApiController extends Controller
         $ordens = $eu->ordensDe($cliente, $viaturas->pluck('id')->all());
         $facturas = $ordens->pluck('invoice')->filter(fn ($f) => $f && $f->status !== 'draft');
 
+        $estados = $eu->estadosDe($cliente, $viaturas, $ordens);
+
         return [
             'viaturas' => $viaturas->count(),
             'na_oficina' => $ordens->whereNotIn('status', ['delivered', 'cancelled'])->count(),
             'prontas' => $ordens->where('status', 'completed')->count(),
             'por_pagar' => round((float) $facturas->sum(fn ($f) => $eu->falta($f)), 2),
+            // O estado de cada carro, para o cartão da oficina no início do portal.
+            'estados' => $viaturas->map(fn (Vehicle $v) => [
+                'id' => $v->id,
+                'matricula' => $v->plate,
+                'viatura' => trim("{$v->brand} {$v->model}"),
+            ] + array_intersect_key($estados[$v->id]['estado'], array_flip(['chave', 'rotulo', 'cor', 'icone'])))->values()->all(),
         ];
+    }
+
+    /**
+     * O ESTADO DE CADA VIATURA — pedido de 15/09/2026: «no cliente devia puxar o
+     * status ou estado da viatura».
+     *
+     * O dono não quer ler a ordem para saber do carro: o cartão da viatura diz-lhe
+     * logo UMA coisa, a que mais lhe importa agora, por esta ordem:
+     *
+     *  · NA OFICINA — à espera da aprovação dele, pronta a levantar, à espera de
+     *    peças, em reparação, deu entrada, marcada (a ordem aberta mais recente;
+     *    a aprovação passa à frente porque é ele que tem de agir);
+     *  · FORA DELA — revisão em atraso, documentos caducados, revisão a chegar,
+     *    ou tudo em dia.
+     *
+     * E por baixo o resto que ajuda: a próxima revisão (com os km que o carro TERÁ
+     * hoje, pelo andamento entre visitas, como nos lembretes), os trabalhos que a
+     * oficina recomendou e ficaram para depois, a viatura de cortesia que tem
+     * consigo e a última visita.
+     *
+     * @return array<int, array<string, mixed>> por id da viatura
+     */
+    private function estadosDe(Client $cliente, $viaturas, $ordens): array
+    {
+        if ($viaturas->isEmpty()) {
+            return [];
+        }
+
+        // Ler sem criar: o portal não grava as definições da oficina por ter sido aberto.
+        $definicoes = \App\Models\Workshop\WorkshopSetting::withoutGlobalScopes()->where('tenant_id', $cliente->tenant_id)->first()
+            ?? new \App\Models\Workshop\WorkshopSetting();
+        $adiadas = \App\Models\Workshop\DeferredItem::withoutGlobalScopes()
+            ->where('tenant_id', $cliente->tenant_id)->whereIn('vehicle_id', $viaturas->pluck('id'))->where('status', 'pendente')
+            ->orderByRaw("CASE severity WHEN 'urgente' THEN 0 WHEN 'atencao' THEN 1 ELSE 2 END")->orderBy('follow_up_on')
+            ->get()->groupBy('vehicle_id');
+        $emprestimos = \App\Models\Workshop\CourtesyLoan::withoutGlobalScopes()->with(['car' => fn ($q) => $q->withoutGlobalScopes()])
+            ->where('tenant_id', $cliente->tenant_id)->whereIn('work_order_id', $ordens->pluck('id'))->whereNull('returned_at')
+            ->get()->keyBy('work_order_id');
+
+        $hoje = today();
+        $estados = [];
+
+        foreach ($viaturas as $v) {
+            $minhas = $ordens->where('vehicle_id', $v->id);
+            $abertas = $minhas->whereNotIn('status', ['delivered', 'cancelled']);
+            $aprovar = $abertas->first(fn (WorkOrder $o) => $o->items->contains('approval', 'pending')
+                && \App\Http\Controllers\Api\Workshop\AprovacaoDoOrcamentoApiController::linkActivo($o));
+            $aberta = $aprovar ?? $abertas->first();
+            $ultima = $minhas->whereIn('status', ['completed', 'delivered'])->first();
+
+            // A REVISÃO — a mesma conta dos lembretes (OF-11).
+            $revisao = null;
+            if ($v->next_service_date || $v->next_service_km) {
+                $pontos = $minhas->filter(fn (WorkOrder $o) => $o->received_at && (int) $o->mileage_in > 0)
+                    ->sortBy('received_at')->map(fn (WorkOrder $o) => [\Illuminate\Support\Carbon::parse($o->received_at)->startOfDay(), (int) $o->mileage_in])->values();
+                $estimados = \App\Services\Workshop\LembretesDaOficina::kmEstimados($v, $pontos, \App\Services\Workshop\LembretesDaOficina::kmPorDia($pontos));
+                $faltamKm = $v->next_service_km ? (int) $v->next_service_km - $estimados : null;
+
+                $revisao = [
+                    'data' => $v->next_service_date?->toDateString(),
+                    'km' => $v->next_service_km,
+                    'km_estimados' => $estimados,
+                    'faltam_km' => $faltamKm,
+                    'dias' => $v->next_service_date ? (int) $hoje->diffInDays($v->next_service_date, false) : null,
+                    'atrasada' => ($v->next_service_date && $v->next_service_date->lt($hoje)) || ($faltamKm !== null && $faltamKm <= 0),
+                    'a_chegar' => ($v->next_service_date && $v->next_service_date->lte($hoje->copy()->addDays((int) $definicoes->remind_days_before)))
+                        || ($faltamKm !== null && $faltamKm <= (int) $definicoes->remind_km_before),
+                    'quando' => \App\Services\Workshop\LembretesDaOficina::quando($v->next_service_km, $v->next_service_date),
+                ];
+            }
+
+            $caducados = collect([
+                __('Livrete') => $v->registration_expiry,
+                __('Seguro') => $v->insurance_expiry,
+                __('Inspecção') => $v->inspection_expiry,
+            ])->filter(fn ($data) => $data && $data->lt($hoje))->keys();
+
+            $emprestimo = $aberta ? $emprestimos->get($aberta->id) : null;
+
+            $estados[$v->id] = [
+                'estado' => $this->estado($aberta, $aprovar !== null, $revisao, $caducados->all(), $ultima),
+                'ordem' => $aberta ? ['id' => $aberta->id, 'numero' => $aberta->order_number] : null,
+                'revisao' => $revisao,
+                'recomendadas' => ($adiadas[$v->id] ?? collect())->take(5)->map(fn ($r) => [
+                    'nome' => $r->name,
+                    'gravidade' => $r->severity,
+                    'voltar_em' => $r->follow_up_on?->toDateString(),
+                ])->values(),
+                'recomendadas_total' => ($adiadas[$v->id] ?? collect())->count(),
+                'cortesia' => $emprestimo ? [
+                    'matricula' => $emprestimo->car?->plate,
+                    'viatura' => $emprestimo->car ? trim("{$emprestimo->car->brand} {$emprestimo->car->model}") : null,
+                    'devolver_ate' => $emprestimo->expected_return_at?->toIso8601String(),
+                    'atrasada' => $emprestimo->atrasado(),
+                ] : null,
+                'ultima_visita' => ($ultima?->delivered_at ?? $ultima?->completed_at ?? $ultima?->received_at)?->toDateString(),
+            ];
+        }
+
+        return $estados;
+    }
+
+    /**
+     * A UMA FRASE do cartão: a chave, o rótulo, a cor (a das etiquetas), o ícone,
+     * quanto do caminho já andou (só na oficina) e a data que a acompanha.
+     *
+     * @param  list<string>  $caducados
+     */
+    private function estado(?WorkOrder $o, bool $aprovar, ?array $revisao, array $caducados, ?WorkOrder $ultima): array
+    {
+        $dia = fn ($data) => $data ? \Illuminate\Support\Carbon::parse($data)->format('d/m/Y') : null;
+
+        if ($o) {
+            [$chave, $rotulo, $cor, $icone, $progresso, $frase] = match (true) {
+                $aprovar => ['aprovar', __('À espera da sua aprovação'), 'aviso', 'fa-hand', null, __('A oficina propôs trabalhos. Veja-os e decida na folha de obra.')],
+                $o->status === 'completed' => ['pronta', __('Pronta a levantar'), 'bom', 'fa-flag-checkered', 100, __('Concluída a :data. Pode vir buscar o carro.', ['data' => $dia($o->completed_at) ?? '—'])],
+                $o->status === 'waiting_parts' => ['pecas', __('À espera de peças'), 'aviso', 'fa-boxes-stacked', 65, __('O trabalho continua assim que as peças chegarem.')],
+                $o->status === 'in_progress' => ['em_curso', __('Em reparação'), 'primaria', 'fa-screwdriver-wrench', 50, $o->started_at ? __('Os trabalhos começaram a :data.', ['data' => $dia($o->started_at)]) : __('Os trabalhos já começaram.')],
+                $o->status === 'scheduled' => ['marcada', __('Entrada marcada'), 'primaria', 'fa-calendar-check', 5, $o->scheduled_for ? __('Esperamos o carro a :data.', ['data' => $dia($o->scheduled_for)]) : __('A oficina marcou a entrada do carro.')],
+                default => ['recebida', __('Deu entrada na oficina'), 'aviso', 'fa-car-on', 20, __('Entrou a :data. Está à espera do diagnóstico.', ['data' => $dia($o->received_at) ?? '—'])],
+            };
+
+            return ['chave' => $chave, 'rotulo' => $rotulo, 'cor' => $cor, 'icone' => $icone, 'na_oficina' => true, 'progresso' => $progresso, 'frase' => $frase];
+        }
+
+        $fora = fn (string $chave, string $rotulo, string $cor, string $icone, string $frase) => ['chave' => $chave, 'rotulo' => $rotulo, 'cor' => $cor, 'icone' => $icone, 'na_oficina' => false, 'progresso' => null, 'frase' => $frase];
+
+        if ($revisao && $revisao['atrasada']) {
+            return $fora('revisao_atrasada', __('Revisão em atraso'), 'perigo', 'fa-oil-can', __('A revisão era :quando. Marque a entrada com a oficina.', ['quando' => $revisao['quando']]));
+        }
+        if ($caducados) {
+            return $fora('documentos', __('Documentos caducados'), 'perigo', 'fa-triangle-exclamation', __('Caducou: :lista.', ['lista' => implode(', ', $caducados)]));
+        }
+        if ($revisao && $revisao['a_chegar']) {
+            return $fora('revisao_a_chegar', __('Revisão a chegar'), 'aviso', 'fa-oil-can', __('A próxima revisão é :quando.', ['quando' => $revisao['quando']]));
+        }
+
+        return $fora('em_dia', __('Tudo em dia'), 'bom', 'fa-circle-check', $ultima
+            ? __('Última visita a :data.', ['data' => $dia($ultima->delivered_at ?? $ultima->completed_at ?? $ultima->received_at)])
+            : __('Sem visitas registadas nesta oficina.'));
     }
 
     private function viaturasDe(Client $cliente)

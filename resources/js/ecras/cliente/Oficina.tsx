@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
-import { portal, type OrdemDoCliente } from '@/api/portalDoCliente';
+import { portal, type EstadoDaViatura, type OrdemDoCliente, type ViaturaDoCliente } from '@/api/portalDoCliente';
 import { t, tn } from '@/i18n';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
@@ -66,6 +66,7 @@ export default function Oficina() {
                                     </div>
                                     {v.na_oficina && <Etiqueta cor="aviso" icone="fa-screwdriver-wrench">{t('Na oficina')}</Etiqueta>}
                                 </div>
+                                <EstadoDoCarro v={v} aprovar={v.ordem ? d.ordens.find((o) => o.id === v.ordem?.id)?.aprovar ?? null : null} />
                                 {v.documentos.length > 0 && (
                                     <div className="mt-3 flex flex-wrap gap-1.5 border-t border-gray-100 pt-3">
                                         {v.documentos.map((doc) => (
@@ -120,7 +121,7 @@ function Folha({ o, i, aberta = false }: { o: OrdemDoCliente; i: number; aberta?
     const f = o.factura;
 
     return (
-        <article style={cascata(i)} className={cls('entra overflow-hidden border border-gray-100 bg-white shadow-lg', 'rounded-2xl', TRANSICAO, 'hover:shadow-xl')}>
+        <article id={`ordem-${o.id}`} style={cascata(i)} className={cls('entra scroll-mt-24 overflow-hidden border border-gray-100 bg-white shadow-lg', 'rounded-2xl', TRANSICAO, 'hover:shadow-xl')}>
             <button type="button" onClick={() => porVer(!ver)} aria-expanded={ver}
                 className={cls('flex w-full flex-wrap items-center gap-3 p-5 text-left', FOCO)}>
                 <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 text-white shadow">
@@ -278,6 +279,132 @@ function Folha({ o, i, aberta = false }: { o: OrdemDoCliente; i: number; aberta?
                 </div>
             )}
         </article>
+    );
+}
+
+/**
+ * O ESTADO DO CARRO — pedido de 15/09/2026: «no cliente devia puxar o status ou
+ * estado da viatura».
+ *
+ * Uma frase com a cor e o ícone do momento (pronta, em reparação, à espera da
+ * aprovação dele, revisão em atraso…), a barra do caminho quando o carro está
+ * na oficina e, por baixo, a próxima revisão, a viatura de cortesia que tem
+ * consigo e os trabalhos que ficaram recomendados para depois.
+ */
+const TOM: Record<EstadoDaViatura['cor'], { caixa: string; icone: string; barra: string; texto: string }> = {
+    bom: { caixa: 'border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50', icone: 'from-emerald-500 to-teal-600', barra: 'from-emerald-400 to-teal-500', texto: 'text-emerald-800' },
+    aviso: { caixa: 'border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50', icone: 'from-amber-400 to-orange-500', barra: 'from-amber-400 to-orange-500', texto: 'text-amber-800' },
+    perigo: { caixa: 'border-red-200 bg-gradient-to-r from-red-50 to-rose-50', icone: 'from-red-500 to-rose-600', barra: 'from-red-400 to-rose-500', texto: 'text-red-800' },
+    primaria: { caixa: 'border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50', icone: 'from-blue-500 to-indigo-600', barra: 'from-blue-400 to-indigo-500', texto: 'text-blue-800' },
+    neutra: { caixa: 'border-gray-200 bg-gray-50', icone: 'from-gray-400 to-gray-500', barra: 'from-gray-300 to-gray-400', texto: 'text-gray-700' },
+};
+
+const GRAVIDADE: Record<string, string> = {
+    urgente: 'bg-red-100 text-red-800',
+    atencao: 'bg-amber-100 text-amber-900',
+};
+
+function EstadoDoCarro({ v, aprovar }: { v: ViaturaDoCliente; aprovar: string | null }) {
+    const e = v.estado;
+    const tom = TOM[e.cor] ?? TOM.neutra;
+    // A barra enche depois de montar, para se ver o carro a andar no caminho.
+    const [largura, porLargura] = useState(0);
+    useEffect(() => {
+        if (e.progresso === null) return;
+        const quadro = requestAnimationFrame(() => porLargura(e.progresso ?? 0));
+        return () => cancelAnimationFrame(quadro);
+    }, [e.progresso]);
+
+    const irParaAFolha = () => {
+        const alvo = v.ordem && document.getElementById(`ordem-${v.ordem.id}`);
+        if (alvo) alvo.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    };
+
+    return (
+        <div className="mt-4 space-y-3">
+            <div role="status" className={cls('animate-fade-in border p-3.5', RAIO, tom.caixa)}>
+                <div className="flex items-start gap-3">
+                    <span className={cls('relative grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br text-white shadow', tom.icone)}>
+                        {e.na_oficina && <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 flex h-3 w-3"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/80 motion-reduce:animate-none" /><span className="relative inline-flex h-3 w-3 rounded-full bg-white ring-2 ring-current" /></span>}
+                        <i className={cls('fas icon-float', e.icone)} aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">{t('Estado da viatura')}</p>
+                        <p className={cls('font-bold', tom.texto)}>{e.rotulo}</p>
+                        <p className="text-sm text-gray-700">{e.frase}</p>
+                    </div>
+                </div>
+
+                {e.progresso !== null && (
+                    <div className="mt-3" aria-hidden="true">
+                        <div className="h-2 overflow-hidden rounded-full bg-white/80 shadow-inner">
+                            <div className={cls('h-full rounded-full bg-gradient-to-r transition-[width] duration-1000 ease-out motion-reduce:transition-none', tom.barra)} style={{ width: `${largura}%` }} />
+                        </div>
+                    </div>
+                )}
+
+                {v.ordem && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                        {e.chave === 'aprovar' && aprovar ? (
+                            <a href={aprovar} className={cls('group inline-flex items-center gap-1.5 bg-amber-500 px-3 py-1.5 text-sm font-bold text-white shadow-sm hover:-translate-y-0.5 hover:bg-amber-600 hover:shadow', RAIO, TRANSICAO, FOCO)}>
+                                <i className="fas fa-hand" aria-hidden="true" />{t('Decidir agora')}<i className="fas fa-arrow-right transition-transform group-hover:translate-x-1" aria-hidden="true" />
+                            </a>
+                        ) : null}
+                        <button type="button" onClick={irParaAFolha} className={cls('group inline-flex items-center gap-1.5 border border-white bg-white/70 px-3 py-1.5 text-sm font-semibold text-gray-800 shadow-sm hover:-translate-y-0.5 hover:bg-white hover:shadow', RAIO, TRANSICAO, FOCO)}>
+                            <i className="fas fa-clipboard-list text-purple-600" aria-hidden="true" />
+                            {t('Ver folha de obra :n', { n: v.ordem.numero })}
+                            <i className="fas fa-arrow-down text-gray-400 transition-transform group-hover:translate-y-0.5" aria-hidden="true" />
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            <ul className="space-y-2 text-sm">
+                {v.cortesia && (
+                    <li className={cls('flex items-start gap-2.5', v.cortesia.atrasada ? 'text-red-700' : 'text-gray-700')}>
+                        <i className={cls('fas fa-key mt-0.5 w-4 text-center', v.cortesia.atrasada ? 'text-red-500' : 'text-indigo-500')} aria-hidden="true" />
+                        <span>
+                            {t('Tem consigo a viatura de cortesia :v', { v: [v.cortesia.matricula, v.cortesia.viatura].filter(Boolean).join(' · ') })}
+                            {v.cortesia.devolver_ate && <span className="block text-xs">{v.cortesia.atrasada ? t('Devolução em atraso desde :data', { data: dataHora(v.cortesia.devolver_ate) }) : t('Devolver até :data', { data: dataHora(v.cortesia.devolver_ate) })}</span>}
+                        </span>
+                    </li>
+                )}
+                {v.revisao && (
+                    <li className="flex items-start gap-2.5 text-gray-700">
+                        <i className={cls('fas fa-oil-can mt-0.5 w-4 text-center', v.revisao.atrasada ? 'text-red-500' : v.revisao.a_chegar ? 'text-amber-500' : 'text-emerald-500')} aria-hidden="true" />
+                        <span>
+                            {t('Próxima revisão :quando', { quando: v.revisao.quando })}
+                            {v.revisao.faltam_km !== null && v.revisao.km_estimados > 0 && (
+                                <span className="block text-xs text-gray-500">
+                                    {v.revisao.faltam_km > 0
+                                        ? t('Faltam cerca de :km km (o carro deve ir nos :hoje km)', { km: v.revisao.faltam_km.toLocaleString(), hoje: v.revisao.km_estimados.toLocaleString() })
+                                        : t('Já passou :km km da revisão', { km: Math.abs(v.revisao.faltam_km).toLocaleString() })}
+                                </span>
+                            )}
+                        </span>
+                    </li>
+                )}
+                {v.recomendadas_total > 0 && (
+                    <li className="flex items-start gap-2.5 text-gray-700">
+                        <i className="fas fa-lightbulb mt-0.5 w-4 text-center text-amber-500" aria-hidden="true" />
+                        <span className="min-w-0">
+                            {tn(':n trabalho recomendado para depois|:n trabalhos recomendados para depois', v.recomendadas_total, { n: v.recomendadas_total })}
+                            <span className="mt-1 flex flex-wrap gap-1">
+                                {v.recomendadas.map((r, n) => (
+                                    <span key={n} className={cls('rounded-full px-2 py-0.5 text-[11px] font-semibold', GRAVIDADE[r.gravidade ?? ''] ?? 'bg-gray-100 text-gray-700')}>{r.nome}</span>
+                                ))}
+                            </span>
+                        </span>
+                    </li>
+                )}
+                {v.ultima_visita && !e.na_oficina && e.chave !== 'em_dia' && (
+                    <li className="flex items-start gap-2.5 text-gray-500">
+                        <i className="fas fa-clock-rotate-left mt-0.5 w-4 text-center" aria-hidden="true" />
+                        <span>{t('Última visita a :data', { data: data(v.ultima_visita) })}</span>
+                    </li>
+                )}
+            </ul>
+        </div>
     );
 }
 

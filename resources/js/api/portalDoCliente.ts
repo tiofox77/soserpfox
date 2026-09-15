@@ -78,7 +78,43 @@ export type OrdemDoCliente = {
     factura: { id: number; numero: string; data: string | null; vencimento: string | null; estado_rotulo: string; total: number; falta: number; vencida: boolean; pdf: string } | null;
 };
 
-export type ResumoDaOficina = { viaturas: number; na_oficina: number; prontas: number; por_pagar: number };
+/** O estado do carro numa frase — o que o cartão da viatura diz primeiro. */
+export type EstadoDaViatura = {
+    chave: 'aprovar' | 'pronta' | 'pecas' | 'em_curso' | 'marcada' | 'recebida' | 'revisao_atrasada' | 'documentos' | 'revisao_a_chegar' | 'em_dia';
+    rotulo: string;
+    cor: 'neutra' | 'primaria' | 'aviso' | 'bom' | 'perigo';
+    icone: string;
+    na_oficina: boolean;
+    /** Quanto do caminho já andou (0–100), só com o carro na oficina. */
+    progresso: number | null;
+    frase: string;
+};
+
+export type ViaturaDoCliente = {
+    id: number;
+    matricula: string;
+    viatura: string;
+    ano: number | null;
+    cor: string | null;
+    km: number;
+    na_oficina: boolean;
+    documentos: Array<{ nome: string; ate: string; dias: number }>;
+    estado: EstadoDaViatura;
+    ordem: { id: number; numero: string } | null;
+    revisao: { data: string | null; km: number | null; km_estimados: number; faltam_km: number | null; dias: number | null; atrasada: boolean; a_chegar: boolean; quando: string } | null;
+    recomendadas: Array<{ nome: string; gravidade: string | null; voltar_em: string | null }>;
+    recomendadas_total: number;
+    cortesia: { matricula: string | null; viatura: string | null; devolver_ate: string | null; atrasada: boolean } | null;
+    ultima_visita: string | null;
+};
+
+export type ResumoDaOficina = {
+    viaturas: number;
+    na_oficina: number;
+    prontas: number;
+    por_pagar: number;
+    estados: Array<{ id: number; matricula: string; viatura: string } & Pick<EstadoDaViatura, 'chave' | 'rotulo' | 'cor' | 'icone'>>;
+};
 
 export type ProformaDoCliente = {
     id: number;
@@ -100,7 +136,7 @@ export const portal = {
     escolherEmpresa: (id: number) => entrada.criar<Recado & { ir_para: string }>('/login/empresa', { id }),
     oficina: () => apiDoPortal.ler<{
         resumo: ResumoDaOficina;
-        viaturas: Array<{ id: number; matricula: string; viatura: string; ano: number | null; cor: string | null; km: number; na_oficina: boolean; documentos: Array<{ nome: string; ate: string; dias: number }> }>;
+        viaturas: ViaturaDoCliente[];
         ordens: OrdemDoCliente[];
         contas: Array<{ banco: string | null; conta: string | null; iban: string | null }>;
     }>('/oficina'),

@@ -153,6 +153,51 @@ class PortalPorModuloTest extends TenantTestCase
         $this->assertSame(['Revisão geral', 1, '2 mm'], [$concluida['inspeccoes'][0]['nome'], $concluida['inspeccoes'][0]['contas']['urgente'], $concluida['inspeccoes'][0]['pontos'][0]['nota']]);
     }
 
+    /**
+     * O ESTADO DA VIATURA no cartão (15/09/2026): o da ordem aberta, a aprovação
+     * à frente; fora da oficina, a revisão em atraso, os documentos, ou em dia.
+     */
+    public function test_o_cartao_da_viatura_diz_o_estado_do_carro(): void
+    {
+        $viatura = fn (array $mais = []) => Vehicle::create($mais + ['plate' => 'LD-' . random_int(10, 99) . '-' . random_int(10, 99) . '-ES', 'vehicle_number' => 'VEH-' . substr(uniqid(), -6), 'owner_name' => 'Dono', 'brand' => 'Kia', 'model' => 'Rio', 'status' => 'active', 'client_id' => $this->doPortal->id]);
+
+        $emReparacao = $viatura();
+        WorkOrder::create(['order_number' => 'OS-E-1', 'vehicle_id' => $emReparacao->id, 'received_at' => now()->subDay(), 'started_at' => now(), 'problem_description' => 'x', 'status' => 'in_progress', 'priority' => 'normal']);
+
+        $pronta = $viatura();
+        WorkOrder::create(['order_number' => 'OS-E-2', 'vehicle_id' => $pronta->id, 'received_at' => now()->subDays(2), 'completed_at' => now(), 'problem_description' => 'x', 'status' => 'completed', 'priority' => 'normal']);
+
+        $aAprovar = $viatura();
+        $os = WorkOrder::create(['order_number' => 'OS-E-3', 'vehicle_id' => $aAprovar->id, 'received_at' => now(), 'problem_description' => 'x', 'status' => 'in_progress', 'priority' => 'normal', 'approval_token' => \Illuminate\Support\Str::random(40), 'approval_expires_at' => now()->addDays(3)]);
+        \App\Models\Workshop\WorkOrderItem::create(['work_order_id' => $os->id, 'type' => 'service', 'name' => 'Correia', 'quantity' => 1, 'unit_price' => 30000, 'approval' => 'pending']);
+
+        // Fora da oficina: revisão passada, com uma recomendação para depois.
+        $atrasada = $viatura(['next_service_date' => now()->subDays(3), 'next_service_km' => 90000, 'mileage' => 85000]);
+        WorkOrder::create(['order_number' => 'OS-E-4', 'vehicle_id' => $atrasada->id, 'received_at' => now()->subMonths(7), 'completed_at' => now()->subMonths(7), 'delivered_at' => now()->subMonths(7), 'problem_description' => 'x', 'status' => 'delivered', 'priority' => 'normal']);
+        \App\Models\Workshop\DeferredItem::create(['tenant_id' => $this->tenant->id, 'vehicle_id' => $atrasada->id, 'type' => 'part', 'name' => 'Pneus', 'quantity' => 4, 'unit_price' => 0, 'origin' => 'recusada', 'severity' => 'atencao', 'status' => 'pendente', 'follow_up_on' => now()->addMonth()]);
+
+        $caducada = $viatura(['inspection_expiry' => now()->subDay()]);
+        $emDia = $viatura(['next_service_date' => now()->addMonths(4)]);
+
+        $this->entrar();
+        $viaturas = collect($this->getJson('/client/api/oficina')->assertOk()->json('viaturas'))->keyBy('id');
+        $chave = fn (Vehicle $v) => $viaturas[$v->id]['estado']['chave'];
+
+        $this->assertSame(['em_curso', 'pronta'], [$chave($emReparacao), $chave($pronta)]);
+        $this->assertSame(['OS-E-1', 50, true], [$viaturas[$emReparacao->id]['ordem']['numero'], $viaturas[$emReparacao->id]['estado']['progresso'], $viaturas[$emReparacao->id]['estado']['na_oficina']]);
+        $this->assertSame('aprovar', $chave($aAprovar), 'a aprovação passa à frente do «em reparação»');
+        $this->assertSame('revisao_atrasada', $chave($atrasada));
+        $this->assertTrue($viaturas[$atrasada->id]['revisao']['atrasada']);
+        $this->assertSame([1, 'Pneus'], [$viaturas[$atrasada->id]['recomendadas_total'], $viaturas[$atrasada->id]['recomendadas'][0]['nome']]);
+        $this->assertNull($viaturas[$atrasada->id]['ordem']);
+        $this->assertSame('documentos', $chave($caducada));
+        $this->assertSame(['em_dia', false], [$chave($emDia), $viaturas[$emDia->id]['revisao']['a_chegar']]);
+
+        // O início do portal leva o estado de cada carro.
+        $estados = collect($this->getJson('/client/api/painel')->assertOk()->json('oficina.estados'))->keyBy('id');
+        $this->assertSame(['pronta', 'Pronta a levantar'], [$estados[$pronta->id]['chave'], $estados[$pronta->id]['rotulo']]);
+    }
+
     public function test_o_pdf_da_factura_so_das_que_o_cliente_ve(): void
     {
         $daOficina = $this->factura(['source_module' => 'oficina']);
