@@ -196,6 +196,8 @@ function Folha({ o, i, aberta = false }: { o: OrdemDoCliente; i: number; aberta?
                         </div>
                     )}
 
+                    {o.inspeccoes.map((ins) => <InspeccaoNoPortal key={ins.id} ins={ins} />)}
+
                     {o.fotos.length > 0 && (
                         <div>
                             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500"><i className="fas fa-camera mr-1.5" aria-hidden="true" />{tn(':n fotografia|:n fotografias', o.fotos.length, { n: o.fotos.length })}</p>
@@ -237,5 +239,70 @@ function Folha({ o, i, aberta = false }: { o: OrdemDoCliente; i: number; aberta?
                 </div>
             )}
         </article>
+    );
+}
+
+/**
+ * A INSPECÇÃO NO PORTAL (OF-02) — o semáforo que a oficina deu ao carro.
+ *
+ * O que precisa de atenção vem primeiro e aberto; os pontos OK ficam contados
+ * e escondidos atrás de um botão, para o cliente não ler trinta linhas verdes.
+ */
+const COR_DO_PONTO: Record<string, { ponto: string; fundo: string; nome: string }> = {
+    urgente: { ponto: 'bg-red-600', fundo: 'border-red-200 bg-red-50', nome: 'Urgente' },
+    atencao: { ponto: 'bg-amber-400', fundo: 'border-amber-200 bg-amber-50', nome: 'Atenção' },
+    ok: { ponto: 'bg-emerald-500', fundo: 'border-emerald-100 bg-emerald-50/50', nome: 'OK' },
+    na: { ponto: 'bg-gray-300', fundo: 'border-gray-100 bg-gray-50', nome: 'Não se aplica' },
+};
+
+function InspeccaoNoPortal({ ins }: { ins: OrdemDoCliente['inspeccoes'][number] }) {
+    const [verTudo, porVerTudo] = useState(false);
+    const problemas = ins.pontos.filter((p) => p.estado === 'urgente' || p.estado === 'atencao')
+        .sort((a, b) => (a.estado === 'urgente' ? 0 : 1) - (b.estado === 'urgente' ? 0 : 1));
+    const restantes = ins.pontos.filter((p) => p.estado !== 'urgente' && p.estado !== 'atencao');
+
+    const linha = (p: OrdemDoCliente['inspeccoes'][number]['pontos'][number], n: number) => {
+        const cor = (COR_DO_PONTO[p.estado ?? 'na'] ?? COR_DO_PONTO.na) as { ponto: string; fundo: string; nome: string };
+        return (
+            <li key={`${p.seccao}-${p.ponto}-${n}`} className={cls('flex items-start gap-3 border p-2.5', RAIO, cor.fundo)}>
+                <span className={cls('mt-1 h-3 w-3 flex-none rounded-full', cor.ponto)} aria-hidden="true" />
+                <span className="min-w-0 flex-1 text-sm">
+                    <span className="block font-semibold text-gray-900">{p.ponto} <span className="font-normal text-gray-500">· {p.seccao}</span></span>
+                    <span className="block text-xs font-semibold text-gray-600">{t(cor.nome)}{p.nota ? ` — ${p.nota}` : ''}</span>
+                </span>
+                {p.foto && (
+                    <a href={p.foto} target="_blank" rel="noreferrer" className={cls('block h-12 w-12 flex-none overflow-hidden', RAIO, FOCO)}>
+                        <img src={p.foto} alt={p.ponto} loading="lazy" className="h-full w-full object-cover" />
+                    </a>
+                )}
+            </li>
+        );
+    };
+
+    return (
+        <div className={cls('border border-gray-100 bg-white p-4', RAIO)}>
+            <p className="mb-3 flex flex-wrap items-center gap-2">
+                <i className="fas fa-list-check text-emerald-600" aria-hidden="true" />
+                <span className="font-semibold text-gray-900">{t('Inspecção: :nome', { nome: ins.nome })}</span>
+                <span className="text-xs text-gray-500">{dataHora(ins.concluida_em)}</span>
+                <span className="ml-auto flex flex-wrap gap-1.5 text-xs font-bold">
+                    {ins.contas.urgente > 0 && <span className="rounded-full bg-red-100 px-2 py-0.5 text-red-700">{tn(':n urgente|:n urgentes', ins.contas.urgente, { n: ins.contas.urgente })}</span>}
+                    {ins.contas.atencao > 0 && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800">{tn(':n a vigiar|:n a vigiar', ins.contas.atencao, { n: ins.contas.atencao })}</span>}
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">{tn(':n OK|:n OK', ins.contas.ok, { n: ins.contas.ok })}</span>
+                </span>
+            </p>
+            {problemas.length > 0
+                ? <ul className="space-y-2">{problemas.map(linha)}</ul>
+                : <p className="text-sm text-emerald-700"><i className="fas fa-circle-check mr-1.5" aria-hidden="true" />{t('Tudo em ordem nos pontos inspeccionados.')}</p>}
+            {restantes.length > 0 && (
+                <>
+                    <button type="button" onClick={() => porVerTudo(!verTudo)} className={cls('mt-3 text-xs font-semibold text-gray-600 hover:text-gray-900', FOCO, RAIO)}>
+                        <i className={cls('fas mr-1', verTudo ? 'fa-chevron-up' : 'fa-chevron-down')} aria-hidden="true" />
+                        {verTudo ? t('Esconder os restantes pontos') : tn('Ver o :n ponto restante|Ver os :n pontos restantes', restantes.length, { n: restantes.length })}
+                    </button>
+                    {verTudo && <ul className="animate-fade-in mt-2 grid gap-2 sm:grid-cols-2">{restantes.map(linha)}</ul>}
+                </>
+            )}
+        </div>
     );
 }

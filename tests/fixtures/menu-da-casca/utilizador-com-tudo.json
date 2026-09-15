@@ -609,6 +609,11 @@
         },
         {
             "tag": "a",
+            "href": "/workshop/inspection-templates",
+            "texto": "Modelos de Inspecção"
+        },
+        {
+            "tag": "a",
             "href": "/workshop/mechanics",
             "texto": "Mecânicos"
         },

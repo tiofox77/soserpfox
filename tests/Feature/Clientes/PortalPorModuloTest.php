@@ -114,6 +114,10 @@ class PortalPorModuloTest extends TenantTestCase
         VehiclePhoto::create(['tenant_id' => $this->tenant->id, 'vehicle_id' => $v->id, 'work_order_id' => $os1->id, 'phase' => 'depois', 'service' => 'pintura', 'zone' => 'capo', 'file_path' => 'workshop/vehicles/x/depois.jpg']);
         VehiclePhoto::create(['tenant_id' => $this->tenant->id, 'vehicle_id' => $v->id, 'phase' => 'antes', 'service' => 'pintura', 'file_path' => 'workshop/vehicles/x/solta.jpg']);
 
+        // A inspecção concluída aparece ao cliente; a que está a meio não.
+        \App\Models\Workshop\WorkOrderInspection::create(['tenant_id' => $this->tenant->id, 'work_order_id' => $os1->id, 'name' => 'Revisão geral', 'completed_at' => now(), 'results' => [['seccao' => 'Travões', 'ponto' => 'Pastilhas', 'estado' => 'urgente', 'nota' => '2 mm', 'foto' => null]]]);
+        \App\Models\Workshop\WorkOrderInspection::create(['tenant_id' => $this->tenant->id, 'work_order_id' => $os1->id, 'name' => 'A meio', 'results' => [['seccao' => 'A', 'ponto' => 'b', 'estado' => null, 'nota' => null, 'foto' => null]]]);
+
         // Uma ordem desta viatura facturada a OUTRA pessoa (o dono anterior) não aparece.
         $outro = $this->clienteEmpresa();
         $alheia = $this->factura(['client_id' => $outro->id, 'source_module' => 'oficina']);
@@ -142,6 +146,9 @@ class PortalPorModuloTest extends TenantTestCase
         $fotos = $concluida['fotos'];
         $this->assertCount(1, $fotos);
         $this->assertSame(['photo_after', 'Pintura', 'Capô'], [$fotos[0]['tipo'], $fotos[0]['servico'], $fotos[0]['zona']]);
+
+        $this->assertCount(1, $concluida['inspeccoes']);
+        $this->assertSame(['Revisão geral', 1, '2 mm'], [$concluida['inspeccoes'][0]['nome'], $concluida['inspeccoes'][0]['contas']['urgente'], $concluida['inspeccoes'][0]['pontos'][0]['nota']]);
     }
 
     public function test_o_pdf_da_factura_so_das_que_o_cliente_ve(): void

@@ -225,6 +225,8 @@ return [
         \App\Models\Workshop\Vehicle::class,
         \App\Models\Workshop\VehiclePhoto::class,
         \App\Models\Workshop\WorkOrderCheckin::class,
+        \App\Models\Workshop\InspectionTemplate::class,
+        \App\Models\Workshop\WorkOrderInspection::class,
         \App\Models\Workshop\Mechanic::class,
         \App\Models\Workshop\Service::class,
 

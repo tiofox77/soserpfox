@@ -2012,6 +2012,16 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::put('/{id}/checkin', [$k, 'update'])->whereNumber('id')->name('checkin.gravar');
             Route::post('/{id}/checkin/assinatura', [$k, 'assinar'])->whereNumber('id')->name('checkin.assinar');
             Route::delete('/{id}/checkin/assinatura', [$k, 'tirarAssinatura'])->whereNumber('id')->name('checkin.tirar-assinatura');
+
+            // A inspecção digital com semáforo (OF-02).
+            $n = \App\Http\Controllers\Api\Workshop\InspeccoesDaOrdemApiController::class;
+            Route::get('/{id}/inspeccoes', [$n, 'index'])->whereNumber('id')->name('inspeccoes.lista');
+            Route::post('/{id}/inspeccoes', [$n, 'store'])->whereNumber('id')->name('inspeccoes.comecar');
+            Route::put('/{id}/inspeccoes/{inspeccao}', [$n, 'update'])->whereNumber('id')->whereNumber('inspeccao')->name('inspeccoes.gravar');
+            Route::delete('/{id}/inspeccoes/{inspeccao}', [$n, 'destroy'])->whereNumber('id')->whereNumber('inspeccao')->name('inspeccoes.apagar');
+            Route::post('/{id}/inspeccoes/{inspeccao}/recomendar', [$n, 'recomendar'])->whereNumber('id')->whereNumber('inspeccao')->name('inspeccoes.recomendar');
+            Route::post('/{id}/inspeccoes/{inspeccao}/pontos/{ponto}/foto', [$n, 'foto'])->whereNumber('id')->whereNumber('inspeccao')->whereNumber('ponto')->name('inspeccoes.foto');
+            Route::delete('/{id}/inspeccoes/{inspeccao}/pontos/{ponto}/foto', [$n, 'tirarFoto'])->whereNumber('id')->whereNumber('inspeccao')->whereNumber('ponto')->name('inspeccoes.tirar-foto');
         });
 
         // As fotografias da viatura — antes, durante, depois e danos (bate-chapa, pintura…).
@@ -3034,6 +3044,9 @@ Route::middleware(['auth', 'tenant.module:oficina'])->prefix('workshop')->name('
     // Os estados que as viaturas podem ter — cada oficina cria os seus.
     Route::middleware('permission:workshop.vehicles.view')
         ->get('/vehicle-statuses', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Estados de Viatura', ['tipo' => 'estados-de-viatura']))->name('vehicle-statuses');
+    // Os modelos da inspecção digital (OF-02): os pontos que a oficina confere.
+    Route::middleware('permission:workshop.work-orders.view')
+        ->get('/inspection-templates', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Modelos de Inspecção', ['tipo' => 'modelos-de-inspeccao']))->name('inspection-templates');
     Route::middleware('permission:workshop.vehicles.view')
         ->get('/vehicles', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Viaturas', ['tipo' => 'viaturas']))->name('vehicles');
     Route::middleware('permission:workshop.mechanics.view')

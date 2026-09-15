@@ -471,3 +471,44 @@ export const checkin = {
     assinar: (id: number, assinatura: string, nome: string) => api.criar<RespostaDoCheckin>(`/oficina/ordens/${id}/checkin/assinatura`, { assinatura, nome }),
     tirarAssinatura: (id: number) => api.apagar<RespostaDoCheckin>(`/oficina/ordens/${id}/checkin/assinatura`),
 };
+
+/* ─── A inspecção digital com semáforo (OF-02) ──────────────────────── */
+
+export type EstadoDoPonto = 'ok' | 'atencao' | 'urgente' | 'na';
+
+export type PontoDaInspeccao = { seccao: string; ponto: string; estado: EstadoDoPonto | null; nota: string | null; foto: string | null };
+
+export type InspeccaoDaOrdem = {
+    id: number;
+    nome: string;
+    concluida_em: string | null;
+    por: string | null;
+    em: string | null;
+    contas: { ok: number; atencao: number; urgente: number; na: number; por_ver: number };
+    pontos: PontoDaInspeccao[];
+};
+
+export type RespostaDasInspeccoes = {
+    inspeccoes: InspeccaoDaOrdem[];
+    modelos: Array<Escolha & { pontos: number; padrao: boolean }>;
+    estados: Escolha[];
+    recomendacoes: string | null;
+    pode_editar: boolean;
+    criada?: number;
+    message?: string;
+};
+
+export const inspeccoes = {
+    ler: (id: number) => api.ler<RespostaDasInspeccoes>(`/oficina/ordens/${id}/inspeccoes`),
+    comecar: (id: number, modeloId: string) => api.criar<RespostaDasInspeccoes>(`/oficina/ordens/${id}/inspeccoes`, { modelo_id: Number(modeloId) }),
+    gravar: (id: number, inspeccao: number, resultados: Array<{ estado: EstadoDoPonto | null; nota: string | null }>, extra: { concluir?: boolean; reabrir?: boolean } = {}) =>
+        api.guardar<RespostaDasInspeccoes>(`/oficina/ordens/${id}/inspeccoes/${inspeccao}`, { resultados, ...extra }),
+    apagar: (id: number, inspeccao: number) => api.apagar<RespostaDasInspeccoes>(`/oficina/ordens/${id}/inspeccoes/${inspeccao}`),
+    recomendar: (id: number, inspeccao: number) => api.criar<RespostaDasInspeccoes>(`/oficina/ordens/${id}/inspeccoes/${inspeccao}/recomendar`, {}),
+    foto: (id: number, inspeccao: number, ponto: number, ficheiro: File) => {
+        const corpo = new FormData();
+        corpo.append('foto', ficheiro);
+        return api.enviar<RespostaDasInspeccoes>(`/oficina/ordens/${id}/inspeccoes/${inspeccao}/pontos/${ponto}/foto`, corpo);
+    },
+    tirarFoto: (id: number, inspeccao: number, ponto: number) => api.apagar<RespostaDasInspeccoes>(`/oficina/ordens/${id}/inspeccoes/${inspeccao}/pontos/${ponto}/foto`),
+};

@@ -101,7 +101,9 @@ class PortalDaOficinaApiController extends Controller
         }
 
         return WorkOrder::withoutGlobalScopes()
-            ->with(['invoice' => fn ($q) => $q->withoutGlobalScopes(), 'vehicle' => fn ($q) => $q->withoutGlobalScopes(), 'items', 'attachments', 'vehiclePhotos' => fn ($q) => $q->withoutGlobalScopes()->orderBy('created_at')])
+            ->with(['invoice' => fn ($q) => $q->withoutGlobalScopes(), 'vehicle' => fn ($q) => $q->withoutGlobalScopes(), 'items', 'attachments', 'vehiclePhotos' => fn ($q) => $q->withoutGlobalScopes()->orderBy('created_at'),
+                // As inspecções CONCLUÍDAS (OF-02): uma a meio não se mostra ao cliente.
+                'inspections' => fn ($q) => $q->withoutGlobalScopes()->whereNotNull('completed_at')->orderByDesc('completed_at')])
             ->where('tenant_id', $cliente->tenant_id)
             ->whereIn('vehicle_id', $viaturas)
             ->orderByDesc('received_at')->orderByDesc('id')
@@ -159,6 +161,7 @@ class PortalDaOficinaApiController extends Controller
             ])->values(),
             'total' => round((float) $o->total, 2),
             'garantia_ate' => $o->warranty_expires?->toDateString(),
+            'inspeccoes' => $o->inspections->map(fn ($i) => \App\Http\Controllers\Api\Workshop\InspeccoesDaOrdemApiController::paraEcra($i))->values(),
             'fotos' => $o->attachments
                 ->filter(fn (WorkOrderAttachment $a) => in_array($a->category, ['photo_before', 'photo_after', 'photo_damage'], true))
                 ->map(fn (WorkOrderAttachment $a) => [

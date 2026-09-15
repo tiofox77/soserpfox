@@ -383,6 +383,7 @@ final class MenuDaCasca
                     ['rota' => 'workshop.clients', 'rotulo' => 'Clientes', 'icone' => 'fa-users', 'cor' => 'green-400', 'activo' => 'workshop.clients*', 'permissao' => 'invoicing.clients.view'],
                     ['rota' => 'workshop.vehicles', 'rotulo' => 'Veículos', 'icone' => 'fa-car', 'cor' => 'blue-400', 'activo' => 'workshop.vehicles*', 'permissao' => 'workshop.vehicles.view'],
                     ['rota' => 'workshop.vehicle-statuses', 'rotulo' => 'Estados de Viatura', 'icone' => 'fa-traffic-light', 'cor' => 'teal-400', 'activo' => 'workshop.vehicle-statuses*', 'permissao' => 'workshop.vehicles.view'],
+                    ['rota' => 'workshop.inspection-templates', 'rotulo' => 'Modelos de Inspecção', 'icone' => 'fa-list-check', 'cor' => 'green-400', 'activo' => 'workshop.inspection-templates*', 'permissao' => 'workshop.work-orders.view'],
                     ['rota' => 'workshop.mechanics', 'rotulo' => 'Mecânicos', 'icone' => 'fa-user-cog', 'cor' => 'orange-400', 'activo' => 'workshop.mechanics*', 'permissao' => 'workshop.mechanics.view'],
                     ['rota' => 'workshop.services', 'rotulo' => 'Serviços', 'icone' => 'fa-tools', 'cor' => 'purple-400', 'activo' => 'workshop.services*', 'permissao' => 'workshop.services.view'],
                     ['rota' => 'workshop.parts', 'rotulo' => 'Peças', 'icone' => 'fa-boxes', 'cor' => 'orange-400', 'activo' => 'workshop.parts*', 'permissao' => 'workshop.parts.view'],

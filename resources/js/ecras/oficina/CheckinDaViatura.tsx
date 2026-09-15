@@ -276,7 +276,7 @@ export function CheckinDaViatura({ id, dono }: { id: number; dono?: string | nul
             <AvisoDeErro erro={gravar.error} />
 
             {podeEditar && (
-                <div className={cls('sticky bottom-0 z-10 flex flex-wrap items-center gap-2 border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur', RAIO_GRANDE)}>
+                <div className={cls('bottom-0 z-10 flex flex-wrap items-center gap-2 sm:sticky border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur', RAIO_GRANDE)}>
                     <span className="mr-auto text-xs text-slate-500">
                         {mexido
                             ? <><i className="fas fa-circle mr-1 animate-pulse text-[8px] text-amber-500" aria-hidden="true" />{t('Alterações por gravar')}</>

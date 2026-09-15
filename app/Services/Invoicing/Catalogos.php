@@ -101,6 +101,7 @@ final class Catalogos
             'mecanicos' => self::mecanicos(),
             'viaturas' => self::viaturas(),
             'estados-de-viatura' => self::estadosDeViatura(),
+            'modelos-de-inspeccao' => self::modelosDeInspeccao(),
             'servicos' => self::servicos(),
 
             /*
@@ -1863,6 +1864,92 @@ final class Catalogos
      * ele é renomeado. «Pode receber ordens» decide se a viatura aparece ao
      * abrir uma ordem de serviço nova.
      */
+    /**
+     * OS MODELOS DA INSPECÇÃO DIGITAL (15/09/2026, OF-02).
+     *
+     * Os pontos escrevem-se um por linha, «Secção: ponto». Uma empresa que nunca
+     * abriu a lista recebe a «Revisão geral» com 33 pontos.
+     */
+    private static function modelosDeInspeccao(): array
+    {
+        $modelo = \App\Models\Workshop\InspectionTemplate::class;
+
+        return [
+            'modelo' => $modelo,
+            'titulo' => 'Modelos de Inspecção',
+            'singular' => 'Modelo de inspecção',
+            'icone' => 'fa-list-check',
+            'cor' => 'bom',
+            'descricao' => 'Os pontos que a oficina confere em cada inspecção, com semáforo',
+            'novo' => 'Novo Modelo',
+            'rota' => '/workshop/inspection-templates',
+            'permissoes' => ['ver' => 'workshop.work-orders.view', 'criar' => 'workshop.work-orders.edit', 'editar' => 'workshop.work-orders.edit', 'apagar' => 'workshop.work-orders.edit'],
+            'pesquisa' => ['name', 'description', 'points'],
+            'pesquisa_ajuda' => 'Nome ou ponto',
+            'ordem' => [['is_default', 'desc'], ['name', 'asc']],
+            'antes' => fn (int $tenantId) => $modelo::garantirCatalogo($tenantId),
+            'colunas' => [
+                ['chave' => 'name', 'rotulo' => 'Nome', 'formato' => 'texto'],
+                ['chave' => 'description', 'rotulo' => 'Descrição', 'formato' => 'texto'],
+                ['chave' => 'points_count', 'rotulo' => 'Pontos', 'formato' => 'numero', 'alinhar' => 'direita'],
+                ['chave' => 'is_default', 'rotulo' => 'Padrão', 'formato' => 'padrao'],
+                ['chave' => 'is_active', 'rotulo' => 'Activo', 'formato' => 'booleano'],
+            ],
+            'filtros' => [],
+            'campos' => [
+                self::campo('name', 'Nome', 'texto', obrigatorio: true, ajuda: 'Ex.: Revisão geral, Pré-compra, Antes de viagem.'),
+                self::campo('description', 'Descrição', 'texto'),
+                self::campo('points', 'Pontos a conferir', 'textarea', obrigatorio: true, largura: 'inteira',
+                    ajuda: 'Um ponto por linha, com a secção antes dos dois pontos. Ex.: «Travões: Pastilhas da frente».'),
+                self::campo('is_default', 'Modelo que aparece primeiro', 'booleano', omissao: false),
+                self::campo('is_active', 'Activo', 'booleano', omissao: true),
+            ],
+            'regras' => [
+                'name' => 'required|string|max:120',
+                'description' => 'nullable|string|max:500',
+                'points' => 'required|string|max:20000',
+                'is_default' => 'boolean',
+                'is_active' => 'boolean',
+            ],
+            'validar' => function (array $d, ?Model $m, int $tenantId) use ($modelo) {
+                $erros = [];
+                $repetido = $modelo::withoutGlobalScopes()->where('tenant_id', $tenantId)->where('name', $d['name'] ?? '')
+                    ->when($m, fn ($q) => $q->whereKeyNot($m->id))->exists();
+                $pontos = count($modelo::lerPontos((string) ($d['points'] ?? '')));
+
+                if ($repetido) {
+                    $erros['name'] = __('Já existe um modelo com esse nome.');
+                }
+                if ($pontos === 0) {
+                    $erros['points'] = __('Escreva pelo menos um ponto.');
+                } elseif ($pontos > 200) {
+                    $erros['points'] = __('No máximo 200 pontos por modelo.');
+                }
+
+                return $erros;
+            },
+            'preparar' => function (array $d) {
+                $d['is_default'] = (bool) ($d['is_default'] ?? false);
+                $d['is_active'] = (bool) ($d['is_active'] ?? true);
+
+                return $d;
+            },
+            // Só um aparece primeiro.
+            'depois' => function (Model $m) use ($modelo) {
+                if ($m->is_default) {
+                    $modelo::withoutGlobalScopes()->where('tenant_id', $m->tenant_id)->whereKeyNot($m->id)->update(['is_default' => false]);
+                }
+            },
+            'padrao' => function (Model $m) use ($modelo) {
+                $modelo::withoutGlobalScopes()->where('tenant_id', $m->tenant_id)->update(['is_default' => false]);
+                $m->update(['is_default' => true]);
+            },
+            // As inspecções já feitas guardam o nome e os pontos: apagar o modelo não as toca.
+            'pode_apagar' => fn (Model $m) => true,
+            'accoes' => ['activar' => true, 'padrao' => true, 'logotipo' => false, 'apagar' => true],
+        ];
+    }
+
     private static function estadosDeViatura(): array
     {
         $modelo = \App\Models\Workshop\VehicleStatus::class;

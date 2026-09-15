@@ -28,6 +28,7 @@ import { ACCAO_DA_FAIXA, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
 import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { CheckinDaViatura } from './CheckinDaViatura';
+import { InspeccaoDaOrdem } from './InspeccaoDaOrdem';
 import { etiquetaIntl, t, tPartes } from '@/i18n';
 
 /**
@@ -610,6 +611,8 @@ function FichaDaOrdemModal({ id, o, abaInicial = 'info', aoFechar, aoMudar, muda
         { chave: 'info', rotulo: t('Informação'), icone: 'fa-circle-info' },
         // OF-01: como o carro chegou — combustível, danos no desenho, acessórios e assinatura.
         { chave: 'checkin', rotulo: t('Check-in'), icone: 'fa-clipboard-check' },
+        // OF-02: a inspecção digital com semáforo.
+        { chave: 'inspeccao', rotulo: t('Inspecção'), icone: 'fa-list-check' },
         { chave: 'linhas', rotulo: t('Serviços e peças'), icone: 'fa-list' },
         { chave: 'contas', rotulo: t('Contas'), icone: 'fa-calculator' },
         { chave: 'historico', rotulo: t('Histórico'), icone: 'fa-clock-rotate-left' },
@@ -711,6 +714,10 @@ function FichaDaOrdemModal({ id, o, abaInicial = 'info', aoFechar, aoMudar, muda
 
                     <div hidden={aba !== 'checkin'}>
                         {aba === 'checkin' && <CheckinDaViatura id={id} dono={f.viatura_ficha?.dono} />}
+                    </div>
+
+                    <div hidden={aba !== 'inspeccao'}>
+                        {aba === 'inspeccao' && <InspeccaoDaOrdem id={id} />}
                     </div>
 
                     <div hidden={aba !== 'linhas'} className="space-y-3">

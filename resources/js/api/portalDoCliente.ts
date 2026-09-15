@@ -68,6 +68,8 @@ export type OrdemDoCliente = {
     total: number;
     garantia_ate: string | null;
     fotos: Array<{ url: string; tipo: string; descricao: string | null; servico: string | null; zona: string | null }>;
+    /** As inspecções concluídas desta folha de obra, com o semáforo de cada ponto. */
+    inspeccoes: import('./oficina').InspeccaoDaOrdem[];
     factura: { id: number; numero: string; data: string | null; vencimento: string | null; estado_rotulo: string; total: number; falta: number; vencida: boolean; pdf: string } | null;
 };
 
