@@ -30,6 +30,7 @@ import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { CheckinDaViatura } from './CheckinDaViatura';
 import { InspeccaoDaOrdem } from './InspeccaoDaOrdem';
 import { TemposDaOrdem } from './TemposDaOrdem';
+import { GuardarComoPacote, JuntarPacote } from './PacoteNaOrdem';
 import { AprovacaoDoCliente, SeloDaAprovacao } from './AprovacaoDoCliente';
 import { etiquetaIntl, t, tPartes } from '@/i18n';
 
@@ -587,6 +588,8 @@ export function FichaDaOrdemModal({ id, o, abaInicial = 'info', aoFechar, aoMuda
     const [aba, porAba] = useState(abaInicial);
     const [aJuntar, porAJuntar] = useState<'service' | 'part' | null>(null);
     const [aAnexar, porAAnexar] = useState(false);
+    // OF-07: juntar um pacote de serviço, ou guardar esta ordem como pacote.
+    const [pacote, porPacote] = useState<'juntar' | 'guardar' | null>(null);
 
     const q = useQuery({ queryKey: ['oficina', 'ordens', 'ficha', id], queryFn: () => ordens.ficha(id) });
 
@@ -734,6 +737,14 @@ export function FichaDaOrdemModal({ id, o, abaInicial = 'info', aoFechar, aoMuda
                                 <Botao cor="primaria" icone="fa-box" onClick={() => porAJuntar('part')}>
                                     {t('Juntar peça')}
                                 </Botao>
+                                <Botao cor="neutra" icone="fa-box-open" onClick={() => porPacote('juntar')} disabled={Boolean(f.factura)}>
+                                    {t('Juntar pacote')}
+                                </Botao>
+                                {f.linhas.length > 0 && (
+                                    <Botao icone="fa-box-archive" onClick={() => porPacote('guardar')} className="sm:ml-auto">
+                                        {t('Guardar como pacote')}
+                                    </Botao>
+                                )}
                             </div>
                         )}
 
@@ -912,6 +923,13 @@ export function FichaDaOrdemModal({ id, o, abaInicial = 'info', aoFechar, aoMuda
                     aoFechar={() => porAJuntar(null)}
                     aoGravar={(m) => { porAJuntar(null); refazer(); aoMudar(m); }}
                 />
+            )}
+
+            {pacote === 'juntar' && (
+                <JuntarPacote id={id} aoFechar={() => porPacote(null)} aoGravar={(m) => { porPacote(null); refazer(); aoMudar(m); }} />
+            )}
+            {pacote === 'guardar' && f && (
+                <GuardarComoPacote id={id} numero={f.numero} aoFechar={() => porPacote(null)} aoGravar={(m) => { porPacote(null); aoMudar(m); }} />
             )}
 
             {aAnexar && (

@@ -387,6 +387,9 @@ export const ecras: Record<string, Ecra> = {
         import('./oficina/Relatorios'),
     'oficina/ordens': () =>
         import('./oficina/OrdensDeServico'),
+    // Os pacotes de serviço (OF-07).
+    'oficina/pacotes': () =>
+        import('./oficina/Pacotes'),
     // A agenda (OF-05): marcações por elevador e mecânico.
     'oficina/agenda': () =>
         import('./oficina/Agenda'),

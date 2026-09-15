@@ -2022,6 +2022,11 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::delete('/{id}/aprovacao', [$ap, 'cancelar'])->whereNumber('id')->name('aprovacao.cancelar');
             Route::post('/{id}/linhas/{linha}/aprovacao', [$ap, 'decidirLinha'])->whereNumber('id')->whereNumber('linha')->name('aprovacao.linha');
 
+            // Os pacotes de serviço (OF-07): juntar um à ordem, ou guardar a ordem como pacote.
+            $pc = \App\Http\Controllers\Api\Workshop\PacotesDeServicoApiController::class;
+            Route::post('/{id}/pacotes', [$pc, 'juntar'])->whereNumber('id')->name('pacotes.juntar');
+            Route::post('/{id}/guardar-pacote', [$pc, 'guardarDaOrdem'])->whereNumber('id')->name('pacotes.guardar');
+
             // O registo de tempos por tarefa (OF-06).
             $tp = \App\Http\Controllers\Api\Workshop\TemposDaOrdemApiController::class;
             Route::get('/{id}/tempos', [$tp, 'index'])->whereNumber('id')->name('tempos.lista');
@@ -2039,6 +2044,16 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::post('/{id}/inspeccoes/{inspeccao}/recomendar', [$n, 'recomendar'])->whereNumber('id')->whereNumber('inspeccao')->name('inspeccoes.recomendar');
             Route::post('/{id}/inspeccoes/{inspeccao}/pontos/{ponto}/foto', [$n, 'foto'])->whereNumber('id')->whereNumber('inspeccao')->whereNumber('ponto')->name('inspeccoes.foto');
             Route::delete('/{id}/inspeccoes/{inspeccao}/pontos/{ponto}/foto', [$n, 'tirarFoto'])->whereNumber('id')->whereNumber('inspeccao')->whereNumber('ponto')->name('inspeccoes.tirar-foto');
+        });
+
+        // Os pacotes de serviço (OF-07).
+        Route::prefix('oficina/pacotes')->name('oficina.pacotes.')->group(function () {
+            $c = \App\Http\Controllers\Api\Workshop\PacotesDeServicoApiController::class;
+
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'store'])->name('store');
+            Route::put('/{id}', [$c, 'update'])->whereNumber('id')->name('update');
+            Route::delete('/{id}', [$c, 'destroy'])->whereNumber('id')->name('destroy');
         });
 
         // A agenda da oficina (OF-05): marcações por elevador/baia e mecânico.
@@ -3118,6 +3133,9 @@ Route::middleware(['auth', 'tenant.module:oficina'])->prefix('workshop')->name('
         ]))->name('parts');
     Route::middleware('permission:workshop.work-orders.view')
         ->get('/work-orders', \App\Support\EcraReact::pagina('oficina/ordens', 'Ordens de Serviço'))->name('work-orders');
+    // Os pacotes de serviço (OF-07): mão-de-obra e peças que entram juntas numa ordem.
+    Route::middleware('permission:workshop.work-orders.view')
+        ->get('/packages', \App\Support\EcraReact::pagina('oficina/pacotes', 'Pacotes de Serviço'))->name('packages');
     // A agenda (OF-05) e os elevadores e baias onde se trabalha.
     Route::middleware('permission:workshop.work-orders.view')
         ->get('/schedule', \App\Support\EcraReact::pagina('oficina/agenda', 'Agenda da Oficina'))->name('schedule');

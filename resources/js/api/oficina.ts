@@ -693,3 +693,41 @@ export const temposDaOrdem = {
     corrigir: (id: number, registo: number, inicio: string, fim: string) => api.guardar<TemposDaOrdem>(`/oficina/ordens/${id}/tempos/${registo}`, { inicio, fim }),
     apagar: (id: number, registo: number) => api.apagar<TemposDaOrdem>(`/oficina/ordens/${id}/tempos/${registo}`),
 };
+
+/* ─── Os pacotes de serviço (OF-07) ─────────────────────────────────── */
+
+export type LinhaDoPacote = {
+    tipo: 'service' | 'part';
+    service_id: number | null;
+    product_id: number | null;
+    codigo: string | null;
+    nome: string;
+    quantidade: number;
+    preco: number;
+    desconto: number;
+    horas: number;
+};
+
+export type PacoteDeServico = {
+    id: number;
+    nome: string;
+    descricao: string | null;
+    linhas: LinhaDoPacote[];
+    total: number;
+    horas: number;
+    usado: number;
+    activo: boolean;
+};
+
+export const pacotesDeServico = {
+    lista: () => api.ler<{ data: PacoteDeServico[]; pode_gerir: boolean }>('/oficina/pacotes'),
+    criar: (d: { nome: string; descricao: string; activo: boolean; linhas: LinhaDoPacote[] }) =>
+        api.criar<{ data: PacoteDeServico; message: string }>('/oficina/pacotes', d),
+    guardar: (id: number, d: { nome: string; descricao: string; activo: boolean; linhas: LinhaDoPacote[] }) =>
+        api.guardar<{ data: PacoteDeServico; message: string }>(`/oficina/pacotes/${id}`, d),
+    apagar: (id: number) => api.apagar<{ message: string }>(`/oficina/pacotes/${id}`),
+    juntarAOrdem: (ordem: number, pacote: number, precisaAprovacao: boolean) =>
+        api.criar<{ message: string }>(`/oficina/ordens/${ordem}/pacotes`, { pacote_id: pacote, precisa_aprovacao: precisaAprovacao }),
+    guardarDaOrdem: (ordem: number, nome: string) =>
+        api.criar<{ data: PacoteDeServico; message: string }>(`/oficina/ordens/${ordem}/guardar-pacote`, { nome }),
+};

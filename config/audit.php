@@ -230,6 +230,7 @@ return [
         \App\Models\Workshop\Bay::class,
         \App\Models\Workshop\Appointment::class,
         \App\Models\Workshop\TimeEntry::class,
+        \App\Models\Workshop\ServicePackage::class,
         \App\Models\Workshop\Mechanic::class,
         \App\Models\Workshop\Service::class,
 

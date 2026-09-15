@@ -387,6 +387,7 @@ final class MenuDaCasca
                     ['rota' => 'workshop.inspection-templates', 'rotulo' => 'Modelos de Inspecção', 'icone' => 'fa-list-check', 'cor' => 'green-400', 'activo' => 'workshop.inspection-templates*', 'permissao' => 'workshop.work-orders.view'],
                     ['rota' => 'workshop.mechanics', 'rotulo' => 'Mecânicos', 'icone' => 'fa-user-cog', 'cor' => 'orange-400', 'activo' => 'workshop.mechanics*', 'permissao' => 'workshop.mechanics.view'],
                     ['rota' => 'workshop.services', 'rotulo' => 'Serviços', 'icone' => 'fa-tools', 'cor' => 'purple-400', 'activo' => 'workshop.services*', 'permissao' => 'workshop.services.view'],
+                    ['rota' => 'workshop.packages', 'rotulo' => 'Pacotes de Serviço', 'icone' => 'fa-box-open', 'cor' => 'violet-400', 'activo' => 'workshop.packages*', 'permissao' => 'workshop.work-orders.view'],
                     ['rota' => 'workshop.parts', 'rotulo' => 'Peças', 'icone' => 'fa-boxes', 'cor' => 'orange-400', 'activo' => 'workshop.parts*', 'permissao' => 'workshop.parts.view'],
                     ['rota' => 'workshop.schedule', 'rotulo' => 'Agenda', 'icone' => 'fa-calendar-days', 'cor' => 'cyan-400', 'activo' => 'workshop.schedule*', 'permissao' => 'workshop.work-orders.view'],
                     ['rota' => 'workshop.board', 'rotulo' => 'Quadro de Trabalho', 'icone' => 'fa-table-columns', 'cor' => 'pink-400', 'activo' => 'workshop.board*', 'permissao' => 'workshop.work-orders.view'],
