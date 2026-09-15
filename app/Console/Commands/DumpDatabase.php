@@ -75,6 +75,20 @@ class DumpDatabase extends Command
             return 1;
         }
 
+        // UM DUMP CORTADO A MEIO NÃO É UM DUMP. O código de saída é o do gzip,
+        // não o do mysqldump: se a ligação cai a meio, o gzip fecha o que
+        // recebeu e sai com 0. Foi o que aconteceu no instantâneo do deploy de
+        // 15/09/2026 — 15 MB em vez de 35, dados a meio, e «OK» no ecrã. Um
+        // instantâneo assim deixava repor uma base partida. O mysqldump escreve
+        // «-- Dump completed» na última linha; sem ela, falha.
+        $fim = (string) @shell_exec('gzip -dc ' . escapeshellarg($file) . ' 2>/dev/null | tail -c 300');
+        if (!str_contains($fim, 'Dump completed')) {
+            $err = @file_get_contents($errFile) ?: '(sem stderr)';
+            $this->error('Dump incompleto (' . round($size / 1048576, 2) . ' MB, sem «Dump completed»): ' . substr($err, 0, 500));
+            @unlink($file);
+            return 1;
+        }
+
         @unlink($errFile);
         $this->info('OK: ' . $file . ' (' . round($size / 1048576, 2) . ' MB)');
         return 0;
