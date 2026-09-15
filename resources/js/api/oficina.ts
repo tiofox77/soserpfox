@@ -758,7 +758,7 @@ export const pecasDaOrdem = {
 
 /* ─── Os lembretes de manutenção (OF-11) ────────────────────────────── */
 
-export type TipoDeLembrete = 'revisao' | 'seguro' | 'inspeccao' | 'livrete';
+export type TipoDeLembrete = 'revisao' | 'seguro' | 'inspeccao' | 'livrete' | 'recomendacao';
 export type CanalDeContacto = 'sms' | 'email' | 'whatsapp' | 'telefone' | 'nota';
 
 export type Lembrete = {
@@ -776,6 +776,9 @@ export type Lembrete = {
     km_por_dia: number | null;
     faltam_km: number | null;
     ultima_revisao: string | null;
+    /** OF-12: os trabalhos adiados que esperam, e quanto valem. */
+    trabalhos?: string[];
+    valor?: number;
     matricula: string;
     marca_modelo: string;
     dono: string | null;
@@ -821,4 +824,63 @@ export const lembretesDaOficina = {
         api.criar<{ message: string }>(`/oficina/lembretes/${viatura}/contacto`, d),
     adiar: (viatura: number, dias: number) => api.criar<{ message: string }>(`/oficina/lembretes/${viatura}/adiar`, { dias }),
     revisao: (viatura: number, d: RevisaoParaGravar) => api.guardar<{ message: string }>(`/oficina/lembretes/${viatura}/revisao`, d),
+};
+
+/* ─── As recomendações adiadas (OF-12) ──────────────────────────────── */
+
+export type RecomendacaoAdiada = {
+    id: number;
+    viatura_id: number;
+    tipo: 'service' | 'part';
+    nome: string;
+    descricao: string | null;
+    codigo: string | null;
+    quantidade: number;
+    preco: number;
+    valor: number;
+    origem: 'recusada' | 'adiada' | 'inspeccao';
+    origem_rotulo: string;
+    gravidade: 'urgente' | 'atencao' | null;
+    voltar_em: string | null;
+    estado: 'pendente' | 'aceite' | 'descartada';
+    estado_rotulo: string;
+    ordem_id: number | null;
+    ordem: string | null;
+    resolvida_na_ordem_id: number | null;
+    resolvida_na_ordem: string | null;
+    resolvida_em: string | null;
+    nota: string | null;
+    criada_em: string | null;
+};
+
+export type ViaturaComRecomendacoes = {
+    viatura_id: number;
+    matricula: string;
+    marca_modelo: string;
+    dono: string | null;
+    telefone: string | null;
+    itens: RecomendacaoAdiada[];
+    valor: number;
+};
+
+export type ListaDeRecomendacoes = {
+    data: ViaturaComRecomendacoes[];
+    paginacao: { pagina: number; ultima: number; total: number; de: number | null; ate: number | null };
+    contas: { pendentes: number; valor_pendente: number; urgentes: number; para_propor: number; aceites_90_dias: number };
+    origens: Escolha[];
+    pode_gerir: boolean;
+};
+
+export const recomendacoesAdiadas = {
+    lista: (filtros: { estado: string; origem: string; q: string; pagina: number }) =>
+        api.ler<ListaDeRecomendacoes>('/oficina/recomendacoes', filtros),
+    daOrdem: (ordem: number) => api.ler<{ data: RecomendacaoAdiada[] }>(`/oficina/ordens/${ordem}/recomendacoes`),
+    juntar: (ordem: number, ids: number[], precisaAprovacao: boolean) =>
+        api.criar<{ message: string }>(`/oficina/ordens/${ordem}/recomendacoes/juntar`, { ids, precisa_aprovacao: precisaAprovacao }),
+    adiarLinha: (ordem: number, linha: number, d: { voltar_em: string | null; nota: string }) =>
+        api.criar<{ message: string }>(`/oficina/ordens/${ordem}/linhas/${linha}/adiar`, d),
+    guardar: (id: number, d: { voltar_em: string | null; preco: number | null; nota: string }) =>
+        api.guardar<{ message: string }>(`/oficina/recomendacoes/${id}`, d),
+    descartar: (id: number, nota: string) => api.criar<{ message: string }>(`/oficina/recomendacoes/${id}/descartar`, { nota }),
+    reabrir: (id: number) => api.criar<{ message: string }>(`/oficina/recomendacoes/${id}/reabrir`, {}),
 };

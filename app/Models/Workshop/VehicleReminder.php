@@ -24,6 +24,8 @@ class VehicleReminder extends Model
         'seguro' => 'Seguro',
         'inspeccao' => 'Inspecção',
         'livrete' => 'Livrete',
+        // OF-12: os trabalhos que o cliente deixou para depois.
+        'recomendacao' => 'Recomendações',
     ];
 
     public const CANAIS = [

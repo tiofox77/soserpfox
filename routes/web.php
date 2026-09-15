@@ -2040,6 +2040,12 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::put('/{id}/tempos/{registo}', [$tp, 'corrigir'])->whereNumber('id')->whereNumber('registo')->name('tempos.corrigir');
             Route::delete('/{id}/tempos/{registo}', [$tp, 'destroy'])->whereNumber('id')->whereNumber('registo')->name('tempos.apagar');
 
+            // As recomendações adiadas da viatura (OF-12).
+            $ra = \App\Http\Controllers\Api\Workshop\RecomendacoesAdiadasApiController::class;
+            Route::get('/{id}/recomendacoes', [$ra, 'daOrdem'])->whereNumber('id')->name('recomendacoes.lista');
+            Route::post('/{id}/recomendacoes/juntar', [$ra, 'juntar'])->whereNumber('id')->name('recomendacoes.juntar');
+            Route::post('/{id}/linhas/{linha}/adiar', [$ra, 'adiarLinha'])->whereNumber('id')->whereNumber('linha')->name('linhas.adiar');
+
             // A inspecção digital com semáforo (OF-02).
             $n = \App\Http\Controllers\Api\Workshop\InspeccoesDaOrdemApiController::class;
             Route::get('/{id}/inspeccoes', [$n, 'index'])->whereNumber('id')->name('inspeccoes.lista');
@@ -2059,6 +2065,16 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::post('/', [$c, 'store'])->name('store');
             Route::put('/{id}', [$c, 'update'])->whereNumber('id')->name('update');
             Route::delete('/{id}', [$c, 'destroy'])->whereNumber('id')->name('destroy');
+        });
+
+        // As recomendações adiadas (OF-12): o que o cliente deixou para depois.
+        Route::prefix('oficina/recomendacoes')->name('oficina.recomendacoes.')->group(function () {
+            $c = \App\Http\Controllers\Api\Workshop\RecomendacoesAdiadasApiController::class;
+
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::put('/{id}', [$c, 'update'])->whereNumber('id')->name('update');
+            Route::post('/{id}/descartar', [$c, 'descartar'])->whereNumber('id')->name('descartar');
+            Route::post('/{id}/reabrir', [$c, 'reabrir'])->whereNumber('id')->name('reabrir');
         });
 
         // Os lembretes de manutenção (OF-11): revisões e documentos a caducar.
@@ -3160,6 +3176,9 @@ Route::middleware(['auth', 'tenant.module:oficina'])->prefix('workshop')->name('
     // O quadro de trabalho (OF-04): as ordens em colunas por estado, arrastáveis.
     Route::middleware('permission:workshop.work-orders.view')
         ->get('/board', \App\Support\EcraReact::pagina('oficina/quadro', 'Quadro de Trabalho'))->name('board');
+    // As recomendações adiadas (OF-12): o que o cliente recusou ou deixou para depois.
+    Route::middleware('permission:workshop.work-orders.view')
+        ->get('/deferred-work', \App\Support\EcraReact::pagina('oficina/recomendacoes', 'Recomendações Adiadas'))->name('deferred-work');
     // Os lembretes de manutenção (OF-11): quem chamar para a revisão e os documentos a caducar.
     Route::middleware('permission:workshop.vehicles.view')
         ->get('/reminders', \App\Support\EcraReact::pagina('oficina/lembretes', 'Lembretes de Manutenção'))->name('reminders');

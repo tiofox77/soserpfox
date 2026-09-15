@@ -101,6 +101,12 @@ class LembretesDaOficina
     /** A chave do vencimento a que um contacto responde; nulo se não há. */
     public static function vencimento(Vehicle $v, string $tipo): ?string
     {
+        if ($tipo === 'recomendacao') {
+            $lista = self::adiadasDevidas($v);
+
+            return $lista->isEmpty() ? null : 'rec|' . $lista->first()->follow_up_on->toDateString() . '|' . $lista->pluck('id')->sort()->implode(',');
+        }
+
         if ($tipo === 'revisao') {
             return $v->next_service_date || $v->next_service_km
                 ? ($v->next_service_date?->toDateString() ?? '-') . '|' . ($v->next_service_km ?? '-')
@@ -112,9 +118,31 @@ class LembretesDaOficina
         return $coluna && $v->{$coluna} ? $v->{$coluna}->toDateString() : null;
     }
 
+    /** «Pastilhas, Discos e mais 2» — cabe num SMS. */
+    public static function trabalhos(array $nomes): string
+    {
+        $primeiros = array_slice($nomes, 0, 2);
+        $resto = count($nomes) - count($primeiros);
+
+        return implode(', ', $primeiros) . ($resto > 0 ? ' ' . trans_choice('e mais :n|e mais :n', $resto, ['n' => $resto]) : '');
+    }
+
+    /** As recomendações por propor de uma viatura que já chegaram à data. */
+    private static function adiadasDevidas(Vehicle $v): Collection
+    {
+        $limite = today()->addDays(WorkshopSetting::getForTenant((int) $v->tenant_id)->remind_days_before);
+
+        return \App\Models\Workshop\DeferredItem::withoutGlobalScope('tenant')->where('vehicle_id', $v->id)->where('status', 'pendente')
+            ->whereDate('follow_up_on', '<=', $limite)->orderBy('follow_up_on')->get();
+    }
+
     /** As variáveis próprias do lembrete: `quando` na revisão, `data` nos documentos. */
     public static function variaveis(Vehicle $v, string $tipo): array
     {
+        if ($tipo === 'recomendacao') {
+            return ['trabalhos' => self::trabalhos(self::adiadasDevidas($v)->pluck('name')->all())];
+        }
+
         if ($tipo === 'revisao') {
             return ['quando' => self::quando($v->next_service_km, $v->next_service_date)];
         }
@@ -190,7 +218,10 @@ class LembretesDaOficina
                     ->orWhereDate('next_service_date', '<=', $limiteRevisao)
                     ->orWhereDate('insurance_expiry', '<=', $limiteDocumentos)
                     ->orWhereDate('inspection_expiry', '<=', $limiteDocumentos)
-                    ->orWhereDate('registration_expiry', '<=', $limiteDocumentos);
+                    ->orWhereDate('registration_expiry', '<=', $limiteDocumentos)
+                    // OF-12: as recomendações adiadas que chegam à data de voltar a propor.
+                    ->orWhereIn('id', \App\Models\Workshop\DeferredItem::withoutGlobalScope('tenant')->where('status', 'pendente')
+                        ->whereDate('follow_up_on', '<=', $limiteRevisao)->select('vehicle_id'));
             })->get();
 
         if ($viaturas->isEmpty()) {
@@ -211,6 +242,8 @@ class LembretesDaOficina
         $modelos = \App\Models\NotificationTemplate::withoutGlobalScopes()->where('tenant_id', $tenantId)
             ->where('slug', 'like', 'oficina-%')->pluck('sms_body', 'slug');
         $empresa = Tenant::find($tenantId)?->name;
+        $adiadas = \App\Models\Workshop\DeferredItem::withoutGlobalScope('tenant')->where('tenant_id', $tenantId)->whereIn('vehicle_id', $ids)
+            ->where('status', 'pendente')->whereDate('follow_up_on', '<=', $limiteRevisao)->orderBy('follow_up_on')->get()->groupBy('vehicle_id');
 
         $itens = [];
         foreach ($viaturas as $v) {
@@ -289,6 +322,17 @@ class LembretesDaOficina
                         ['data' => $data->format('d/m/Y')],
                         ['data' => $data->toDateString(), 'km_previstos' => null, 'km_estimados' => null, 'km_por_dia' => null, 'faltam_km' => null, 'ultima_revisao' => null, 'dias_pelos_km' => null]);
                 }
+            }
+
+            // AS RECOMENDAÇÕES ADIADAS (OF-12): uma linha por viatura, com os trabalhos que esperam.
+            if (isset($adiadas[$v->id])) {
+                $lista = $adiadas[$v->id];
+                $primeira = $lista->first()->follow_up_on;
+                $juntar('recomendacao', 'rec|' . $primeira->toDateString() . '|' . $lista->pluck('id')->sort()->implode(','),
+                    $primeira->lt($hoje), (int) $hoje->diffInDays($primeira, false),
+                    ['trabalhos' => self::trabalhos($lista->pluck('name')->all())],
+                    ['data' => $primeira->toDateString(), 'km_previstos' => null, 'km_estimados' => null, 'km_por_dia' => null, 'faltam_km' => null, 'ultima_revisao' => null, 'dias_pelos_km' => null,
+                        'trabalhos' => $lista->pluck('name')->values()->all(), 'valor' => round($lista->sum(fn ($r) => $r->valor()), 2)]);
             }
         }
 

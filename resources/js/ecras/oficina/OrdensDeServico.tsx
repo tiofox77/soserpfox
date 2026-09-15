@@ -32,6 +32,7 @@ import { InspeccaoDaOrdem } from './InspeccaoDaOrdem';
 import { TemposDaOrdem } from './TemposDaOrdem';
 import { GuardarComoPacote, JuntarPacote } from './PacoteNaOrdem';
 import { PecasEmFalta } from './PecasEmFalta';
+import { AdiarLinha, RecomendacoesDaViatura } from './RecomendacoesNaOrdem';
 import { AprovacaoDoCliente, SeloDaAprovacao } from './AprovacaoDoCliente';
 import { etiquetaIntl, t, tPartes } from '@/i18n';
 
@@ -591,6 +592,8 @@ export function FichaDaOrdemModal({ id, o, abaInicial = 'info', aoFechar, aoMuda
     const [aAnexar, porAAnexar] = useState(false);
     // OF-07: juntar um pacote de serviço, ou guardar esta ordem como pacote.
     const [pacote, porPacote] = useState<'juntar' | 'guardar' | null>(null);
+    // OF-12: a linha que se adia para outra visita.
+    const [aAdiar, porAAdiar] = useState<LinhaDaOrdem | null>(null);
 
     const q = useQuery({ queryKey: ['oficina', 'ordens', 'ficha', id], queryFn: () => ordens.ficha(id) });
 
@@ -736,6 +739,7 @@ export function FichaDaOrdemModal({ id, o, abaInicial = 'info', aoFechar, aoMuda
 
                     <div hidden={aba !== 'linhas'} className="space-y-3">
                         <AprovacaoDoCliente id={id} ficha={f} podeEditar={o.permissoes.pode_editar} aoMudar={(m) => { refazer(); aoMudar(m); }} />
+                        {aba === 'linhas' && <RecomendacoesDaViatura id={id} podeEditar={o.permissoes.pode_editar && !f.factura} aoMudar={(m) => { refazer(); aoMudar(m); }} />}
                         {aba === 'linhas' && <PecasEmFalta key={f.linhas.length} id={id} aoMudar={(m) => { refazer(); aoMudar(m); }} />}
                         {o.permissoes.pode_editar && (
                             <div className="flex flex-wrap gap-2">
@@ -795,7 +799,14 @@ export function FichaDaOrdemModal({ id, o, abaInicial = 'info', aoFechar, aoMuda
                                                 <td className="px-3 py-2 text-right tabular-nums">{l.desconto > 0 ? `${l.desconto}%` : '—'}</td>
                                                 <td className="px-3 py-2 text-right font-bold tabular-nums text-slate-900">{kz(l.subtotal)}</td>
                                                 {o.permissoes.pode_editar && (
-                                                    <td className="px-3 py-2 text-right">
+                                                    <td className="whitespace-nowrap px-3 py-2 text-right">
+                                                        {!f.factura && (
+                                                            <button type="button" onClick={() => porAAdiar(l)}
+                                                                aria-label={t('Adiar para outra visita: :nome', { nome: l.nome })} title={t('Adiar para outra visita')}
+                                                                className={cls('p-1.5 text-slate-400 transition-all hover:scale-110 hover:text-rose-600', RAIO, FOCO)}>
+                                                                <i className="fas fa-hourglass-half" aria-hidden="true" />
+                                                            </button>
+                                                        )}
                                                         <button type="button" onClick={() => tirarLinha.mutate(l)}
                                                             aria-label={t('Remover: :nome', { nome: l.nome })}
                                                             className={cls('p-1.5 text-slate-400 transition-all hover:scale-110 hover:text-red-600', RAIO, FOCO)}>
@@ -931,6 +942,10 @@ export function FichaDaOrdemModal({ id, o, abaInicial = 'info', aoFechar, aoMuda
                     aoFechar={() => porAJuntar(null)}
                     aoGravar={(m) => { porAJuntar(null); refazer(); aoMudar(m); }}
                 />
+            )}
+
+            {aAdiar && (
+                <AdiarLinha id={id} linha={aAdiar} aoFechar={() => porAAdiar(null)} aoGravar={(m) => { porAAdiar(null); refazer(); aoMudar(m); }} />
             )}
 
             {pacote === 'juntar' && (

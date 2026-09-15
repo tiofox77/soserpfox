@@ -137,5 +137,17 @@ class WorkOrderItem extends Model
         static::deleted(function ($item) {
             $item->workOrder?->calculateTotals();
         });
+
+        // OF-12: a linha recusada fica guardada na viatura (e sai se a decisão voltar atrás).
+        static::created(function ($item) {
+            if ($item->approval === 'declined') {
+                \App\Services\Workshop\RecomendacoesAdiadas::decisaoMudou($item);
+            }
+        });
+        static::updated(function ($item) {
+            if ($item->wasChanged('approval')) {
+                \App\Services\Workshop\RecomendacoesAdiadas::decisaoMudou($item);
+            }
+        });
     }
 }

@@ -107,6 +107,16 @@ class AvisosDaOficina
             'sms_body' => '{{empresa}}: o livrete da viatura {{matricula}} caduca a {{data}}.',
             'is_active' => true,
         ],
+        // OF-12: o que ficou por fazer numa visita.
+        'recomendacao' => [
+            'estado' => null,
+            'name' => 'Oficina — Trabalhos recomendados',
+            'description' => 'Os trabalhos que o cliente deixou para depois, na data de voltar a propor.',
+            'email_subject' => 'Trabalhos recomendados para a viatura {{matricula}}',
+            'email_body' => "Olá {{cliente}},\n\nNa última visita da sua viatura {{viatura}} ({{matricula}}) ficaram trabalhos por fazer: {{trabalhos}}.\nMarque connosco por telefone ou responda a este email.\n\n{{empresa}}",
+            'sms_body' => '{{empresa}}: a viatura {{matricula}} tem trabalhos recomendados por fazer: {{trabalhos}}. Marque connosco.',
+            'is_active' => true,
+        ],
     ];
 
     /** Os avisos que dependem do estado da ordem, por estado. */

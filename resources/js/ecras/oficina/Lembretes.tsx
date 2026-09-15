@@ -20,7 +20,7 @@ import { Carregando } from '@/ui/Carregando';
 import { Modal } from '@/ui/Modal';
 import { Paginacao } from '@/ui/Paginacao';
 import { SemNada, cascata } from '@/ui/SemNada';
-import { FOCO, RAIO, RAIO_GRANDE, TRANSICAO, cls, data, haQuanto } from '@/ui/tokens';
+import { FOCO, RAIO, RAIO_GRANDE, TRANSICAO, cls, data, haQuanto, kz } from '@/ui/tokens';
 
 import { ChapaDaMatricula } from './ChapaDaMatricula';
 
@@ -43,6 +43,7 @@ const ASPECTO: Record<TipoDeLembrete, { icone: string; fundo: string; texto: str
     seguro: { icone: 'fa-shield-halved', fundo: 'from-sky-500 to-blue-600', texto: 'text-sky-700' },
     inspeccao: { icone: 'fa-clipboard-check', fundo: 'from-emerald-500 to-teal-600', texto: 'text-emerald-700' },
     livrete: { icone: 'fa-id-card', fundo: 'from-amber-500 to-orange-500', texto: 'text-amber-700' },
+    recomendacao: { icone: 'fa-hourglass-half', fundo: 'from-rose-500 to-pink-600', texto: 'text-rose-700' },
 };
 
 const ICONE_DO_CANAL: Record<CanalDeContacto, string> = {
@@ -80,6 +81,7 @@ function oQueVence(l: Lembrete): string {
         }
         case 'seguro': return t('Seguro caduca a :data', { data: data(l.data) });
         case 'inspeccao': return t('Inspecção caduca a :data', { data: data(l.data) });
+        case 'recomendacao': return tn(':n trabalho adiado por fazer|:n trabalhos adiados por fazer', l.trabalhos?.length ?? 0, { n: l.trabalhos?.length ?? 0 });
         default: return t('Livrete caduca a :data', { data: data(l.data) });
     }
 }
@@ -212,7 +214,7 @@ function LinhaDoLembrete({ l, i, d, aTrabalhar, contactar, adiar, rever, notar }
     const a = ASPECTO[l.tipo];
     const p = prazo(l);
     const whatsapp = numeroParaWhatsApp(l.telefone);
-    const servico = l.tipo === 'revisao' ? t('Revisão') : l.tipo === 'inspeccao' ? t('Preparar para a inspecção') : '';
+    const servico = l.tipo === 'revisao' ? t('Revisão') : l.tipo === 'inspeccao' ? t('Preparar para a inspecção') : l.tipo === 'recomendacao' ? (l.trabalhos ?? []).join(', ').slice(0, 250) : '';
 
     return (
         <li style={cascata(i)} className={cls('entra group card-hover flex flex-col gap-3 border bg-white p-4 shadow-sm', RAIO_GRANDE, TRANSICAO, 'hover:-translate-y-0.5 hover:shadow-lg',
@@ -233,6 +235,12 @@ function LinhaDoLembrete({ l, i, d, aTrabalhar, contactar, adiar, rever, notar }
                         <span className="truncate text-sm font-semibold text-slate-800">{l.marca_modelo}</span>
                     </div>
                     <p className={cls('text-sm font-bold', a.texto)}>{oQueVence(l)}</p>
+                    {l.tipo === 'recomendacao' && l.trabalhos && (
+                        <p className="text-xs text-slate-500">
+                            <i className="fas fa-screwdriver-wrench mr-1" aria-hidden="true" />{l.trabalhos.slice(0, 3).join(' · ')}{l.trabalhos.length > 3 && ` +${l.trabalhos.length - 3}`}
+                            {Boolean(l.valor) && <span className="ml-1 font-semibold text-slate-700">({kz(l.valor)})</span>}
+                        </p>
+                    )}
                     {l.tipo === 'revisao' && l.km_estimados !== null && l.km_previstos !== null && (
                         <p className="text-xs text-slate-500">
                             <i className="fas fa-gauge-high mr-1" aria-hidden="true" />

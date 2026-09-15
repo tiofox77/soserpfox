@@ -644,6 +644,11 @@
         },
         {
             "tag": "a",
+            "href": "/workshop/deferred-work",
+            "texto": "Recomendações Adiadas"
+        },
+        {
+            "tag": "a",
             "href": "/workshop/reminders",
             "texto": "Lembretes"
         },

@@ -200,6 +200,9 @@ class InspeccoesDaOrdemApiController extends Controller
             ->reject(fn ($linha) => str_contains($actuais, $linha))
             ->values();
 
+        // OF-12: os pontos ficam também nas recomendações adiadas da viatura, para voltar a propor.
+        \App\Services\Workshop\RecomendacoesAdiadas::daInspeccao($ordem, $i, $request->user()?->id);
+
         if ($novas->isEmpty()) {
             return response()->json($this->resposta($request, $ordem) + ['message' => __('Não há pontos novos para recomendar.')]);
         }
