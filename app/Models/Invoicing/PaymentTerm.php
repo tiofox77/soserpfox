@@ -97,6 +97,29 @@ class PaymentTerm extends Model
      * Semeia as condições padrão numa empresa. Idempotente e aditivo: quem já
      * as tem não recebe duplicados; quem não tem nenhuma recebe as que faltam.
      */
+    /**
+     * UMA EMPRESA SEM CATÁLOGO NENHUM RECEBE OS PADRÕES — e só essa.
+     *
+     * Os padrões nasciam no `mount()` dos ecrãs Livewire dos clientes e das
+     * condições. Com os ecrãs em React, só o catálogo das condições e as
+     * definições os criavam: numa empresa que nunca abriu nenhum dos dois, o
+     * formulário do cliente mostrava «— Sem condição —» e mais nada, e os
+     * clientes nasciam sem vencimento (15/09/2026, empresa de testes #102).
+     *
+     * SÓ QUANDO NÃO HÁ NENHUMA. Uma empresa que apagou o «Depósito» de
+     * propósito não o vê voltar por ter aberto a lista de clientes.
+     */
+    public static function garantirCatalogo(?int $tenantId): void
+    {
+        if (!$tenantId) {
+            return;
+        }
+
+        if (!static::withoutGlobalScopes()->where('tenant_id', $tenantId)->exists()) {
+            static::provisionarPadroes($tenantId);
+        }
+    }
+
     public static function provisionarPadroes(int $tenantId): int
     {
         $criadas = 0;

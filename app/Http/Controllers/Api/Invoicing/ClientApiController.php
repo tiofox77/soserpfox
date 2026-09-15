@@ -158,6 +158,10 @@ class ClientApiController extends Controller
     {
         $this->exigir($request, 'invoicing.clients.view');
 
+        // O selector da condição de pagamento não pode chegar vazio a uma empresa
+        // que nunca abriu o catálogo das condições — ver PaymentTerm::garantirCatalogo.
+        PaymentTerm::garantirCatalogo(activeTenantId());
+
         return response()->json([
             'provincias' => Geografia::provincias(),
             // As que a reforma de 2024 criou — o ecrã assinala-as, como o

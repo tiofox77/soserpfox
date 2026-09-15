@@ -275,6 +275,8 @@ class MaintenanceController extends Controller
         'empresas:conta-de-teste',
         // NIF de uma empresa que ainda não emitiu documentos fiscais. Simulação por omissão.
         'empresas:nif',
+        // Clientes sem condição de pagamento → a padrão da empresa. Só grava com ?args=--aplicar.
+        'clientes:condicao-em-falta',
         'empresas:regime',
         'empresas:contas-bancarias',
         // Que nome da empresa sai impresso. Sem --usar apenas lista.
