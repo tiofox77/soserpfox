@@ -95,6 +95,9 @@ class SinistrosDaOficina
         if ($ordem->invoice_id) {
             throw new \InvalidArgumentException(__('Esta ordem de serviço já foi facturada.'));
         }
+        if ($ordem->warranty_of_id) {
+            throw new \InvalidArgumentException(__('Ordem de garantia: não se factura ao cliente.'));
+        }
         if (! $ordem->vehicle) {
             throw new \InvalidArgumentException(__('Ordem de serviço sem veículo associado.'));
         }

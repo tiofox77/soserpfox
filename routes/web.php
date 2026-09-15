@@ -2040,6 +2040,9 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::put('/{id}/tempos/{registo}', [$tp, 'corrigir'])->whereNumber('id')->whereNumber('registo')->name('tempos.corrigir');
             Route::delete('/{id}/tempos/{registo}', [$tp, 'destroy'])->whereNumber('id')->whereNumber('registo')->name('tempos.apagar');
 
+            // O retrabalho em garantia (OF-19).
+            Route::post('/{id}/garantia', [\App\Http\Controllers\Api\Workshop\OrdensApiController::class, 'garantia'])->whereNumber('id')->name('garantia');
+
             // O sinistro com seguradora (OF-15).
             $si = \App\Http\Controllers\Api\Workshop\SinistroDaOrdemApiController::class;
             Route::get('/{id}/sinistro', [$si, 'show'])->whereNumber('id')->name('sinistro.ver');

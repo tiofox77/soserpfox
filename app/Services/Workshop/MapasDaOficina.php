@@ -274,8 +274,12 @@ final class MapasDaOficina
 
         // OF-14: a nota média dos clientes a cada mecânico.
         $avaliacoes = \App\Services\Workshop\InqueritosDaOficina::porMecanico($tenantId, $de, $ate);
+        // OF-19: os retrabalhos em garantia do trabalho de cada mecânico (a garantia herda o mecânico da original).
+        $retrabalhos = DB::table('workshop_work_orders')->where('tenant_id', $tenantId)->whereNull('deleted_at')->whereNotNull('warranty_of_id')
+            ->whereBetween('received_at', [$de, $ate])->groupBy('mechanic_id')->selectRaw('mechanic_id, COUNT(*) as n')->pluck('n', 'mechanic_id');
 
-        $linhas = $linhas->map(function ($l) use ($trabalhadas, $vendidas, $avaliacoes) {
+        $linhas = $linhas->map(function ($l) use ($trabalhadas, $vendidas, $avaliacoes, $retrabalhos) {
+            $l->retrabalhos = (int) ($retrabalhos[$l->id] ?? 0);
             $l->avaliacao = $avaliacoes[$l->id]['media'] ?? null;
             $l->avaliacoes = $avaliacoes[$l->id]['respostas'] ?? 0;
             $l->trabalhadas = round(((int) ($trabalhadas[$l->id] ?? 0)) / 60, 2);
@@ -297,6 +301,7 @@ final class MapasDaOficina
                 ['chave' => 'eficiencia', 'rotulo' => 'Eficiência %', 'formato' => 'numero'],
                 ['chave' => 'avaliacao', 'rotulo' => 'Avaliação (1-5)', 'formato' => 'numero'],
                 ['chave' => 'avaliacoes', 'rotulo' => 'Avaliações', 'formato' => 'numero'],
+                ['chave' => 'retrabalhos', 'rotulo' => 'Retrabalhos', 'formato' => 'numero'],
             ],
             /*
              * QUEM NÃO TEVE ORDENS NENHUMAS TAMBÉM APARECE, com zeros.
@@ -316,6 +321,7 @@ final class MapasDaOficina
                 'eficiencia' => $l->eficiencia,
                 'avaliacao' => $l->avaliacao,
                 'avaliacoes' => $l->avaliacoes,
+                'retrabalhos' => $l->retrabalhos,
             ])->all(),
             'totais' => [
                 'nome' => __('Total'),
@@ -328,6 +334,7 @@ final class MapasDaOficina
                 'eficiencia' => $linhas->sum('trabalhadas') > 0 ? (int) round($linhas->sum('vendidas') / $linhas->sum('trabalhadas') * 100) : null,
                 'avaliacao' => $linhas->sum('avaliacoes') > 0 ? round($linhas->sum(fn ($l) => ($l->avaliacao ?? 0) * $l->avaliacoes) / $linhas->sum('avaliacoes'), 1) : null,
                 'avaliacoes' => (int) $linhas->sum('avaliacoes'),
+                'retrabalhos' => (int) $linhas->sum('retrabalhos'),
             ],
             'nada' => $linhas->isEmpty() ? __('Ainda não há mecânicos nesta oficina.') : null,
         ];

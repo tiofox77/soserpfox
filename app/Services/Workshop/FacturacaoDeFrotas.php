@@ -42,7 +42,7 @@ class FacturacaoDeFrotas
                 $j->on('s.work_order_id', '=', 'o.id')->whereNotNull('s.insurer_client_id');
             })
             ->where('o.tenant_id', $tenantId)->whereNull('o.deleted_at')->whereNull('o.invoice_id')
-            ->whereIn('o.status', self::PRONTAS)->whereNull('s.id')
+            ->whereIn('o.status', self::PRONTAS)->whereNull('s.id')->whereNull('o.warranty_of_id')
             ->groupBy('c.id', 'c.name', 'c.nif', 'c.type')
             ->selectRaw('c.id, c.name, c.nif, c.type, COUNT(o.id) as ordens, COUNT(DISTINCT v.id) as viaturas, SUM(o.total) as valor, MIN(COALESCE(o.completed_at, o.received_at)) as desde')
             ->orderByRaw("c.type = 'pessoa_juridica' DESC")->orderByDesc('valor')
@@ -77,6 +77,7 @@ class FacturacaoDeFrotas
         return $ordens->map(function (WorkOrder $o) use ($sinistros, $comSaida) {
             $aprovadas = $o->items->where('approval', 'approved');
             $motivo = match (true) {
+                (bool) $o->warranty_of_id => __('É um retrabalho em garantia: não se factura.'),
                 isset($sinistros[$o->id]) => __('É um sinistro: factura-se no separador Facturação da ordem.'),
                 $o->items->contains('approval', 'pending') => __('Tem linhas à espera da aprovação do cliente.'),
                 $aprovadas->isEmpty() => __('Não tem linhas aprovadas.'),

@@ -164,6 +164,8 @@ export type Ordem = {
     saldo: number;
     estado_pagamento: string | null;
     facturada: boolean;
+    /** OF-19: retrabalho em garantia — não se factura. */
+    garantia?: boolean;
     /** Agendada para uma data já passada, e ainda por fechar. */
     atrasada: boolean;
     dias_na_oficina: number;
@@ -258,6 +260,8 @@ export type FichaDaOrdem = Ordem & {
     factura: { id: number; numero: string; cliente: string | null; quando: string | null; morada: string } | null;
     /** OF-15: o sinistro (seguradora, processo, franquia) e a factura da franquia. */
     sinistro?: SinistroDaOrdem | null;
+    /** OF-19: a garantia — de que ordem é, ou os retrabalhos que esta já teve. */
+    garantia_ficha?: GarantiaDaFicha;
 };
 
 export type FiltrosDasOrdens = {
@@ -348,6 +352,9 @@ export const ordens = {
     desconto: (id: number, desconto: number) =>
         api.guardar<{ message: string }>(`/oficina/ordens/${id}/desconto`, { desconto }),
 
+    /** OF-19: abrir um retrabalho em garantia a partir desta ordem. */
+    abrirGarantia: (id: number, d: { causa: string; motivo: string; fora_do_prazo: boolean }) =>
+        api.criar<{ message: string; ordem_id: number }>(`/oficina/ordens/${id}/garantia`, d),
     facturar: (id: number) =>
         api.criar<{ message: string; morada: string }>(`/oficina/ordens/${id}/facturar`, {}),
 
@@ -1118,6 +1125,8 @@ export type IndicadoresDoPeriodo = {
     aprovacao: { aprovadas: number; recusadas: number; valor_aprovado: number; valor_recusado: number; taxa: number | null };
     recomendacoes: { total: number; aceites: number; taxa: number | null; por_vender: number };
     satisfacao: number | null;
+    /** OF-19: os retrabalhos em garantia, à parte. */
+    retrabalho?: { ordens: number; taxa: number | null; custo: number; por_causa: Array<{ causa: string; rotulo: string; ordens: number }> };
 };
 
 export type IndicadoresDaOficina = {
@@ -1130,4 +1139,19 @@ export type IndicadoresDaOficina = {
 
 export const indicadoresDaOficina = {
     ler: (de: string, ate: string) => api.ler<IndicadoresDaOficina>('/oficina/indicadores', { de, ate }),
+};
+
+/* ─── O retrabalho em garantia (OF-19) ──────────────────────────────── */
+
+export type GarantiaDaFicha = {
+    e_garantia: boolean;
+    de_ordem: { id: number; numero: string } | null;
+    causa: string | null;
+    causa_rotulo: string | null;
+    motivo: string | null;
+    garantia_ate: string | null;
+    expirou: boolean;
+    pode_abrir: boolean;
+    retrabalhos: Array<{ id: number; numero: string; estado_rotulo: string; causa_rotulo: string; em: string | null }>;
+    causas: Escolha[];
 };

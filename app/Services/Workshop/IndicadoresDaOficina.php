@@ -33,6 +33,8 @@ class IndicadoresDaOficina
 
         $ordens = DB::table('workshop_work_orders as o')
             ->where('o.tenant_id', $tenantId)->whereNull('o.deleted_at')->whereIn('o.status', ['completed', 'delivered'])
+            // OF-19: a garantia não é receita — conta-se à parte, em `retrabalho`.
+            ->whereNull('o.warranty_of_id')
             ->whereRaw("$quando BETWEEN ? AND ?", [$inicio, $fim])
             ->selectRaw("o.id, o.total, o.vehicle_id, o.received_at, $quando as fechada")->get();
 
@@ -95,6 +97,18 @@ class IndicadoresDaOficina
 
         $pct = fn (float $parte, float $todo) => $todo > 0 ? round($parte / $todo * 100, 1) : null;
 
+        // OF-19: os retrabalhos em garantia abertos no período e o que custaram à oficina.
+        $garantias = DB::table('workshop_work_orders as o')->where('o.tenant_id', $tenantId)->whereNull('o.deleted_at')
+            ->whereNotNull('o.warranty_of_id')->whereBetween('o.received_at', [$inicio, $fim])->where('o.status', '!=', 'cancelled')
+            ->get(['o.id', 'o.warranty_cause']);
+        $custoGarantia = $garantias->isNotEmpty() ? (float) DB::table('workshop_work_order_items as i')
+            ->join('workshop_work_orders as o', 'o.id', '=', 'i.work_order_id')
+            ->leftJoin('invoicing_products as p', 'p.id', '=', 'i.product_id')
+            ->leftJoin('workshop_mechanics as m', 'm.id', '=', DB::raw('COALESCE(i.mechanic_id, o.mechanic_id)'))
+            ->whereIn('i.work_order_id', $garantias->pluck('id'))->where('i.approval', 'approved')
+            ->selectRaw("SUM(CASE WHEN i.type = 'part' THEN COALESCE(p.cost, 0) * i.quantity ELSE i.hours * GREATEST(i.quantity, 1) * COALESCE(m.hourly_rate, 0) END) as custo")
+            ->value('custo') : 0.0;
+
         return [
             'ordens' => $n,
             'viaturas' => $ordens->pluck('vehicle_id')->filter()->unique()->count(),
@@ -133,6 +147,12 @@ class IndicadoresDaOficina
                 'por_vender' => round((float) ($recomendacoes->por_vender ?? 0), 2),
             ],
             'satisfacao' => InqueritosDaOficina::resumo($tenantId, $inicio, $fim)['media'],
+            'retrabalho' => [
+                'ordens' => $garantias->count(),
+                'taxa' => $n ? round($garantias->count() / $n * 100, 1) : null,
+                'custo' => round($custoGarantia, 2),
+                'por_causa' => collect(GarantiasDaOficina::CAUSAS)->map(fn ($r, $c) => ['causa' => $c, 'rotulo' => __($r), 'ordens' => $garantias->where('warranty_cause', $c)->count()])->values()->all(),
+            ],
         ];
     }
 

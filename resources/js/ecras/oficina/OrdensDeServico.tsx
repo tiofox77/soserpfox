@@ -36,6 +36,7 @@ import { AdiarLinha, RecomendacoesDaViatura } from './RecomendacoesNaOrdem';
 import { EntregaDaViatura } from './EntregaDaViatura';
 import { AvaliacaoNaOrdem } from './AvaliacaoNaOrdem';
 import { SinistroDaOrdem } from './SinistroDaOrdem';
+import { GarantiaDaOrdem } from './GarantiaDaOrdem';
 import { AprovacaoDoCliente, SeloDaAprovacao } from './AprovacaoDoCliente';
 import { etiquetaIntl, t, tPartes } from '@/i18n';
 
@@ -313,6 +314,11 @@ export default function OrdensDeServico() {
                                             {l.facturada && (
                                                 <span className="ml-1.5 text-[10px] font-bold uppercase text-emerald-600">
                                                     <i className="fas fa-file-invoice mr-0.5" aria-hidden="true" />{t('Facturada')}
+                                                </span>
+                                            )}
+                                            {l.garantia && (
+                                                <span className="ml-1.5 rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-purple-700">
+                                                    <i className="fas fa-shield-heart mr-0.5" aria-hidden="true" />{t('Garantia')}
                                                 </span>
                                             )}
                                             {/* ATRASADA: agendada para uma data que já passou e ainda
@@ -707,6 +713,8 @@ export function FichaDaOrdemModal({ id, o, abaInicial = 'info', aoFechar, aoMuda
                     <Separadores abas={abas} activa={aba} aoMudar={porAba} />
 
                     <div hidden={aba !== 'info'} className="space-y-4">
+                        {/* OF-19: a garantia desta ordem, ou de que ordem ela é retrabalho. */}
+                        {f.garantia_ficha && <GarantiaDaOrdem id={id} g={f.garantia_ficha} podeCriar={o.permissoes.pode_criar} aoMudar={(m) => { refazer(); aoMudar(m); }} />}
                         <div className="grid gap-4 sm:grid-cols-2">
                             <Bloco titulo={t('Viatura')} icone="fa-car">
                                 <Dado rotulo={t('Matrícula')} valor={f.viatura_ficha?.matricula} />
@@ -950,7 +958,11 @@ export function FichaDaOrdemModal({ id, o, abaInicial = 'info', aoFechar, aoMuda
                                             : t('Sinistro: a factura sai em nome da :seguradora.', { seguradora: f.sinistro.seguradora })}
                                     </p>
                                 )}
-                                {o.permissoes.pode_facturar ? (
+                                {f.garantia ? (
+                                    <p className={cls('flex items-center gap-2 border border-purple-200 bg-purple-50 px-3 py-2 text-sm text-purple-900', RAIO)}>
+                                        <i className="fas fa-shield-heart" aria-hidden="true" />{t('Retrabalho em garantia: é por conta da oficina e não se factura ao cliente.')}
+                                    </p>
+                                ) : o.permissoes.pode_facturar ? (
                                     <Botao cor="bom" tom="solida" icone="fa-file-invoice" aTrabalhar={facturar.isPending}
                                         onClick={() => facturar.mutate()}>
                                         {t('Emitir factura')}

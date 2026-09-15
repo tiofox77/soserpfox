@@ -285,6 +285,9 @@ class OrdensApiController extends Controller
                 'quando' => $ordem->invoiced_at?->toIso8601String(),
                 'morada' => route('invoicing.sales.invoices.preview', $ordem->invoice->id),
             ] : null,
+            // OF-19: a garantia — de que ordem é, ou os retrabalhos que esta já teve.
+            // Chave própria: a `garantia` da linha da lista é só o sim/não.
+            'garantia_ficha' => \App\Services\Workshop\GarantiasDaOficina::paraEcra($ordem),
             // OF-15: o sinistro (seguradora, processo, franquia) e a factura da franquia.
             'sinistro' => \App\Services\Workshop\SinistrosDaOficina::paraEcra(\App\Models\Workshop\WorkOrderClaim::with(['insurer', 'excessInvoice.client'])->where('work_order_id', $ordem->id)->first()),
         ]]);
@@ -543,6 +546,26 @@ class OrdensApiController extends Controller
      * descontos, totais SAFT, hash) vive no `ModuleInvoiceService`, a mesma que
      * a facturação usa. Aqui só se chama e se devolve a morada da factura.
      */
+    /** OF-19: abrir um retrabalho em garantia a partir desta ordem. */
+    public function garantia(Request $request, int $id): JsonResponse
+    {
+        $this->exigir($request, 'workshop.work-orders.create');
+        $ordem = $this->encontrar($id);
+        $dados = $request->validate([
+            'causa' => ['required', Rule::in(array_keys(\App\Services\Workshop\GarantiasDaOficina::CAUSAS))],
+            'motivo' => ['required', 'string', 'max:500'],
+            'fora_do_prazo' => ['nullable', 'boolean'],
+        ], ['motivo.required' => __('Descreva o que voltou a acontecer.')]);
+
+        try {
+            $nova = \App\Services\Workshop\GarantiasDaOficina::abrir($ordem, $dados['causa'], trim($dados['motivo']), (bool) ($dados['fora_do_prazo'] ?? false), activeTenantId());
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json(['message' => __('Retrabalho em garantia :numero aberto.', ['numero' => $nova->order_number]), 'ordem_id' => $nova->id], 201);
+    }
+
     public function facturar(Request $request, int $id): JsonResponse
     {
         $this->exigir($request, 'invoicing.sales.invoices.create');
@@ -810,6 +833,8 @@ class OrdensApiController extends Controller
             'saldo' => (float) $o->balance_due,
             'estado_pagamento' => $o->payment_status,
             'facturada' => (bool) $o->invoice_id,
+            // OF-19: retrabalho em garantia (não se factura).
+            'garantia' => (bool) $o->warranty_of_id,
             // «Atrasada» é a data agendada já passada com a ordem por fechar —
             // é o que faz alguém pegar na lista.
             'atrasada' => (bool) $o->is_overdue,

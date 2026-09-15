@@ -146,6 +146,22 @@ export default function Indicadores() {
                         aviso={a.pecas.linhas_sem_custo ? t(':n linha(s) de peças sem custo no catálogo ficaram fora da margem.', { n: a.pecas.linhas_sem_custo }) : null} />
                     <Margem titulo={t('Mão-de-obra')} icone="fa-screwdriver-wrench" receita={a.mao_de_obra.receita} custo={a.mao_de_obra.custo} margem={a.mao_de_obra.margem}
                         aviso={a.mao_de_obra.sem_preco_hora ? t('Os mecânicos não têm preço/hora: a margem da mão-de-obra fica a 100%. Preencha-o em Mecânicos.') : a.mao_de_obra.estimado ? t('Sem registo de tempos: o custo usa as horas vendidas.') : null} />
+                    {a.retrabalho && (
+                        <div className={cls('border border-purple-200 bg-purple-50/60 p-3', RAIO)}>
+                            <p className="flex flex-wrap items-center justify-between gap-2 text-sm font-bold text-purple-900">
+                                <span><i className="fas fa-shield-heart mr-1.5" aria-hidden="true" />{t('Retrabalho em garantia')}</span>
+                                <span className="tabular-nums">{a.retrabalho.ordens} · {a.retrabalho.taxa === null ? '—' : `${num(a.retrabalho.taxa, 1)}%`}</span>
+                            </p>
+                            <p className="mt-1 text-xs text-purple-800">{t('Custou à oficina :v Kz (fora da receita e do ticket médio).', { v: kz(a.retrabalho.custo) })}</p>
+                            {a.retrabalho.ordens > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                    {a.retrabalho.por_causa.filter((c) => c.ordens > 0).map((c) => (
+                                        <span key={c.causa} className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-purple-700 ring-1 ring-purple-200">{c.rotulo}: {c.ordens}</span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
                     <div className={cls('grid grid-cols-2 gap-3 bg-slate-50 p-3 text-xs', RAIO)}>
                         <span>{t('Recusado pelos clientes')}: <b className="tabular-nums text-slate-800">{kz(a.aprovacao.valor_recusado)} Kz</b></span>
                         <span className="text-right">{t('Recomendações por vender')}: <b className="tabular-nums text-slate-800">{kz(a.recomendacoes.por_vender)} Kz</b></span>

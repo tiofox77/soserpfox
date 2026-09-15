@@ -41,6 +41,10 @@ class WorkOrder extends Model
         'paid_amount',
         'warranty_days',
         'warranty_expires',
+        // OF-19: a ordem de garantia — de que ordem, a causa e o motivo.
+        'warranty_of_id',
+        'warranty_cause',
+        'warranty_reason',
         'notes',
         'invoice_id',
         'invoiced_at',
@@ -147,6 +151,12 @@ class WorkOrder extends Model
     public function checkin()
     {
         return $this->hasOne(WorkOrderCheckin::class, 'work_order_id');
+    }
+
+    /** OF-19: a ordem original de um retrabalho em garantia. */
+    public function warrantyOf()
+    {
+        return $this->belongsTo(self::class, 'warranty_of_id');
     }
 
     /** OF-15: o sinistro — a seguradora, o processo e a franquia. */
@@ -340,6 +350,11 @@ class WorkOrder extends Model
             throw new \Exception('Esta ordem de serviço já foi faturada. Fatura: ' . $this->invoice->invoice_number);
         }
         
+        // OF-19: o retrabalho em garantia é por conta da oficina.
+        if ($this->warranty_of_id) {
+            throw new \Exception(__('Ordem de garantia: não se factura ao cliente.'));
+        }
+
         // Verificar se tem veículo
         if (!$this->vehicle) {
             throw new \Exception('Ordem de serviço sem veículo associado.');
