@@ -31,4 +31,31 @@ class WorkOrderController extends Controller
 
         return view('workshop.work-orders.print-preview', compact('workOrder'));
     }
+
+    /**
+     * A ETIQUETA DA CHAVE (OF-20): TAG#, matrícula, OS e um QR que abre a folha
+     * de obra no telemóvel de quem a lê (com sessão iniciada).
+     *
+     * `?formato=etiqueta` (62 × 40 mm, uma por folha, para impressora de
+     * etiquetas) ou `a4` (oito por folha); `?copias=` quantas.
+     */
+    public function etiqueta(Request $request, $id)
+    {
+        $workOrder = WorkOrder::with('vehicle')->where('tenant_id', activeTenantId())->findOrFail($id);
+
+        $formato = $request->query('formato') === 'a4' ? 'a4' : 'etiqueta';
+        $copias = max(1, min(8, (int) $request->query('copias', $formato === 'a4' ? 8 : 1)));
+        $link = route('workshop.work-orders') . '?ordem=' . $workOrder->id;
+
+        $qr = (new \BaconQrCode\Writer(new \BaconQrCode\Renderer\ImageRenderer(
+            new \BaconQrCode\Renderer\RendererStyle\RendererStyle(240, 1),
+            new \BaconQrCode\Renderer\Image\SvgImageBackEnd()
+        )))->writeString($link);
+        // Só o <svg>: a declaração XML no meio do HTML não serve.
+        $qr = preg_replace('/^<\?xml[^>]*\?>\s*/', '', $qr);
+
+        $empresa = \App\Models\Tenant::find($workOrder->tenant_id)?->name;
+
+        return view('workshop.work-orders.etiqueta', compact('workOrder', 'formato', 'copias', 'qr', 'link', 'empresa'));
+    }
 }

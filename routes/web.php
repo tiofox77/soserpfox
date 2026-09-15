@@ -3253,6 +3253,9 @@ Route::middleware(['auth', 'tenant.module:oficina'])->prefix('workshop')->name('
     // ecrã de onde se abre.
     Route::get('/work-orders/{id}/print', [\App\Http\Controllers\Workshop\WorkOrderController::class, 'printPreview'])
         ->middleware('permission:workshop.work-orders.view')->name('work-orders.print');
+    // A etiqueta da chave com TAG# e QR (OF-20).
+    Route::get('/work-orders/{id}/tag', [\App\Http\Controllers\Workshop\WorkOrderController::class, 'etiqueta'])
+        ->whereNumber('id')->middleware('permission:workshop.work-orders.view')->name('work-orders.tag');
     Route::middleware('permission:workshop.reports.view')
         ->get('/reports', \App\Support\EcraReact::pagina('oficina/relatorios', 'Relatórios da Oficina'))->name('reports');
     /*

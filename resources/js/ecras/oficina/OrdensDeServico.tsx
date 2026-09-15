@@ -667,6 +667,17 @@ export function FichaDaOrdemModal({ id, o, abaInicial = 'info', aoFechar, aoMuda
                             <i className="fas fa-print text-indigo-600" aria-hidden="true" />{t('Imprimir')}
                         </a>
                     )}
+                    {/* OF-20: a etiqueta que vai pendurada na chave, com o QR da folha de obra. */}
+                    {f && (
+                        <a
+                            href={`/workshop/work-orders/${id}/tag`}
+                            target="_blank"
+                            rel="noopener"
+                            className={cls('group inline-flex items-center justify-center gap-2 border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md', RAIO, FOCO)}
+                        >
+                            <i className="fas fa-tag text-amber-500 transition-transform duration-300 group-hover:-rotate-12" aria-hidden="true" />{t('Etiqueta TAG')}
+                        </a>
+                    )}
                     <Botao onClick={aoFechar}>{t('Fechar')}</Botao>
                 </>
             }
