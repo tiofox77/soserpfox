@@ -11396,5 +11396,7 @@
     "Só quem gere a conta da empresa trata das cópias de segurança.": "Only the company account manager handles backups.",
     "Aplicação :f guardada.": "App :f saved.",
     "A cópia foi interrompida (o servidor terminou o processo antes de acabar).": "The backup was interrupted (the server ended the process before it finished).",
-    "O restauro foi interrompido antes de acabar. Confira os dados e, se preciso, reponha a cópia feita antes dele.": "The restore was interrupted before it finished. Check the data and, if needed, restore the backup taken before it."
+    "O restauro foi interrompido antes de acabar. Confira os dados e, se preciso, reponha a cópia feita antes dele.": "The restore was interrupted before it finished. Check the data and, if needed, restore the backup taken before it.",
+    "Escolha o artigo desta linha — cada linha leva um artigo do catálogo.": "Choose the item for this line — every line needs a catalogue item.",
+    "O artigo desta linha não existe nesta empresa.": "The item on this line does not exist in this company."
 }

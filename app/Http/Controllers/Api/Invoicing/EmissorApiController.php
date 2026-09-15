@@ -350,7 +350,18 @@ class EmissorApiController extends Controller
              */
             'estado' => ['nullable', 'in:draft,sent'],
             'linhas' => ['required', 'array', 'min:1'],
-            'linhas.*.product_id' => ['nullable', 'integer', 'exists:invoicing_products,id'],
+            /*
+             * CADA LINHA DE UMA PROPOSTA LEVA UM ARTIGO DO CATÁLOGO — e desta empresa.
+             *
+             * As três tabelas de linhas (proforma de venda, orçamento, proforma
+             * de compra) têm `product_id` obrigatório. Aqui aceitava-se nulo, e
+             * uma «Nova linha» com preço mas sem artigo escolhido chegava à
+             * base e rebentava com um erro de SQL no ecrã (produção, 15/09/2026,
+             * empresa #98, cinco tentativas seguidas). Agora é um 422 que marca
+             * a linha. E o artigo confere-se contra ESTA empresa: um id de um
+             * artigo de outra passava no `exists` sem empresa.
+             */
+            'linhas.*.product_id' => ['required', 'integer', \Illuminate\Validation\Rule::exists('invoicing_products', 'id')->where('tenant_id', activeTenantId())],
             'linhas.*.description' => ['nullable', 'string', 'max:500'],
             'linhas.*.quantity' => ['required', 'numeric', 'min:0.001'],
             'linhas.*.price' => ['required', 'numeric', 'min:0'],
@@ -358,6 +369,8 @@ class EmissorApiController extends Controller
         ], [
             'linhas.required' => __('Um documento sem linhas não é um documento.'),
             'linhas.min' => __('Um documento sem linhas não é um documento.'),
+            'linhas.*.product_id.required' => __('Escolha o artigo desta linha — cada linha leva um artigo do catálogo.'),
+            'linhas.*.product_id.exists' => __('O artigo desta linha não existe nesta empresa.'),
         ]);
 
         $eServico = (bool) ($dados['is_service'] ?? false);

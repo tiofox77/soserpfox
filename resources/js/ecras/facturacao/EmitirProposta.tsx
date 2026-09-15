@@ -292,7 +292,30 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
         );
     }
 
-    const mudarLinha = (i: number, campo: keyof LinhaDoEditor, valor: string) =>
+    /*
+     * O ERRO DE CADA LINHA, NA LINHA.
+     *
+     * O servidor numera as linhas que RECEBEU — as vazias ficam de fora antes
+     * de seguir (`comConteudo`) — e por isso o `linhas.1` dele não é
+     * forçosamente a segunda linha do ecrã. Traduz-se a posição de volta.
+     * Sem isto, uma linha sem artigo só dava «Há campos por corrigir» e
+     * ninguém sabia qual.
+     */
+    const enviadas = linhas.map((l, i) => (comConteudo(l) ? i : -1)).filter((i) => i >= 0);
+    const erroDaLinha = (i: number): string[] | undefined => {
+        const k = enviadas.indexOf(i);
+        if (k < 0) return undefined;
+
+        return erros[`linhas.${k}.product_id`] ?? erros[`linhas.${k}.quantity`] ?? erros[`linhas.${k}.price`];
+    };
+
+    const mudarLinha = (i: number, campo: keyof LinhaDoEditor, valor: string) => {
+        // Escolher o artigo resolve o que o servidor apontou nas linhas: o
+        // vermelho sai logo, sem esperar pela próxima gravação.
+        if (campo === 'product_id' && valor) {
+            porErros((e) => Object.fromEntries(Object.entries(e).filter(([k]) => !k.startsWith('linhas.'))));
+        }
+
         porLinhas((ls) =>
             ls.map((l, j) => {
                 if (j !== i) return l;
@@ -313,6 +336,7 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
                 return { ...l, [campo]: valor };
             }),
         );
+    };
 
     return (
         <div className="space-y-4" data-emissor={tipo}>
@@ -503,6 +527,7 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
                         <tbody className="divide-y divide-slate-100">
                             {linhas.map((l, i) => {
                                 const artigo = o.artigos.find((a) => a.id === l.product_id);
+                                const erroAqui = erroDaLinha(i);
 
                                 return (
                                 <tr key={i} className={LINHA_DA_TABELA} style={cascata(i)}>
@@ -511,7 +536,8 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
                                             value={l.product_id ?? ''}
                                             onChange={(e) => mudarLinha(i, 'product_id', e.target.value)}
                                             aria-label={t('Artigo da linha :n', { n: i + 1 })}
-                                            className={entrada}
+                                            aria-invalid={erroAqui ? true : undefined}
+                                            className={cls(entrada, erroAqui && 'border-red-400 bg-red-50/60 ring-1 ring-red-300')}
                                         >
                                             <option value="">{t('Escolher…')}</option>
                                             {o.artigos.map((a) => (
@@ -524,6 +550,12 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
                                             produto/serviço e a unidade — é o que
                                             faz reparar numa linha «serviço» com
                                             armazém escolhido. */}
+                                        {erroAqui?.[0] && (
+                                            <p role="alert" className="mt-1 flex items-start gap-1.5 text-xs font-medium text-red-600 animate-fade-in">
+                                                <i className="fas fa-circle-exclamation mt-0.5" aria-hidden="true" />
+                                                {erroAqui[0]}
+                                            </p>
+                                        )}
                                         {artigo && (
                                             <p className="mt-1 flex items-center gap-2 text-xs">
                                                 <span className={cls(

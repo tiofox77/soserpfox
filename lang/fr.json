@@ -11396,5 +11396,7 @@
     "Só quem gere a conta da empresa trata das cópias de segurança.": "Seul le gestionnaire du compte de l'entreprise gère les sauvegardes.",
     "Aplicação :f guardada.": "Application :f enregistrée.",
     "A cópia foi interrompida (o servidor terminou o processo antes de acabar).": "La sauvegarde a été interrompue (le serveur a arrêté le processus avant la fin).",
-    "O restauro foi interrompido antes de acabar. Confira os dados e, se preciso, reponha a cópia feita antes dele.": "La restauration a été interrompue avant la fin. Vérifiez les données et, si besoin, restaurez la sauvegarde faite avant."
+    "O restauro foi interrompido antes de acabar. Confira os dados e, se preciso, reponha a cópia feita antes dele.": "La restauration a été interrompue avant la fin. Vérifiez les données et, si besoin, restaurez la sauvegarde faite avant.",
+    "Escolha o artigo desta linha — cada linha leva um artigo do catálogo.": "Choisissez l'article de cette ligne — chaque ligne doit avoir un article du catalogue.",
+    "O artigo desta linha não existe nesta empresa.": "L'article de cette ligne n'existe pas dans cette entreprise."
 }

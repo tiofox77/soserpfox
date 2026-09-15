@@ -85,6 +85,43 @@ class ApiDeAbrirEEditarParaReactTest extends TenantTestCase
         $this->getJson(self::RAIZ . '/factura/999999')->assertNotFound();
     }
 
+    /**
+     * @test
+     *
+     * Produção, 15/09/2026: uma «Nova linha» com preço e sem artigo escolhido
+     * dava «Column 'product_id' cannot be null» no ecrã. Tem de ser um 422 que
+     * aponta a linha — e um artigo de outra empresa também não entra.
+     */
+    public function uma_linha_de_proposta_sem_artigo_e_recusada_com_a_linha_marcada(): void
+    {
+        $this->comPermissoes('invoicing.sales.proformas.view', 'invoicing.sales.proformas.create', 'invoicing.sales.proformas.edit');
+        $artigo = $this->artigo();
+        $cliente = $this->clienteEmpresa();
+
+        $this->postJson(self::RAIZ . '/emissor/proformas-venda', [
+            'parte_id' => $cliente->id, 'data' => now()->toDateString(), 'warehouse_id' => null, 'is_service' => true,
+            'linhas' => [['product_id' => $artigo->id, 'quantity' => 1, 'price' => 1000], ['product_id' => null, 'description' => '', 'quantity' => 1, 'price' => 2650479]],
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['linhas.1.product_id'])
+            ->assertJsonMissingValidationErrors(['linhas.0.product_id']);
+
+        $alheio = Product::withoutGlobalScopes()->create([
+            'tenant_id' => $this->outraEmpresa()->id, 'name' => 'De outra ' . uniqid(), 'type' => 'servico', 'price' => 10, 'unit' => 'un', 'is_active' => true,
+        ]);
+
+        $this->postJson(self::RAIZ . '/emissor/proformas-venda', [
+            'parte_id' => $cliente->id, 'data' => now()->toDateString(), 'is_service' => true,
+            'linhas' => [['product_id' => $alheio->id, 'quantity' => 1, 'price' => 10]],
+        ])->assertStatus(422)->assertJsonValidationErrors(['linhas.0.product_id']);
+
+        $this->assertSame(0, \App\Models\Invoicing\SalesProformaItem::count() - \App\Models\Invoicing\SalesProformaItem::whereNotNull('product_id')->count());
+    }
+
+    private function outraEmpresa(): \App\Models\Tenant
+    {
+        return \App\Models\Tenant::create(['name' => 'Outra ' . uniqid(), 'slug' => 'outra-' . uniqid(), 'email' => 'o' . uniqid() . '@x.ao', 'is_active' => true]);
+    }
+
     /** @test */
     public function um_rascunho_de_proposta_abre_se_e_edita_se(): void
     {
