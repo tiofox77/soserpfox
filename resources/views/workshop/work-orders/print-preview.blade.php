@@ -269,6 +269,22 @@
             </div>
             @endif
 
+            {{-- O SINISTRO (OF-15): quem paga o quê. --}}
+            @if($workOrder->claim)
+            @php $sin = $workOrder->claim; @endphp
+            <div class="info-section p-3 page-break-avoid">
+                <h3 class="text-xs font-bold text-purple-700 mb-2 border-b border-purple-200 pb-1">SINISTRO</h3>
+                <div class="grid grid-cols-3 gap-x-4 gap-y-1 text-xs">
+                    <div><span class="font-semibold text-gray-500">Seguradora:</span> {{ $sin->insurer?->name ?? '—' }}</div>
+                    <div><span class="font-semibold text-gray-500">Processo:</span> {{ $sin->claim_number ?? '—' }}</div>
+                    <div><span class="font-semibold text-gray-500">Apólice:</span> {{ $sin->policy_number ?? '—' }}</div>
+                    <div><span class="font-semibold text-gray-500">Data do sinistro:</span> {{ $sin->accident_date?->format('d/m/Y') ?? '—' }}</div>
+                    <div><span class="font-semibold text-gray-500">Perito:</span> {{ $sin->adjuster_name ?? '—' }}@if($sin->adjuster_phone) · {{ $sin->adjuster_phone }}@endif</div>
+                    <div><span class="font-semibold text-gray-500">Franquia a cargo do cliente:</span> {{ number_format((float) $sin->excess_amount, 2, ',', '.') }} Kz</div>
+                </div>
+            </div>
+            @endif
+
             {{-- Descrições (compactas) --}}
             <div class="space-y-2">
                 <div class="description-problem px-3 py-2 rounded-r">

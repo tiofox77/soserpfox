@@ -256,6 +256,8 @@ export type FichaDaOrdem = Ordem & {
     historico: EventoDaOrdem[];
     anexos: AnexoDaOrdem[];
     factura: { id: number; numero: string; cliente: string | null; quando: string | null; morada: string } | null;
+    /** OF-15: o sinistro (seguradora, processo, franquia) e a factura da franquia. */
+    sinistro?: SinistroDaOrdem | null;
 };
 
 export type FiltrosDasOrdens = {
@@ -966,4 +968,55 @@ export type InqueritoDaOrdem = {
 export const inqueritoDaOrdem = {
     ler: (id: number) => api.ler<{ data: InqueritoDaOrdem | null; pode_criar: boolean }>(`/oficina/ordens/${id}/inquerito`),
     criar: (id: number) => api.criar<{ data: InqueritoDaOrdem; pode_criar: boolean; message: string }>(`/oficina/ordens/${id}/inquerito`, {}),
+};
+
+/* ─── O sinistro com seguradora (OF-15) ─────────────────────────────── */
+
+export type SinistroDaOrdem = {
+    seguradora_id: number | null;
+    seguradora: string | null;
+    processo: string | null;
+    apolice: string | null;
+    data_sinistro: string | null;
+    perito: string | null;
+    perito_telefone: string | null;
+    perito_email: string | null;
+    data_peritagem: string | null;
+    valor_aprovado: number | null;
+    franquia: number;
+    estado: string;
+    estado_rotulo: string;
+    notas: string | null;
+    factura_franquia: { id: number; numero: string; cliente: string | null; morada: string } | null;
+};
+
+export type SinistroParaGravar = {
+    seguradora_id: string;
+    processo: string;
+    apolice: string;
+    data_sinistro: string;
+    perito: string;
+    perito_telefone: string;
+    perito_email: string;
+    data_peritagem: string;
+    valor_aprovado: string;
+    franquia: string;
+    estado: string;
+    notas: string;
+};
+
+export type RespostaDoSinistro = {
+    data: SinistroDaOrdem | null;
+    reparticao: { total: number; seguradora: number; cliente: number; acima_do_aprovado: boolean };
+    seguradoras: Array<Escolha & { empresa: boolean }>;
+    estados: Escolha[];
+    facturada: boolean;
+    pode_editar: boolean;
+    message?: string;
+};
+
+export const sinistroDaOrdem = {
+    ler: (id: number) => api.ler<RespostaDoSinistro>(`/oficina/ordens/${id}/sinistro`),
+    gravar: (id: number, d: SinistroParaGravar) => api.guardar<RespostaDoSinistro>(`/oficina/ordens/${id}/sinistro`, d),
+    tirar: (id: number) => api.apagar<RespostaDoSinistro>(`/oficina/ordens/${id}/sinistro`),
 };

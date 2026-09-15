@@ -35,6 +35,7 @@ import { PecasEmFalta } from './PecasEmFalta';
 import { AdiarLinha, RecomendacoesDaViatura } from './RecomendacoesNaOrdem';
 import { EntregaDaViatura } from './EntregaDaViatura';
 import { AvaliacaoNaOrdem } from './AvaliacaoNaOrdem';
+import { SinistroDaOrdem } from './SinistroDaOrdem';
 import { AprovacaoDoCliente, SeloDaAprovacao } from './AprovacaoDoCliente';
 import { etiquetaIntl, t, tPartes } from '@/i18n';
 
@@ -628,6 +629,8 @@ export function FichaDaOrdemModal({ id, o, abaInicial = 'info', aoFechar, aoMuda
         // OF-06: o registo de tempos por tarefa.
         { chave: 'tempos', rotulo: t('Tempos'), icone: 'fa-stopwatch' },
         { chave: 'contas', rotulo: t('Contas'), icone: 'fa-calculator' },
+        // OF-15: o sinistro — a seguradora, o processo, o perito e a franquia.
+        { chave: 'sinistro', rotulo: t('Sinistro'), icone: 'fa-car-burst' },
         // OF-13: o termo de entrega — km à saída, o conferido e a assinatura de quem levanta.
         { chave: 'entrega', rotulo: t('Entrega'), icone: 'fa-handshake' },
         { chave: 'historico', rotulo: t('Histórico'), icone: 'fa-clock-rotate-left' },
@@ -731,6 +734,10 @@ export function FichaDaOrdemModal({ id, o, abaInicial = 'info', aoFechar, aoMuda
                         <Texto titulo={t('Trabalho realizado')} icone="fa-screwdriver-wrench" tom="verde" corpo={f.trabalho} />
                         <Texto titulo={t('Recomendações')} icone="fa-lightbulb" tom="ambar" corpo={f.recomendacoes} />
                         <Texto titulo={t('Notas')} icone="fa-note-sticky" tom="cinza" corpo={f.notas} />
+                    </div>
+
+                    <div hidden={aba !== 'sinistro'}>
+                        {aba === 'sinistro' && <SinistroDaOrdem id={id} aoMudar={aoMudar} />}
                     </div>
 
                     <div hidden={aba !== 'entrega'} className="space-y-4">
@@ -921,12 +928,28 @@ export function FichaDaOrdemModal({ id, o, abaInicial = 'info', aoFechar, aoMuda
                                     {t('Abrir a factura')}
                                     <i className="fas fa-arrow-right text-xs" aria-hidden="true" />
                                 </a>
+                                {/* OF-15: a factura da franquia do cliente, ao lado da da seguradora. */}
+                                {f.sinistro?.factura_franquia && (
+                                    <p className="mt-3 border-t border-emerald-200 pt-3 text-sm text-emerald-900">
+                                        <i className="fas fa-user mr-1.5" aria-hidden="true" />
+                                        {t('Franquia: :numero', { numero: f.sinistro.factura_franquia.numero })} · {f.sinistro.factura_franquia.cliente}
+                                        <a href={f.sinistro.factura_franquia.morada} className={cls('ml-2 font-semibold underline-offset-4 hover:underline', FOCO)}>{t('Abrir')}</a>
+                                    </p>
+                                )}
                             </div>
                         ) : (
                             <>
                                 <p className="text-sm text-slate-600">
                                     {t('A ordem passa a factura de venda pela mesma porta fiscal da facturação: imposto por linha, isenções, retenção de IRT e assinatura.')}
                                 </p>
+                                {f.sinistro?.seguradora && (
+                                    <p className={cls('flex flex-wrap items-center gap-2 border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900', RAIO)}>
+                                        <i className="fas fa-car-burst" aria-hidden="true" />
+                                        {f.sinistro.franquia > 0
+                                            ? t('Sinistro: sai uma factura à :seguradora e outra de :franquia Kz (franquia) ao cliente.', { seguradora: f.sinistro.seguradora, franquia: kz(f.sinistro.franquia) })
+                                            : t('Sinistro: a factura sai em nome da :seguradora.', { seguradora: f.sinistro.seguradora })}
+                                    </p>
+                                )}
                                 {o.permissoes.pode_facturar ? (
                                     <Botao cor="bom" tom="solida" icone="fa-file-invoice" aTrabalhar={facturar.isPending}
                                         onClick={() => facturar.mutate()}>

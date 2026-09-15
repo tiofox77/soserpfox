@@ -23,6 +23,8 @@ class WorkOrderController extends Controller
             'checkin',
             // O termo de entrega (OF-13): km à saída, o conferido e a assinatura de quem levantou.
             'handover',
+            // O sinistro (OF-15): seguradora, processo e franquia no papel.
+            'claim.insurer',
         ])
         ->where('tenant_id', activeTenantId())
         ->findOrFail($id);

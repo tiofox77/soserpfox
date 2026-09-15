@@ -2040,6 +2040,12 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::put('/{id}/tempos/{registo}', [$tp, 'corrigir'])->whereNumber('id')->whereNumber('registo')->name('tempos.corrigir');
             Route::delete('/{id}/tempos/{registo}', [$tp, 'destroy'])->whereNumber('id')->whereNumber('registo')->name('tempos.apagar');
 
+            // O sinistro com seguradora (OF-15).
+            $si = \App\Http\Controllers\Api\Workshop\SinistroDaOrdemApiController::class;
+            Route::get('/{id}/sinistro', [$si, 'show'])->whereNumber('id')->name('sinistro.ver');
+            Route::put('/{id}/sinistro', [$si, 'update'])->whereNumber('id')->name('sinistro.gravar');
+            Route::delete('/{id}/sinistro', [$si, 'destroy'])->whereNumber('id')->name('sinistro.tirar');
+
             // O inquérito de satisfação da ordem (OF-14).
             $iq = \App\Http\Controllers\Api\Workshop\InqueritoDeSatisfacaoApiController::class;
             Route::get('/{id}/inquerito', [$iq, 'daOrdem'])->whereNumber('id')->name('inquerito.ver');

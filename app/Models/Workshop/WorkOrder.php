@@ -149,6 +149,12 @@ class WorkOrder extends Model
         return $this->hasOne(WorkOrderCheckin::class, 'work_order_id');
     }
 
+    /** OF-15: o sinistro — a seguradora, o processo e a franquia. */
+    public function claim()
+    {
+        return $this->hasOne(WorkOrderClaim::class, 'work_order_id');
+    }
+
     /** OF-14: a avaliação do cliente depois da entrega. */
     public function survey()
     {
@@ -358,53 +364,7 @@ class WorkOrder extends Model
                 throw new \Exception('Esta ordem de serviço já foi faturada. Fatura: ' . $bloqueada->invoice->invoice_number);
             }
 
-            // Usar cliente vinculado ao veículo ou criar/buscar baseado no proprietário
-            $client = null;
-            if ($this->vehicle->client_id) {
-                // Com scope de empresa: um id de outra empresa devolvia o cliente
-                // dela, ou null — e o `$client->id` a seguir rebentava.
-                $client = \App\Models\Client::where('tenant_id', $this->tenant_id)
-                    ->find($this->vehicle->client_id);
-            }
-
-            if (!$client) {
-                // Procurar pelo NIF — é a identidade fiscal e é ela que tem
-                // índice único (tenant_id, nif). Procurar pelo EMAIL, como
-                // antes, nunca encontrava nada nos veículos sem email (a maioria)
-                // e o firstOrCreate tentava criar mais um cliente com o NIF
-                // genérico 999999999, rebentando com "Duplicate entry" — ou
-                // seja, facturar uma OS de um cliente de passagem falhava sempre.
-                $nif = $this->vehicle->owner_nif ?: '999999999';
-
-                $client = \App\Models\Client::where('tenant_id', $this->tenant_id)
-                    ->where('nif', $nif)
-                    ->first();
-
-                if (!$client && $this->vehicle->owner_email) {
-                    $client = \App\Models\Client::where('tenant_id', $this->tenant_id)
-                        ->where('email', $this->vehicle->owner_email)
-                        ->first();
-                }
-
-                if (!$client) {
-                    $client = \App\Models\Client::create([
-                        'tenant_id'   => $this->tenant_id,
-                        'name'        => $this->vehicle->owner_name ?: 'Consumidor Final',
-                        'email'       => $this->vehicle->owner_email,
-                        'phone'       => $this->vehicle->owner_phone,
-                        'nif'         => $nif,
-                        'address'     => $this->vehicle->owner_address ?? '',
-                        // A coluna é `type`, ENUM('pessoa_fisica','pessoa_juridica').
-                        // 'client_type' não existe e era descartado em silêncio.
-                        // Importa: é este campo que decide se há retenção de IRT.
-                        'type' => 'pessoa_fisica',
-                        'status'      => 'active',
-                    ]);
-                }
-
-                // Vincular cliente ao veículo para próximas vezes
-                $this->vehicle->update(['client_id' => $client->id]);
-            }
+            $client = $this->clienteDaFactura();
             
             // Obter warehouse padrão
             $warehouse = \App\Models\Invoicing\Warehouse::getDefault($this->tenant_id);
@@ -434,6 +394,64 @@ class WorkOrder extends Model
     }
 
     /**
+     * O CLIENTE A QUEM SE FACTURA A ORDEM — o da viatura, ou procurado/criado pelo
+     * dono (NIF, depois email). Saiu do `convertToInvoice` para o sinistro (OF-15)
+     * facturar a franquia ao mesmo cliente.
+     */
+    public function clienteDaFactura(): \App\Models\Client
+    {
+        // Usar cliente vinculado ao veículo ou criar/buscar baseado no proprietário
+        $client = null;
+        if ($this->vehicle->client_id) {
+            // Com scope de empresa: um id de outra empresa devolvia o cliente
+            // dela, ou null — e o `$client->id` a seguir rebentava.
+            $client = \App\Models\Client::where('tenant_id', $this->tenant_id)
+                ->find($this->vehicle->client_id);
+        }
+
+        if (!$client) {
+            // Procurar pelo NIF — é a identidade fiscal e é ela que tem
+            // índice único (tenant_id, nif). Procurar pelo EMAIL, como
+            // antes, nunca encontrava nada nos veículos sem email (a maioria)
+            // e o firstOrCreate tentava criar mais um cliente com o NIF
+            // genérico 999999999, rebentando com "Duplicate entry" — ou
+            // seja, facturar uma OS de um cliente de passagem falhava sempre.
+            $nif = $this->vehicle->owner_nif ?: '999999999';
+
+            $client = \App\Models\Client::where('tenant_id', $this->tenant_id)
+                ->where('nif', $nif)
+                ->first();
+
+            if (!$client && $this->vehicle->owner_email) {
+                $client = \App\Models\Client::where('tenant_id', $this->tenant_id)
+                    ->where('email', $this->vehicle->owner_email)
+                    ->first();
+            }
+
+            if (!$client) {
+                $client = \App\Models\Client::create([
+                    'tenant_id'   => $this->tenant_id,
+                    'name'        => $this->vehicle->owner_name ?: 'Consumidor Final',
+                    'email'       => $this->vehicle->owner_email,
+                    'phone'       => $this->vehicle->owner_phone,
+                    'nif'         => $nif,
+                    'address'     => $this->vehicle->owner_address ?? '',
+                    // A coluna é `type`, ENUM('pessoa_fisica','pessoa_juridica').
+                    // 'client_type' não existe e era descartado em silêncio.
+                    // Importa: é este campo que decide se há retenção de IRT.
+                    'type' => 'pessoa_fisica',
+                    'status'      => 'active',
+                ]);
+            }
+
+            // Vincular cliente ao veículo para próximas vezes
+            $this->vehicle->update(['client_id' => $client->id]);
+        }
+
+        return $client;
+    }
+
+    /**
      * Entrega as linhas da OS ao emissor fiscal partilhado.
      *
      * Toda a fiscalidade (imposto por linha, isenções, retenção de IRT,
@@ -443,6 +461,38 @@ class WorkOrder extends Model
      * net_total/gross_total a zero num documento assinado.
      */
     protected function emitirFactura(\App\Models\Client $client, $warehouse)
+    {
+        $servico = app(\App\Services\Invoicing\ModuleInvoiceService::class);
+
+        return $servico->emitir([
+            'tenant_id'           => $this->tenant_id,
+            'client_id'           => $client->id,
+            'warehouse_id'        => $warehouse->id,
+            'lines'               => $this->linhasParaFacturar(),
+            'discount_commercial' => (float) ($this->discount ?? 0),
+            // Retenção de IRT: só quando o adquirente é PESSOA COLECTIVA.
+            //
+            // Quem retém os 6,5% sobre prestação de serviços é o cliente, e só
+            // quando está obrigado a isso — uma empresa. Um particular que
+            // manda arranjar o carro não retém nada. A oficina aplicava-a a
+            // toda a gente, pelo que ao cliente particular era descontado do
+            // documento um imposto que ninguém ia entregar ao Estado: a oficina
+            // recebia 6,5% a menos do que devia.
+            'retencao_irt'        => $client->type === 'pessoa_juridica',
+            'origem_modulo'       => 'oficina',
+            'origem'              => $this->order_number,
+            'notes'               => "Fatura gerada automaticamente da OS: {$this->order_number}\n"
+                . "Veículo: {$this->vehicle->plate} - {$this->vehicle->brand} {$this->vehicle->model}",
+        ]);
+    }
+
+    /**
+     * AS LINHAS APROVADAS COMO O EMISSOR FISCAL AS QUER — cada uma com artigo
+     * do catálogo. Serve a factura normal e a do sinistro (OF-15).
+     *
+     * @return list<array{product_id: int, name: string, quantity: float, unit_price: float, discount_percent: float, is_service: bool}>
+     */
+    public function linhasParaFacturar(): array
     {
         $servico = app(\App\Services\Invoicing\ModuleInvoiceService::class);
 
@@ -479,26 +529,7 @@ class WorkOrder extends Model
             ];
         }
 
-        return $servico->emitir([
-            'tenant_id'           => $this->tenant_id,
-            'client_id'           => $client->id,
-            'warehouse_id'        => $warehouse->id,
-            'lines'               => $linhas,
-            'discount_commercial' => (float) ($this->discount ?? 0),
-            // Retenção de IRT: só quando o adquirente é PESSOA COLECTIVA.
-            //
-            // Quem retém os 6,5% sobre prestação de serviços é o cliente, e só
-            // quando está obrigado a isso — uma empresa. Um particular que
-            // manda arranjar o carro não retém nada. A oficina aplicava-a a
-            // toda a gente, pelo que ao cliente particular era descontado do
-            // documento um imposto que ninguém ia entregar ao Estado: a oficina
-            // recebia 6,5% a menos do que devia.
-            'retencao_irt'        => $client->type === 'pessoa_juridica',
-            'origem_modulo'       => 'oficina',
-            'origem'              => $this->order_number,
-            'notes'               => "Fatura gerada automaticamente da OS: {$this->order_number}\n"
-                . "Veículo: {$this->vehicle->plate} - {$this->vehicle->brand} {$this->vehicle->model}",
-        ]);
+        return $linhas;
     }
 
     /** @deprecated Substituído por emitirFactura(); mantido só como referência histórica. */

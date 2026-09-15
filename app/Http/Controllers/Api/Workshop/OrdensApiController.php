@@ -285,6 +285,8 @@ class OrdensApiController extends Controller
                 'quando' => $ordem->invoiced_at?->toIso8601String(),
                 'morada' => route('invoicing.sales.invoices.preview', $ordem->invoice->id),
             ] : null,
+            // OF-15: o sinistro (seguradora, processo, franquia) e a factura da franquia.
+            'sinistro' => \App\Services\Workshop\SinistrosDaOficina::paraEcra(\App\Models\Workshop\WorkOrderClaim::with(['insurer', 'excessInvoice.client'])->where('work_order_id', $ordem->id)->first()),
         ]]);
     }
 
@@ -546,6 +548,23 @@ class OrdensApiController extends Controller
         $this->exigir($request, 'invoicing.sales.invoices.create');
 
         $ordem = $this->encontrar($id);
+
+        // OF-15: um sinistro com seguradora sai em duas facturas (seguradora e franquia).
+        $sinistro = \App\Models\Workshop\WorkOrderClaim::where('work_order_id', $ordem->id)->first();
+        if ($sinistro?->insurer_client_id) {
+            try {
+                [$factura, $daFranquia] = \App\Services\Workshop\SinistrosDaOficina::facturar($ordem);
+            } catch (\Throwable $e) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+
+            return response()->json([
+                'message' => $daFranquia
+                    ? __('Facturas :seguradora (seguradora) e :franquia (franquia do cliente) emitidas.', ['seguradora' => $factura->invoice_number, 'franquia' => $daFranquia->invoice_number])
+                    : __('Factura :numero emitida à seguradora.', ['numero' => $factura->invoice_number]),
+                'morada' => route('invoicing.sales.invoices.preview', $factura->id),
+            ]);
+        }
 
         try {
             $factura = $ordem->convertToInvoice();
