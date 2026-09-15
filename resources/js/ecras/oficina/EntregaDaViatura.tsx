@@ -111,6 +111,18 @@ export function EntregaDaViatura({ id, aoMudar }: { id: number; aoMudar: (m: str
                 )}
             </p>
 
+            {/* OF-17: o cliente ainda tem a viatura de cortesia — recebe-se antes de lhe dar a dele. */}
+            {r.cortesia && (
+                <a href="/workshop/courtesy-cars" className={cls('group flex flex-wrap items-center gap-3 border border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50 p-3 text-sm text-amber-900 shadow-sm', RAIO_GRANDE, TRANSICAO, FOCO, 'hover:-translate-y-0.5 hover:shadow-md')}>
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow"><i className="fas fa-car-side icon-float" aria-hidden="true" /></span>
+                    <span className="min-w-0 flex-1">
+                        <span className="block font-semibold">{t('O cliente tem a viatura de cortesia :m', { m: r.cortesia.matricula ?? '' })}</span>
+                        <span className="block text-xs">{t('Saiu a :data com :km km — receba-a antes de entregar.', { data: dataHora(r.cortesia.saida), km: r.cortesia.km_saida.toLocaleString('pt-PT') })}</span>
+                    </span>
+                    <i className="fas fa-arrow-right transition-transform group-hover:translate-x-1" aria-hidden="true" />
+                </a>
+            )}
+
             <div className="grid gap-4 lg:grid-cols-2">
                 <section className={cls('border border-slate-200 bg-white p-4', RAIO_GRANDE)}>
                     <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-800"><i className="fas fa-gauge-high text-indigo-500" aria-hidden="true" />{t('Como sai')}</h3>

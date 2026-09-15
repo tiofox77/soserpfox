@@ -103,6 +103,7 @@ final class Catalogos
             'estados-de-viatura' => self::estadosDeViatura(),
             'modelos-de-inspeccao' => self::modelosDeInspeccao(),
             'lugares-da-oficina' => self::lugaresDaOficina(),
+            'viaturas-de-cortesia' => self::viaturasDeCortesia(),
             'servicos' => self::servicos(),
 
             /*
@@ -1954,6 +1955,77 @@ final class Catalogos
             // As marcações guardam o lugar como nulo se ele for apagado; desactivar é o caminho.
             'pode_apagar' => fn (Model $m) => ! \App\Models\Workshop\Appointment::where('bay_id', $m->id)->whereIn('status', \App\Models\Workshop\Appointment::OCUPAM)->where('ends_at', '>', now())->exists(),
             'accoes' => ['activar' => true, 'padrao' => false, 'logotipo' => false, 'apagar' => true],
+        ];
+    }
+
+    /**
+     * AS VIATURAS DE CORTESIA (OF-17) — as que a oficina empresta ao cliente.
+     * O empréstimo e a devolução fazem-se no quadro `oficina/cortesia`.
+     */
+    private static function viaturasDeCortesia(): array
+    {
+        $modelo = \App\Models\Workshop\CourtesyCar::class;
+
+        return [
+            'modelo' => $modelo,
+            'titulo' => 'Viaturas de Cortesia',
+            'singular' => 'Viatura de cortesia',
+            'icone' => 'fa-car-side',
+            'cor' => 'teal',
+            'descricao' => 'As viaturas que a oficina empresta ao cliente enquanto o carro dele está a ser arranjado',
+            'novo' => 'Nova Viatura de Cortesia',
+            'rota' => '/workshop/courtesy-fleet',
+            'permissoes' => ['ver' => 'workshop.work-orders.view', 'criar' => 'workshop.work-orders.edit', 'editar' => 'workshop.work-orders.edit', 'apagar' => 'workshop.work-orders.edit'],
+            'nome' => 'plate',
+            'pesquisa' => ['plate', 'brand', 'model'],
+            'pesquisa_ajuda' => 'Matrícula, marca ou modelo',
+            'ordem' => [['plate', 'asc']],
+            'colunas' => [
+                ['chave' => 'plate', 'rotulo' => 'Matrícula', 'formato' => 'matricula'],
+                ['chave' => 'brand', 'rotulo' => 'Marca', 'formato' => 'texto'],
+                ['chave' => 'model', 'rotulo' => 'Modelo', 'formato' => 'texto'],
+                ['chave' => 'color', 'rotulo' => 'Cor', 'formato' => 'texto'],
+                ['chave' => 'mileage', 'rotulo' => 'KM', 'formato' => 'numero', 'alinhar' => 'direita'],
+                ['chave' => 'insurance_expiry', 'rotulo' => 'Seguro', 'formato' => 'validade'],
+                ['chave' => 'status', 'rotulo' => 'Estado', 'formato' => 'escolha'],
+            ],
+            'filtros' => [
+                ['chave' => 'status', 'rotulo' => 'Estado', 'opcoes' => collect($modelo::ESTADOS)->map(fn ($r, $v) => ['valor' => $v, 'rotulo' => $r])->values()->all()],
+            ],
+            'campos' => [
+                self::campo('plate', 'Matrícula', 'texto', obrigatorio: true, ajuda: 'Única nesta empresa.'),
+                self::campo('status', 'Estado', 'escolha', obrigatorio: true, omissao: 'disponivel', opcoes: collect($modelo::ESTADOS)->map(fn ($r, $v) => ['valor' => $v, 'rotulo' => $r])->values()->all(), ajuda: '«Emprestada» vê-se no quadro: é haver um empréstimo por devolver.'),
+                self::campo('brand', 'Marca', 'texto', obrigatorio: true),
+                self::campo('model', 'Modelo', 'texto', obrigatorio: true),
+                self::campo('color', 'Cor', 'texto'),
+                self::campo('year', 'Ano', 'numero', passo: 1, min: 1950, max: 2100),
+                self::campo('fuel_type', 'Combustível', 'escolha', omissao: 'Gasolina', opcoes: self::COMBUSTIVEIS),
+                self::campo('mileage', 'Quilómetros', 'numero', omissao: 0, passo: 1, min: 0),
+                self::campo('insurance_expiry', 'Validade do seguro', 'validade'),
+                self::campo('notes', 'Notas', 'textarea', largura: 'inteira'),
+            ],
+            'regras' => [
+                'plate' => 'required|string|max:20',
+                'status' => 'required|in:' . implode(',', array_keys($modelo::ESTADOS)),
+                'brand' => 'required|string|max:100',
+                'model' => 'required|string|max:100',
+                'color' => 'nullable|string|max:50',
+                'year' => 'nullable|integer|min:1950|max:2100',
+                'fuel_type' => 'nullable|in:Gasolina,Diesel,Elétrico,Híbrido,GPL',
+                'mileage' => 'nullable|integer|min:0',
+                'insurance_expiry' => 'nullable|date',
+                'notes' => 'nullable|string|max:2000',
+            ],
+            'validar' => self::codigoUnico($modelo, 'Esta matrícula já está registada nas viaturas de cortesia.', 'plate'),
+            'preparar' => fn (array $d) => array_merge($d, [
+                'plate' => mb_strtoupper(trim((string) ($d['plate'] ?? ''))),
+                'year' => ($d['year'] ?? '') === '' ? null : (int) $d['year'],
+                'mileage' => ($d['mileage'] ?? '') === '' ? 0 : (int) $d['mileage'],
+                'insurance_expiry' => ($d['insurance_expiry'] ?? '') ?: null,
+            ]),
+            // Uma viatura emprestada não se apaga: primeiro recebe-se.
+            'pode_apagar' => fn (Model $m) => ! \App\Models\Workshop\CourtesyLoan::where('courtesy_car_id', $m->id)->whereNull('returned_at')->exists(),
+            'accoes' => ['activar' => false, 'padrao' => false, 'logotipo' => false, 'apagar' => true],
         ];
     }
 

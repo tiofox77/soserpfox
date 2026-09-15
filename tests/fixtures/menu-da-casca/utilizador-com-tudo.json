@@ -664,6 +664,11 @@
         },
         {
             "tag": "a",
+            "href": "/workshop/courtesy-cars",
+            "texto": "Viaturas de Cortesia"
+        },
+        {
+            "tag": "a",
             "href": "/workshop/fleet-billing",
             "texto": "Facturação de Frotas"
         },

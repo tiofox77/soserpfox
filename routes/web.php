@@ -2085,6 +2085,15 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::delete('/{id}', [$c, 'destroy'])->whereNumber('id')->name('destroy');
         });
 
+        // As viaturas de cortesia (OF-17): emprestar e receber.
+        Route::prefix('oficina/cortesia')->name('oficina.cortesia.')->group(function () {
+            $c = \App\Http\Controllers\Api\Workshop\CortesiaApiController::class;
+
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/{id}/emprestar', [$c, 'emprestar'])->whereNumber('id')->name('emprestar');
+            Route::post('/emprestimos/{id}/devolver', [$c, 'devolver'])->whereNumber('id')->name('devolver');
+        });
+
         // A facturação de frotas (OF-16): uma factura com as ordens de uma empresa.
         Route::prefix('oficina/frotas')->name('oficina.frotas.')->group(function () {
             $c = \App\Http\Controllers\Api\Workshop\FrotasApiController::class;
@@ -3217,6 +3226,11 @@ Route::middleware(['auth', 'tenant.module:oficina'])->prefix('workshop')->name('
     // O quadro de trabalho (OF-04): as ordens em colunas por estado, arrastáveis.
     Route::middleware('permission:workshop.work-orders.view')
         ->get('/board', \App\Support\EcraReact::pagina('oficina/quadro', 'Quadro de Trabalho'))->name('board');
+    // As viaturas de cortesia (OF-17): o quadro dos empréstimos e o catálogo das viaturas.
+    Route::middleware('permission:workshop.work-orders.view')
+        ->get('/courtesy-cars', \App\Support\EcraReact::pagina('oficina/cortesia', 'Viaturas de Cortesia'))->name('courtesy-cars');
+    Route::middleware('permission:workshop.work-orders.view')
+        ->get('/courtesy-fleet', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Viaturas de Cortesia', ['tipo' => 'viaturas-de-cortesia']))->name('courtesy-fleet');
     // A facturação de frotas (OF-16): uma factura por empresa com as ordens do período.
     Route::middleware('permission:workshop.work-orders.view')
         ->get('/fleet-billing', \App\Support\EcraReact::pagina('oficina/frotas', 'Facturação de Frotas'))->name('fleet-billing');

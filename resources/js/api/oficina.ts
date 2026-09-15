@@ -927,6 +927,8 @@ export type RespostaDaEntrega = {
     entrada: { km: number; combustivel: number | null; chaves: number | null; objectos: string | null; em: string | null };
     contas: { total: number; pago: number; falta: number; factura: { id: number; numero: string; estado_rotulo: string; morada: string } | null };
     ordem: { estado: string; estado_rotulo: string; dono: string | null; entregue_em: string | null };
+    /** OF-17: a viatura de cortesia que o cliente tem e ainda não devolveu. */
+    cortesia?: EmprestimoDeCortesia | null;
     listas: { checklist: Escolha[] };
     pode_editar: boolean;
     message?: string;
@@ -1045,4 +1047,59 @@ export const frotas = {
     ordens: (cliente: number, de: string, ate: string) => api.ler<{ data: OrdemDaFrota[]; total: number }>(`/oficina/frotas/${cliente}/ordens`, { de, ate }),
     facturar: (cliente: number, ids: number[]) =>
         api.criar<{ message: string; factura: { id: number; numero: string; total: number; morada: string } }>(`/oficina/frotas/${cliente}/facturar`, { ids }),
+};
+
+/* ─── As viaturas de cortesia (OF-17) ───────────────────────────────── */
+
+export type EmprestimoDeCortesia = {
+    id: number;
+    viatura_id: number;
+    matricula: string | null;
+    condutor: string;
+    telefone: string | null;
+    carta: string | null;
+    ordem_id: number | null;
+    ordem: string | null;
+    saida: string | null;
+    devolver_ate: string | null;
+    devolvida: string | null;
+    atrasado: boolean;
+    km_saida: number;
+    km_entrada: number | null;
+    combustivel_saida: number | null;
+    combustivel_entrada: number | null;
+    notas: string | null;
+    danos: string | null;
+    por: string | null;
+};
+
+export type ViaturaDeCortesia = {
+    id: number;
+    matricula: string;
+    marca_modelo: string;
+    cor: string | null;
+    ano: number | null;
+    km: number;
+    combustivel: number | null;
+    seguro_ate: string | null;
+    seguro_caducado: boolean;
+    estado: 'disponivel' | 'emprestada' | 'manutencao' | 'inactiva';
+    estado_rotulo: string;
+    emprestimo: EmprestimoDeCortesia | null;
+};
+
+export type QuadroDeCortesia = {
+    data: ViaturaDeCortesia[];
+    recentes: EmprestimoDeCortesia[];
+    contas: { total: number; disponiveis: number; emprestadas: number; atrasadas: number };
+    ordens: Array<Escolha & { dono: string | null; telefone: string | null }>;
+    pode_gerir: boolean;
+};
+
+export const cortesia = {
+    ler: () => api.ler<QuadroDeCortesia>('/oficina/cortesia'),
+    emprestar: (viatura: number, d: { ordem_id: string; condutor: string; telefone: string; carta: string; km_saida: number; combustivel: number | null; devolver_ate: string; notas: string }) =>
+        api.criar<{ message: string }>(`/oficina/cortesia/${viatura}/emprestar`, d),
+    devolver: (emprestimo: number, d: { km_entrada: number; combustivel: number | null; danos: string }) =>
+        api.criar<{ message: string }>(`/oficina/cortesia/emprestimos/${emprestimo}/devolver`, d),
 };

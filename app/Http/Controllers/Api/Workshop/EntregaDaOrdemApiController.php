@@ -245,6 +245,9 @@ class EntregaDaOrdemApiController extends Controller
                 'entregue_em' => $ordem->delivered_at?->toIso8601String(),
             ],
             'listas' => WorkOrderHandover::listas(),
+            // OF-17: a viatura de cortesia que o cliente tem e ainda não devolveu.
+            'cortesia' => ($l = \App\Models\Workshop\CourtesyLoan::with(['car' => fn ($q) => $q->withTrashed()])->where('work_order_id', $ordem->id)->whereNull('returned_at')->first())
+                ? CortesiaApiController::emprestimoParaEcra($l) : null,
             'pode_editar' => (bool) $request->user()?->can('workshop.work-orders.edit'),
         ];
     }
