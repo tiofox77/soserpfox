@@ -483,7 +483,7 @@ function FormularioDaOrdem({ o, valores, erros, titulo, subtitulo, aGravar, erro
             <Separadores abas={abas} activa={aba} aoMudar={porAba} />
 
             <div className="pt-4">
-                <div hidden={aba !== 'entrada'} className="grid gap-3 sm:grid-cols-2">
+                <div hidden={aba !== 'entrada'} className={cls('grid gap-3 sm:grid-cols-2', aba !== 'entrada' && 'hidden')}>
                     <Campo etiqueta={t('Viatura')} obrigatorio erro={erros.vehicle_id}>
                         <select value={valores.vehicle_id} onChange={(e) => escolherViatura(e.target.value)} className={entrada}>
                             <option value="">—</option>
@@ -513,7 +513,7 @@ function FormularioDaOrdem({ o, valores, erros, titulo, subtitulo, aGravar, erro
                     </Campo>
                 </div>
 
-                <div hidden={aba !== 'trabalho'} className="grid gap-3">
+                <div hidden={aba !== 'trabalho'} className={cls('grid gap-3', aba !== 'trabalho' && 'hidden')}>
                     <Campo etiqueta={t('Problema relatado')} obrigatorio erro={erros.problem_description}
                         ajuda={t('O que o dono do carro disse — nas palavras dele.')}>
                         <textarea rows={3} value={valores.problem_description}
@@ -534,7 +534,7 @@ function FormularioDaOrdem({ o, valores, erros, titulo, subtitulo, aGravar, erro
                     </Campo>
                 </div>
 
-                <div hidden={aba !== 'estado'} className="grid gap-3 sm:grid-cols-2">
+                <div hidden={aba !== 'estado'} className={cls('grid gap-3 sm:grid-cols-2', aba !== 'estado' && 'hidden')}>
                     <Campo etiqueta={t('Estado')} obrigatorio erro={erros.status}
                         ajuda={t('Passar a Concluída ou Entregue desconta as peças do stock; anular devolve-as.')}>
                         <select value={valores.status} onChange={(e) => mudar('status', e.target.value)} className={entrada}>

@@ -8,6 +8,13 @@
     `.animate-scale-in`.
 --}}
 <style>
+        /* O QUE ESTÁ `hidden` NÃO SE VÊ — nunca.
+           O Tailwind só diz `[hidden]{display:none}`, e uma classe como `grid` ou
+           `flex` no mesmo elemento ganha-lhe (mesma especificidade, vem depois).
+           As abas da «Nova Ordem» da oficina mostravam as três de uma vez por
+           isto (15/09/2026). */
+        [hidden] { display: none !important; }
+
         /* Modal — Fade In simples (backdrop) */
         @keyframes modalFadeIn {
             from { opacity: 0; }
