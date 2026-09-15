@@ -35,7 +35,10 @@ class InteligenciaController extends Controller
                 'suspensas' => $empresas->where('is_active', false)->count(),
                 'novas' => $empresas->where('created_at', '>=', $desde)->count(),
                 'a_facturar' => $sinais->filter(fn ($s) => ($s->estado['chave'] ?? null) === 'activa')->count(),
-                'sem_actividade' => $sinais->filter(fn ($s) => in_array($s->estado['chave'] ?? null, ['adormecida', 'inactiva'], true))->count(),
+                // «inactiva» nunca foi um estado: contava sempre só as
+                // adormecidas. As que nunca usaram também estão sem actividade.
+                'sem_actividade' => $sinais->filter(fn ($s) => in_array($s->estado['chave'] ?? null, ['adormecida', 'vazia'], true))->count(),
+                'por_estado' => $sinais->groupBy(fn ($s) => $s->estado['chave'])->map->count(),
             ],
             'utilizadores' => $this->resumoUtilizadores($desde),
             'erros' => [
@@ -69,12 +72,19 @@ class InteligenciaController extends Controller
         $pagina = $q->orderByDesc('last_login_at')->paginate((int) ($dados['por_pagina'] ?? 50), ['*'], 'pagina', $dados['pagina'] ?? 1);
         $online = Schema::hasTable('sessions') ? DB::table('sessions')->where('last_activity', '>=', now()->subMinutes(15)->timestamp)->pluck('user_id')->filter()->flip() : collect();
 
+        // Com uma empresa escolhida, o último acesso NESSA empresa — o
+        // `last_login_at` é da pessoa em todas as empresas dela.
+        $acessoNaEmpresa = !empty($dados['tenant_id']) && Schema::hasColumn('tenant_user', 'ultimo_acesso_em')
+            ? DB::table('tenant_user')->where('tenant_id', $dados['tenant_id'])->whereIn('user_id', collect($pagina->items())->pluck('id'))->pluck('ultimo_acesso_em', 'user_id')
+            : null;
+
         return response()->json([
             'utilizadores' => collect($pagina->items())->map(fn (User $u) => [
                 'id' => $u->id, 'nome' => $u->name, 'email' => $u->email,
                 'activo' => (bool) $u->is_active, 'super_admin' => (bool) $u->is_super_admin,
                 'online_15m' => $online->has($u->id),
                 'ultima_entrada' => $u->last_login_at?->toIso8601String(),
+                'ultimo_acesso_na_empresa' => $acessoNaEmpresa?->get($u->id),
                 'criado_em' => $u->created_at?->toIso8601String(),
                 'empresas' => $u->tenants->map(fn ($t) => ['id' => $t->id, 'nome' => $t->name]),
             ]),
@@ -88,15 +98,18 @@ class InteligenciaController extends Controller
             'tenant_id' => 'nullable|integer', 'evento' => 'nullable|string|max:100',
             'actor' => 'nullable|string|max:120', 'desde' => 'nullable|date',
             'limite' => 'nullable|integer|min:1|max:200',
+            // Só o que o super admin fez em nome de alguém (impersonator_id).
+            'personificado' => 'nullable|boolean',
         ]);
         $q = AuditTrail::query()->orderByDesc('id')
             ->when(isset($d['tenant_id']), fn ($w) => $w->where('tenant_id', $d['tenant_id']))
+            ->when(!empty($d['personificado']), fn ($w) => $w->whereNotNull('impersonator_id'))
             ->when(!empty($d['evento']), fn ($w) => $w->where('event', 'like', '%' . $d['evento'] . '%'))
             ->when(!empty($d['actor']), fn ($w) => $w->where('actor_name', 'like', '%' . $d['actor'] . '%'))
             ->when(!empty($d['desde']), fn ($w) => $w->where('created_at', '>=', $d['desde']));
 
         return response()->json(['eventos' => $q->limit((int) ($d['limite'] ?? 100))->get([
-            'id', 'tenant_id', 'event', 'actor_type', 'actor_name', 'channel', 'auditable_type',
+            'id', 'tenant_id', 'context_tenant_id', 'user_id', 'impersonator_id', 'event', 'actor_type', 'actor_name', 'channel', 'auditable_type',
             'auditable_id', 'auditable_label', 'metadata', 'ip_address', 'route', 'request_id', 'created_at',
         ])]);
     }
@@ -299,10 +312,19 @@ class InteligenciaController extends Controller
         foreach ($empresas as $t) {
             $s = $sinais[$t->id] ?? null;
             if (!$s) continue;
-            if (in_array($s->estado['chave'] ?? null, ['adormecida', 'inactiva'], true)) {
-                $r[] = ['prioridade' => 'alta', 'tenant_id' => $t->id, 'empresa' => $t->name, 'tipo' => 'retencao', 'sugestao' => 'Contactar a empresa e identificar o bloqueio de adopção.', 'evidencia' => (array) $s];
-            } elseif (($s->entraram_30d ?? 0) > 0 && ($s->facturas_30d ?? 0) === 0) {
-                $r[] = ['prioridade' => 'media', 'tenant_id' => $t->id, 'empresa' => $t->name, 'tipo' => 'onboarding', 'sugestao' => 'Há entradas sem facturação; sugerir configuração assistida.', 'evidencia' => (array) $s];
+            // Pelos estados de SinaisDeVida, com a frase que os explica. Uma
+            // desactivada não se contacta por aqui: foi a plataforma que a
+            // desligou, e isso é outra conversa.
+            $chave = $s->estado['chave'] ?? null;
+            $evidencia = array_merge((array) $s, ['motivo' => SinaisDeVida::motivo($s)]);
+            if ($chave === 'adormecida') {
+                $r[] = ['prioridade' => 'alta', 'tenant_id' => $t->id, 'empresa' => $t->name, 'tipo' => 'retencao', 'sugestao' => 'Já usou e parou: contactar a empresa e identificar o bloqueio.', 'evidencia' => $evidencia];
+            } elseif ($chave === 'a_montar') {
+                $r[] = ['prioridade' => 'media', 'tenant_id' => $t->id, 'empresa' => $t->name, 'tipo' => 'onboarding', 'sugestao' => 'Está a começar e ainda não facturou; sugerir configuração assistida.', 'evidencia' => $evidencia];
+            } elseif ($chave === 'a_usar' && ($s->facturas_30d ?? 0) === 0) {
+                $r[] = ['prioridade' => 'media', 'tenant_id' => $t->id, 'empresa' => $t->name, 'tipo' => 'adopcao', 'sugestao' => 'Trabalha no sistema sem facturar; perceber se factura por fora.', 'evidencia' => $evidencia];
+            } elseif ($chave === 'vazia') {
+                $r[] = ['prioridade' => 'baixa', 'tenant_id' => $t->id, 'empresa' => $t->name, 'tipo' => 'reactivacao', 'sugestao' => 'Inscreveu-se e nunca registou nada; uma mensagem de ajuda ao arranque.', 'evidencia' => $evidencia];
             }
         }
         if (ErroDoSistema::abertos()->whereIn('nivel', ['critical', 'alert', 'emergency'])->exists()) {

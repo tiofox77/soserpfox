@@ -62,9 +62,13 @@ class OperacoesController extends Controller
             'nivel'   => 'nullable|in:error,critical,alert,emergency',
             'desde'   => 'nullable|date',
             'limite'  => 'nullable|integer|min:1|max:200',
+            // Os erros de UMA empresa: é a primeira pergunta quando um cliente
+            // liga a dizer que «não dá».
+            'tenant_id' => 'nullable|integer',
         ]);
 
-        $q = ErroDoSistema::with('tenant')->orderByDesc('ultima_vez');
+        $q = ErroDoSistema::with('tenant')->orderByDesc('ultima_vez')
+            ->when(isset($dados['tenant_id']), fn ($w) => $w->where('tenant_id', $dados['tenant_id']));
 
         match ($dados['estado'] ?? 'abertos') {
             'resolvidos' => $q->whereNotNull('resolvido_em'),

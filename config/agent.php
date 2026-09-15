@@ -28,7 +28,7 @@ return [
      */
     'escopos' => [
         'tenants:read'    => 'Ver empresas e o estado da subscrição',
-        'health:read'     => 'Ver inconsistências do sistema',
+        'health:read'     => 'Ver inconsistências do sistema, o diagnóstico de uma empresa e a AGT por ambiente',
         'orders:read'     => 'Ver pedidos de plano',
         'orders:note'     => 'Deixar recomendação num pedido, sem decidir',
         'orders:approve'  => 'Aprovar pedidos de plano',
@@ -46,7 +46,7 @@ return [
         'contacts:read'   => 'Ver contactos reais (email e telefone) para contacto directo',
 
         // Operação da plataforma.
-        'logs:read'       => 'Ver erros, auditoria, acessos (login/logout) e pedidos do agente',
+        'logs:read'       => 'Ver erros, auditoria, acessos (login/logout, resumo de falhas, quem está online, acessos por empresa), personificações e pedidos do agente',
         'logs:write'      => 'Marcar erros como vistos ou resolvidos',
         'billing:read'    => 'Ver subscrições, facturas e o estado do ciclo',
         'billing:write'   => 'Emitir facturas de renovação e disparar avisos ao cliente',
@@ -59,8 +59,8 @@ return [
         'tenants:delete'  => 'Apagar empresas — irreversível',
         'plans:read'      => 'Ver o catálogo de planos e os módulos de cada um',
         'plans:write'     => 'Criar e editar planos',
-        'analytics:read'  => 'Ver utilização, crescimento, adopção e recomendações',
-        'system:read'     => 'Ver o estado técnico da aplicação, filas, cache e base de dados',
+        'analytics:read'  => 'Ver utilização, crescimento, adopção, recomendações, relatórios (plataforma, documentos, vendas por empresa) e o analytics do site',
+        'system:read'     => 'Ver o estado técnico da aplicação: deploy, migrações, relógios, OPcache, disco, log, filas, cache e base de dados',
         'system:write'    => 'Executar apenas acções operacionais da lista segura',
     ],
 

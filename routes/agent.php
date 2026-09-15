@@ -1,9 +1,11 @@
 <?php
 
 use App\Http\Controllers\Api\Agent\AgentController;
+use App\Http\Controllers\Api\Agent\DiagnosticoController;
 use App\Http\Controllers\Api\Agent\GestaoController;
 use App\Http\Controllers\Api\Agent\InteligenciaController;
 use App\Http\Controllers\Api\Agent\OperacoesController;
+use App\Http\Controllers\Api\Agent\RelatoriosController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -33,6 +35,10 @@ Route::prefix('api/agent/v1')
         // Identidade — qualquer token válido.
         Route::get('me', [AgentController::class, 'me']);
 
+        // O que esta API tem e o que esta credencial pode chamar — lido do
+        // próprio router, rota a rota, com o escopo que cada uma exige.
+        Route::middleware('throttle:agent-read')->get('catalogo', [DiagnosticoController::class, 'catalogo']);
+
         // ── Leitura ──────────────────────────────────────────────
         Route::middleware('throttle:agent-read')->group(function () {
 
@@ -55,6 +61,11 @@ Route::prefix('api/agent/v1')
             Route::middleware('agent.scope:health:read')->group(function () {
                 Route::get('health/checks', [AgentController::class, 'verificacoes']);
                 Route::get('health/inconsistencias', [AgentController::class, 'inconsistencias']);
+
+                // A empresa ficou completa? O `empresa:diagnostico` em JSON.
+                Route::get('tenants/{tenant}/diagnostico', [DiagnosticoController::class, 'empresa']);
+                // A AGT por empresa e ambiente: paradas, por confirmar há dias.
+                Route::get('health/agt', [DiagnosticoController::class, 'agt']);
             });
 
             Route::middleware('agent.scope:orders:read')->group(function () {
@@ -84,6 +95,12 @@ Route::prefix('api/agent/v1')
                 // Entradas/saídas (login/logout/login_falhado): "quem esteve
                 // dentro e a que horas" e sinal de força-bruta.
                 Route::get('logs/acessos', [InteligenciaController::class, 'acessos']);
+                // Agrupado (força bruta por email e IP, por dia), quem está
+                // dentro agora, e quem entrou em nome de quem.
+                Route::get('logs/acessos/resumo', [DiagnosticoController::class, 'resumoDeAcessos']);
+                Route::get('logs/acessos/online', [DiagnosticoController::class, 'online']);
+                Route::get('logs/personificacoes', [DiagnosticoController::class, 'personificacoes']);
+                Route::get('tenants/{tenant}/acessos', [DiagnosticoController::class, 'acessosDaEmpresa']);
                 // Documentos que falharam na AGT, agrupados por erro — para
                 // diagnóstico (foi assim que se apanhou o E70).
                 Route::get('logs/agt-falhas', [InteligenciaController::class, 'agtFalhas']);
@@ -94,10 +111,26 @@ Route::prefix('api/agent/v1')
                 Route::get('analytics/overview', [InteligenciaController::class, 'visaoGeral']);
                 Route::get('analytics/users', [InteligenciaController::class, 'utilizadores']);
                 Route::get('analytics/recommendations', [InteligenciaController::class, 'recomendacoes']);
+
+                // O analytics do site público — o mesmo do painel do dono — e
+                // a utilização do ERP por empresa e por ecrã.
+                Route::get('analytics/site', [RelatoriosController::class, 'site']);
+                Route::get('analytics/site/visitantes/{visitante}', [RelatoriosController::class, 'visitante']);
+                Route::get('analytics/uso', [RelatoriosController::class, 'uso']);
+
+                // Relatórios: a plataforma mês a mês, os documentos emitidos e
+                // as vendas de uma empresa.
+                Route::get('reports/plataforma', [RelatoriosController::class, 'plataforma']);
+                Route::get('reports/documentos', [RelatoriosController::class, 'documentos']);
+                Route::get('reports/tenants/{tenant}/vendas', [RelatoriosController::class, 'vendasDaEmpresa']);
             });
 
-            Route::middleware('agent.scope:system:read')
-                ->get('system/status', [InteligenciaController::class, 'estadoDoSistema']);
+            Route::middleware('agent.scope:system:read')->group(function () {
+                Route::get('system/status', [InteligenciaController::class, 'estadoDoSistema']);
+                // Por inteiro: versão do deploy, migrações por correr, relógios,
+                // OPcache, disco, log. Sem segredos.
+                Route::get('system/diagnostico', [DiagnosticoController::class, 'sistema']);
+            });
 
             Route::middleware('agent.scope:billing:read')->group(function () {
                 Route::get('billing/ciclo', [OperacoesController::class, 'ciclo']);

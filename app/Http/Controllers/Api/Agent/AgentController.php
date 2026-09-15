@@ -151,7 +151,39 @@ class AgentController extends Controller
             'acessos'       => $sinais->acessos($tenant->id),  // agregado, sem emails
             'envios'        => $sinais->envios($tenant->id),   // relatório de email/SMS
             'destinatarios' => $destinatarios->paraTenant($tenant),
+            'vida'          => $this->vida($tenant),
         ]);
+    }
+
+    /**
+     * O estado de vida da lista da plataforma (a facturar, a usar, a montar,
+     * adormecida, nunca usou, desactivada), com a frase e as datas por extenso.
+     */
+    private function vida(Tenant $tenant): ?array
+    {
+        $s = SinaisDeVida::para([$tenant->id])[$tenant->id] ?? null;
+
+        if (! $s) {
+            return null;
+        }
+
+        $data = fn ($d) => $d?->toIso8601String();
+
+        return [
+            'estado' => $s->estado['chave'],
+            'texto' => $s->estado['texto'],
+            'motivo' => SinaisDeVida::motivo($s),
+            'facturas_30d' => $s->facturas_30d,
+            'operacoes_30d' => $s->operacoes_30d,
+            'movimentos_30d' => $s->movimentos_30d,
+            'artigos' => $s->artigos,
+            'utilizadores' => $s->utilizadores,
+            'entraram_30d' => $s->entraram_30d,
+            'ultima_factura' => $data($s->ultima_factura),
+            'ultima_operacao' => $data($s->ultima_operacao),
+            'ultimo_acesso' => $data($s->ultima_entrada),
+            'ultima_actividade' => $data($s->ultima_actividade),
+        ];
     }
 
     /** Só estado comercial. Nada de dados operacionais das empresas. */
