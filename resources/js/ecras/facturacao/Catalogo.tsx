@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { catalogos, type Campo, type Coluna, type FiltrosDoCatalogo, type Linha, type OpcoesDoCatalogo } from '@/api/catalogos';
@@ -17,9 +17,14 @@ import { IntervaloDeDatas, PorPagina } from '@/ui/FiltrosComuns';
 import { ACCAO_DA_FAIXA, Faixa, type TomDaFaixa } from './faixa';
 import { Dado, JanelaDoExtrato, Seccao } from './ExtratoDaParte';
 import { FichaDaViatura } from '../oficina/FichaDaViatura';
+import { CabecaDaViatura } from '../oficina/CabecaDaViatura';
+import { FotografiasDaViatura, type ListasDasFotos, type LoteParaSubir } from '../oficina/FotografiasDaViatura';
+import { fotografiasDaViatura } from '@/api/oficina';
+import { avisar } from '@/casca/avisos';
+import { Separadores } from '@/ui/Separadores';
 import { FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
 import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
-import { etiquetaIntl, t, tPartes } from '@/i18n';
+import { etiquetaIntl, t, tn, tPartes } from '@/i18n';
 
 /**
  * UM CATÁLOGO — fornecedores, categorias, marcas, armazéns, condições de
@@ -120,6 +125,8 @@ function UmCatalogo({ tipo }: { tipo: string }) {
     const [aEditar, porAEditar] = useState<Linha | null>(null);
     const [formulario, porFormulario] = useState<Valores | null>(null);
     const [erros, porErros] = useState<Record<string, string[]>>({});
+    // As fotografias de uma viatura NOVA: sobem assim que ela é criada.
+    const [fotosPorSubir, porFotosPorSubir] = useState<LoteParaSubir[]>([]);
     const [aApagar, porAApagar] = useState<Linha | null>(null);
     const [recado, porRecado] = useRecadoNoCanto('');
     /** A linha cuja FICHA está aberta — só nos catálogos que têm extrato. */
@@ -138,9 +145,29 @@ function UmCatalogo({ tipo }: { tipo: string }) {
 
     const gravar = useMutation({
         mutationFn: (dados: Valores) => (aEditar ? catalogos.guardar(tipo, aEditar.id, dados) : catalogos.criar(tipo, dados)),
-        onSuccess: (r) => { invalidar(); porFormulario(null); porAEditar(null); porErros({}); porRecado(r.message); },
+        onSuccess: (r) => {
+            if (!aEditar && o.ficha === 'viatura' && fotosPorSubir.length > 0 && r.data?.id) void subirFotos(Number(r.data.id), fotosPorSubir);
+            invalidar(); porFormulario(null); porAEditar(null); porErros({}); porFotosPorSubir([]); porRecado(r.message);
+        },
         onError: (e) => porErros(e instanceof ErroDaApi ? e.erros : {}),
     });
+
+    /** As fotografias juntadas a uma viatura nova, lote a lote, depois de ela existir. */
+    async function subirFotos(id: number, lotes: LoteParaSubir[]) {
+        let subidas = 0;
+
+        for (const l of lotes) {
+            try {
+                await fotografiasDaViatura.juntar(id, l.ficheiros, l.dados);
+                subidas += l.ficheiros.length;
+            } catch (e) {
+                avisar(e instanceof ErroDaApi ? e.message : t('Não foi possível enviar as fotografias.'), 'erro');
+            }
+        }
+
+        if (subidas > 0) avisar(tn(':n fotografia juntada à viatura.|:n fotografias juntadas à viatura.', subidas, { n: subidas }), 'ok');
+        cache.invalidateQueries({ queryKey: ['oficina', 'viatura', id] });
+    }
 
     const apagar = useMutation({
         mutationFn: (l: Linha) => catalogos.apagar(tipo, l.id),
@@ -284,6 +311,7 @@ function UmCatalogo({ tipo }: { tipo: string }) {
                     subtitulo={aVer ? [aVer.brand, aVer.model, aVer.owner_name].filter(Boolean).join(' · ') : undefined}
                     cor={(o.cor as TomDaFaixa) ?? 'primaria'}
                     ficha={aVer && <FichaDaLinha linha={aVer} colunas={o.campos} />}
+                    fotografias={aVer && <FotografiasDaViatura id={Number(aVer.id)} podeEditar={o.permissoes.pode_escrever} listas={listasDasFotos(o)} />}
                     podeEditar={o.permissoes.pode_escrever}
                     aoEditar={() => {
                         const l = aVer;
@@ -564,7 +592,22 @@ function UmCatalogo({ tipo }: { tipo: string }) {
                     aGravar={gravar.isPending}
                     erroGeral={gravar.error}
                     aoMudar={porFormulario}
-                    aoFechar={() => { porFormulario(null); porAEditar(null); }}
+                    cabeca={o.ficha === 'viatura' ? <CabecaDaViatura valores={formulario} o={o} fotos={fotosPorSubir.reduce((n, l) => n + l.ficheiros.length, 0)} /> : undefined}
+                    abaExtra={o.ficha === 'viatura' ? {
+                        chave: 'fotografias',
+                        rotulo: t('Fotografias'),
+                        icone: 'fa-camera',
+                        conteudo: (
+                            <FotografiasDaViatura
+                                id={aEditar ? Number(aEditar.id) : null}
+                                podeEditar={o.permissoes.pode_escrever}
+                                listas={listasDasFotos(o)}
+                                pendentes={fotosPorSubir}
+                                aoMudarPendentes={porFotosPorSubir}
+                            />
+                        ),
+                    } : undefined}
+                    aoFechar={() => { porFormulario(null); porAEditar(null); porFotosPorSubir([]); }}
                     aoGravar={() => gravar.mutate(formulario)}
                 />
             )}
@@ -1109,7 +1152,14 @@ function Celula({ c, l }: { c: Coluna; l: Linha }) {
 
 /* ─── O formulário, campo a campo, pelo esquema ─────────────────────── */
 
-function Formulario({ o, valores, erros, titulo, subtitulo, aGravar, erroGeral, aoMudar, aoFechar, aoGravar }: {
+/** As listas das fotografias (fase, serviço, zona) vêm nas referências do catálogo das viaturas. */
+const listasDasFotos = (o: OpcoesDoCatalogo): ListasDasFotos => ({
+    fases: o.referencias.fotos_fases ?? [],
+    servicos: o.referencias.fotos_servicos ?? [],
+    zonas: o.referencias.fotos_zonas ?? [],
+});
+
+function Formulario({ o, valores, erros, titulo, subtitulo, aGravar, erroGeral, aoMudar, aoFechar, aoGravar, cabeca, abaExtra }: {
     o: OpcoesDoCatalogo;
     valores: Valores;
     erros: Record<string, string[]>;
@@ -1120,6 +1170,10 @@ function Formulario({ o, valores, erros, titulo, subtitulo, aGravar, erroGeral, 
     aoMudar: (v: Valores) => void;
     aoFechar: () => void;
     aoGravar: () => void;
+    /** O que vai por cima dos campos — o cartão vivo da viatura. */
+    cabeca?: ReactNode;
+    /** Um separador que não é de campos — as fotografias da viatura. */
+    abaExtra?: { chave: string; rotulo: string; icone: string; conteudo: ReactNode };
 }) {
     const paisPadrao = o.geografia?.pais_padrao ?? 'AO';
     const emAngola = String(valores.country ?? paisPadrao) === paisPadrao;
@@ -1134,8 +1188,51 @@ function Formulario({ o, valores, erros, titulo, subtitulo, aGravar, erroGeral, 
         if (chave === 'province') { novo.municipality = ''; novo.neighbourhood = ''; if (String(valor) === '' || emAngola) novo.city = ''; }
         if (chave === 'municipality' && emAngola) { novo.city = String(valor ?? ''); novo.neighbourhood = ''; }
 
+        /*
+         * ESCOLHER O CLIENTE PREENCHE O DONO (`preencher`). Só escreve por cima
+         * do que está vazio ou do que veio do cliente anterior: o que alguém
+         * escreveu à mão não se perde por mudar de cliente.
+         */
+        const campo = o.campos.find((x) => x.chave === chave);
+        if (campo?.preencher && campo.referencia) {
+            const lista = o.referencias[campo.referencia] ?? [];
+            const doAnterior = lista.find((op) => op.valor === String(valores[chave] ?? ''))?.dados ?? {};
+            const doNovo = lista.find((op) => op.valor === String(valor ?? ''))?.dados;
+
+            if (doNovo) {
+                Object.entries(campo.preencher).forEach(([destino, origem]) => {
+                    const actual = String(valores[destino] ?? '');
+                    if (actual === '' || actual === String(doAnterior[origem] ?? '')) novo[destino] = doNovo[origem] ?? '';
+                });
+            }
+        }
+
         aoMudar(novo);
     };
+
+    /*
+     * OS SEPARADORES — onde o esquema os declara (`grupos`). Um campo que não
+     * esteja em grupo nenhum vai para o primeiro: nunca fica um campo sem sítio.
+     * Cada aba conta os erros que tem, e gravar com erros abre a primeira delas.
+     */
+    const grupos = (o.grupos ?? []).map((g, i) => ({
+        ...g,
+        campos: i === 0
+            ? [...g.campos, ...o.campos.map((c) => c.chave).filter((k) => !(o.grupos ?? []).some((x) => x.campos.includes(k)))]
+            : g.campos,
+    }));
+    const [aba, porAba] = useState(grupos[0]?.chave ?? '');
+
+    useEffect(() => {
+        const comErro = grupos.find((g) => g.campos.some((k) => erros[k]));
+        if (comErro) porAba(comErro.chave);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [erros]);
+
+    const grupoActivo = grupos.find((g) => g.chave === aba);
+    const camposAVer = grupoActivo
+        ? grupoActivo.campos.map((k) => o.campos.find((c) => c.chave === k)).filter((c): c is Campo => Boolean(c))
+        : o.campos;
 
     const visivel = (c: Campo) => {
         if (c.tipo === 'provincia' || c.tipo === 'municipio') return true;
@@ -1156,14 +1253,32 @@ function Formulario({ o, valores, erros, titulo, subtitulo, aGravar, erroGeral, 
             largura="lg"
             rodape={<><Botao onClick={aoFechar}>{t('Cancelar')}</Botao><Botao cor="primaria" tom="solida" icone="fa-floppy-disk" aTrabalhar={aGravar} onClick={aoGravar}>{t('Guardar')}</Botao></>}
         >
+            {cabeca}
             <AvisoDeErro erro={erroGeral} />
-            <div className="grid gap-4 sm:grid-cols-2">
-                {o.campos.filter(visivel).map((c) => (
-                    <div key={c.chave} className={cls(c.largura === 'inteira' && 'sm:col-span-2')}>
-                        <CampoDeEsquema c={c} valor={valores[c.chave]} erro={erros[c.chave]} o={o} valores={valores} aoMudar={(v) => mudar(c.chave, v)} />
-                    </div>
-                ))}
-            </div>
+            {grupos.length > 0 && (
+                <div className="mb-4">
+                    <Separadores
+                        abas={[
+                            ...grupos.map((g) => ({ chave: g.chave, rotulo: g.rotulo, icone: g.icone, erros: g.campos.filter((k) => erros[k]).length })),
+                            ...(abaExtra ? [{ chave: abaExtra.chave, rotulo: abaExtra.rotulo, icone: abaExtra.icone }] : []),
+                        ]}
+                        activa={aba}
+                        aoMudar={porAba}
+                    />
+                </div>
+            )}
+            {abaExtra && aba === abaExtra.chave ? (
+                <div key={abaExtra.chave} className="animate-fade-in">{abaExtra.conteudo}</div>
+            ) : (
+                <div key={aba} className="grid gap-4 sm:grid-cols-2">
+                    {camposAVer.filter(visivel).map((c, i) => (
+                        <div key={c.chave} style={grupos.length > 0 ? { animationDelay: `${Math.min(i, 10) * 25}ms` } : undefined}
+                            className={cls(c.largura === 'inteira' && 'sm:col-span-2', grupos.length > 0 && 'animate-fade-in')}>
+                            <CampoDeEsquema c={c} valor={valores[c.chave]} erro={erros[c.chave]} o={o} valores={valores} aoMudar={(v) => mudar(c.chave, v)} />
+                        </div>
+                    ))}
+                </div>
+            )}
         </Modal>
     );
 }

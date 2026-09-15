@@ -121,6 +121,12 @@ class WorkOrder extends Model
         return $this->hasMany(WorkOrderHistory::class)->orderBy('created_at', 'desc');
     }
     
+    /** As fotografias da viatura postas nesta folha de obra (antes/durante/depois). */
+    public function vehiclePhotos()
+    {
+        return $this->hasMany(VehiclePhoto::class, 'work_order_id');
+    }
+
     public function attachments()
     {
         return $this->hasMany(WorkOrderAttachment::class)->orderBy('created_at', 'desc');

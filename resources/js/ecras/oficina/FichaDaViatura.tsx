@@ -35,13 +35,15 @@ const COR_DO_ESTADO: Record<string, 'neutra' | 'primaria' | 'aviso' | 'bom' | 'p
     cancelled: 'perigo',
 };
 
-export function FichaDaViatura({ aberto, id, titulo, subtitulo, cor, ficha, podeEditar, aoEditar, aoFechar }: {
+export function FichaDaViatura({ aberto, id, titulo, subtitulo, cor, ficha, fotografias, podeEditar, aoEditar, aoFechar }: {
     aberto: boolean;
     id: number | null;
     titulo: string;
     subtitulo?: string;
     cor: CorDeEcra;
     ficha: ReactNode;
+    /** O separador das fotografias — antes, durante, depois e danos. */
+    fotografias?: ReactNode;
     podeEditar: boolean;
     aoEditar: () => void;
     aoFechar: () => void;
@@ -76,6 +78,7 @@ export function FichaDaViatura({ aberto, id, titulo, subtitulo, cor, ficha, pode
                 abas={[
                     { chave: 'folhas', rotulo: r ? t('Folhas de obra (:n)', { n: r.ordens }) : t('Folhas de obra'), icone: 'fa-clipboard-list' },
                     { chave: 'viatura', rotulo: t('Viatura'), icone: 'fa-car' },
+                    ...(fotografias ? [{ chave: 'fotografias', rotulo: r && r.fotos > 0 ? t('Fotografias (:n)', { n: r.fotos }) : t('Fotografias'), icone: 'fa-camera' }] : []),
                 ]}
                 activa={aba}
                 aoMudar={porAba}
@@ -83,6 +86,7 @@ export function FichaDaViatura({ aberto, id, titulo, subtitulo, cor, ficha, pode
 
             <div className="mt-4">
                 {aba === 'viatura' && <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">{ficha}</div>}
+                {aba === 'fotografias' && <div className="animate-fade-in">{fotografias}</div>}
 
                 {aba === 'folhas' && (
                     <>

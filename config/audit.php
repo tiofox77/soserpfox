@@ -223,6 +223,7 @@ return [
         \App\Models\Workshop\WorkOrderPayment::class,
         \App\Models\Workshop\WorkOrderAttachment::class,
         \App\Models\Workshop\Vehicle::class,
+        \App\Models\Workshop\VehiclePhoto::class,
         \App\Models\Workshop\Mechanic::class,
         \App\Models\Workshop\Service::class,
 

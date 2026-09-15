@@ -2007,6 +2007,16 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::delete('/{id}/anexos/{anexo}', [$c, 'apagarAnexo'])->whereNumber('id')->whereNumber('anexo')->name('anexos.apagar');
         });
 
+        // As fotografias da viatura — antes, durante, depois e danos (bate-chapa, pintura…).
+        Route::prefix('oficina/viaturas/{id}/fotografias')->whereNumber('id')->name('oficina.viaturas.fotografias.')->group(function () {
+            $c = \App\Http\Controllers\Api\Workshop\FotografiasDaViaturaApiController::class;
+
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::post('/', [$c, 'store'])->name('store');
+            Route::put('/{foto}', [$c, 'update'])->whereNumber('foto')->name('update');
+            Route::delete('/{foto}', [$c, 'destroy'])->whereNumber('foto')->name('destroy');
+        });
+
         /*
          * OS MAPAS: cinco relatórios e o mapa de IRT. Nenhum recalcula nada —
          * lêem o que ficou gravado no processamento da folha.

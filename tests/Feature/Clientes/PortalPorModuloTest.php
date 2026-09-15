@@ -6,6 +6,7 @@ use App\Models\Client;
 use App\Models\Invoicing\SalesInvoice;
 use App\Models\Tenant;
 use App\Models\Workshop\Vehicle;
+use App\Models\Workshop\VehiclePhoto;
 use App\Models\Workshop\WorkOrder;
 use App\Support\PortalDoCliente;
 use Illuminate\Support\Facades\Hash;
@@ -106,8 +107,12 @@ class PortalPorModuloTest extends TenantTestCase
         $v = Vehicle::create(['plate' => 'LD-11-22-AB', 'vehicle_number' => 'VEH-P1', 'owner_name' => 'Dono', 'brand' => 'Toyota', 'model' => 'Hilux', 'status' => 'active', 'client_id' => $this->doPortal->id, 'insurance_expiry' => now()->subDay()]);
         $f = $this->factura(['source_module' => 'oficina']);
 
-        WorkOrder::create(['order_number' => 'OS-P-1', 'vehicle_id' => $v->id, 'received_at' => now()->subDays(3), 'started_at' => now()->subDays(2), 'problem_description' => 'Travões a chiar.', 'work_performed' => 'Pastilhas novas.', 'status' => 'completed', 'completed_at' => now()->subDay(), 'priority' => 'normal', 'total' => 57000, 'invoice_id' => $f->id]);
+        $os1 = WorkOrder::create(['order_number' => 'OS-P-1', 'vehicle_id' => $v->id, 'received_at' => now()->subDays(3), 'started_at' => now()->subDays(2), 'problem_description' => 'Travões a chiar.', 'work_performed' => 'Pastilhas novas.', 'status' => 'completed', 'completed_at' => now()->subDay(), 'priority' => 'normal', 'total' => 57000, 'invoice_id' => $f->id]);
         WorkOrder::create(['order_number' => 'OS-P-2', 'vehicle_id' => $v->id, 'received_at' => now(), 'problem_description' => 'Revisão.', 'status' => 'in_progress', 'priority' => 'normal']);
+
+        // A fotografia do DEPOIS posta na folha de obra aparece ao cliente; a solta (sem folha) não.
+        VehiclePhoto::create(['tenant_id' => $this->tenant->id, 'vehicle_id' => $v->id, 'work_order_id' => $os1->id, 'phase' => 'depois', 'service' => 'pintura', 'zone' => 'capo', 'file_path' => 'workshop/vehicles/x/depois.jpg']);
+        VehiclePhoto::create(['tenant_id' => $this->tenant->id, 'vehicle_id' => $v->id, 'phase' => 'antes', 'service' => 'pintura', 'file_path' => 'workshop/vehicles/x/solta.jpg']);
 
         // Uma ordem desta viatura facturada a OUTRA pessoa (o dono anterior) não aparece.
         $outro = $this->clienteEmpresa();
@@ -133,6 +138,10 @@ class PortalPorModuloTest extends TenantTestCase
         $this->assertStringEndsWith("/client/facturas/{$f->id}/pdf", $concluida['factura']['pdf']);
 
         $this->assertEqualsWithDelta(50000, $r->json('resumo.por_pagar'), 0.01);
+
+        $fotos = $concluida['fotos'];
+        $this->assertCount(1, $fotos);
+        $this->assertSame(['photo_after', 'Pintura', 'Capô'], [$fotos[0]['tipo'], $fotos[0]['servico'], $fotos[0]['zona']]);
     }
 
     public function test_o_pdf_da_factura_so_das_que_o_cliente_ve(): void

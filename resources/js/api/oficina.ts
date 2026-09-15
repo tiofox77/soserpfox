@@ -360,10 +360,61 @@ export type FolhaDaViatura = {
 
 export type FolhasDaViatura = {
     viatura: { id: number; matricula: string; viatura: string; dono: string | null; cliente: string | null; km: number };
-    resumo: { ordens: number; abertas: number; facturas: number; facturado: number; por_receber: number; ultima_visita: string | null };
+    resumo: { ordens: number; abertas: number; facturas: number; facturado: number; por_receber: number; ultima_visita: string | null; fotos: number };
     ordens: FolhaDaViatura[];
     pode_ver_facturas: boolean;
 };
 
 /** As folhas de obra de uma viatura e as facturas que saíram delas — a ficha da viatura. */
 export const folhasDaViatura = (id: number) => api.ler<FolhasDaViatura>(`/oficina/ordens/viatura/${id}`);
+
+/* ─── As fotografias da viatura — antes, durante, depois e danos ─────── */
+
+export type FaseDaFoto = 'antes' | 'durante' | 'depois' | 'dano';
+
+export type FotoDaViatura = {
+    /** Número nas da viatura; `anexo-N` nas que vêm de uma folha de obra (só se lêem aqui). */
+    id: number | string;
+    origem: 'viatura' | 'ordem';
+    url: string;
+    fase: FaseDaFoto;
+    servico: string;
+    zona: string | null;
+    descricao: string | null;
+    ordem_id: number | null;
+    ordem: string | null;
+    nome: string | null;
+    largura: number | null;
+    altura: number | null;
+    por: string | null;
+    em: string | null;
+};
+
+export type FotosDaViatura = {
+    fotos: FotoDaViatura[];
+    ordens: Escolha[];
+    listas: { fases: Escolha[]; servicos: Escolha[]; zonas: Escolha[] };
+    pode_editar: boolean;
+};
+
+/** O que se diz de um lote de fotografias: a fase, o serviço, a zona, a folha. */
+export type DadosDaFoto = { fase: FaseDaFoto; servico: string; zona: string; ordem_id: string; descricao: string };
+
+export const fotografiasDaViatura = {
+    ler: (id: number) => api.ler<FotosDaViatura>(`/oficina/viaturas/${id}/fotografias`),
+
+    juntar: (id: number, ficheiros: File[], dados: DadosDaFoto) => {
+        const corpo = new FormData();
+        ficheiros.forEach((f) => corpo.append('fotografias[]', f));
+        (Object.keys(dados) as Array<keyof DadosDaFoto>).forEach((k) => { if (dados[k] !== '') corpo.append(k, dados[k]); });
+
+        return api.enviar<{ data: FotoDaViatura[]; message: string }>(`/oficina/viaturas/${id}/fotografias`, corpo);
+    },
+
+    mudar: (id: number, foto: number, dados: DadosDaFoto) =>
+        api.guardar<{ data: FotoDaViatura; message: string }>(`/oficina/viaturas/${id}/fotografias/${foto}`, {
+            ...dados, zona: dados.zona || null, ordem_id: dados.ordem_id || null, descricao: dados.descricao || null,
+        }),
+
+    tirar: (id: number, foto: number) => api.apagar<{ message: string }>(`/oficina/viaturas/${id}/fotografias/${foto}`),
+};

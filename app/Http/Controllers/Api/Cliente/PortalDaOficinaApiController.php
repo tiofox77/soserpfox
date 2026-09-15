@@ -101,7 +101,7 @@ class PortalDaOficinaApiController extends Controller
         }
 
         return WorkOrder::withoutGlobalScopes()
-            ->with(['invoice' => fn ($q) => $q->withoutGlobalScopes(), 'vehicle' => fn ($q) => $q->withoutGlobalScopes(), 'items', 'attachments'])
+            ->with(['invoice' => fn ($q) => $q->withoutGlobalScopes(), 'vehicle' => fn ($q) => $q->withoutGlobalScopes(), 'items', 'attachments', 'vehiclePhotos' => fn ($q) => $q->withoutGlobalScopes()->orderBy('created_at')])
             ->where('tenant_id', $cliente->tenant_id)
             ->whereIn('vehicle_id', $viaturas)
             ->orderByDesc('received_at')->orderByDesc('id')
@@ -165,7 +165,21 @@ class PortalDaOficinaApiController extends Controller
                     'url' => $a->file_url,
                     'tipo' => $a->category,
                     'descricao' => $a->description,
-                ])->values(),
+                    'servico' => null,
+                    'zona' => null,
+                ])
+                /*
+                 * E AS FOTOGRAFIAS DA VIATURA POSTAS NESTA FOLHA DE OBRA — o antes
+                 * e o depois do bate-chapa e da pintura. Só as ligadas a uma
+                 * folha: as outras são registo interno da oficina.
+                 */
+                ->concat($o->vehiclePhotos->map(fn (\App\Models\Workshop\VehiclePhoto $v) => [
+                    'url' => $v->url,
+                    'tipo' => ['antes' => 'photo_before', 'depois' => 'photo_after', 'dano' => 'photo_damage'][$v->phase] ?? 'photo_during',
+                    'descricao' => $v->description,
+                    'servico' => __(\App\Models\Workshop\VehiclePhoto::SERVICOS[$v->service] ?? 'Outros'),
+                    'zona' => $v->zone ? __(\App\Models\Workshop\VehiclePhoto::ZONAS[$v->zone] ?? $v->zone) : null,
+                ]))->values(),
             'factura' => $f ? [
                 'id' => $f->id,
                 'numero' => $f->invoice_number,

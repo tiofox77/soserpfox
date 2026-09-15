@@ -133,6 +133,8 @@ class CatalogoApiController extends Controller
             'extrato' => ! empty($def['extrato']),
             // Se este catálogo tem uma ficha própria de VER (hoje: a da viatura).
             'ficha' => $def['ficha'] ?? null,
+            // Os separadores do formulário, onde o esquema os declara.
+            'grupos' => array_map(fn ($g) => array_merge($g, ['rotulo' => __($g['rotulo'])]), $def['grupos'] ?? []),
             'accoes' => $def['accoes'],
             /*
              * COMO SE CHAMA A IMAGEM DESTE CATÁLOGO.

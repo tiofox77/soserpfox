@@ -1681,6 +1681,18 @@ final class Catalogos
              * 15/09/2026). É um ecrã próprio: `oficina/FichaDaViatura`.
              */
             'ficha' => 'viatura',
+            /*
+             * O FORMULÁRIO EM SEPARADORES — pedido de 15/09/2026 («melhorar o
+             * modal de adicionar ou editar»). Vinte e três campos numa coluna
+             * só obrigavam a descer até ao fim para achar o seguro; agora cada
+             * coisa tem o seu sítio, e a aba com erros acende-se ao gravar. As
+             * fotografias são o quarto separador (desenhado pelo ecrã).
+             */
+            'grupos' => [
+                ['chave' => 'viatura', 'rotulo' => 'Viatura', 'icone' => 'fa-car', 'campos' => ['plate', 'status', 'brand', 'model', 'year', 'color', 'fuel_type', 'mileage', 'vin', 'engine_number', 'notes']],
+                ['chave' => 'dono', 'rotulo' => 'Dono', 'icone' => 'fa-user', 'campos' => ['client_id', 'owner_name', 'owner_phone', 'owner_email', 'owner_nif', 'owner_address']],
+                ['chave' => 'documentos', 'rotulo' => 'Documentos', 'icone' => 'fa-id-card', 'campos' => ['registration_document', 'registration_expiry', 'insurance_company', 'insurance_policy', 'insurance_expiry', 'inspection_expiry']],
+            ],
             'pesquisa' => ['plate', 'vehicle_number', 'owner_name', 'brand', 'model', 'vin'],
             'pesquisa_ajuda' => 'Matrícula, nº, dono, marca, modelo ou chassis',
             'ordem' => [['created_at', 'desc']],
@@ -1722,8 +1734,11 @@ final class Catalogos
                  * ordem de serviço à factura. Escolhê-lo aqui não substitui os
                  * campos escritos: há viaturas de quem nunca foi facturado.
                  */
-                self::campo('client_id', 'Cliente', 'referencia', referencia: 'clientes',
-                    ajuda: 'Se o dono já é cliente da casa.'),
+                // Escolher o cliente escreve os dados do dono (sem apagar o que se escreveu à mão).
+                array_merge(self::campo('client_id', 'Cliente', 'referencia', referencia: 'clientes',
+                    ajuda: 'Se o dono já é cliente da casa: os dados do dono preenchem-se sozinhos.'), [
+                    'preencher' => ['owner_name' => 'nome', 'owner_phone' => 'telefone', 'owner_email' => 'email', 'owner_nif' => 'nif', 'owner_address' => 'morada'],
+                ]),
                 self::campo('owner_name', 'Proprietário', 'texto', obrigatorio: true),
                 self::campo('owner_phone', 'Telefone do dono', 'texto'),
                 self::campo('owner_email', 'Email do dono', 'email'),
@@ -1799,8 +1814,15 @@ final class Catalogos
             'referencias' => fn (int $t) => [
                 'clientes' => \App\Models\Client::withoutGlobalScopes()
                     ->where('tenant_id', $t)->orderBy('name')
-                    ->get(['id', 'name'])->map(fn ($c) => ['valor' => (string) $c->id, 'rotulo' => $c->name])->all(),
+                    ->get(['id', 'name', 'phone', 'mobile', 'email', 'nif', 'address'])->map(fn ($c) => [
+                        'valor' => (string) $c->id,
+                        'rotulo' => $c->name,
+                        // O que o formulário escreve no dono ao escolher este cliente.
+                        'dados' => ['nome' => $c->name, 'telefone' => $c->phone ?: $c->mobile, 'email' => $c->email, 'nif' => $c->nif, 'morada' => $c->address],
+                    ])->all(),
                 'estados' => \App\Models\Workshop\VehicleStatus::todosDe($t),
+                // As listas das fotografias (fase, serviço, zona) — o separador Fotografias.
+                ...collect(\App\Models\Workshop\VehiclePhoto::listas())->mapWithKeys(fn ($l, $k) => ['fotos_' . $k => $l])->all(),
             ],
             /*
              * O NÚMERO INTERNO É GERADO, e de forma atómica: a coluna tem

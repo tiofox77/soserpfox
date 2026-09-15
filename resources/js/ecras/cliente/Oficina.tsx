@@ -201,9 +201,9 @@ function Folha({ o, i, aberta = false }: { o: OrdemDoCliente; i: number; aberta?
                             <div className="flex flex-wrap gap-2">
                                 {o.fotos.map((foto, n) => (
                                     <a key={n} href={foto.url} target="_blank" rel="noreferrer" className={cls('group relative block h-24 w-24 overflow-hidden', RAIO, FOCO)}>
-                                        <img src={foto.url} alt={foto.descricao ?? ''} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110" />
+                                        <img src={foto.url} alt={foto.descricao ?? ''} title={[foto.servico, foto.zona, foto.descricao].filter(Boolean).join(' · ')} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110" />
                                         <span className="absolute inset-x-0 bottom-0 bg-black/50 px-1 text-center text-[10px] text-white">
-                                            {foto.tipo === 'photo_before' ? t('Antes') : foto.tipo === 'photo_after' ? t('Depois') : t('Dano')}
+                                            {foto.tipo === 'photo_before' ? t('Antes') : foto.tipo === 'photo_after' ? t('Depois') : foto.tipo === 'photo_during' ? t('Durante') : t('Dano')}
                                         </span>
                                     </a>
                                 ))}

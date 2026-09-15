@@ -644,6 +644,7 @@ class OrdensApiController extends Controller
                 'facturado' => round((float) $facturas->where('estado', '!=', 'cancelled')->sum('total'), 2),
                 'por_receber' => round((float) $facturas->sum('falta'), 2),
                 'ultima_visita' => $ordens->first()?->received_at?->toIso8601String(),
+                'fotos' => \App\Models\Workshop\VehiclePhoto::where('tenant_id', $tenantId)->where('vehicle_id', $viatura->id)->count(),
             ],
             'ordens' => $linhas,
             'pode_ver_facturas' => $podeVerFacturas,

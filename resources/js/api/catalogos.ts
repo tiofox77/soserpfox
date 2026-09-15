@@ -10,7 +10,7 @@ import { api, type Pagina } from './cliente';
  */
 
 /** `cor`: só nas escolhas que a têm (os estados de viatura) — pinta a etiqueta. */
-export type Escolha = { valor: string; rotulo: string; cor?: string };
+export type Escolha = { valor: string; rotulo: string; cor?: string; dados?: Record<string, string | null> };
 
 /** Um grupo da galeria de ícones — «Dinheiro», «Comida e bebida». */
 export type GrupoDeIcones = {
@@ -58,7 +58,15 @@ export type Campo = {
     passo?: number;
     min?: number;
     max?: number;
+    /**
+     * ESCOLHER ESTE PREENCHE AQUELES — `{ campo_de_destino: chave_em_dados }`.
+     * O cliente da viatura escreve o nome, o telefone e o NIF do dono.
+     */
+    preencher?: Record<string, string>;
 };
+
+/** Um separador do formulário e os campos que leva. */
+export type GrupoDeCampos = { chave: string; rotulo: string; icone: string; campos: string[] };
 
 export type Coluna = {
     chave: string;
@@ -112,6 +120,8 @@ export type OpcoesDoCatalogo = {
     extrato: boolean;
     /** Uma ficha própria de VER — hoje, só a da viatura (`oficina/FichaDaViatura`). */
     ficha?: string | null;
+    /** Os separadores do formulário, onde os há (a viatura: Viatura, Dono, Documentos). */
+    grupos?: GrupoDeCampos[];
     accoes: { activar: boolean; padrao: boolean; logotipo: boolean; apagar: boolean; atribuir?: boolean; importar?: boolean; galeria?: boolean };
     /** Como se chama a imagem deste catálogo — «Logótipo», «Imagem de destaque». */
     imagem: { rotulo: string } | null;
