@@ -560,3 +560,37 @@ export const orcamentoPeloLink = {
     responder: (token: string, decisoes: Record<number, 'approved' | 'declined'>, nome: string, assinatura: string) =>
         pelaChave.criar<{ message: string }>(`/${token}`, { decisoes, nome, assinatura }),
 };
+/* ─── O quadro de trabalho (OF-04) ──────────────────────────────────── */
+
+export type CartaoDoQuadro = {
+    id: number;
+    numero: string;
+    matricula: string | null;
+    tag: string | null;
+    wo: string | null;
+    viatura: string | null;
+    dono: string | null;
+    mecanico_id: number | null;
+    mecanico: string | null;
+    prioridade: string;
+    prioridade_rotulo: string;
+    entrada: string | null;
+    agendada_para: string | null;
+    atrasada: boolean;
+    total: number;
+    facturada: boolean;
+    checkin: 'feito' | 'assinado' | null;
+    a_espera: number;
+};
+
+export type QuadroDaOficina = {
+    colunas: Array<{ estado: string; rotulo: string; cartoes: CartaoDoQuadro[] }>;
+    mecanicos: Escolha[];
+    pode_editar: boolean;
+};
+
+export const quadroDaOficina = {
+    ler: (filtros: { mecanico?: string; procura?: string }) => api.ler<QuadroDaOficina>('/oficina/ordens/quadro', filtros),
+    mecanico: (id: number, mecanicoId: string) =>
+        api.criar<{ message: string }>(`/oficina/ordens/${id}/mecanico`, { mechanic_id: mecanicoId === '' ? null : Number(mecanicoId) }),
+};

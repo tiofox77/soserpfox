@@ -387,6 +387,7 @@ final class MenuDaCasca
                     ['rota' => 'workshop.mechanics', 'rotulo' => 'Mecânicos', 'icone' => 'fa-user-cog', 'cor' => 'orange-400', 'activo' => 'workshop.mechanics*', 'permissao' => 'workshop.mechanics.view'],
                     ['rota' => 'workshop.services', 'rotulo' => 'Serviços', 'icone' => 'fa-tools', 'cor' => 'purple-400', 'activo' => 'workshop.services*', 'permissao' => 'workshop.services.view'],
                     ['rota' => 'workshop.parts', 'rotulo' => 'Peças', 'icone' => 'fa-boxes', 'cor' => 'orange-400', 'activo' => 'workshop.parts*', 'permissao' => 'workshop.parts.view'],
+                    ['rota' => 'workshop.board', 'rotulo' => 'Quadro de Trabalho', 'icone' => 'fa-table-columns', 'cor' => 'pink-400', 'activo' => 'workshop.board*', 'permissao' => 'workshop.work-orders.view'],
                     ['rota' => 'workshop.work-orders', 'rotulo' => 'Ordens de Serviço', 'icone' => 'fa-clipboard-list', 'cor' => 'yellow-400', 'activo' => 'workshop.work-orders*', 'permissao' => 'workshop.work-orders.view'],
                     ['rota' => 'workshop.reports', 'rotulo' => 'Relatórios', 'icone' => 'fa-chart-bar', 'cor' => 'green-400', 'activo' => 'workshop.reports*', 'permissao' => 'workshop.reports.view'],
                 ],

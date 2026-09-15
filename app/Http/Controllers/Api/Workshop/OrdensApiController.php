@@ -317,6 +317,96 @@ class OrdensApiController extends Controller
      * Passar a «Concluída» desconta as peças do stock e anular devolve-as; é
      * por isso que isto não é um `update` de uma coluna.
      */
+    /**
+     * O QUADRO DE TRABALHO (15/09/2026, OF-04) — as ordens abertas em colunas
+     * pelo estado, e as entregues nos últimos 7 dias. As canceladas ficam fora.
+     *
+     * Cada cartão traz o que se quer ver de relance na parede da oficina: a
+     * matrícula e o TAG#, o mecânico, a prioridade, há quanto tempo o carro
+     * entrou, se o check-in está feito e quantas linhas esperam pelo cliente.
+     */
+    public function quadro(Request $request): JsonResponse
+    {
+        $this->exigir($request, 'workshop.work-orders.view');
+
+        $filtros = $request->validate([
+            'mecanico' => ['nullable', 'string', 'max:20'],
+            'procura' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $tenantId = activeTenantId();
+
+        $ordens = WorkOrder::where('tenant_id', $tenantId)
+            ->with(['vehicle:id,plate,brand,model,owner_name,tag_number,work_order_ref', 'mechanic:id,name', 'checkin:id,work_order_id,signed_at'])
+            ->withCount(['items as a_espera' => fn ($q) => $q->where('approval', 'pending')])
+            ->where('status', '!=', 'cancelled')
+            ->where(fn ($q) => $q->where('status', '!=', 'delivered')->orWhere('delivered_at', '>=', now()->subDays(7)))
+            ->when(($filtros['mecanico'] ?? '') === 'sem', fn ($q) => $q->whereNull('mechanic_id'))
+            ->when(ctype_digit((string) ($filtros['mecanico'] ?? '')), fn ($q) => $q->where('mechanic_id', (int) $filtros['mecanico']))
+            ->when($filtros['procura'] ?? null, fn ($q, $p) => $q->where(fn ($w) => $w
+                ->where('order_number', 'like', "%{$p}%")
+                ->orWhereHas('vehicle', fn ($v) => $v->where('plate', 'like', "%{$p}%")->orWhere('owner_name', 'like', "%{$p}%")
+                    ->orWhere('tag_number', 'like', "%{$p}%")->orWhere('work_order_ref', 'like', "%{$p}%"))))
+            ->orderByRaw("FIELD(priority, 'urgent', 'high', 'normal', 'low')")
+            ->orderBy('received_at')
+            ->limit(300)
+            ->get();
+
+        $colunas = collect(OrdensDeServico::ESTADOS)->except('cancelled')->map(fn ($rotulo, $estado) => [
+            'estado' => $estado,
+            'rotulo' => __($rotulo),
+            'cartoes' => $ordens->where('status', $estado)->map(fn (WorkOrder $o) => [
+                'id' => $o->id,
+                'numero' => $o->order_number,
+                'matricula' => $o->vehicle?->plate,
+                'tag' => $o->vehicle?->tag_number,
+                'wo' => $o->vehicle?->work_order_ref,
+                'viatura' => $o->vehicle ? trim("{$o->vehicle->brand} {$o->vehicle->model}") : null,
+                'dono' => $o->vehicle?->owner_name,
+                'mecanico_id' => $o->mechanic_id,
+                'mecanico' => $o->mechanic?->name,
+                'prioridade' => $o->priority,
+                'prioridade_rotulo' => __(OrdensDeServico::PRIORIDADES[$o->priority] ?? $o->priority),
+                'entrada' => $o->received_at?->toIso8601String(),
+                'agendada_para' => $o->scheduled_for?->toIso8601String(),
+                'atrasada' => (bool) $o->is_overdue,
+                'total' => round((float) $o->total, 2),
+                'facturada' => (bool) $o->invoice_id,
+                'checkin' => $o->checkin ? ($o->checkin->signed_at ? 'assinado' : 'feito') : null,
+                'a_espera' => (int) $o->a_espera,
+            ])->values(),
+        ])->values();
+
+        return response()->json([
+            'colunas' => $colunas,
+            'mecanicos' => Mechanic::where('tenant_id', $tenantId)->where('is_active', true)->orderBy('name')->get(['id', 'name'])
+                ->map(fn ($m) => ['valor' => (string) $m->id, 'rotulo' => $m->name])->values(),
+            'pode_editar' => (bool) $request->user()?->can('workshop.work-orders.edit'),
+        ]);
+    }
+
+    /** Atribuir o mecânico de uma ordem — do quadro, sem abrir o formulário inteiro. */
+    public function mecanico(Request $request, int $id): JsonResponse
+    {
+        $this->exigir($request, 'workshop.work-orders.edit');
+
+        $dados = $request->validate(['mechanic_id' => ['nullable', 'integer']]);
+        $this->daCasa($dados, 'mechanic_id', Mechanic::class);
+
+        $ordem = $this->encontrar($id);
+        $antes = $ordem->mechanic?->name;
+        $ordem->update(['mechanic_id' => $dados['mechanic_id'] ?? null]);
+        $depois = $ordem->fresh('mechanic')->mechanic?->name;
+
+        WorkOrderHistory::logAction($ordem->id, WorkOrderHistory::ACTION_UPDATED,
+            __('Mecânico: :antes → :depois', ['antes' => $antes ?? __('Por atribuir'), 'depois' => $depois ?? __('Por atribuir')]));
+
+        return response()->json([
+            'data' => $this->linha($ordem->fresh(['vehicle', 'mechanic'])),
+            'message' => $depois ? __(':ordem entregue a :mecanico.', ['ordem' => $ordem->order_number, 'mecanico' => $depois]) : __(':ordem ficou sem mecânico.', ['ordem' => $ordem->order_number]),
+        ]);
+    }
+
     public function estado(Request $request, int $id): JsonResponse
     {
         $this->exigir($request, 'workshop.work-orders.edit');

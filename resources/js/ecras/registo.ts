@@ -387,6 +387,9 @@ export const ecras: Record<string, Ecra> = {
         import('./oficina/Relatorios'),
     'oficina/ordens': () =>
         import('./oficina/OrdensDeServico'),
+    // O quadro de trabalho (OF-04): as ordens em colunas por estado.
+    'oficina/quadro': () =>
+        import('./oficina/Quadro'),
     // O orçamento aprovado pelo cliente, pelo link (OF-03) — página solta, sem sessão.
     'oficina/aprovar-orcamento': () =>
         import('./oficina/AprovarOrcamento'),

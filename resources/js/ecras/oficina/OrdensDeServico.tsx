@@ -573,7 +573,7 @@ function FormularioDaOrdem({ o, valores, erros, titulo, subtitulo, aGravar, erro
 
 /* ─── A ficha ───────────────────────────────────────────────────────── */
 
-function FichaDaOrdemModal({ id, o, abaInicial = 'info', aoFechar, aoMudar, mudarEstado, aMudarEstado }: {
+export function FichaDaOrdemModal({ id, o, abaInicial = 'info', aoFechar, aoMudar, mudarEstado, aMudarEstado }: {
     id: number;
     o: OpcoesDasOrdens;
     abaInicial?: string;

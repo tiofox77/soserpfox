@@ -629,6 +629,11 @@
         },
         {
             "tag": "a",
+            "href": "/workshop/board",
+            "texto": "Quadro de Trabalho"
+        },
+        {
+            "tag": "a",
             "href": "/workshop/work-orders",
             "texto": "Ordens de Serviço"
         },

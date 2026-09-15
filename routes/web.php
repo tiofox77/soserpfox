@@ -1993,6 +1993,9 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::get('/artigos', [$c, 'artigos'])->name('artigos');
             // As folhas de obra de uma viatura e as facturas que saíram delas — a ficha da viatura.
             Route::get('/viatura/{id}', [$c, 'daViatura'])->whereNumber('id')->name('viatura');
+            // O quadro de trabalho (OF-04) e a atribuição rápida do mecânico.
+            Route::get('/quadro', [$c, 'quadro'])->name('quadro');
+            Route::post('/{id}/mecanico', [$c, 'mecanico'])->whereNumber('id')->name('mecanico');
             Route::get('/', [$c, 'index'])->name('index');
             Route::post('/', [$c, 'store'])->name('store');
             Route::get('/{id}', [$c, 'ficha'])->whereNumber('id')->name('ficha');
@@ -3095,6 +3098,9 @@ Route::middleware(['auth', 'tenant.module:oficina'])->prefix('workshop')->name('
         ]))->name('parts');
     Route::middleware('permission:workshop.work-orders.view')
         ->get('/work-orders', \App\Support\EcraReact::pagina('oficina/ordens', 'Ordens de Serviço'))->name('work-orders');
+    // O quadro de trabalho (OF-04): as ordens em colunas por estado, arrastáveis.
+    Route::middleware('permission:workshop.work-orders.view')
+        ->get('/board', \App\Support\EcraReact::pagina('oficina/quadro', 'Quadro de Trabalho'))->name('board');
     // A ordem em papel leva a viatura, o dono e o preço: a mesma permissão do
     // ecrã de onde se abre.
     Route::get('/work-orders/{id}/print', [\App\Http\Controllers\Workshop\WorkOrderController::class, 'printPreview'])
