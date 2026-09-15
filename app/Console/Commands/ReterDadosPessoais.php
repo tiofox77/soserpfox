@@ -42,7 +42,7 @@ class ReterDadosPessoais extends Command
                 'accao' => fn ($q) => $q->delete(),
             ],
             [
-                'o quê' => "analytics: IP, browser e cidade das visitas com mais de {$r['analytics_ip']} dias",
+                'o quê' => "analytics: IP e browser das visitas com mais de {$r['analytics_ip']} dias",
                 'tabela' => 'analytics_events',
                 'consulta' => fn () => DB::table('analytics_events')->where('created_at', '<', now()->subDays($r['analytics_ip']))
                     ->where(fn ($w) => $w->whereNotNull('ip')->orWhereNotNull('user_agent')),
