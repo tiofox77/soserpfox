@@ -7,6 +7,7 @@ use App\Models\Client;
 use App\Models\Events\Event;
 use App\Models\Invoicing\SalesInvoice;
 use App\Models\Invoicing\SalesProforma;
+use App\Support\PortalDoCliente;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -42,18 +43,26 @@ class PortalDoClienteApiController extends Controller
         $emAberto = $facturas->filter(fn ($f) => $this->porReceber($f) > 0.009);
         $validas = $facturas->reject(fn ($f) => in_array($f->status, ['cancelled', 'credited'], true));
 
+        $seccoes = PortalDoCliente::doCliente($cliente);
+        $veEventos = in_array('eventos', $seccoes, true);
+        $veOficina = in_array('oficina', $seccoes, true);
+
         return response()->json([
             'cliente' => ['nome' => $cliente->name],
+            // As áreas deste cliente — o ecrã só desenha os cartões das que ele vê.
+            'seccoes' => $seccoes,
+            've_facturas' => PortalDoCliente::veFacturas($cliente),
+            'oficina' => $veOficina ? \App\Http\Controllers\Api\Cliente\PortalDaOficinaApiController::resumo($cliente) : null,
             'numeros' => [
                 'facturas' => $facturas->count(),
                 'pendentes' => $emAberto->count(),
                 'pagas' => $validas->filter(fn ($f) => $this->porReceber($f) <= 0.009)->count(),
                 'facturado' => round((float) $validas->sum('total'), 2),
-                'eventos' => $this->eventosDe($cliente)->count(),
-                'proximos_eventos' => $this->eventosDe($cliente)->where('start_date', '>=', now())->count(),
+                'eventos' => $veEventos ? $this->eventosDe($cliente)->count() : 0,
+                'proximos_eventos' => $veEventos ? $this->eventosDe($cliente)->where('start_date', '>=', now())->count() : 0,
             ],
             'ultimas_facturas' => $facturas->sortByDesc('invoice_date')->take(5)->values()->map(fn ($f) => $this->linhaDeFactura($f)),
-            'proximos_eventos' => $this->eventosDe($cliente)
+            'proximos_eventos' => ! $veEventos ? [] : $this->eventosDe($cliente)
                 ->where('start_date', '>=', now())
                 ->with(['venue:id,name', 'type:id,name'])
                 ->orderBy('start_date')
@@ -258,13 +267,25 @@ class PortalDoClienteApiController extends Controller
         return $request->user('client');
     }
 
-    /** As facturas do cliente, na empresa dele, sem rascunhos. */
-    private function facturasDe(Client $cliente): Builder
+    /**
+     * As facturas do cliente, na empresa dele, sem rascunhos — e só as das
+     * áreas que ele vê: sem «Facturas e extracto», só as que saíram dos
+     * módulos marcados (a oficina, o hotel, o salão).
+     */
+    public static function facturasDe(Client $cliente): Builder
     {
-        return SalesInvoice::withoutGlobalScope('tenant')
+        $consulta = SalesInvoice::withoutGlobalScope('tenant')
             ->where('tenant_id', $cliente->tenant_id)
             ->where('client_id', $cliente->id)
             ->where('status', '!=', 'draft');
+
+        if (! PortalDoCliente::veFacturas($cliente)) {
+            return $consulta->whereRaw('1 = 0');
+        }
+
+        $origens = PortalDoCliente::origensDasFacturas($cliente);
+
+        return $origens === null ? $consulta : $consulta->whereIn('source_module', $origens);
     }
 
     private function eventosDe(Client $cliente): Builder

@@ -62,6 +62,8 @@ class ClientResource extends JsonResource
             // SE TEM PORTA ABERTA PARA O PORTAL — o facto, nunca a senha. É o
             // que diz ao ecrã se há acesso para repor ou para dar.
             'portal_access' => (bool) $this->portal_access,
+            // As áreas do portal que este cliente vê — as marcadas, ou as de sempre.
+            'portal_modulos' => is_array($this->portal_modulos) ? $this->portal_modulos : \App\Support\PortalDoCliente::DE_SEMPRE,
 
             // Quantos documentos tem — é o que decide se pode ser apagado, e
             // vem contado do servidor para o ecrã não ter de adivinhar.

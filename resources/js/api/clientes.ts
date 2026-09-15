@@ -28,6 +28,8 @@ export type Cliente = {
     pais_nome: string | null;
     /** Se tem porta aberta para o portal. O FACTO, nunca a senha. */
     portal_access: boolean;
+    /** As áreas do portal que este cliente vê (as marcadas, ou as de sempre). */
+    portal_modulos: string[];
     documentos: number;
     pode_apagar: boolean;
 };
@@ -83,6 +85,8 @@ export type OpcoesDosClientes = {
     pais_padrao: string;
     /** Onde o cliente entra, para o formulário o poder dizer. */
     portal_url: string;
+    /** As áreas do portal que esta empresa pode dar — as dos módulos que tem. */
+    portal_seccoes: Array<{ chave: string; rotulo: string; descricao: string; icone: string }>;
     tipos: Array<{ valor: string; rotulo: string }>;
     /** O catálogo de condições desta empresa — só as activas. */
     condicoes_pagamento: Array<{ id: number; nome: string; dias: number; padrao: boolean }>;
@@ -109,6 +113,11 @@ function paraGravar(dados: ClienteParaGravar): ClienteParaGravar {
 
     if (!corpo.portal_repor_senha) {
         delete corpo.portal_repor_senha;
+    }
+
+    // As áreas só viajam com o acesso ligado: sem portal, não há o que escolher.
+    if (!corpo.portal_access) {
+        delete (corpo as Partial<ClienteParaGravar>).portal_modulos;
     }
 
     // Avisar é a omissão do servidor: só viaja quando se DESLIGA.

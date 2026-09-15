@@ -195,6 +195,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'subscription' => \App\Http\Middleware\CheckSubscription::class,
             'permission' => \App\Http\Middleware\CheckPermission::class,
             'tenant.active' => \App\Http\Middleware\CheckTenantActive::class,
+            // As portas do portal do cliente: empresa activa e, com área, a área do cliente.
+            'portal' => \App\Http\Middleware\PortalDoCliente::class,
             'api.token' => \App\Http\Middleware\ResolveApiToken::class,
             'pwa.api' => \App\Http\Middleware\AutorizaApiDoPwa::class,
             // A porta de cada ecra do PWA, com a mesma regra que desenha o menu.

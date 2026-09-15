@@ -26,7 +26,7 @@ class Client extends Authenticatable
         'tenant_id', 'type', 'name', 'nif', 'logo', 'email', 'phone', 'mobile',
         'address', 'city', 'province', 'municipality', 'neighbourhood', 'postal_code', 'country',
         'tax_regime', 'is_iva_subject', 'credit_limit', 'payment_term_days', 'payment_term_id',
-        'website', 'notes', 'is_active', 'password', 'portal_access',
+        'website', 'notes', 'is_active', 'password', 'portal_access', 'portal_modulos',
         'last_login_at', 'password_changed_at',
         // Hotel guest fields
         'hotel_vip', 'hotel_blacklisted', 'document_type', 'document_number',
@@ -42,6 +42,8 @@ class Client extends Authenticatable
         'is_iva_subject' => 'boolean',
         'is_active' => 'boolean',
         'portal_access' => 'boolean',
+        // As áreas do portal que a empresa deu a este cliente (App\Support\PortalDoCliente).
+        'portal_modulos' => 'array',
         'credit_limit' => 'decimal:2',
         'last_login_at' => 'datetime',
         'password_changed_at' => 'datetime',

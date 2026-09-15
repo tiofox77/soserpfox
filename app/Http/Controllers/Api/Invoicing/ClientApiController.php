@@ -186,6 +186,8 @@ class ClientApiController extends Controller
             // Onde o cliente entra — é o que o formulário mostra a quem dá
             // acesso ao portal, para não ter de o adivinhar.
             'portal_url' => route('client.login'),
+            // AS ÁREAS DO PORTAL QUE ESTA EMPRESA PODE DAR — as dos módulos activos.
+            'portal_seccoes' => \App\Support\PortalDoCliente::paraEcra(\App\Support\PortalDoCliente::disponiveis(\App\Models\Tenant::find(activeTenantId()))),
             'tipos' => [
                 ['valor' => 'pessoa_juridica', 'rotulo' => __('Empresa')],
                 ['valor' => 'pessoa_fisica', 'rotulo' => __('Particular')],
@@ -467,11 +469,26 @@ class ClientApiController extends Controller
             'portal_password' => ['nullable', 'string', 'min:6', 'max:60'],
             'portal_repor_senha' => ['nullable', 'boolean'],
             'portal_avisar' => ['nullable', 'boolean'],
+            /*
+             * O QUE O CLIENTE VÊ NO PORTAL — escolhido aqui, pela empresa, entre
+             * as áreas dos módulos que ela tem. Com o acesso ligado, pelo menos
+             * uma: um portal sem nada para ver é uma porta para uma sala vazia.
+             */
+            'portal_modulos' => ['nullable', 'array', Rule::requiredIf(fn () => $request->boolean('portal_access') && $request->has('portal_modulos')), 'min:' . ($request->boolean('portal_access') && $request->has('portal_modulos') ? 1 : 0)],
+            'portal_modulos.*' => ['string', Rule::in(\App\Support\PortalDoCliente::disponiveis(\App\Models\Tenant::find(activeTenantId())))],
             'email' => [
                 Rule::requiredIf(fn () => $request->boolean('portal_access') || $request->boolean('portal_repor_senha')),
                 'nullable', 'email', 'max:150',
             ],
+        ], [
+            'portal_modulos.required' => __('Escolha pelo menos uma área do portal para este cliente.'),
+            'portal_modulos.min' => __('Escolha pelo menos uma área do portal para este cliente.'),
+            'portal_modulos.*.in' => __('Essa área do portal não existe nesta empresa.'),
         ]);
+
+        if (array_key_exists('portal_modulos', $dados) && is_array($dados['portal_modulos'])) {
+            $dados['portal_modulos'] = array_values(array_unique($dados['portal_modulos']));
+        }
 
         // A CIDADE SEGUE O MUNICÍPIO quando não foi escrita. É `city` que as
         // listas mostram; um cliente gravado só com o município aparecia sem

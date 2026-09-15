@@ -47,6 +47,32 @@ export type EventoDoCliente = {
     valor: number | null;
 };
 
+/** Uma ordem de serviço como o cliente a vê: o carro, o estado, a folha e a factura. */
+export type OrdemDoCliente = {
+    id: number;
+    numero: string;
+    matricula: string | null;
+    viatura: string | null;
+    estado: string;
+    estado_rotulo: string;
+    cancelada: boolean;
+    etapas: Array<{ chave: string; rotulo: string; feita: boolean; actual: boolean; quando: string | null }>;
+    entrada: string | null;
+    agendada: string | null;
+    km: number;
+    problema: string | null;
+    diagnostico: string | null;
+    trabalho: string | null;
+    recomendacoes: string | null;
+    linhas: Array<{ tipo: string; nome: string; quantidade: number; total: number }>;
+    total: number;
+    garantia_ate: string | null;
+    fotos: Array<{ url: string; tipo: string; descricao: string | null }>;
+    factura: { id: number; numero: string; data: string | null; vencimento: string | null; estado_rotulo: string; total: number; falta: number; vencida: boolean; pdf: string } | null;
+};
+
+export type ResumoDaOficina = { viaturas: number; na_oficina: number; prontas: number; por_pagar: number };
+
 export type ProformaDoCliente = {
     id: number;
     numero: string;
@@ -60,10 +86,21 @@ export type ProformaDoCliente = {
 type Filtros = Record<string, string | number | undefined>;
 
 export const portal = {
+    /** Com o mesmo email em várias empresas, a resposta traz `escolher` em vez de `ir_para`. */
     entrar: (dados: { email: string; password: string; remember: boolean }) =>
-        entrada.criar<Recado & { ir_para: string }>('/login', dados),
+        entrada.criar<Recado & { ir_para?: string; escolher?: Array<{ id: number; empresa: string }> }>('/login', dados),
+    escolherEmpresa: (id: number) => entrada.criar<Recado & { ir_para: string }>('/login/empresa', { id }),
+    oficina: () => apiDoPortal.ler<{
+        resumo: ResumoDaOficina;
+        viaturas: Array<{ id: number; matricula: string; viatura: string; ano: number | null; cor: string | null; km: number; na_oficina: boolean; documentos: Array<{ nome: string; ate: string; dias: number }> }>;
+        ordens: OrdemDoCliente[];
+        contas: Array<{ banco: string | null; conta: string | null; iban: string | null }>;
+    }>('/oficina'),
     painel: () => apiDoPortal.ler<{
         cliente: { nome: string };
+        seccoes: string[];
+        ve_facturas: boolean;
+        oficina: ResumoDaOficina | null;
         numeros: { facturas: number; pendentes: number; pagas: number; facturado: number; eventos: number; proximos_eventos: number };
         ultimas_facturas: FacturaDoCliente[];
         proximos_eventos: EventoDoCliente[];

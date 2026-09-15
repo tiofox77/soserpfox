@@ -132,6 +132,8 @@ export const ecras: Record<string, Ecra> = {
         import('./cliente/Entrada'),
     'cliente/esqueci-a-senha': () =>
         import('./cliente/EsqueciASenha'),
+    'cliente/oficina': () =>
+        import('./cliente/Oficina'),
     'cliente/painel': () =>
         import('./cliente/Painel'),
     'cliente/extrato': () =>

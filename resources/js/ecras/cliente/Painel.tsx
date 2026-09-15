@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { portal } from '@/api/portalDoCliente';
-import { t } from '@/i18n';
+import { t, tn } from '@/i18n';
 import { Carregando } from '@/ui/Carregando';
 import { SemNada, cascata } from '@/ui/SemNada';
-import { CARTAO, TRANSICAO, cls, data, dataHora } from '@/ui/tokens';
+import { CARTAO, FOCO, TRANSICAO, cls, data, dataHora } from '@/ui/tokens';
 
 import { Cabecalho, EstadoDaFactura, Numero, kwanzas } from './comum';
 
@@ -19,11 +19,31 @@ export default function Painel() {
     if (pedido.isError) return <p role="alert" className="rounded-xl bg-red-50 p-6 text-red-800">{t('Não foi possível abrir o portal.')}</p>;
 
     const d = pedido.data;
+    const veEventos = d.seccoes.includes('eventos');
 
     return (
         <div>
             <Cabecalho titulo={t('Bem-vindo, :nome!', { nome: d.cliente.nome })} subtitulo={t('Gerencie suas faturas, eventos e documentos')} icone="fa-house" gradiente="from-blue-600 to-purple-600" />
 
+            {/* A OFICINA — o carro primeiro, para quem é cliente da oficina. */}
+            {d.oficina && (
+                <a href="/client/oficina" className={cls('entra card-hover mb-6 flex flex-wrap items-center gap-4 bg-gradient-to-r from-orange-500 to-red-600 p-5 text-white shadow-lg', 'rounded-2xl', FOCO)}>
+                    <span className="grid h-14 w-14 place-items-center rounded-2xl bg-white/20 text-2xl backdrop-blur-sm"><i className="fas fa-car icon-float" aria-hidden="true" /></span>
+                    <span className="min-w-0 flex-1">
+                        <span className="block text-lg font-bold">{t('A Minha Oficina')}</span>
+                        <span className="block text-sm text-white/90">
+                            {d.oficina.na_oficina > 0
+                                ? tn(':n viatura sua na oficina|:n viaturas suas na oficina', d.oficina.na_oficina, { n: d.oficina.na_oficina })
+                                : t('Nenhuma viatura sua na oficina agora')}
+                            {d.oficina.prontas > 0 && ` · ${tn(':n pronta para levantar|:n prontas para levantar', d.oficina.prontas, { n: d.oficina.prontas })}`}
+                        </span>
+                    </span>
+                    {d.oficina.por_pagar > 0 && <span className="rounded-xl bg-white/20 px-3 py-2 text-sm font-semibold">{t('Por pagar: :v', { v: kwanzas(d.oficina.por_pagar) })}</span>}
+                    <i className="fas fa-arrow-right" aria-hidden="true" />
+                </a>
+            )}
+
+            {d.ve_facturas && (
             <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
                 <Numero i={0} cor="azul" rotulo={t('Total de Faturas')} valor={d.numeros.facturas} nota={t('No total')} icone="fa-file-invoice" />
                 <Numero i={1} cor="laranja" rotulo={t('Pendentes')} valor={d.numeros.pendentes} nota={t('Aguardando pagamento')} icone="fa-hourglass-half" />
@@ -31,8 +51,11 @@ export default function Painel() {
                 <Numero i={3} cor="roxo" rotulo={t('Total Faturado')} valor={<span className="text-2xl">{kwanzas(d.numeros.facturado)}</span>} nota={t('Valor acumulado')} icone="fa-coins" />
             </div>
 
+            )}
+
             <div className="grid gap-6 lg:grid-cols-3">
-                <section className={cls(CARTAO, 'overflow-hidden lg:col-span-2')}>
+                {d.ve_facturas && (
+                <section className={cls(CARTAO, 'overflow-hidden', veEventos ? 'lg:col-span-2' : 'lg:col-span-3')}>
                     <header className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
                         <h2 className="text-xl font-bold text-gray-900"><i className="fas fa-file-invoice icon-float mr-2 text-blue-600" aria-hidden="true" />{t('Últimas Faturas')}</h2>
                         <a href="/client/invoices" className="text-sm font-medium text-blue-600 hover:text-blue-800">{t('Ver todas')} <i className="fas fa-arrow-right ml-1" aria-hidden="true" /></a>
@@ -57,7 +80,9 @@ export default function Painel() {
                         </div>
                     )}
                 </section>
+                )}
 
+                {veEventos && (
                 <section className={cls(CARTAO, 'overflow-hidden')}>
                     <header className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
                         <h2 className="text-xl font-bold text-gray-900"><i className="fas fa-calendar-days icon-float mr-2 text-indigo-600" aria-hidden="true" />{t('Próximos Eventos')}</h2>
@@ -76,6 +101,7 @@ export default function Painel() {
                         </ul>
                     )}
                 </section>
+                )}
             </div>
         </div>
     );

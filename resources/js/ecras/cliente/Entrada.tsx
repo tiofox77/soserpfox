@@ -18,9 +18,22 @@ export default function Entrada({ logo = null, nome = '' }: { logo?: string | nu
     const [senha, porSenha] = useState('');
     const [lembrar, porLembrar] = useState(false);
 
+    /* O MESMO EMAIL EM VÁRIAS EMPRESAS: a senha bateu em mais de uma, e o
+       cliente escolhe onde entra (só entre essas). */
+    const [empresas, porEmpresas] = useState<Array<{ id: number; empresa: string }> | null>(null);
+
     const entrar = useMutation({
         mutationFn: () => portal.entrar({ email, password: senha, remember: lembrar }),
+        onSuccess: (r) => {
+            if (r.escolher && r.escolher.length > 0) porEmpresas(r.escolher);
+            else if (r.ir_para) window.location.assign(r.ir_para);
+        },
+    });
+
+    const escolher = useMutation({
+        mutationFn: (id: number) => portal.escolherEmpresa(id),
         onSuccess: (r) => window.location.assign(r.ir_para),
+        onError: () => porEmpresas(null),
     });
 
     const erros = entrar.error instanceof ErroDaApi ? entrar.error.erros : {};
@@ -44,6 +57,35 @@ export default function Entrada({ logo = null, nome = '' }: { logo?: string | nu
                 </div>
 
                 <div className="rounded-2xl border border-gray-100 bg-white p-8 shadow-xl">
+                    {empresas ? (
+                        <div className="animate-fade-in space-y-4">
+                            <div className="text-center">
+                                <span className="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-blue-600 to-purple-600 text-2xl text-white shadow-lg">
+                                    <i className="fas fa-building icon-float" aria-hidden="true" />
+                                </span>
+                                <h2 className="text-xl font-bold text-gray-900">{t('Em que empresa quer entrar?')}</h2>
+                                <p className="text-sm text-gray-600">{t('É cliente de mais de uma empresa com este email.')}</p>
+                            </div>
+                            <ul className="space-y-2">
+                                {empresas.map((e, i) => (
+                                    <li key={e.id} className="entra" style={{ ['--i' as string]: i }}>
+                                        <button type="button" disabled={escolher.isPending} onClick={() => escolher.mutate(e.id)}
+                                            className={cls('group flex w-full items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 text-left hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50 hover:shadow-md disabled:opacity-60', TRANSICAO, FOCO)}>
+                                            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-100 text-blue-600 transition-transform duration-300 group-hover:scale-110">
+                                                <i className={cls('fas', escolher.isPending && escolher.variables === e.id ? 'fa-spinner fa-spin' : 'fa-building')} aria-hidden="true" />
+                                            </span>
+                                            <span className="min-w-0 flex-1 font-semibold text-gray-900">{e.empresa}</span>
+                                            <i className="fas fa-arrow-right text-gray-400 transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" />
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                            {escolher.error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{escolher.error.message}</p>}
+                            <button type="button" onClick={() => porEmpresas(null)} className="w-full text-center text-sm font-medium text-gray-600 hover:text-gray-900">
+                                <i className="fas fa-arrow-left mr-2" aria-hidden="true" />{t('Voltar')}
+                            </button>
+                        </div>
+                    ) : (
                     <form onSubmit={submeter} className="space-y-6" noValidate>
                         <label className="block">
                             <span className="mb-2 block text-sm font-semibold text-gray-700"><i className="fas fa-envelope mr-2 text-blue-500" aria-hidden="true" />{t('Email')}</span>
@@ -79,6 +121,7 @@ export default function Entrada({ logo = null, nome = '' }: { logo?: string | nu
                             {entrar.isPending ? t('Entrando...') : t('Entrar no Portal')}
                         </button>
                     </form>
+                    )}
 
                     <div className="mt-6 border-t border-gray-200 pt-6 text-center text-sm text-gray-600">
                         {t('Ainda não tem acesso?')}

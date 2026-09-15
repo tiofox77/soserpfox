@@ -53,6 +53,7 @@ const VAZIO: ClienteParaGravar = {
     postal_code: '',
     country: 'AO',
     portal_access: false,
+    portal_modulos: [],
     portal_password: '',
     portal_repor_senha: false,
 };
@@ -182,6 +183,9 @@ export default function Clientes() {
              * na primeira factura.
              */
             payment_term_id: opcoes.data?.condicoes_pagamento.find((c) => c.padrao)?.id ?? null,
+            // Um cliente novo começa com as facturas marcadas — é o portal de sempre;
+            // a empresa acrescenta ou troca as áreas antes de gravar.
+            portal_modulos: (opcoes.data?.portal_seccoes ?? []).some((s) => s.chave === 'facturacao') ? ['facturacao'] : [],
         });
     }
 
@@ -208,6 +212,7 @@ export default function Clientes() {
             // formulário abre sempre sem ela. Guardar a ficha não pode
             // trocar a senha de quem já entra no portal.
             portal_access: c.portal_access,
+            portal_modulos: c.portal_modulos ?? [],
             portal_password: '',
             portal_repor_senha: false,
         });
@@ -1166,6 +1171,7 @@ function Formulario({
                     aEditar={aEditar}
                     erros={erros}
                     portalUrl={opcoes?.portal_url}
+                    seccoes={opcoes?.portal_seccoes ?? []}
                     aoMudar={aoMudar}
                 />
             </form>
@@ -1379,12 +1385,14 @@ function AcessoAoPortal({
     aEditar,
     erros,
     portalUrl,
+    seccoes,
     aoMudar,
 }: {
     dados: ClienteParaGravar;
     aEditar: Cliente | null;
     erros: Record<string, string[]>;
     portalUrl: string | undefined;
+    seccoes: OpcoesDosClientes['portal_seccoes'];
     aoMudar: (d: ClienteParaGravar) => void;
 }) {
     const jaTinha = Boolean(aEditar?.portal_access);
@@ -1441,6 +1449,57 @@ function AcessoAoPortal({
                                 'Escreva o email: é por lá que o cliente entra no portal, e sem ele o acesso não se liga.',
                             )}
                         </p>
+                    )}
+
+                    {/* O QUE O CLIENTE VÊ NO PORTAL — escolhido aqui, pela empresa,
+                        entre as áreas dos módulos que ela tem. Um cliente da oficina
+                        vê a oficina; não precisa de ver os eventos. */}
+                    {seccoes.length > 0 && (
+                        <fieldset>
+                            <legend className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                {t('O que o cliente vê no portal')}
+                            </legend>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                                {seccoes.map((s) => {
+                                    const marcada = (dados.portal_modulos ?? []).includes(s.chave);
+
+                                    return (
+                                        <label
+                                            key={s.chave}
+                                            className={cls(
+                                                'group flex cursor-pointer items-start gap-3 border p-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm',
+                                                'rounded-xl',
+                                                marcada ? 'border-indigo-300 bg-indigo-50/70' : 'border-slate-200 bg-white',
+                                            )}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={marcada}
+                                                onChange={(e) =>
+                                                    aoMudar({
+                                                        ...dados,
+                                                        portal_modulos: e.target.checked
+                                                            ? [...(dados.portal_modulos ?? []), s.chave]
+                                                            : (dados.portal_modulos ?? []).filter((m) => m !== s.chave),
+                                                    })
+                                                }
+                                                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600"
+                                            />
+                                            <span className={cls('grid h-8 w-8 shrink-0 place-items-center rounded-lg transition-transform duration-300 group-hover:scale-110', marcada ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500')}>
+                                                <i className={cls('fas', s.icone)} aria-hidden="true" />
+                                            </span>
+                                            <span className="min-w-0 text-sm">
+                                                <span className="block font-semibold text-slate-800">{s.rotulo}</span>
+                                                <span className="block text-xs text-slate-500">{s.descricao}</span>
+                                            </span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                            {(erros.portal_modulos?.[0] ?? erros['portal_modulos.0']?.[0]) && (
+                                <p role="alert" className="mt-1 text-xs font-medium text-red-600">{erros.portal_modulos?.[0] ?? erros['portal_modulos.0']?.[0]}</p>
+                            )}
+                        </fieldset>
                     )}
 
                     {/* AVISAR, OU NÃO.

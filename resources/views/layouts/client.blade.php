@@ -46,13 +46,19 @@
          (utilizador e telemóvel) eram um <script> em linha no fim da página.
          A altura fica reservada enquanto o JavaScript chega. --}}
     @php
+        // O MENU SÓ TEM AS ÁREAS QUE A EMPRESA DEU A ESTE CLIENTE
+        // (App\Support\PortalDoCliente) — um cliente da oficina não vê «Eventos».
+        $clienteDoPortal = auth('client')->user();
+        $areasDoPortal = $clienteDoPortal ? \App\Support\PortalDoCliente::doCliente($clienteDoPortal) : [];
+        $veFacturasNoPortal = $clienteDoPortal && \App\Support\PortalDoCliente::veFacturas($clienteDoPortal);
         $ligacoesDoPortal = collect([
-            ['route' => 'client.dashboard', 'icon' => 'fa-house',        'label' => __('Início')],
-            ['route' => 'client.statement', 'icon' => 'fa-chart-line',   'label' => __('Extrato')],
-            ['route' => 'client.events',    'icon' => 'fa-calendar-days', 'label' => __('Eventos')],
-            ['route' => 'client.invoices',  'icon' => 'fa-file-invoice', 'label' => __('Faturas')],
-            ['route' => 'client.proformas', 'icon' => 'fa-file-lines',   'label' => __('Proformas')],
-        ])->map(fn ($l) => [
+            ['route' => 'client.dashboard', 'icon' => 'fa-house',        'label' => __('Início'), 've' => true],
+            ['route' => 'client.workshop',  'icon' => 'fa-car',          'label' => __('Oficina'), 've' => in_array('oficina', $areasDoPortal, true)],
+            ['route' => 'client.statement', 'icon' => 'fa-chart-line',   'label' => __('Extrato'), 've' => $veFacturasNoPortal],
+            ['route' => 'client.events',    'icon' => 'fa-calendar-days', 'label' => __('Eventos'), 've' => in_array('eventos', $areasDoPortal, true)],
+            ['route' => 'client.invoices',  'icon' => 'fa-file-invoice', 'label' => __('Faturas'), 've' => $veFacturasNoPortal],
+            ['route' => 'client.proformas', 'icon' => 'fa-file-lines',   'label' => __('Proformas'), 've' => in_array('facturacao', $areasDoPortal, true)],
+        ])->filter(fn ($l) => $l['ve'])->values()->map(fn ($l) => [
             'url' => route($l['route']),
             'icone' => $l['icon'],
             'rotulo' => $l['label'],

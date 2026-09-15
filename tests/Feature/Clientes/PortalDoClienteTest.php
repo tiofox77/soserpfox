@@ -20,6 +20,11 @@ class PortalDoClienteTest extends TenantTestCase
     {
         parent::setUp();
 
+        // As áreas do portal seguem os módulos da empresa (App\Support\PortalDoCliente):
+        // o portal de sempre são as facturas e os eventos.
+        $this->comModulo('invoicing')->comModulo('eventos');
+        \App\Support\PortalDoCliente::esquecer();
+
         $this->doPortal = $this->clienteEmpresa();
         $this->doPortal->forceFill([
             'email' => 'portal'.uniqid().'@exemplo.ao',

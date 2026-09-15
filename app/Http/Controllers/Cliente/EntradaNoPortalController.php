@@ -3,10 +3,14 @@
 namespace App\Http\Controllers\Cliente;
 
 use App\Http\Controllers\Controller;
+use App\Models\Client;
+use App\Models\Tenant;
 use App\Support\Seguranca\TravaoDeEntradas;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -17,9 +21,20 @@ use Illuminate\Validation\ValidationException;
  * LIMITADAS. O formulário aceitava tentativas sem fim; com a senha gerada pela
  * empresa e o email do cliente à vista numa factura, era uma porta aberta a
  * quem quisesse adivinhar.
+ *
+ * O MESMO EMAIL EM VÁRIAS EMPRESAS (15/09/2026). A entrada procurava «o»
+ * cliente com este email — e o MySQL devolvia um qualquer. Quem era cliente de
+ * duas empresas nunca entrava na segunda: a senha era conferida contra a ficha
+ * da primeira, e cada tentativa contava para o bloqueio. Agora confere-se a
+ * senha em TODAS as fichas com o email; se bater em mais de uma, o cliente
+ * escolhe a empresa (e só entre essas — nunca se mostram empresas onde a senha
+ * não bateu). Uma empresa desactivada não entra na lista.
  */
 class EntradaNoPortalController extends Controller
 {
+    /** Quanto tempo vale a escolha da empresa depois de acertar a senha. */
+    private const MINUTOS_PARA_ESCOLHER = 5;
+
     public function entrar(Request $request): JsonResponse
     {
         $dados = $request->validate([
@@ -38,14 +53,9 @@ class EntradaNoPortalController extends Controller
             ])->status(429);
         }
 
-        $entrou = Auth::guard('client')->attempt([
-            'email' => $dados['email'],
-            'password' => $dados['password'],
-            'portal_access' => true,
-            'is_active' => true,
-        ], (bool) ($dados['remember'] ?? false));
+        $fichas = $this->fichasQueAbrem($dados['email'], $dados['password']);
 
-        if (! $entrou) {
+        if ($fichas->isEmpty()) {
             $restam = $travao->falhou($dados['email'], $request->ip());
 
             throw ValidationException::withMessages([
@@ -54,7 +64,80 @@ class EntradaNoPortalController extends Controller
         }
 
         $travao->entrou($dados['email'], $request->ip());
-        Auth::guard('client')->user()->update(['last_login_at' => now()]);
+
+        if ($fichas->count() === 1) {
+            return $this->abrir($request, $fichas->first(), (bool) ($dados['remember'] ?? false));
+        }
+
+        // Várias empresas: guarda-se QUAIS, e o cliente escolhe uma delas.
+        $request->session()->put('portal.escolha', [
+            'ids' => $fichas->pluck('id')->all(),
+            'lembrar' => (bool) ($dados['remember'] ?? false),
+            'ate' => now()->addMinutes(self::MINUTOS_PARA_ESCOLHER)->timestamp,
+        ]);
+
+        $nomes = Tenant::whereIn('id', $fichas->pluck('tenant_id'))->get()->keyBy('id');
+
+        return response()->json([
+            'message' => __('Escolha a empresa.'),
+            'escolher' => $fichas->map(fn (Client $c) => [
+                'id' => $c->id,
+                'empresa' => $nomes[$c->tenant_id]?->nomeParaDocumentos() ?: $nomes[$c->tenant_id]?->name,
+            ])->values(),
+        ]);
+    }
+
+    public function escolherEmpresa(Request $request): JsonResponse
+    {
+        $dados = $request->validate(['id' => ['required', 'integer']]);
+        $escolha = $request->session()->get('portal.escolha');
+
+        if (! $escolha || ($escolha['ate'] ?? 0) < now()->timestamp || ! in_array((int) $dados['id'], $escolha['ids'] ?? [], true)) {
+            $request->session()->forget('portal.escolha');
+
+            throw ValidationException::withMessages([
+                'email' => __('A escolha expirou. Volte a escrever o email e a senha.'),
+            ]);
+        }
+
+        $cliente = Client::withoutGlobalScopes()->whereKey($dados['id'])
+            ->where('portal_access', true)->where('is_active', true)->first();
+
+        if (! $cliente || ! Tenant::whereKey($cliente->tenant_id)->where('is_active', true)->exists()) {
+            $request->session()->forget('portal.escolha');
+
+            throw ValidationException::withMessages(['email' => __('O acesso a este portal não está disponível. Contacte a empresa.')]);
+        }
+
+        $request->session()->forget('portal.escolha');
+
+        return $this->abrir($request, $cliente, (bool) ($escolha['lembrar'] ?? false));
+    }
+
+    /**
+     * As fichas com este email, portal ligado, activas, de empresa activa — e em
+     * que a senha bate.
+     *
+     * @return Collection<int, Client>
+     */
+    private function fichasQueAbrem(string $email, string $senha): Collection
+    {
+        return Client::withoutGlobalScopes()
+            ->where('email', $email)
+            ->where('portal_access', true)
+            ->where('is_active', true)
+            ->whereNotNull('password')
+            ->whereIn('tenant_id', Tenant::where('is_active', true)->select('id'))
+            ->orderBy('id')
+            ->get()
+            ->filter(fn (Client $c) => Hash::check($senha, (string) $c->password))
+            ->values();
+    }
+
+    private function abrir(Request $request, Client $cliente, bool $lembrar): JsonResponse
+    {
+        Auth::guard('client')->login($cliente, $lembrar);
+        $cliente->update(['last_login_at' => now()]);
         $request->session()->regenerate();
 
         return response()->json([

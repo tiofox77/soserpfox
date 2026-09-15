@@ -54,7 +54,7 @@ export default function Facturas() {
                             <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
                                 <tr>
                                     <th className="px-6 py-3">{t('Número')}</th><th className="px-6 py-3">{t('Data')}</th><th className="px-6 py-3">{t('Vencimento')}</th>
-                                    <th className="px-6 py-3 text-right">{t('Valor')}</th><th className="px-6 py-3 text-right">{t('Saldo')}</th><th className="px-6 py-3">{t('Status')}</th>
+                                    <th className="px-6 py-3 text-right">{t('Valor')}</th><th className="px-6 py-3 text-right">{t('Saldo')}</th><th className="px-6 py-3">{t('Status')}</th><th className="px-6 py-3"><span className="sr-only">{t('PDF')}</span></th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
@@ -66,6 +66,13 @@ export default function Facturas() {
                                         <td className="px-6 py-3 text-right font-semibold tabular-nums text-gray-900">{kwanzas(f.total)}</td>
                                         <td className={cls('px-6 py-3 text-right tabular-nums', f.saldo > 0 ? 'font-semibold text-red-600' : 'text-gray-400')}>{kwanzas(f.saldo)}</td>
                                         <td className="px-6 py-3"><EstadoDaFactura estado={f.estado} rotulo={f.estado_rotulo} atrasada={f.atrasada} /></td>
+                                        <td className="px-6 py-3 text-right">
+                                            {/* O PAPEL DA FACTURA — o mesmo PDF da empresa, para pagar ou arquivar. */}
+                                            <a href={`/client/facturas/${f.id}/pdf`} target="_blank" rel="noreferrer" title={t('PDF')} aria-label={t('PDF da factura :n', { n: f.numero })}
+                                                className={cls('inline-grid h-9 w-9 place-items-center rounded-lg bg-red-50 text-red-600 hover:scale-110 hover:bg-red-100', TRANSICAO)}>
+                                                <i className="fas fa-file-pdf" aria-hidden="true" />
+                                            </a>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>

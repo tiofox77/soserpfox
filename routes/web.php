@@ -2735,27 +2735,38 @@ Route::group([], function () {
     Route::get('/client/login', \App\Support\EcraReact::entradaCliente('cliente/entrada', 'Portal do Cliente'))->name('client.login');
     // Tentativas limitadas por email e IP: ver EntradaNoPortalController.
     Route::post('/client/login', [\App\Http\Controllers\Cliente\EntradaNoPortalController::class, 'entrar'])->name('client.login.entrar');
+    // O mesmo email em várias empresas: depois da senha, escolhe-se a empresa.
+    Route::post('/client/login/empresa', [\App\Http\Controllers\Cliente\EntradaNoPortalController::class, 'escolherEmpresa'])->name('client.login.empresa');
     // A vista `client.forgot-password` nunca existiu: a ligação dava erro 500.
     Route::get('/client/forgot-password', \App\Support\EcraReact::entradaCliente('cliente/esqueci-a-senha', 'Esqueceu a senha?'))->name('client.forgot-password');
 });
 
 // Rotas protegidas do cliente
-Route::middleware(['auth:client'])->prefix('client')->name('client.')->group(function () {
+/*
+ * CADA ÁREA DO PORTAL COM A SUA PORTA (`portal:área`) — a que a empresa deu ao
+ * cliente na ficha dele, e só se tiver o módulo activo. Ver App\Support\PortalDoCliente.
+ */
+Route::middleware(['auth:client', 'portal'])->prefix('client')->name('client.')->group(function () {
     Route::get('/dashboard', \App\Support\EcraReact::cliente('cliente/painel', 'Portal do Cliente'))->name('dashboard');
-    Route::get('/statement', \App\Support\EcraReact::cliente('cliente/extrato', 'Extrato Financeiro'))->name('statement');
-    Route::get('/events', \App\Support\EcraReact::cliente('cliente/eventos', 'Meus Eventos'))->name('events');
-    Route::get('/invoices', \App\Support\EcraReact::cliente('cliente/facturas', 'Minhas Faturas'))->name('invoices');
-    Route::get('/proformas', \App\Support\EcraReact::cliente('cliente/proformas', 'Minhas Proformas'))->name('proformas');
+    Route::get('/statement', \App\Support\EcraReact::cliente('cliente/extrato', 'Extrato Financeiro'))->middleware('portal:facturas')->name('statement');
+    Route::get('/events', \App\Support\EcraReact::cliente('cliente/eventos', 'Meus Eventos'))->middleware('portal:eventos')->name('events');
+    Route::get('/invoices', \App\Support\EcraReact::cliente('cliente/facturas', 'Minhas Faturas'))->middleware('portal:facturas')->name('invoices');
+    Route::get('/proformas', \App\Support\EcraReact::cliente('cliente/proformas', 'Minhas Proformas'))->middleware('portal:facturacao')->name('proformas');
+    Route::get('/oficina', \App\Support\EcraReact::cliente('cliente/oficina', 'A Minha Oficina'))->middleware('portal:oficina')->name('workshop');
     Route::get('/profile', \App\Support\EcraReact::cliente('cliente/perfil', 'Meu Perfil'))->name('profile');
+    // O PAPEL DA FACTURA — o mesmo PDF da empresa, só das facturas que o cliente vê.
+    Route::get('/facturas/{id}/pdf', [\App\Http\Controllers\Cliente\DocumentosDoPortalController::class, 'factura'])
+        ->whereNumber('id')->middleware('portal:facturas')->name('invoices.pdf');
 
     Route::prefix('api')->name('api.')->group(function () {
         $c = \App\Http\Controllers\Api\Cliente\PortalDoClienteApiController::class;
 
         Route::get('/painel', [$c, 'painel'])->name('painel');
-        Route::get('/extrato', [$c, 'extrato'])->name('extrato');
-        Route::get('/facturas', [$c, 'facturas'])->name('facturas');
-        Route::get('/proformas', [$c, 'proformas'])->name('proformas');
-        Route::get('/eventos', [$c, 'eventos'])->name('eventos');
+        Route::get('/extrato', [$c, 'extrato'])->middleware('portal:facturas')->name('extrato');
+        Route::get('/facturas', [$c, 'facturas'])->middleware('portal:facturas')->name('facturas');
+        Route::get('/proformas', [$c, 'proformas'])->middleware('portal:facturacao')->name('proformas');
+        Route::get('/eventos', [$c, 'eventos'])->middleware('portal:eventos')->name('eventos');
+        Route::get('/oficina', [\App\Http\Controllers\Api\Cliente\PortalDaOficinaApiController::class, 'index'])->middleware('portal:oficina')->name('oficina');
         Route::get('/perfil', [$c, 'perfil'])->name('perfil');
         Route::put('/perfil', [$c, 'guardarPerfil'])->name('perfil.guardar');
         Route::put('/senha', [$c, 'mudarSenha'])->name('senha');
