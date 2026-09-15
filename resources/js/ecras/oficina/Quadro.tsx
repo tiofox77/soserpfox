@@ -241,6 +241,11 @@ function Cartao({ k, i, d, estado, aArrastar, aoArrastar, aoLargar, aoAbrir, aoM
                     <span className="text-slate-400">· {haQuanto(k.entrada)}</span>
                 </span>
                 <span className="mt-2 flex flex-wrap gap-1">
+                    {k.a_trabalhar.length > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-bold text-white" title={k.a_trabalhar.join(', ')}>
+                            <span className="h-1.5 w-1.5 animate-ping rounded-full bg-emerald-300" aria-hidden="true" /><i className="fas fa-stopwatch" aria-hidden="true" />{k.a_trabalhar.join(', ')}
+                        </span>
+                    )}
                     {(k.prioridade === 'urgent' || k.prioridade === 'high') && (
                         <span className={cls('inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold text-white', COR_DA_PRIORIDADE[k.prioridade])}>
                             <i className="fas fa-bolt" aria-hidden="true" />{k.prioridade_rotulo}

@@ -29,6 +29,7 @@ import { CARTAO, FOCO, RAIO, TRANSICAO, cls, data, kz } from '@/ui/tokens';
 import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { CheckinDaViatura } from './CheckinDaViatura';
 import { InspeccaoDaOrdem } from './InspeccaoDaOrdem';
+import { TemposDaOrdem } from './TemposDaOrdem';
 import { AprovacaoDoCliente, SeloDaAprovacao } from './AprovacaoDoCliente';
 import { etiquetaIntl, t, tPartes } from '@/i18n';
 
@@ -615,6 +616,8 @@ export function FichaDaOrdemModal({ id, o, abaInicial = 'info', aoFechar, aoMuda
         // OF-02: a inspecção digital com semáforo.
         { chave: 'inspeccao', rotulo: t('Inspecção'), icone: 'fa-list-check' },
         { chave: 'linhas', rotulo: t('Serviços e peças'), icone: 'fa-list' },
+        // OF-06: o registo de tempos por tarefa.
+        { chave: 'tempos', rotulo: t('Tempos'), icone: 'fa-stopwatch' },
         { chave: 'contas', rotulo: t('Contas'), icone: 'fa-calculator' },
         { chave: 'historico', rotulo: t('Histórico'), icone: 'fa-clock-rotate-left' },
         { chave: 'anexos', rotulo: t('Anexos'), icone: 'fa-paperclip' },
@@ -787,6 +790,10 @@ export function FichaDaOrdemModal({ id, o, abaInicial = 'info', aoFechar, aoMuda
                                 </table>
                             </div>
                         )}
+                    </div>
+
+                    <div hidden={aba !== 'tempos'}>
+                        {aba === 'tempos' && <TemposDaOrdem id={id} />}
                     </div>
 
                     <div hidden={aba !== 'contas'}>

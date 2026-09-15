@@ -2022,6 +2022,14 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::delete('/{id}/aprovacao', [$ap, 'cancelar'])->whereNumber('id')->name('aprovacao.cancelar');
             Route::post('/{id}/linhas/{linha}/aprovacao', [$ap, 'decidirLinha'])->whereNumber('id')->whereNumber('linha')->name('aprovacao.linha');
 
+            // O registo de tempos por tarefa (OF-06).
+            $tp = \App\Http\Controllers\Api\Workshop\TemposDaOrdemApiController::class;
+            Route::get('/{id}/tempos', [$tp, 'index'])->whereNumber('id')->name('tempos.lista');
+            Route::post('/{id}/tempos', [$tp, 'comecar'])->whereNumber('id')->name('tempos.comecar');
+            Route::post('/{id}/tempos/{registo}/parar', [$tp, 'parar'])->whereNumber('id')->whereNumber('registo')->name('tempos.parar');
+            Route::put('/{id}/tempos/{registo}', [$tp, 'corrigir'])->whereNumber('id')->whereNumber('registo')->name('tempos.corrigir');
+            Route::delete('/{id}/tempos/{registo}', [$tp, 'destroy'])->whereNumber('id')->whereNumber('registo')->name('tempos.apagar');
+
             // A inspecção digital com semáforo (OF-02).
             $n = \App\Http\Controllers\Api\Workshop\InspeccoesDaOrdemApiController::class;
             Route::get('/{id}/inspeccoes', [$n, 'index'])->whereNumber('id')->name('inspeccoes.lista');

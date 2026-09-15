@@ -352,10 +352,16 @@ class OrdensApiController extends Controller
             ->limit(300)
             ->get();
 
+        // Quem tem o relógio a correr em cada ordem (OF-06).
+        $aTrabalhar = \App\Models\Workshop\TimeEntry::with('mechanic:id,name')->where('tenant_id', $tenantId)->whereNull('ended_at')
+            ->whereIn('work_order_id', $ordens->pluck('id'))->get()->groupBy('work_order_id')
+            ->map(fn ($r) => $r->pluck('mechanic.name')->filter()->unique()->values()->all());
+
         $colunas = collect(OrdensDeServico::ESTADOS)->except('cancelled')->map(fn ($rotulo, $estado) => [
             'estado' => $estado,
             'rotulo' => __($rotulo),
             'cartoes' => $ordens->where('status', $estado)->map(fn (WorkOrder $o) => [
+                'a_trabalhar' => $aTrabalhar[$o->id] ?? [],
                 'id' => $o->id,
                 'numero' => $o->order_number,
                 'matricula' => $o->vehicle?->plate,

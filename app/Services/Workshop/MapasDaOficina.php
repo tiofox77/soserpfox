@@ -251,12 +251,34 @@ final class MapasDaOficina
             ->where('m.tenant_id', $tenantId)
             ->whereNull('m.deleted_at')
             ->groupBy('m.id', 'm.name', 'm.level')
-            ->selectRaw('m.name as nome, m.level as nivel, COUNT(o.id) as ordens,'
+            ->selectRaw('m.id as id, m.name as nome, m.level as nivel, COUNT(o.id) as ordens,'
                 . " SUM(CASE WHEN o.status = 'completed' THEN 1 ELSE 0 END) as concluidas,"
                 . " SUM(CASE WHEN o.status = 'in_progress' THEN 1 ELSE 0 END) as em_curso,"
                 . ' SUM(o.total) as receita')
             ->orderByDesc('ordens')
             ->get();
+
+        /*
+         * AS HORAS (OF-06): trabalhadas = os períodos do relógio que começaram no
+         * intervalo; vendidas = as horas das linhas de serviço aprovadas em que o
+         * mecânico trabalhou. Eficiência = vendidas ÷ trabalhadas.
+         */
+        $trabalhadas = DB::table('workshop_time_entries')->where('tenant_id', $tenantId)->whereNotNull('ended_at')
+            ->whereBetween('started_at', [$de, $ate])->groupBy('mechanic_id')->selectRaw('mechanic_id, SUM(minutes) as minutos')->pluck('minutos', 'mechanic_id');
+        $vendidas = DB::table('workshop_work_order_items as i')
+            ->join('workshop_work_orders as o', 'i.work_order_id', '=', 'o.id')
+            ->where('o.tenant_id', $tenantId)->whereNull('o.deleted_at')->where('i.type', 'service')->where('i.approval', 'approved')
+            ->whereBetween('o.received_at', [$de, $ate])
+            ->selectRaw('COALESCE(i.mechanic_id, o.mechanic_id) as mecanico, SUM(i.hours * GREATEST(i.quantity, 1)) as horas')
+            ->groupByRaw('COALESCE(i.mechanic_id, o.mechanic_id)')->pluck('horas', 'mecanico');
+
+        $linhas = $linhas->map(function ($l) use ($trabalhadas, $vendidas) {
+            $l->trabalhadas = round(((int) ($trabalhadas[$l->id] ?? 0)) / 60, 2);
+            $l->vendidas = round((float) ($vendidas[$l->id] ?? 0), 2);
+            $l->eficiencia = $l->trabalhadas > 0 ? (int) round($l->vendidas / $l->trabalhadas * 100) : null;
+
+            return $l;
+        });
 
         return [
             'colunas' => [
@@ -265,6 +287,9 @@ final class MapasDaOficina
                 ['chave' => 'concluidas', 'rotulo' => 'Concluídas', 'formato' => 'numero'],
                 ['chave' => 'em_curso', 'rotulo' => 'Em curso', 'formato' => 'numero'],
                 ['chave' => 'receita', 'rotulo' => 'Receita', 'formato' => 'dinheiro'],
+                ['chave' => 'trabalhadas', 'rotulo' => 'Horas trabalhadas', 'formato' => 'numero'],
+                ['chave' => 'vendidas', 'rotulo' => 'Horas vendidas', 'formato' => 'numero'],
+                ['chave' => 'eficiencia', 'rotulo' => 'Eficiência %', 'formato' => 'numero'],
             ],
             /*
              * QUEM NÃO TEVE ORDENS NENHUMAS TAMBÉM APARECE, com zeros.
@@ -279,6 +304,9 @@ final class MapasDaOficina
                 'concluidas' => (int) $l->concluidas,
                 'em_curso' => (int) $l->em_curso,
                 'receita' => (float) $l->receita,
+                'trabalhadas' => $l->trabalhadas,
+                'vendidas' => $l->vendidas,
+                'eficiencia' => $l->eficiencia,
             ])->all(),
             'totais' => [
                 'nome' => __('Total'),
@@ -286,6 +314,9 @@ final class MapasDaOficina
                 'concluidas' => (int) $linhas->sum('concluidas'),
                 'em_curso' => (int) $linhas->sum('em_curso'),
                 'receita' => (float) $linhas->sum('receita'),
+                'trabalhadas' => round((float) $linhas->sum('trabalhadas'), 2),
+                'vendidas' => round((float) $linhas->sum('vendidas'), 2),
+                'eficiencia' => $linhas->sum('trabalhadas') > 0 ? (int) round($linhas->sum('vendidas') / $linhas->sum('trabalhadas') * 100) : null,
             ],
             'nada' => $linhas->isEmpty() ? __('Ainda não há mecânicos nesta oficina.') : null,
         ];

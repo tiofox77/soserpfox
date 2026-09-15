@@ -581,6 +581,8 @@ export type CartaoDoQuadro = {
     facturada: boolean;
     checkin: 'feito' | 'assinado' | null;
     a_espera: number;
+    /** OF-06: os mecânicos com o relógio a correr neste carro. */
+    a_trabalhar: string[];
 };
 
 export type QuadroDaOficina = {
@@ -654,4 +656,40 @@ export const agendaDaOficina = {
     estado: (id: number, estado: string) => api.criar<{ data: MarcacaoDaAgenda; message: string }>(`/oficina/agenda/${id}/estado`, { estado }),
     chegou: (id: number) => api.criar<{ data: MarcacaoDaAgenda; ordem_id: number; message: string }>(`/oficina/agenda/${id}/chegou`, {}),
     apagar: (id: number) => api.apagar<{ message: string }>(`/oficina/agenda/${id}`),
+};
+
+/* ─── O registo de tempos por tarefa (OF-06) ────────────────────────── */
+
+export type RegistoDeTempo = {
+    id: number;
+    mecanico_id: number;
+    mecanico: string | null;
+    linha_id: number | null;
+    linha: string | null;
+    inicio: string;
+    fim: string | null;
+    inicio_iso: string;
+    minutos: number;
+    a_correr: boolean;
+    notas: string | null;
+};
+
+export type TemposDaOrdem = {
+    registos: RegistoDeTempo[];
+    linhas: Array<{ id: number; nome: string; vendidas: number; trabalhadas: number }>;
+    contas: { vendidas: number; trabalhadas: number; eficiencia: number | null };
+    mecanicos: Escolha[];
+    mecanico_da_ordem: string | null;
+    aberta: boolean;
+    pode_editar: boolean;
+    message?: string;
+};
+
+export const temposDaOrdem = {
+    ler: (id: number) => api.ler<TemposDaOrdem>(`/oficina/ordens/${id}/tempos`),
+    comecar: (id: number, mecanicoId: string, linhaId: string) =>
+        api.criar<TemposDaOrdem>(`/oficina/ordens/${id}/tempos`, { mecanico_id: Number(mecanicoId) || null, linha_id: linhaId ? Number(linhaId) : null }),
+    parar: (id: number, registo: number) => api.criar<TemposDaOrdem>(`/oficina/ordens/${id}/tempos/${registo}/parar`, {}),
+    corrigir: (id: number, registo: number, inicio: string, fim: string) => api.guardar<TemposDaOrdem>(`/oficina/ordens/${id}/tempos/${registo}`, { inicio, fim }),
+    apagar: (id: number, registo: number) => api.apagar<TemposDaOrdem>(`/oficina/ordens/${id}/tempos/${registo}`),
 };
