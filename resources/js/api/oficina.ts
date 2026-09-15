@@ -418,3 +418,56 @@ export const fotografiasDaViatura = {
 
     tirar: (id: number, foto: number) => api.apagar<{ message: string }>(`/oficina/viaturas/${id}/fotografias/${foto}`),
 };
+
+/* ─── O check-in da viatura (OF-01) ─────────────────────────────────── */
+
+export type DanoDoCheckin = { x: number; y: number; tipo: string; nota: string | null };
+
+export type CheckinDaOrdem = {
+    existe: boolean;
+    km: number;
+    /** Em oitavos do depósito: 0 = vazio, 8 = cheio. */
+    combustivel: number | null;
+    danos: DanoDoCheckin[];
+    acessorios: string[];
+    luzes: string[];
+    chaves: number | null;
+    objectos: string | null;
+    notas: string | null;
+    assinatura: string | null;
+    assinado_por: string | null;
+    assinado_em: string | null;
+    /** Falso quando se mudou alguma coisa depois de o cliente assinar. */
+    assinatura_valida: boolean;
+    registado_por: string | null;
+    actualizado_em: string | null;
+};
+
+export type RespostaDoCheckin = {
+    data: CheckinDaOrdem;
+    listas: {
+        tipos_de_dano: Array<Escolha & { letra: string; cor: string }>;
+        acessorios: Escolha[];
+        luzes: Escolha[];
+    };
+    pode_editar: boolean;
+    message?: string;
+};
+
+export type CheckinParaGravar = {
+    km: number | null;
+    combustivel: number | null;
+    danos: DanoDoCheckin[];
+    acessorios: string[];
+    luzes: string[];
+    chaves: number | null;
+    objectos: string;
+    notas: string;
+};
+
+export const checkin = {
+    ler: (id: number) => api.ler<RespostaDoCheckin>(`/oficina/ordens/${id}/checkin`),
+    gravar: (id: number, dados: CheckinParaGravar) => api.guardar<RespostaDoCheckin>(`/oficina/ordens/${id}/checkin`, dados),
+    assinar: (id: number, assinatura: string, nome: string) => api.criar<RespostaDoCheckin>(`/oficina/ordens/${id}/checkin/assinatura`, { assinatura, nome }),
+    tirarAssinatura: (id: number) => api.apagar<RespostaDoCheckin>(`/oficina/ordens/${id}/checkin/assinatura`),
+};

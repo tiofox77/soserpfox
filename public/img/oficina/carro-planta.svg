@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 440" role="img" aria-label="Viatura vista de cima">
+  <!-- A viatura vista de cima, com a frente para cima: é sobre este desenho que se marcam os danos do check-in (x/y em %). -->
+  <g fill="#1f2937">
+    <rect x="30" y="92" width="18" height="56" rx="6"/>
+    <rect x="192" y="92" width="18" height="56" rx="6"/>
+    <rect x="30" y="296" width="18" height="56" rx="6"/>
+    <rect x="192" y="296" width="18" height="56" rx="6"/>
+  </g>
+  <g fill="#e2e8f0" stroke="#475569" stroke-width="2">
+    <ellipse cx="38" cy="168" rx="11" ry="7"/>
+    <ellipse cx="202" cy="168" rx="11" ry="7"/>
+  </g>
+  <path d="M72 38 Q120 20 168 38 Q186 46 190 76 Q196 104 196 136 L196 330 Q196 372 188 394 Q182 408 164 412 Q120 420 76 412 Q58 408 52 394 Q44 372 44 330 L44 136 Q44 104 50 76 Q54 46 72 38 Z" fill="#ffffff" stroke="#475569" stroke-width="2.5"/>
+  <g fill="#fde68a" stroke="#475569" stroke-width="1.5">
+    <path d="M60 52 Q70 42 88 38 L86 52 Q72 54 60 60 Z"/>
+    <path d="M180 52 Q170 42 152 38 L154 52 Q168 54 180 60 Z"/>
+  </g>
+  <g fill="#fca5a5" stroke="#475569" stroke-width="1.5">
+    <path d="M56 392 Q60 404 78 408 L78 396 Q64 394 56 386 Z"/>
+    <path d="M184 392 Q180 404 162 408 L162 396 Q176 394 184 386 Z"/>
+  </g>
+  <g fill="none" stroke="#94a3b8" stroke-width="1.5">
+    <path d="M84 70 Q120 62 156 70"/>
+    <path d="M80 70 L72 150"/>
+    <path d="M160 70 L168 150"/>
+    <path d="M44 218 L58 218"/>
+    <path d="M182 218 L196 218"/>
+    <path d="M44 286 L58 286"/>
+    <path d="M182 286 L196 286"/>
+    <path d="M74 380 Q120 388 166 380"/>
+  </g>
+  <path d="M64 162 Q120 140 176 162 L166 208 Q120 196 74 208 Z" fill="#dbeafe" stroke="#475569" stroke-width="2"/>
+  <rect x="74" y="214" width="92" height="104" rx="12" fill="#f1f5f9" stroke="#475569" stroke-width="2"/>
+  <path d="M74 326 Q120 336 166 326 L174 362 Q120 376 66 362 Z" fill="#dbeafe" stroke="#475569" stroke-width="2"/>
+  <path d="M58 214 L66 214 L66 318 L58 318 Q52 266 58 214 Z" fill="#dbeafe" stroke="#475569" stroke-width="1.5"/>
+  <path d="M182 214 L174 214 L174 318 L182 318 Q188 266 182 214 Z" fill="#dbeafe" stroke="#475569" stroke-width="1.5"/>
+</svg>

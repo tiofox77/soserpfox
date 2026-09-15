@@ -2005,6 +2005,13 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::post('/{id}/facturar', [$c, 'facturar'])->whereNumber('id')->name('facturar');
             Route::post('/{id}/anexos', [$c, 'anexar'])->whereNumber('id')->name('anexos.juntar');
             Route::delete('/{id}/anexos/{anexo}', [$c, 'apagarAnexo'])->whereNumber('id')->whereNumber('anexo')->name('anexos.apagar');
+
+            // O check-in da viatura: combustível, danos no desenho, acessórios e a assinatura do cliente.
+            $k = \App\Http\Controllers\Api\Workshop\CheckinDaOrdemApiController::class;
+            Route::get('/{id}/checkin', [$k, 'show'])->whereNumber('id')->name('checkin.ver');
+            Route::put('/{id}/checkin', [$k, 'update'])->whereNumber('id')->name('checkin.gravar');
+            Route::post('/{id}/checkin/assinatura', [$k, 'assinar'])->whereNumber('id')->name('checkin.assinar');
+            Route::delete('/{id}/checkin/assinatura', [$k, 'tirarAssinatura'])->whereNumber('id')->name('checkin.tirar-assinatura');
         });
 
         // As fotografias da viatura — antes, durante, depois e danos (bate-chapa, pintura…).

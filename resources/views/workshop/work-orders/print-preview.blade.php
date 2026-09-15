@@ -166,6 +166,12 @@
                         <div><span class="font-semibold text-gray-500">Ano:</span> {{ $workOrder->vehicle->year }}</div>
                         <div><span class="font-semibold text-gray-500">Cor:</span> {{ $workOrder->vehicle->color }}</div>
                         <div><span class="font-semibold text-gray-500">KM:</span> {{ number_format($workOrder->mileage_in, 0, ',', '.') }} km</div>
+                        @if($workOrder->vehicle->work_order_ref)
+                        <div><span class="font-semibold text-gray-500">WO#:</span> <span class="font-mono font-bold">{{ $workOrder->vehicle->work_order_ref }}</span></div>
+                        @endif
+                        @if($workOrder->vehicle->tag_number)
+                        <div><span class="font-semibold text-gray-500">TAG#:</span> <span class="font-mono font-bold">{{ $workOrder->vehicle->tag_number }}</span></div>
+                        @endif
                         <div><span class="font-semibold text-gray-500">Proprietário:</span> {{ $workOrder->vehicle->owner_name }}</div>
                         @if($workOrder->vehicle->owner_phone)
                         <div><span class="font-semibold text-gray-500">Tel:</span> {{ $workOrder->vehicle->owner_phone }}</div>
@@ -197,6 +203,71 @@
                     </div>
                 </div>
             </div>
+
+            {{-- O CHECK-IN (OF-01): como o carro chegou — o desenho com os danos, o depósito, o que vem no carro. --}}
+            @if($workOrder->checkin)
+            @php
+                $ck = $workOrder->checkin;
+                $tiposDeDano = \App\Models\Workshop\WorkOrderCheckin::TIPOS_DE_DANO;
+                $corDoDano = ['ambar' => '#f59e0b', 'laranja' => '#f97316', 'vermelho' => '#dc2626', 'castanho' => '#78350f', 'roxo' => '#9333ea'];
+                $acessorios = \App\Models\Workshop\WorkOrderCheckin::ACESSORIOS;
+                $luzes = \App\Models\Workshop\WorkOrderCheckin::LUZES;
+                $assinaturaValida = $ck->signature && hash_equals((string) $ck->signed_hash, $ck->conteudoAssinado((int) $workOrder->mileage_in));
+            @endphp
+            <div class="info-section p-3 page-break-avoid">
+                <h3 class="text-xs font-bold text-purple-700 mb-2 border-b border-purple-200 pb-1">CHECK-IN DA VIATURA</h3>
+                <div class="flex gap-4">
+                    <div style="width: 96px; flex: none;">
+                        <p style="font-size: 8px; text-align: center; color: #64748b; font-weight: 700;">FRENTE</p>
+                        <div style="position: relative;">
+                            <img src="/img/oficina/carro-planta.svg" alt="" style="display: block; width: 100%;">
+                            @foreach($ck->damages ?? [] as $dano)
+                                @php $tp = $tiposDeDano[$dano['tipo']] ?? null; @endphp
+                                <span style="position: absolute; left: {{ (float) $dano['x'] }}%; top: {{ (float) $dano['y'] }}%; transform: translate(-50%, -50%); width: 13px; height: 13px; border-radius: 50%; background: {{ $corDoDano[$tp['cor'] ?? 'ambar'] ?? '#f59e0b' }}; color: #fff; font-size: 7px; font-weight: 800; line-height: 13px; text-align: center; border: 1px solid #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact;">{{ $tp['letra'] ?? '?' }}</span>
+                            @endforeach
+                        </div>
+                        <p style="font-size: 8px; text-align: center; color: #64748b; font-weight: 700;">TRASEIRA</p>
+                    </div>
+                    <div class="flex-1 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                        <div><span class="font-semibold text-gray-500">Combustível:</span>
+                            @if($ck->fuel_level !== null)
+                                <span style="display: inline-flex; gap: 1px; vertical-align: middle;">
+                                    @for($n = 1; $n <= 8; $n++)
+                                        <span style="display: inline-block; width: 7px; height: 9px; border: 1px solid #94a3b8; background: {{ $n <= $ck->fuel_level ? '#334155' : '#fff' }}; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></span>
+                                    @endfor
+                                </span>
+                                {{ $ck->fuel_level }}/8
+                            @else — @endif
+                        </div>
+                        <div><span class="font-semibold text-gray-500">Chaves:</span> {{ $ck->keys_count ?? '—' }}</div>
+                        <div class="col-span-2"><span class="font-semibold text-gray-500">Danos:</span>
+                            @forelse($ck->damages ?? [] as $i => $dano)
+                                <span class="whitespace-nowrap">{{ $i + 1 }}. {{ $tiposDeDano[$dano['tipo']]['letra'] ?? '' }} {{ $tiposDeDano[$dano['tipo']]['rotulo'] ?? $dano['tipo'] }}@if(!empty($dano['nota'])) ({{ $dano['nota'] }})@endif{{ $loop->last ? '' : ';' }}</span>
+                            @empty
+                                sem danos marcados
+                            @endforelse
+                        </div>
+                        <div class="col-span-2"><span class="font-semibold text-gray-500">Luzes acesas:</span>
+                            {{ collect($ck->warning_lights ?? [])->map(fn ($l) => $luzes[$l] ?? $l)->implode(', ') ?: 'nenhuma' }}
+                        </div>
+                        <div class="col-span-2"><span class="font-semibold text-gray-500">Vem no carro:</span>
+                            @foreach($acessorios as $chave => $nome)
+                                <span class="whitespace-nowrap">{{ in_array($chave, $ck->accessories ?? [], true) ? '☑' : '☐' }} {{ $nome }}</span>
+                            @endforeach
+                        </div>
+                        @if($ck->belongings)
+                        <div class="col-span-2"><span class="font-semibold text-gray-500">Objectos deixados:</span> {{ $ck->belongings }}</div>
+                        @endif
+                        @if($assinaturaValida)
+                        <div class="col-span-2" style="display: flex; align-items: flex-end; gap: 8px;">
+                            <img src="{{ $ck->signature }}" alt="Assinatura" style="height: 34px; max-width: 140px; object-fit: contain; border-bottom: 1px solid #1f2937;">
+                            <span style="font-size: 9px; color: #64748b;">Estado à entrada confirmado por {{ $ck->signed_by }} em {{ $ck->signed_at?->format('d/m/Y H:i') }}</span>
+                        </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+            @endif
 
             {{-- Descrições (compactas) --}}
             <div class="space-y-2">

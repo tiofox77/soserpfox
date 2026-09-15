@@ -27,6 +27,7 @@ import { Separadores } from '@/ui/Separadores';
 import { ACCAO_DA_FAIXA, Faixa } from '@/ecras/facturacao/faixa';
 import { CARTAO, FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
 import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
+import { CheckinDaViatura } from './CheckinDaViatura';
 import { etiquetaIntl, t, tPartes } from '@/i18n';
 
 /**
@@ -98,6 +99,8 @@ export default function OrdensDeServico() {
     const [aEditar, porAEditar] = useState<Ordem | null>(null);
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [aVer, porAVer] = useState<number | null>(null);
+    // A aba com que a ficha abre: uma ordem acabada de criar abre no check-in.
+    const [abaDaFicha, porAbaDaFicha] = useState('info');
 
     /*
      * ABRIR UMA ORDEM PELO ENDEREÇO — `?ordem=12`.
@@ -128,7 +131,12 @@ export default function OrdensDeServico() {
 
     const gravar = useMutation({
         mutationFn: (dados: OrdemParaGravar) => (aEditar ? ordens.guardar(aEditar.id, dados) : ordens.criar(dados)),
-        onSuccess: (r) => { invalidar(); porFormulario(null); porAEditar(null); porErros({}); porRecado(r.message); },
+        onSuccess: (r) => {
+            const nova = !aEditar;
+            invalidar(); porFormulario(null); porAEditar(null); porErros({}); porRecado(r.message);
+            // O carro acabou de entrar: segue-se o check-in (km, combustível, danos, assinatura).
+            if (nova && r.data?.id && opcoes.data?.permissoes.pode_editar) { porAbaDaFicha('checkin'); porAVer(r.data.id); }
+        },
         onError: (e) => porErros(e instanceof ErroDaApi ? e.erros : {}),
     });
 
@@ -382,7 +390,8 @@ export default function OrdensDeServico() {
                 <FichaDaOrdemModal
                     id={aVer}
                     o={o}
-                    aoFechar={() => porAVer(null)}
+                    abaInicial={abaDaFicha}
+                    aoFechar={() => { porAVer(null); porAbaDaFicha('info'); }}
                     aoMudar={(m, falhas) => { invalidar(); porRecado(m); porAviso(falhas ?? []); }}
                     mudarEstado={(id, estado) => mudarEstado.mutate({ id, estado })}
                     aMudarEstado={mudarEstado.isPending}
@@ -562,16 +571,17 @@ function FormularioDaOrdem({ o, valores, erros, titulo, subtitulo, aGravar, erro
 
 /* ─── A ficha ───────────────────────────────────────────────────────── */
 
-function FichaDaOrdemModal({ id, o, aoFechar, aoMudar, mudarEstado, aMudarEstado }: {
+function FichaDaOrdemModal({ id, o, abaInicial = 'info', aoFechar, aoMudar, mudarEstado, aMudarEstado }: {
     id: number;
     o: OpcoesDasOrdens;
+    abaInicial?: string;
     aoFechar: () => void;
     aoMudar: (mensagem: string, falhas?: string[]) => void;
     mudarEstado: (id: number, estado: string) => void;
     aMudarEstado: boolean;
 }) {
     const cache = useQueryClient();
-    const [aba, porAba] = useState('info');
+    const [aba, porAba] = useState(abaInicial);
     const [aJuntar, porAJuntar] = useState<'service' | 'part' | null>(null);
     const [aAnexar, porAAnexar] = useState(false);
 
@@ -598,6 +608,8 @@ function FichaDaOrdemModal({ id, o, aoFechar, aoMudar, mudarEstado, aMudarEstado
 
     const abas = [
         { chave: 'info', rotulo: t('Informação'), icone: 'fa-circle-info' },
+        // OF-01: como o carro chegou — combustível, danos no desenho, acessórios e assinatura.
+        { chave: 'checkin', rotulo: t('Check-in'), icone: 'fa-clipboard-check' },
         { chave: 'linhas', rotulo: t('Serviços e peças'), icone: 'fa-list' },
         { chave: 'contas', rotulo: t('Contas'), icone: 'fa-calculator' },
         { chave: 'historico', rotulo: t('Histórico'), icone: 'fa-clock-rotate-left' },
@@ -695,6 +707,10 @@ function FichaDaOrdemModal({ id, o, aoFechar, aoMudar, mudarEstado, aMudarEstado
                         <Texto titulo={t('Trabalho realizado')} icone="fa-screwdriver-wrench" tom="verde" corpo={f.trabalho} />
                         <Texto titulo={t('Recomendações')} icone="fa-lightbulb" tom="ambar" corpo={f.recomendacoes} />
                         <Texto titulo={t('Notas')} icone="fa-note-sticky" tom="cinza" corpo={f.notas} />
+                    </div>
+
+                    <div hidden={aba !== 'checkin'}>
+                        {aba === 'checkin' && <CheckinDaViatura id={id} dono={f.viatura_ficha?.dono} />}
                     </div>
 
                     <div hidden={aba !== 'linhas'} className="space-y-3">

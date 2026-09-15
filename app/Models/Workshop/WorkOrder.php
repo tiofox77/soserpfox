@@ -121,6 +121,12 @@ class WorkOrder extends Model
         return $this->hasMany(WorkOrderHistory::class)->orderBy('created_at', 'desc');
     }
     
+    /** O check-in: como o carro chegou (combustível, danos, acessórios, assinatura). */
+    public function checkin()
+    {
+        return $this->hasOne(WorkOrderCheckin::class, 'work_order_id');
+    }
+
     /** As fotografias da viatura postas nesta folha de obra (antes/durante/depois). */
     public function vehiclePhotos()
     {
