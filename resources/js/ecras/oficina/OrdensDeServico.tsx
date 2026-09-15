@@ -34,6 +34,7 @@ import { GuardarComoPacote, JuntarPacote } from './PacoteNaOrdem';
 import { PecasEmFalta } from './PecasEmFalta';
 import { AdiarLinha, RecomendacoesDaViatura } from './RecomendacoesNaOrdem';
 import { EntregaDaViatura } from './EntregaDaViatura';
+import { AvaliacaoNaOrdem } from './AvaliacaoNaOrdem';
 import { AprovacaoDoCliente, SeloDaAprovacao } from './AprovacaoDoCliente';
 import { etiquetaIntl, t, tPartes } from '@/i18n';
 
@@ -732,8 +733,10 @@ export function FichaDaOrdemModal({ id, o, abaInicial = 'info', aoFechar, aoMuda
                         <Texto titulo={t('Notas')} icone="fa-note-sticky" tom="cinza" corpo={f.notas} />
                     </div>
 
-                    <div hidden={aba !== 'entrega'}>
+                    <div hidden={aba !== 'entrega'} className="space-y-4">
                         {aba === 'entrega' && <EntregaDaViatura id={id} aoMudar={aoMudar} />}
+                        {/* OF-14: a avaliação do cliente — as estrelas, ou o link para a pedir. */}
+                        {aba === 'entrega' && <AvaliacaoNaOrdem id={id} telefone={f.viatura_ficha?.telefone} dono={f.viatura_ficha?.dono} />}
                     </div>
 
                     <div hidden={aba !== 'checkin'}>

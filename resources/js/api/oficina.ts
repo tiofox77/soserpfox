@@ -47,6 +47,17 @@ export type PainelDaOficina = {
     top_servicos: Array<{ nome: string; vezes: number; receita: number | null }>;
     urgentes: OrdemUrgente[];
     documentos_a_caducar: ViaturaComDocumentos[];
+    /** OF-14: a satisfação dos clientes no período. */
+    satisfacao?: SatisfacaoDosClientes;
+};
+
+export type SatisfacaoDosClientes = {
+    media: number | null;
+    respostas: number;
+    enviados: number;
+    recomendam: number | null;
+    estrelas: Array<{ estrelas: number; quantos: number }>;
+    ultimos: Array<{ nota: number; recomenda: boolean | null; comentario: string | null; quando: string | null; ordem_id: number; ordem: string | null; matricula: string | null; dono: string | null; mecanico: string | null }>;
 };
 
 export const painelDaOficina = {
@@ -925,4 +936,34 @@ export const entregaDaOrdem = {
     assinar: (id: number, d: EntregaParaGravar & { assinatura: string; entregar: boolean }) =>
         api.criar<RespostaDaEntrega>(`/oficina/ordens/${id}/entrega/assinar`, d),
     tirarAssinatura: (id: number) => api.apagar<RespostaDaEntrega>(`/oficina/ordens/${id}/entrega/assinatura`),
+};
+
+/* ─── O inquérito de satisfação (OF-14) ─────────────────────────────── */
+
+export type AvaliacaoPeloLink = {
+    empresa: { nome: string | null; telefone: string | null };
+    ordem: { numero: string; matricula: string | null; viatura: string; dono: string | null; entregue_em: string | null; mecanico: string | null; servicos: string[] };
+    resposta: { nota: number; recomenda: boolean | null; comentario: string | null; em: string } | null;
+};
+
+const avaliarPelaChave = criarApi('/oficina/avaliar');
+
+export const avaliacaoPeloLink = {
+    ver: (token: string) => avaliarPelaChave.ler<AvaliacaoPeloLink>(`/${token}/dados`),
+    responder: (token: string, d: { nota: number; recomenda: boolean | null; comentario: string }) =>
+        avaliarPelaChave.criar<{ message: string }>(`/${token}`, d),
+};
+
+export type InqueritoDaOrdem = {
+    link: string;
+    nota: number | null;
+    recomenda: boolean | null;
+    comentario: string | null;
+    respondido_em: string | null;
+    enviado_em: string | null;
+};
+
+export const inqueritoDaOrdem = {
+    ler: (id: number) => api.ler<{ data: InqueritoDaOrdem | null; pode_criar: boolean }>(`/oficina/ordens/${id}/inquerito`),
+    criar: (id: number) => api.criar<{ data: InqueritoDaOrdem; pode_criar: boolean; message: string }>(`/oficina/ordens/${id}/inquerito`, {}),
 };

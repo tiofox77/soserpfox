@@ -401,6 +401,8 @@ export const ecras: Record<string, Ecra> = {
     'oficina/quadro': () =>
         import('./oficina/Quadro'),
     // O orçamento aprovado pelo cliente, pelo link (OF-03) — página solta, sem sessão.
+    'oficina/avaliar-servico': () =>
+        import('./oficina/AvaliarServico'),
     'oficina/aprovar-orcamento': () =>
         import('./oficina/AprovarOrcamento'),
 

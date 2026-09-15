@@ -140,6 +140,8 @@ class PainelApiController extends Controller
                     'estado_rotulo' => __(self::ESTADOS[$o->status] ?? $o->status),
                 ])->all(),
             'documentos_a_caducar' => $this->documentosACaducar($tenantId),
+            // OF-14: a satisfação dos clientes no período.
+            'satisfacao' => \App\Services\Workshop\InqueritosDaOficina::resumo($tenantId, $de, $ate),
         ]);
     }
 

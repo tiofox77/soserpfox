@@ -103,7 +103,9 @@ class PortalDaOficinaApiController extends Controller
         return WorkOrder::withoutGlobalScopes()
             ->with(['invoice' => fn ($q) => $q->withoutGlobalScopes(), 'vehicle' => fn ($q) => $q->withoutGlobalScopes(), 'items', 'attachments', 'vehiclePhotos' => fn ($q) => $q->withoutGlobalScopes()->orderBy('created_at'),
                 // As inspecções CONCLUÍDAS (OF-02): uma a meio não se mostra ao cliente.
-                'inspections' => fn ($q) => $q->withoutGlobalScopes()->whereNotNull('completed_at')->orderByDesc('completed_at')])
+                'inspections' => fn ($q) => $q->withoutGlobalScopes()->whereNotNull('completed_at')->orderByDesc('completed_at'),
+                // A avaliação do serviço (OF-14).
+                'survey' => fn ($q) => $q->withoutGlobalScopes()])
             ->where('tenant_id', $cliente->tenant_id)
             ->whereIn('vehicle_id', $viaturas)
             ->orderByDesc('received_at')->orderByDesc('id')
@@ -163,6 +165,9 @@ class PortalDaOficinaApiController extends Controller
             // OF-03: o orçamento à espera da decisão do cliente.
             'aprovar' => \App\Http\Controllers\Api\Workshop\AprovacaoDoOrcamentoApiController::linkActivo($o) && $o->items->contains('approval', 'pending')
                 ? route('oficina.aprovar-orcamento', $o->approval_token) : null,
+            // OF-14: o link para avaliar (por responder) ou a nota que o cliente deu.
+            'avaliar' => $o->survey && ! $o->survey->answered_at ? route('oficina.avaliar', $o->survey->token) : null,
+            'avaliacao' => $o->survey?->answered_at ? $o->survey->score : null,
             'total' => round((float) $o->total, 2),
             'garantia_ate' => $o->warranty_expires?->toDateString(),
             'inspeccoes' => $o->inspections->map(fn ($i) => \App\Http\Controllers\Api\Workshop\InspeccoesDaOrdemApiController::paraEcra($i))->values(),

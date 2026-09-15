@@ -107,6 +107,16 @@ class AvisosDaOficina
             'sms_body' => '{{empresa}}: o livrete da viatura {{matricula}} caduca a {{data}}.',
             'is_active' => true,
         ],
+        // OF-14: o convite para avaliar, quando a viatura é entregue.
+        'inquerito' => [
+            'estado' => null,
+            'name' => 'Oficina — Inquérito de satisfação',
+            'description' => 'Depois da entrega, o link para o cliente avaliar o serviço.',
+            'email_subject' => 'Como correu o serviço da viatura {{matricula}}?',
+            'email_body' => "Olá {{cliente}},\n\nObrigado por confiar na {{empresa}}. Em 30 segundos diga-nos como correu o serviço da sua viatura {{matricula}}:\n{{link}}\n\n{{empresa}}",
+            'sms_body' => '{{empresa}}: obrigado! Avalie o servico da viatura {{matricula}} em 30 segundos: {{link}}',
+            'is_active' => true,
+        ],
         // OF-12: o que ficou por fazer numa visita.
         'recomendacao' => [
             'estado' => null,
@@ -182,6 +192,16 @@ class AvisosDaOficina
     public static function orcamento(WorkOrder $ordem, string $link): void
     {
         self::depois(fn () => self::avisar($ordem, 'orcamento', ['link' => $link]));
+    }
+
+    /** OF-14: o convite para avaliar o serviço; marca quando saiu. */
+    public static function inquerito(WorkOrder $ordem, \App\Models\Workshop\WorkOrderSurvey $inquerito, string $link): void
+    {
+        self::depois(function () use ($ordem, $inquerito, $link) {
+            if (self::avisar($ordem, 'inquerito', ['link' => $link])) {
+                $inquerito->update(['sent_at' => now()]);
+            }
+        });
     }
 
     /** Depois da resposta, num pedido; logo, na consola. */

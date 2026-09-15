@@ -67,6 +67,9 @@ export type OrdemDoCliente = {
     linhas: Array<{ tipo: string; nome: string; quantidade: number; total: number; aprovacao: 'approved' | 'pending' | 'declined' }>;
     /** OF-03: o link para aprovar o orçamento, quando há linhas à espera. */
     aprovar: string | null;
+    /** OF-14: o link para avaliar o serviço (por responder) e a nota dada. */
+    avaliar?: string | null;
+    avaliacao?: number | null;
     total: number;
     garantia_ate: string | null;
     fotos: Array<{ url: string; tipo: string; descricao: string | null; servico: string | null; zona: string | null }>;

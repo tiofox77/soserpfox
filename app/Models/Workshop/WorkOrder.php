@@ -149,6 +149,12 @@ class WorkOrder extends Model
         return $this->hasOne(WorkOrderCheckin::class, 'work_order_id');
     }
 
+    /** OF-14: a avaliação do cliente depois da entrega. */
+    public function survey()
+    {
+        return $this->hasOne(WorkOrderSurvey::class, 'work_order_id');
+    }
+
     /** OF-13: o termo de entrega — como o carro saiu e quem o levantou. */
     public function handover()
     {

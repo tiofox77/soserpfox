@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 
-import { painelDaOficina, type OrdemUrgente, type Serie, type ViaturaComDocumentos } from '@/api/oficina';
+import { painelDaOficina, type OrdemUrgente, type SatisfacaoDosClientes, type Serie, type ViaturaComDocumentos } from '@/api/oficina';
+import { Estrelas } from './AvaliarServico';
 import { ErroDaApi } from '@/api/cliente';
 import { Cartao } from '@/ui/Cartao';
 import { CartaoNumero } from '@/ui/CartaoNumero';
@@ -158,6 +159,9 @@ export default function Painel() {
                 </Cartao>
             </div>
 
+            {/* OF-14: o que os clientes dizem do serviço. */}
+            {d.satisfacao && <SatisfacaoNoPainel s={d.satisfacao} />}
+
             {d.ve_dinheiro && d.top_servicos.length > 0 && (
                 <Cartao titulo={t('Os cinco serviços do período')} icone="fa-ranking-star">
                     <ul className="divide-y divide-slate-100">
@@ -183,6 +187,59 @@ export default function Painel() {
 }
 
 /* ─── As peças ──────────────────────────────────────────────────────── */
+
+/**
+ * A SATISFAÇÃO DOS CLIENTES (OF-14): a média, quantos recomendam, a
+ * distribuição das estrelas e os últimos comentários — o mau primeiro a ver.
+ */
+function SatisfacaoNoPainel({ s }: { s: SatisfacaoDosClientes }) {
+    const maior = Math.max(1, ...s.estrelas.map((e) => e.quantos));
+
+    return (
+        <Cartao titulo={t('Satisfação dos clientes')} icone="fa-star" subtitulo={t(':r respostas de :e pedidos no período', { r: s.respostas, e: s.enviados })}>
+            {s.respostas === 0 ? (
+                <p className="py-6 text-center text-sm text-slate-400">{t('Ainda sem avaliações neste período. O link segue quando a viatura é entregue.')}</p>
+            ) : (
+                <div className="grid gap-5 lg:grid-cols-[14rem_1fr_1.4fr]">
+                    <div className="flex flex-col items-center justify-center gap-1 text-center">
+                        <span className="text-5xl font-extrabold tabular-nums text-slate-900">{(s.media ?? 0).toLocaleString(etiquetaIntl(), { minimumFractionDigits: 1 })}</span>
+                        <Estrelas nota={Math.round(s.media ?? 0)} tamanho="text-xl" />
+                        {s.recomendam !== null && (
+                            <span className={cls('mt-2 rounded-full px-2.5 py-1 text-xs font-bold', s.recomendam >= 70 ? 'bg-emerald-100 text-emerald-700' : s.recomendam >= 40 ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-700')}>
+                                <i className="fas fa-thumbs-up mr-1" aria-hidden="true" />{t(':p% recomendam', { p: s.recomendam })}
+                            </span>
+                        )}
+                    </div>
+                    <ul className="space-y-1.5 self-center">
+                        {s.estrelas.map((e, i) => (
+                            <li key={e.estrelas} className="entra flex items-center gap-2 text-xs" style={{ '--i': i } as React.CSSProperties}>
+                                <span className="w-6 text-right font-bold tabular-nums text-slate-600">{e.estrelas}<i className="fas fa-star ml-0.5 text-[9px] text-amber-400" aria-hidden="true" /></span>
+                                <span className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+                                    <span className={cls('block h-full rounded-full transition-all duration-700', e.estrelas >= 4 ? 'bg-emerald-500' : e.estrelas === 3 ? 'bg-amber-400' : 'bg-red-500')} style={{ width: `${(e.quantos / maior) * 100}%` }} />
+                                </span>
+                                <span className="w-6 tabular-nums text-slate-500">{e.quantos}</span>
+                            </li>
+                        ))}
+                    </ul>
+                    <ul className="space-y-2">
+                        {s.ultimos.map((u, i) => (
+                            <li key={`${u.ordem_id}-${i}`} className={cls('entra border-l-4 bg-slate-50 p-2.5', RAIO, u.nota <= 2 ? 'border-red-500' : u.nota === 3 ? 'border-amber-400' : 'border-emerald-500')}
+                                style={{ '--i': i } as React.CSSProperties}>
+                                <div className="flex flex-wrap items-center gap-2 text-xs">
+                                    <Estrelas nota={u.nota} tamanho="text-[11px]" />
+                                    <span className="font-semibold text-slate-700">{u.matricula ?? '—'}</span>
+                                    <span className="text-slate-500">{u.dono}{u.mecanico ? ` · ${u.mecanico}` : ''}</span>
+                                    <span className="ml-auto text-slate-400">{data(u.quando)}</span>
+                                </div>
+                                {u.comentario && <p className="mt-1 text-sm italic text-slate-600">«{u.comentario}»</p>}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+        </Cartao>
+    );
+}
 
 /**
  * OS ESTADOS EM LINHAS, e não numa rosca.

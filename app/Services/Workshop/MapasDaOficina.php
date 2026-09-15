@@ -272,7 +272,12 @@ final class MapasDaOficina
             ->selectRaw('COALESCE(i.mechanic_id, o.mechanic_id) as mecanico, SUM(i.hours * GREATEST(i.quantity, 1)) as horas')
             ->groupByRaw('COALESCE(i.mechanic_id, o.mechanic_id)')->pluck('horas', 'mecanico');
 
-        $linhas = $linhas->map(function ($l) use ($trabalhadas, $vendidas) {
+        // OF-14: a nota média dos clientes a cada mecânico.
+        $avaliacoes = \App\Services\Workshop\InqueritosDaOficina::porMecanico($tenantId, $de, $ate);
+
+        $linhas = $linhas->map(function ($l) use ($trabalhadas, $vendidas, $avaliacoes) {
+            $l->avaliacao = $avaliacoes[$l->id]['media'] ?? null;
+            $l->avaliacoes = $avaliacoes[$l->id]['respostas'] ?? 0;
             $l->trabalhadas = round(((int) ($trabalhadas[$l->id] ?? 0)) / 60, 2);
             $l->vendidas = round((float) ($vendidas[$l->id] ?? 0), 2);
             $l->eficiencia = $l->trabalhadas > 0 ? (int) round($l->vendidas / $l->trabalhadas * 100) : null;
@@ -290,6 +295,8 @@ final class MapasDaOficina
                 ['chave' => 'trabalhadas', 'rotulo' => 'Horas trabalhadas', 'formato' => 'numero'],
                 ['chave' => 'vendidas', 'rotulo' => 'Horas vendidas', 'formato' => 'numero'],
                 ['chave' => 'eficiencia', 'rotulo' => 'Eficiência %', 'formato' => 'numero'],
+                ['chave' => 'avaliacao', 'rotulo' => 'Avaliação (1-5)', 'formato' => 'numero'],
+                ['chave' => 'avaliacoes', 'rotulo' => 'Avaliações', 'formato' => 'numero'],
             ],
             /*
              * QUEM NÃO TEVE ORDENS NENHUMAS TAMBÉM APARECE, com zeros.
@@ -307,6 +314,8 @@ final class MapasDaOficina
                 'trabalhadas' => $l->trabalhadas,
                 'vendidas' => $l->vendidas,
                 'eficiencia' => $l->eficiencia,
+                'avaliacao' => $l->avaliacao,
+                'avaliacoes' => $l->avaliacoes,
             ])->all(),
             'totais' => [
                 'nome' => __('Total'),
@@ -317,6 +326,8 @@ final class MapasDaOficina
                 'trabalhadas' => round((float) $linhas->sum('trabalhadas'), 2),
                 'vendidas' => round((float) $linhas->sum('vendidas'), 2),
                 'eficiencia' => $linhas->sum('trabalhadas') > 0 ? (int) round($linhas->sum('vendidas') / $linhas->sum('trabalhadas') * 100) : null,
+                'avaliacao' => $linhas->sum('avaliacoes') > 0 ? round($linhas->sum(fn ($l) => ($l->avaliacao ?? 0) * $l->avaliacoes) / $linhas->sum('avaliacoes'), 1) : null,
+                'avaliacoes' => (int) $linhas->sum('avaliacoes'),
             ],
             'nada' => $linhas->isEmpty() ? __('Ainda não há mecânicos nesta oficina.') : null,
         ];

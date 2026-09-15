@@ -176,6 +176,26 @@ function Folha({ o, i, aberta = false }: { o: OrdemDoCliente; i: number; aberta?
                         ))}
                     </div>
 
+                    {/* OF-14: a avaliação do serviço — o convite, ou as estrelas que já deu. */}
+                    {o.avaliar && (
+                        <a href={o.avaliar} className={cls('group flex flex-wrap items-center gap-3 border border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50 p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md', RAIO, FOCO)}>
+                            <span className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-lg text-white shadow transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110">
+                                <i className="fas fa-star" aria-hidden="true" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                                <span className="block font-semibold text-gray-900">{t('Como correu o serviço?')}</span>
+                                <span className="block text-sm text-gray-600">{t('Dê a sua nota em 30 segundos — ajuda a oficina a fazer melhor.')}</span>
+                            </span>
+                            <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-sm font-bold text-white">{t('Avaliar')}<i className="fas fa-arrow-right transition-transform group-hover:translate-x-1" aria-hidden="true" /></span>
+                        </a>
+                    )}
+                    {o.avaliacao ? (
+                        <p className="flex items-center gap-2 text-sm text-gray-600">
+                            {t('A sua avaliação:')}
+                            <span className="inline-flex gap-0.5">{[1, 2, 3, 4, 5].map((e) => <i key={e} className={cls('fas fa-star', e <= (o.avaliacao ?? 0) ? 'text-amber-400' : 'text-gray-200')} aria-hidden="true" />)}</span>
+                        </p>
+                    ) : null}
+
                     {/* OF-03: o orçamento à espera da decisão do cliente. */}
                     {o.aprovar && (
                         <a href={o.aprovar} className={cls('group flex flex-wrap items-center gap-3 border border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50 p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md', RAIO, FOCO)}>

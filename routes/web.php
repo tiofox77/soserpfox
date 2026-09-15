@@ -2040,6 +2040,11 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::put('/{id}/tempos/{registo}', [$tp, 'corrigir'])->whereNumber('id')->whereNumber('registo')->name('tempos.corrigir');
             Route::delete('/{id}/tempos/{registo}', [$tp, 'destroy'])->whereNumber('id')->whereNumber('registo')->name('tempos.apagar');
 
+            // O inquérito de satisfação da ordem (OF-14).
+            $iq = \App\Http\Controllers\Api\Workshop\InqueritoDeSatisfacaoApiController::class;
+            Route::get('/{id}/inquerito', [$iq, 'daOrdem'])->whereNumber('id')->name('inquerito.ver');
+            Route::post('/{id}/inquerito', [$iq, 'criar'])->whereNumber('id')->name('inquerito.criar');
+
             // A entrega da viatura com assinatura (OF-13).
             $en = \App\Http\Controllers\Api\Workshop\EntregaDaOrdemApiController::class;
             Route::get('/{id}/entrega', [$en, 'show'])->whereNumber('id')->name('entrega.ver');
@@ -2868,6 +2873,20 @@ Route::middleware('throttle:30,1')->prefix('oficina/aprovar')->group(function ()
         ->where('token', '[A-Za-z0-9]{48}')->name('oficina.aprovar-orcamento.dados');
     Route::post('/{token}', [\App\Http\Controllers\Api\Workshop\AprovacaoDoOrcamentoApiController::class, 'responder'])
         ->where('token', '[A-Za-z0-9]{48}')->name('oficina.aprovar-orcamento.responder');
+});
+
+/*
+ * A AVALIAÇÃO DO SERVIÇO PELO LINK (OF-14) — sem conta, como a aprovação do
+ * orçamento: a chave de 48 caracteres é a porta, e o limite de pedidos trava
+ * quem a tente adivinhar.
+ */
+Route::middleware('throttle:30,1')->prefix('oficina/avaliar')->group(function () {
+    Route::get('/{token}', \App\Support\EcraReact::solta('oficina/avaliar-servico', 'Avaliar o serviço'))
+        ->where('token', '[A-Za-z0-9]{48}')->name('oficina.avaliar');
+    Route::get('/{token}/dados', [\App\Http\Controllers\Api\Workshop\InqueritoDeSatisfacaoApiController::class, 'ver'])
+        ->where('token', '[A-Za-z0-9]{48}')->name('oficina.avaliar.dados');
+    Route::post('/{token}', [\App\Http\Controllers\Api\Workshop\InqueritoDeSatisfacaoApiController::class, 'responder'])
+        ->where('token', '[A-Za-z0-9]{48}')->name('oficina.avaliar.responder');
 });
 
 // Rotas protegidas do cliente
