@@ -31,6 +31,7 @@ import { CheckinDaViatura } from './CheckinDaViatura';
 import { InspeccaoDaOrdem } from './InspeccaoDaOrdem';
 import { TemposDaOrdem } from './TemposDaOrdem';
 import { GuardarComoPacote, JuntarPacote } from './PacoteNaOrdem';
+import { PecasEmFalta } from './PecasEmFalta';
 import { AprovacaoDoCliente, SeloDaAprovacao } from './AprovacaoDoCliente';
 import { etiquetaIntl, t, tPartes } from '@/i18n';
 
@@ -729,6 +730,7 @@ export function FichaDaOrdemModal({ id, o, abaInicial = 'info', aoFechar, aoMuda
 
                     <div hidden={aba !== 'linhas'} className="space-y-3">
                         <AprovacaoDoCliente id={id} ficha={f} podeEditar={o.permissoes.pode_editar} aoMudar={(m) => { refazer(); aoMudar(m); }} />
+                        {aba === 'linhas' && <PecasEmFalta key={f.linhas.length} id={id} aoMudar={(m) => { refazer(); aoMudar(m); }} />}
                         {o.permissoes.pode_editar && (
                             <div className="flex flex-wrap gap-2">
                                 <Botao cor="primaria" tom="solida" icone="fa-screwdriver-wrench" onClick={() => porAJuntar('service')}>

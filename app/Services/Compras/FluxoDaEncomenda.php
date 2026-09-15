@@ -265,6 +265,9 @@ class FluxoDaEncomenda
             $porReceber = $enc->itens->sum(fn ($i) => $i->porReceber());
             $enc->update(['estado' => $porReceber > 0.0001 ? 'parcial' : 'recebida']);
 
+            // OF-08: a ordem da oficina que pediu estas peças fica a saber (e volta a «Em curso»).
+            \App\Http\Controllers\Api\Workshop\PecasDaOrdemApiController::aoReceberEncomenda($enc);
+
             return $enc->fresh('itens');
         });
     }

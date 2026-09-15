@@ -25,6 +25,8 @@ class Requisicao extends Model
         'tenant_id',
         'numero',
         'warehouse_id',
+        // OF-08: a ordem de serviço de onde nasceu (peças em falta na oficina).
+        'work_order_id',
         'necessaria_em',
         'estado',
         'justificacao',

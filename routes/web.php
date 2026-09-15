@@ -2022,6 +2022,11 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::delete('/{id}/aprovacao', [$ap, 'cancelar'])->whereNumber('id')->name('aprovacao.cancelar');
             Route::post('/{id}/linhas/{linha}/aprovacao', [$ap, 'decidirLinha'])->whereNumber('id')->whereNumber('linha')->name('aprovacao.linha');
 
+            // As peças da ordem e o pedido das que faltam (OF-08).
+            $pz = \App\Http\Controllers\Api\Workshop\PecasDaOrdemApiController::class;
+            Route::get('/{id}/pecas', [$pz, 'index'])->whereNumber('id')->name('pecas.lista');
+            Route::post('/{id}/pecas/requisicao', [$pz, 'requisitar'])->whereNumber('id')->name('pecas.requisitar');
+
             // Os pacotes de serviço (OF-07): juntar um à ordem, ou guardar a ordem como pacote.
             $pc = \App\Http\Controllers\Api\Workshop\PacotesDeServicoApiController::class;
             Route::post('/{id}/pacotes', [$pc, 'juntar'])->whereNumber('id')->name('pacotes.juntar');

@@ -731,3 +731,21 @@ export const pacotesDeServico = {
     guardarDaOrdem: (ordem: number, nome: string) =>
         api.criar<{ data: PacoteDeServico; message: string }>(`/oficina/ordens/${ordem}/guardar-pacote`, { nome }),
 };
+
+/* ─── As peças da ordem e o que falta (OF-08) ───────────────────────── */
+
+export type PecasDaOrdem = {
+    armazem: string | null;
+    pecas: Array<{ id: number; nome: string; codigo: string | null; quantidade: number; do_catalogo: boolean; em_stock: number | null; falta: number; aprovacao: string }>;
+    requisicoes: Array<{ id: number; numero: string; estado: string; estado_rotulo: string; linhas: number; em: string | null }>;
+    tem_compras: boolean;
+    pode_pedir: boolean;
+    estado_da_ordem: string;
+    message?: string;
+};
+
+export const pecasDaOrdem = {
+    ler: (id: number) => api.ler<PecasDaOrdem>(`/oficina/ordens/${id}/pecas`),
+    requisitar: (id: number, linhas: Array<{ linha_id: number; quantidade: number }>, submeter: boolean, esperar: boolean) =>
+        api.criar<PecasDaOrdem>(`/oficina/ordens/${id}/pecas/requisicao`, { linhas, submeter, esperar }),
+};
