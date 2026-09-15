@@ -11394,5 +11394,7 @@
     "As cópias saem do servidor sem cifra. Ligue a cifra com uma frase-passe: uma cópia tem todos os dados, incluindo dados pessoais.": "Backups leave the server unencrypted. Turn on encryption with a passphrase: a backup holds all data, including personal data.",
     "A última cópia concluída tem mais de :h horas. As cópias automáticas podem não estar a correr.": "The last completed backup is more than :h hours old. Automatic backups may not be running.",
     "Só quem gere a conta da empresa trata das cópias de segurança.": "Only the company account manager handles backups.",
-    "Aplicação :f guardada.": "App :f saved."
+    "Aplicação :f guardada.": "App :f saved.",
+    "A cópia foi interrompida (o servidor terminou o processo antes de acabar).": "The backup was interrupted (the server ended the process before it finished).",
+    "O restauro foi interrompido antes de acabar. Confira os dados e, se preciso, reponha a cópia feita antes dele.": "The restore was interrupted before it finished. Check the data and, if needed, restore the backup taken before it."
 }

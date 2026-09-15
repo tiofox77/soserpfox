@@ -11394,5 +11394,7 @@
     "As cópias saem do servidor sem cifra. Ligue a cifra com uma frase-passe: uma cópia tem todos os dados, incluindo dados pessoais.": "Les sauvegardes quittent le serveur sans chiffrement. Activez le chiffrement avec une phrase secrète : une sauvegarde contient toutes les données, y compris personnelles.",
     "A última cópia concluída tem mais de :h horas. As cópias automáticas podem não estar a correr.": "La dernière sauvegarde terminée date de plus de :h heures. Les sauvegardes automatiques ne s'exécutent peut-être pas.",
     "Só quem gere a conta da empresa trata das cópias de segurança.": "Seul le gestionnaire du compte de l'entreprise gère les sauvegardes.",
-    "Aplicação :f guardada.": "Application :f enregistrée."
+    "Aplicação :f guardada.": "Application :f enregistrée.",
+    "A cópia foi interrompida (o servidor terminou o processo antes de acabar).": "La sauvegarde a été interrompue (le serveur a arrêté le processus avant la fin).",
+    "O restauro foi interrompido antes de acabar. Confira os dados e, se preciso, reponha a cópia feita antes dele.": "La restauration a été interrompue avant la fin. Vérifiez les données et, si besoin, restaurez la sauvegarde faite avant."
 }

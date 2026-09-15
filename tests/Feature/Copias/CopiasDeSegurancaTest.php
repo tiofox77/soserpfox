@@ -416,6 +416,19 @@ class CopiasDeSegurancaTest extends TenantTestCase
         $this->assertSame('rt', $destino->fresh()->cfg('refresh_token'));
     }
 
+    public function test_uma_copia_abandonada_a_meio_deixa_de_estar_a_correr(): void
+    {
+        $this->dono();
+        $presa = CopiaDeSeguranca::create(['tenant_id' => $this->tenant->id, 'ficheiro' => 'soserp-a-preparar-1.tmp', 'origem' => 'automatica', 'estado' => 'a_correr', 'iniciada_em' => now()->subMinutes(30)]);
+        $recente = CopiaDeSeguranca::create(['tenant_id' => $this->tenant->id, 'ficheiro' => 'soserp-a-preparar-2.tmp', 'origem' => 'manual', 'estado' => 'a_correr', 'iniciada_em' => now()->subMinute()]);
+
+        $this->getJson('/api/v1/invoicing/react/copias')->assertOk();
+
+        $this->assertSame('falhou', $presa->fresh()->estado);
+        $this->assertStringContainsString('interrompida', $presa->fresh()->erro);
+        $this->assertSame('a_correr', $recente->fresh()->estado, 'a que começou agora ainda pode estar a correr');
+    }
+
     /**
      * As colunas GERADAS ficam fora (o MySQL recusa quem lhes escreva), mas um
      * `DEFAULT CURRENT_TIMESTAMP` aparece como «DEFAULT_GENERATED» e é uma

@@ -47,6 +47,7 @@ abstract class CopiasApiController extends Controller
     {
         $tenantId = $this->ambito($request);
         $agenda = AgendaDeCopia::para($tenantId);
+        $this->fecharAbandonadas($tenantId);
 
         $copias = CopiaDeSeguranca::doAmbito($tenantId)->with('envios.destino')->orderByDesc('id')
             ->paginate(10, ['*'], 'pagina', (int) $request->query('pagina', 1));
@@ -440,6 +441,34 @@ abstract class CopiasApiController extends Controller
      * Está uma cópia a correr neste âmbito? Tenta-se a tranca e, se veio, larga-se
      * logo — só a NOSSA. Nunca `forceRelease`: soltava a de uma cópia a meio.
      */
+    /**
+     * O QUE FICOU «A CORRER» SEM NINGUÉM A CORRER.
+     *
+     * Um alojamento partilhado mata o processo que passa do tempo (o PHP-FPM
+     * não respeita o set_time_limit(0) dentro do pedido). O registo ficava
+     * «a correr» para sempre: o ecrã perguntava de 3 em 3 segundos sem fim e a
+     * cópia não se deixava apagar. Sem a tranca presa e com mais de 10 minutos,
+     * é abandono; um restauro dá-se por perdido ao fim de 2 horas.
+     */
+    private function fecharAbandonadas(?int $tenantId): void
+    {
+        $presas = CopiaDeSeguranca::doAmbito($tenantId)->where('estado', 'a_correr')->where('iniciada_em', '<', now()->subMinutes(10));
+
+        if ($presas->exists() && ! $this->aCorrer($tenantId)) {
+            $presas->update([
+                'estado' => 'falhou',
+                'erro' => __('A cópia foi interrompida (o servidor terminou o processo antes de acabar).'),
+                'concluida_em' => now(),
+            ]);
+        }
+
+        RestauroDeCopia::doAmbito($tenantId)->where('estado', 'a_correr')->where('created_at', '<', now()->subHours(2))->update([
+            'estado' => 'falhou',
+            'erro' => __('O restauro foi interrompido antes de acabar. Confira os dados e, se preciso, reponha a cópia feita antes dele.'),
+            'concluido_em' => now(),
+        ]);
+    }
+
     private function aCorrer(?int $tenantId): bool
     {
         $tranca = Cache::lock(FazerCopia::tranca($tenantId), 5);
