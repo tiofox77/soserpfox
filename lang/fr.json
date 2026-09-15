@@ -11398,5 +11398,21 @@
     "A cópia foi interrompida (o servidor terminou o processo antes de acabar).": "La sauvegarde a été interrompue (le serveur a arrêté le processus avant la fin).",
     "O restauro foi interrompido antes de acabar. Confira os dados e, se preciso, reponha a cópia feita antes dele.": "La restauration a été interrompue avant la fin. Vérifiez les données et, si besoin, restaurez la sauvegarde faite avant.",
     "Escolha o artigo desta linha — cada linha leva um artigo do catálogo.": "Choisissez l'article de cette ligne — chaque ligne doit avoir un article du catalogue.",
-    "O artigo desta linha não existe nesta empresa.": "L'article de cette ligne n'existe pas dans cette entreprise."
+    "O artigo desta linha não existe nesta empresa.": "L'article de cette ligne n'existe pas dans cette entreprise.",
+    "Folhas de obra (:n)": "Fiches de travail (:n)",
+    "Folhas de obra": "Fiches de travail",
+    "Não foi possível ler as folhas de obra.": "Impossible de charger les fiches de travail.",
+    ":n aberta|:n abertas": ":n ouverte|:n ouvertes",
+    "Nenhuma aberta": "Aucune ouverte",
+    ":n factura|:n facturas": ":n facture|:n factures",
+    "Em facturas desta viatura": "Sur les factures de ce véhicule",
+    "Nada em falta": "Rien en attente",
+    ":km km": ":km km",
+    "Sem folhas de obra": "Aucune fiche de travail",
+    "Ainda não se abriu nenhuma ordem de serviço para esta viatura.": "Aucun ordre de réparation n'a encore été ouvert pour ce véhicule.",
+    "Folha de obra": "Fiche de travail",
+    "Total da ordem": "Total de l'ordre",
+    "PDF da factura :n": "PDF de la facture :n",
+    "Vencida · falta :v Kz": "Échue · reste :v Kz",
+    "Ainda sem factura": "Pas encore facturée"
 }

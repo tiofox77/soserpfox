@@ -126,6 +126,8 @@ class CatalogoApiController extends Controller
             'datas' => ! empty($def['datas']),
             // Se este catálogo tem extrato — a janela de VER com as contas.
             'extrato' => ! empty($def['extrato']),
+            // Se este catálogo tem uma ficha própria de VER (hoje: a da viatura).
+            'ficha' => $def['ficha'] ?? null,
             'accoes' => $def['accoes'],
             /*
              * COMO SE CHAMA A IMAGEM DESTE CATÁLOGO.

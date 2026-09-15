@@ -1674,6 +1674,12 @@ final class Catalogos
              * Sem isto, a pergunta de apagar saía «Vai apagar . Não há volta.»
              */
             'nome' => 'plate',
+            /*
+             * A FICHA DA VIATURA — o olho da lista abre os dados e as folhas de
+             * obra que lhe foram abertas, com a factura de cada uma (pedido de
+             * 15/09/2026). É um ecrã próprio: `oficina/FichaDaViatura`.
+             */
+            'ficha' => 'viatura',
             'pesquisa' => ['plate', 'vehicle_number', 'owner_name', 'brand', 'model', 'vin'],
             'pesquisa_ajuda' => 'Matrícula, nº, dono, marca, modelo ou chassis',
             'ordem' => [['created_at', 'desc']],

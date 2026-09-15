@@ -378,6 +378,9 @@ final class MenuDaCasca
                     // Cada entrada atrás da permissão que a rota exige — as
                     // dezanove existiam e nenhuma das oito rotas as aplicava.
                     ['rota' => 'workshop.dashboard', 'rotulo' => 'Dashboard', 'icone' => 'fa-chart-line', 'cor' => 'blue-400', 'activo' => 'workshop.dashboard', 'permissao' => 'workshop.dashboard.view'],
+                    // OS CLIENTES DA CASA, dentro da oficina — o mesmo ecrã da facturação
+                    // (a viatura liga-se a um cliente e é a ele que se factura). Pedido de 15/09/2026.
+                    ['rota' => 'workshop.clients', 'rotulo' => 'Clientes', 'icone' => 'fa-users', 'cor' => 'green-400', 'activo' => 'workshop.clients*', 'permissao' => 'invoicing.clients.view'],
                     ['rota' => 'workshop.vehicles', 'rotulo' => 'Veículos', 'icone' => 'fa-car', 'cor' => 'blue-400', 'activo' => 'workshop.vehicles*', 'permissao' => 'workshop.vehicles.view'],
                     ['rota' => 'workshop.mechanics', 'rotulo' => 'Mecânicos', 'icone' => 'fa-user-cog', 'cor' => 'orange-400', 'activo' => 'workshop.mechanics*', 'permissao' => 'workshop.mechanics.view'],
                     ['rota' => 'workshop.services', 'rotulo' => 'Serviços', 'icone' => 'fa-tools', 'cor' => 'purple-400', 'activo' => 'workshop.services*', 'permissao' => 'workshop.services.view'],

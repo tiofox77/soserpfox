@@ -594,6 +594,11 @@
         },
         {
             "tag": "a",
+            "href": "/workshop/clients",
+            "texto": "Clientes"
+        },
+        {
+            "tag": "a",
             "href": "/workshop/vehicles",
             "texto": "Veículos"
         },

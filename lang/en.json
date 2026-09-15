@@ -11398,5 +11398,21 @@
     "A cópia foi interrompida (o servidor terminou o processo antes de acabar).": "The backup was interrupted (the server ended the process before it finished).",
     "O restauro foi interrompido antes de acabar. Confira os dados e, se preciso, reponha a cópia feita antes dele.": "The restore was interrupted before it finished. Check the data and, if needed, restore the backup taken before it.",
     "Escolha o artigo desta linha — cada linha leva um artigo do catálogo.": "Choose the item for this line — every line needs a catalogue item.",
-    "O artigo desta linha não existe nesta empresa.": "The item on this line does not exist in this company."
+    "O artigo desta linha não existe nesta empresa.": "The item on this line does not exist in this company.",
+    "Folhas de obra (:n)": "Job cards (:n)",
+    "Folhas de obra": "Job cards",
+    "Não foi possível ler as folhas de obra.": "Could not load the job cards.",
+    ":n aberta|:n abertas": ":n open|:n open",
+    "Nenhuma aberta": "None open",
+    ":n factura|:n facturas": ":n invoice|:n invoices",
+    "Em facturas desta viatura": "On this vehicle's invoices",
+    "Nada em falta": "Nothing outstanding",
+    ":km km": ":km km",
+    "Sem folhas de obra": "No job cards",
+    "Ainda não se abriu nenhuma ordem de serviço para esta viatura.": "No work order has been opened for this vehicle yet.",
+    "Folha de obra": "Job card",
+    "Total da ordem": "Order total",
+    "PDF da factura :n": "PDF of invoice :n",
+    "Vencida · falta :v Kz": "Overdue · :v Kz outstanding",
+    "Ainda sem factura": "Not invoiced yet"
 }

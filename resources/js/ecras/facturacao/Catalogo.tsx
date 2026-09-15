@@ -16,6 +16,7 @@ import { Paginacao } from '@/ui/Paginacao';
 import { IntervaloDeDatas, PorPagina } from '@/ui/FiltrosComuns';
 import { ACCAO_DA_FAIXA, Faixa, type TomDaFaixa } from './faixa';
 import { Dado, JanelaDoExtrato, Seccao } from './ExtratoDaParte';
+import { FichaDaViatura } from '../oficina/FichaDaViatura';
 import { FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
 import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { etiquetaIntl, t, tPartes } from '@/i18n';
@@ -268,6 +269,25 @@ function UmCatalogo({ tipo }: { tipo: string }) {
                 />
             )}
 
+            {/* A FICHA DA VIATURA — os dados e as folhas de obra com as facturas. */}
+            {o.ficha === 'viatura' && (
+                <FichaDaViatura
+                    aberto={aVer !== null}
+                    id={aVer ? Number(aVer.id) : null}
+                    titulo={nomeDe(aVer)}
+                    subtitulo={aVer ? [aVer.brand, aVer.model, aVer.owner_name].filter(Boolean).join(' · ') : undefined}
+                    cor={(o.cor as TomDaFaixa) ?? 'primaria'}
+                    ficha={aVer && <FichaDaLinha linha={aVer} colunas={o.campos} />}
+                    podeEditar={o.permissoes.pode_escrever}
+                    aoEditar={() => {
+                        const l = aVer;
+                        porAVer(null);
+                        if (l) abrirEdicao(l);
+                    }}
+                    aoFechar={() => porAVer(null)}
+                />
+            )}
+
             {/* OS CARTÕES DO TOPO. A contagem é a do servidor, com os filtros
                 postos; o que está contado nas linhas à vista di-lo no cartão. */}
             <div className={cls('grid gap-3 sm:grid-cols-2', o.accoes.activar ? 'lg:grid-cols-3' : 'lg:grid-cols-2', lista.isFetching && 'opacity-70')}>
@@ -434,7 +454,7 @@ function UmCatalogo({ tipo }: { tipo: string }) {
                                                 do fornecedor, não uma edição. Fica FORA
                                                 do bloco de escrever, que é o que separa
                                                 consultar de mexer. */}
-                                            {o.extrato && (
+                                            {(o.extrato || o.ficha) && (
                                                 <button
                                                     type="button"
                                                     onClick={() => porAVer(l)}

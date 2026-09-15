@@ -328,3 +328,42 @@ export const ordens = {
     apagarAnexo: (id: number, anexo: number) =>
         api.apagar<{ message: string }>(`/oficina/ordens/${id}/anexos/${anexo}`),
 };
+
+/** Uma folha de obra na ficha da viatura, com a factura que saiu dela. */
+export type FolhaDaViatura = {
+    id: number;
+    numero: string;
+    entrada: string | null;
+    concluida: string | null;
+    estado: string;
+    estado_rotulo: string;
+    mecanico: string | null;
+    km: number;
+    problema: string | null;
+    total: number;
+    factura: {
+        id: number;
+        numero: string;
+        tipo: string;
+        data: string | null;
+        vencimento: string | null;
+        estado: string;
+        estado_rotulo: string;
+        total: number;
+        pago: number;
+        falta: number;
+        vencida: boolean;
+        preview: string | null;
+        pdf: string | null;
+    } | null;
+};
+
+export type FolhasDaViatura = {
+    viatura: { id: number; matricula: string; viatura: string; dono: string | null; cliente: string | null; km: number };
+    resumo: { ordens: number; abertas: number; facturas: number; facturado: number; por_receber: number; ultima_visita: string | null };
+    ordens: FolhaDaViatura[];
+    pode_ver_facturas: boolean;
+};
+
+/** As folhas de obra de uma viatura e as facturas que saíram delas — a ficha da viatura. */
+export const folhasDaViatura = (id: number) => api.ler<FolhasDaViatura>(`/oficina/ordens/viatura/${id}`);

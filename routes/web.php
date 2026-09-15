@@ -1988,6 +1988,8 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
 
             Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
             Route::get('/artigos', [$c, 'artigos'])->name('artigos');
+            // As folhas de obra de uma viatura e as facturas que saíram delas — a ficha da viatura.
+            Route::get('/viatura/{id}', [$c, 'daViatura'])->whereNumber('id')->name('viatura');
             Route::get('/', [$c, 'index'])->name('index');
             Route::post('/', [$c, 'store'])->name('store');
             Route::get('/{id}', [$c, 'ficha'])->whereNumber('id')->name('ficha');
@@ -2989,6 +2991,15 @@ Route::middleware(['auth', 'tenant.module:oficina'])->prefix('workshop')->name('
      * distingue vive agora no esquema (`App\Services\Invoicing\Catalogos`), e
      * o ecrã é o mesmo que serve os fornecedores e os turnos.
      */
+    /*
+     * OS CLIENTES, DENTRO DA OFICINA — o ecrã da facturação, não uma cópia.
+     *
+     * A viatura liga-se a um cliente da casa, e é esse cliente que a factura da
+     * ordem de serviço leva. Uma segunda lista de clientes na oficina era a mesma
+     * tabela com outra porta — aqui é a mesma porta, com o menu da oficina aberto.
+     */
+    Route::middleware('permission:invoicing.clients.view')
+        ->get('/clients', \App\Support\EcraReact::pagina('facturacao/clientes', 'Clientes'))->name('clients');
     Route::middleware('permission:workshop.vehicles.view')
         ->get('/vehicles', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Viaturas', ['tipo' => 'viaturas']))->name('vehicles');
     Route::middleware('permission:workshop.mechanics.view')

@@ -562,6 +562,93 @@ class OrdensApiController extends Controller
         return $dados;
     }
 
+    /**
+     * AS FOLHAS DE OBRA DE UMA VIATURA, E A FACTURA DE CADA UMA.
+     *
+     * Pedido de 15/09/2026: na ficha da viatura, ver as ordens de serviço que
+     * lhe foram abertas e as facturas que saíram delas — «que fizemos a este
+     * carro, quanto se facturou, o que ainda falta receber». A ligação é a
+     * `invoice_id` da ordem, a mesma que o `facturar` escreve.
+     *
+     * O que falta receber conta-se pela regra única das facturas
+     * (`SomasDasFacturas::SEM_NADA_A_RECEBER` + FR paga no acto): um rascunho
+     * ou uma factura anulada não devem nada.
+     */
+    public function daViatura(Request $request, int $id): JsonResponse
+    {
+        $this->exigir($request, 'workshop.vehicles.view');
+
+        $tenantId = activeTenantId();
+        $viatura = Vehicle::with('client:id,name')->where('tenant_id', $tenantId)->findOrFail($id);
+        $podeVerFacturas = (bool) $request->user()?->can('invoicing.sales.invoices.view');
+
+        $ordens = WorkOrder::with(['mechanic:id,name', 'invoice'])
+            ->where('tenant_id', $tenantId)
+            ->where('vehicle_id', $viatura->id)
+            ->orderByDesc('received_at')->orderByDesc('id')
+            ->get();
+
+        $linhas = $ordens->map(function (WorkOrder $o) use ($podeVerFacturas) {
+            $f = $o->invoice;
+            $falta = 0.0;
+
+            if ($f && ($f->invoice_type ?? 'FT') !== 'FR' && ! in_array($f->status, \App\Services\Invoicing\SomasDasFacturas::SEM_NADA_A_RECEBER, true)) {
+                $falta = max(0.0, round((float) $f->total - (float) $f->paid_amount, 2));
+            }
+
+            return [
+                'id' => $o->id,
+                'numero' => $o->order_number,
+                'entrada' => $o->received_at?->toIso8601String(),
+                'concluida' => $o->completed_at?->toIso8601String(),
+                'estado' => $o->status,
+                'estado_rotulo' => __(OrdensDeServico::ESTADOS[$o->status] ?? $o->status),
+                'mecanico' => $o->mechanic?->name,
+                'km' => (int) $o->mileage_in,
+                'problema' => $o->problem_description ? mb_strimwidth($o->problem_description, 0, 160, '…') : null,
+                'total' => round((float) $o->total, 2),
+                'factura' => $f ? [
+                    'id' => $f->id,
+                    'numero' => $f->invoice_number,
+                    'tipo' => $f->invoice_type ?? 'FT',
+                    'data' => $f->invoice_date?->toDateString(),
+                    'vencimento' => $f->due_date?->toDateString(),
+                    'estado' => $f->status,
+                    'estado_rotulo' => $f->status_label,
+                    'total' => round((float) $f->total, 2),
+                    'pago' => round((float) $f->paid_amount, 2),
+                    'falta' => $falta,
+                    'vencida' => $falta > 0 && $f->due_date && $f->due_date->lt(today()),
+                    'preview' => $podeVerFacturas ? "/invoicing/sales/invoices/{$f->id}/preview" : null,
+                    'pdf' => $podeVerFacturas ? "/invoicing/sales/invoices/{$f->id}/pdf" : null,
+                ] : null,
+            ];
+        })->values();
+
+        $facturas = $linhas->pluck('factura')->filter();
+
+        return response()->json([
+            'viatura' => [
+                'id' => $viatura->id,
+                'matricula' => $viatura->plate,
+                'viatura' => trim("{$viatura->brand} {$viatura->model}"),
+                'dono' => $viatura->owner_name,
+                'cliente' => $viatura->client?->name,
+                'km' => (int) $viatura->mileage,
+            ],
+            'resumo' => [
+                'ordens' => $ordens->count(),
+                'abertas' => $ordens->whereNotIn('status', ['completed', 'delivered', 'cancelled'])->count(),
+                'facturas' => $facturas->count(),
+                'facturado' => round((float) $facturas->where('estado', '!=', 'cancelled')->sum('total'), 2),
+                'por_receber' => round((float) $facturas->sum('falta'), 2),
+                'ultima_visita' => $ordens->first()?->received_at?->toIso8601String(),
+            ],
+            'ordens' => $linhas,
+            'pode_ver_facturas' => $podeVerFacturas,
+        ]);
+    }
+
     /** Uma ordem como a lista a mostra. */
     private function linha(WorkOrder $o): array
     {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
@@ -98,6 +98,21 @@ export default function OrdensDeServico() {
     const [aEditar, porAEditar] = useState<Ordem | null>(null);
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [aVer, porAVer] = useState<number | null>(null);
+
+    /*
+     * ABRIR UMA ORDEM PELO ENDEREÇO — `?ordem=12`.
+     *
+     * É por aqui que a ficha da viatura leva à folha de obra. Lê-se uma vez e
+     * tira-se do endereço, para um F5 não voltar a abrir a janela.
+     */
+    useEffect(() => {
+        const url = new URL(window.location.href);
+        const pedida = Number(url.searchParams.get('ordem'));
+        if (!pedida) return;
+        porAVer(pedida);
+        url.searchParams.delete('ordem');
+        window.history.replaceState(null, '', url.toString());
+    }, []);
     const [aApagar, porAApagar] = useState<Ordem | null>(null);
     const [recado, porRecado] = useRecadoNoCanto('');
     const [aviso, porAviso] = useState<string[]>([]);

@@ -107,6 +107,8 @@ export type OpcoesDoCatalogo = {
     datas: boolean;
     /** Se tem ficha de VER com extrato — hoje, só os fornecedores. */
     extrato: boolean;
+    /** Uma ficha própria de VER — hoje, só a da viatura (`oficina/FichaDaViatura`). */
+    ficha?: string | null;
     accoes: { activar: boolean; padrao: boolean; logotipo: boolean; apagar: boolean; atribuir?: boolean; importar?: boolean; galeria?: boolean };
     /** Como se chama a imagem deste catálogo — «Logótipo», «Imagem de destaque». */
     imagem: { rotulo: string } | null;
