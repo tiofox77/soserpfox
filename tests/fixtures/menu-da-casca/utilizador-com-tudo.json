@@ -674,6 +674,11 @@
         },
         {
             "tag": "a",
+            "href": "/workshop/kpis",
+            "texto": "Indicadores"
+        },
+        {
+            "tag": "a",
             "href": "/workshop/reports",
             "texto": "Relatórios"
         },

@@ -2085,6 +2085,9 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::delete('/{id}', [$c, 'destroy'])->whereNumber('id')->name('destroy');
         });
 
+        // Os indicadores da oficina (OF-18): ticket médio, aprovação, horas, tempo e margens.
+        Route::get('oficina/indicadores', [\App\Http\Controllers\Api\Workshop\IndicadoresApiController::class, 'index'])->name('oficina.indicadores');
+
         // As viaturas de cortesia (OF-17): emprestar e receber.
         Route::prefix('oficina/cortesia')->name('oficina.cortesia.')->group(function () {
             $c = \App\Http\Controllers\Api\Workshop\CortesiaApiController::class;
@@ -3226,6 +3229,9 @@ Route::middleware(['auth', 'tenant.module:oficina'])->prefix('workshop')->name('
     // O quadro de trabalho (OF-04): as ordens em colunas por estado, arrastáveis.
     Route::middleware('permission:workshop.work-orders.view')
         ->get('/board', \App\Support\EcraReact::pagina('oficina/quadro', 'Quadro de Trabalho'))->name('board');
+    // Os indicadores da oficina (OF-18) — margens e dinheiro: a permissão dos relatórios.
+    Route::middleware('permission:workshop.reports.view')
+        ->get('/kpis', \App\Support\EcraReact::pagina('oficina/indicadores', 'Indicadores da Oficina'))->name('kpis');
     // As viaturas de cortesia (OF-17): o quadro dos empréstimos e o catálogo das viaturas.
     Route::middleware('permission:workshop.work-orders.view')
         ->get('/courtesy-cars', \App\Support\EcraReact::pagina('oficina/cortesia', 'Viaturas de Cortesia'))->name('courtesy-cars');

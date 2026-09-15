@@ -1103,3 +1103,31 @@ export const cortesia = {
     devolver: (emprestimo: number, d: { km_entrada: number; combustivel: number | null; danos: string }) =>
         api.criar<{ message: string }>(`/oficina/cortesia/emprestimos/${emprestimo}/devolver`, d),
 };
+
+/* ─── Os indicadores da oficina (OF-18) ─────────────────────────────── */
+
+export type IndicadoresDoPeriodo = {
+    ordens: number;
+    viaturas: number;
+    receita: number;
+    ticket_medio: number | null;
+    tempo_medio_horas: number | null;
+    mao_de_obra: { receita: number; custo: number; margem: number | null; estimado: boolean; sem_preco_hora: boolean };
+    pecas: { receita: number; custo: number; margem: number | null; linhas_sem_custo: number };
+    horas: { vendidas: number; trabalhadas: number; eficiencia: number | null };
+    aprovacao: { aprovadas: number; recusadas: number; valor_aprovado: number; valor_recusado: number; taxa: number | null };
+    recomendacoes: { total: number; aceites: number; taxa: number | null; por_vender: number };
+    satisfacao: number | null;
+};
+
+export type IndicadoresDaOficina = {
+    periodo: { de: string; ate: string; dias: number };
+    anterior_periodo: { de: string; ate: string };
+    actual: IndicadoresDoPeriodo;
+    anterior: IndicadoresDoPeriodo;
+    meses: Array<{ mes: string; rotulo: string; receita: number; ordens: number; ticket_medio: number }>;
+};
+
+export const indicadoresDaOficina = {
+    ler: (de: string, ate: string) => api.ler<IndicadoresDaOficina>('/oficina/indicadores', { de, ate }),
+};

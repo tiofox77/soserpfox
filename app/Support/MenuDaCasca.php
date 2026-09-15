@@ -396,6 +396,7 @@ final class MenuDaCasca
                     ['rota' => 'workshop.work-orders', 'rotulo' => 'Ordens de Serviço', 'icone' => 'fa-clipboard-list', 'cor' => 'yellow-400', 'activo' => 'workshop.work-orders*', 'permissao' => 'workshop.work-orders.view'],
                     ['rota' => 'workshop.courtesy-cars', 'rotulo' => 'Viaturas de Cortesia', 'icone' => 'fa-car-side', 'cor' => 'teal-400', 'activo' => 'workshop.courtesy-*', 'permissao' => 'workshop.work-orders.view'],
                     ['rota' => 'workshop.fleet-billing', 'rotulo' => 'Facturação de Frotas', 'icone' => 'fa-truck-fast', 'cor' => 'emerald-400', 'activo' => 'workshop.fleet-billing*', 'permissao' => 'workshop.work-orders.view'],
+                    ['rota' => 'workshop.kpis', 'rotulo' => 'Indicadores', 'icone' => 'fa-gauge-high', 'cor' => 'indigo-400', 'activo' => 'workshop.kpis*', 'permissao' => 'workshop.reports.view'],
                     ['rota' => 'workshop.reports', 'rotulo' => 'Relatórios', 'icone' => 'fa-chart-bar', 'cor' => 'green-400', 'activo' => 'workshop.reports*', 'permissao' => 'workshop.reports.view'],
                 ],
             ],
