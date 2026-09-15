@@ -18,9 +18,12 @@ class InspectionTemplate extends Model
 
     protected $table = 'workshop_inspection_templates';
 
-    protected $fillable = ['tenant_id', 'name', 'description', 'points', 'points_count', 'is_default', 'is_active'];
+    protected $fillable = ['tenant_id', 'name', 'kind', 'description', 'points', 'points_count', 'is_default', 'is_required', 'is_active'];
 
-    protected $casts = ['is_default' => 'boolean', 'is_active' => 'boolean', 'points_count' => 'integer'];
+    protected $casts = ['is_default' => 'boolean', 'is_required' => 'boolean', 'is_active' => 'boolean', 'points_count' => 'integer'];
+
+    /** OF-09: uma inspecção à entrada ou o controlo de qualidade antes de entregar. */
+    public const TIPOS = ['inspecao' => 'Inspecção', 'qualidade' => 'Controlo de qualidade'];
 
     public const REVISAO_GERAL = <<<'TXT'
         Travões: Pastilhas da frente
@@ -58,6 +61,21 @@ class InspectionTemplate extends Model
         Escape e fundo: Protecções do fundo
         TXT;
 
+    public const CONTROLO_DE_QUALIDADE = <<<'TXT'
+        Teste de estrada: Travagem
+        Teste de estrada: Direcção e ruídos
+        Teste de estrada: Caixa e embraiagem
+        Painel: Sem luzes de aviso acesas
+        Motor: Sem fugas nem ruídos
+        Rodas: Porcas apertadas
+        Níveis: Óleo e líquidos repostos
+        Trabalho: Tudo o que foi pedido está feito
+        Peças: Peças substituídas guardadas para o cliente
+        Limpeza: Interior limpo, sem marcas de mãos
+        Limpeza: Exterior lavado
+        Entrega: Km de saída registados
+        TXT;
+
     protected static function booted(): void
     {
         // A contagem dos pontos acompanha o texto: é ela que a lista mostra.
@@ -83,9 +101,27 @@ class InspectionTemplate extends Model
         })->values()->all();
     }
 
+    /**
+     * Uma oficina sem modelos recebe a «Revisão geral»; e cada oficina que ainda
+     * não tem nenhum de controlo de qualidade recebe um (OF-09) — não
+     * obrigatório: exigi-lo é uma decisão de quem gere a oficina.
+     */
     public static function garantirCatalogo(int $tenantId): void
     {
-        if (self::withoutGlobalScopes()->where('tenant_id', $tenantId)->exists()) {
+        if (! self::withoutGlobalScopes()->where('tenant_id', $tenantId)->where('kind', 'qualidade')->exists()) {
+            self::withoutGlobalScopes()->create([
+                'tenant_id' => $tenantId,
+                'name' => __('Controlo de qualidade'),
+                'kind' => 'qualidade',
+                'description' => __('O que se confere antes de dar o carro por pronto: teste de estrada, luzes, fugas e limpeza.'),
+                'points' => self::CONTROLO_DE_QUALIDADE,
+                'is_default' => false,
+                'is_required' => false,
+                'is_active' => true,
+            ]);
+        }
+
+        if (self::withoutGlobalScopes()->where('tenant_id', $tenantId)->where('kind', 'inspecao')->exists()) {
             return;
         }
 
@@ -93,6 +129,7 @@ class InspectionTemplate extends Model
             'tenant_id' => $tenantId,
             'name' => __('Revisão geral'),
             'description' => __('Os pontos de uma revisão completa: travões, pneus, suspensão, motor, eléctrica, interior e fundo.'),
+            'kind' => 'inspecao',
             'points' => self::REVISAO_GERAL,
             'is_default' => true,
             'is_active' => true,

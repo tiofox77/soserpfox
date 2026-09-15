@@ -72,6 +72,7 @@ class InspeccoesDaOrdemApiController extends Controller
             'work_order_id' => $ordem->id,
             'template_id' => $modelo->id,
             'name' => $modelo->name,
+            'kind' => $modelo->kind ?? 'inspecao',
             'results' => array_map(fn ($p) => $p + ['estado' => null, 'nota' => null, 'foto' => null], $pontos),
             'user_id' => auth()->id(),
         ]);
@@ -228,6 +229,7 @@ class InspeccoesDaOrdemApiController extends Controller
         return [
             'id' => $i->id,
             'nome' => $i->name,
+            'tipo' => $i->kind ?? 'inspecao',
             'concluida_em' => $i->completed_at?->toIso8601String(),
             'por' => $i->user?->name,
             'em' => $i->created_at?->toIso8601String(),
@@ -251,7 +253,17 @@ class InspeccoesDaOrdemApiController extends Controller
                 ->orderByDesc('id')->get()->map(fn ($i) => self::paraEcra($i))->values(),
             'modelos' => InspectionTemplate::where('tenant_id', $ordem->tenant_id)->where('is_active', true)
                 ->orderByDesc('is_default')->orderBy('name')->get()
-                ->map(fn ($m) => ['valor' => (string) $m->id, 'rotulo' => $m->name, 'pontos' => $m->points_count, 'padrao' => $m->is_default])->values(),
+                ->map(fn ($m) => ['valor' => (string) $m->id, 'rotulo' => $m->name, 'pontos' => $m->points_count, 'padrao' => $m->is_default, 'tipo' => $m->kind, 'obrigatorio' => $m->is_required])->values(),
+            // OF-09: se esta ordem só conclui com o controlo de qualidade feito.
+            'qualidade' => (function () use ($ordem) {
+                try {
+                    app(\App\Services\Workshop\OrdensDeServico::class)->exigirControloDeQualidade($ordem);
+
+                    return ['obrigatorio' => InspectionTemplate::where('tenant_id', $ordem->tenant_id)->where('kind', 'qualidade')->where('is_required', true)->where('is_active', true)->exists(), 'pendente' => null];
+                } catch (\InvalidArgumentException $e) {
+                    return ['obrigatorio' => true, 'pendente' => $e->getMessage()];
+                }
+            })(),
             'estados' => collect(WorkOrderInspection::ESTADOS)->map(fn ($r, $v) => ['valor' => $v, 'rotulo' => __($r)])->values(),
             'recomendacoes' => $ordem->recommendations,
             'pode_editar' => (bool) $request->user()?->can('workshop.work-orders.edit'),

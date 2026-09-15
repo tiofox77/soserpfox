@@ -48,7 +48,7 @@ export function InspeccaoDaOrdem({ id }: { id: number }) {
     };
 
     const comecar = useMutation({
-        mutationFn: () => inspeccoes.comecar(id, modelo || String(q.data?.modelos[0]?.valor ?? '')),
+        mutationFn: (qual?: string) => inspeccoes.comecar(id, qual || modelo || String(q.data?.modelos[0]?.valor ?? '')),
         onSuccess: (r) => { aoResponder(r); porActiva(r.criada ?? null); porAComecar(false); },
     });
 
@@ -63,19 +63,32 @@ export function InspeccaoDaOrdem({ id }: { id: number }) {
             <label className="block min-w-0 flex-1 basis-56 text-sm">
                 <span className="mb-1 block font-medium text-slate-700">{t('Modelo de inspecção')}</span>
                 <select value={modelo || String(d.modelos[0]?.valor ?? '')} onChange={(e) => porModelo(e.target.value)} className={cls('w-full border border-slate-300 bg-white px-3 py-2 text-sm', RAIO, FOCO)}>
-                    {d.modelos.map((m) => <option key={m.valor} value={m.valor}>{m.rotulo} · {tn(':n ponto|:n pontos', m.pontos, { n: m.pontos })}</option>)}
+                    {d.modelos.map((m) => <option key={m.valor} value={m.valor}>{m.rotulo} · {m.tipo === 'qualidade' ? `${t('Controlo de qualidade')} · ` : ''}{tn(':n ponto|:n pontos', m.pontos, { n: m.pontos })}</option>)}
                 </select>
             </label>
-            <Botao cor="bom" tom="solida" icone="fa-play" aTrabalhar={comecar.isPending} disabled={d.modelos.length === 0} onClick={() => comecar.mutate()}>{t('Começar inspecção')}</Botao>
+            <Botao cor="bom" tom="solida" icone="fa-play" aTrabalhar={comecar.isPending} disabled={d.modelos.length === 0} onClick={() => comecar.mutate(undefined)}>{t('Começar inspecção')}</Botao>
             <a href="/workshop/inspection-templates" className={cls('inline-flex h-10 items-center gap-1.5 px-2 text-sm font-semibold text-indigo-700 hover:underline', FOCO, RAIO)}>
                 <i className="fas fa-list-check" aria-hidden="true" />{t('Gerir modelos')}
             </a>
         </div>
     );
 
+    // OF-09: a ordem só conclui com o controlo de qualidade feito — e diz-se aqui o que falta.
+    const modeloDeQualidade = d.modelos.find((m) => m.tipo === 'qualidade' && m.obrigatorio) ?? d.modelos.find((m) => m.tipo === 'qualidade');
+    const avisoDeQualidade = d.qualidade.pendente && (
+        <div role="status" className={cls('flex flex-wrap items-center gap-3 border border-amber-300 bg-amber-50 p-3', RAIO_GRANDE)}>
+            <span className="grid h-9 w-9 place-items-center rounded-lg bg-amber-400 text-amber-950"><i className="fas fa-medal" aria-hidden="true" /></span>
+            <p className="min-w-0 flex-1 text-sm text-amber-900">{d.qualidade.pendente}</p>
+            {d.pode_editar && modeloDeQualidade && (
+                <Botao cor="aviso" tom="solida" icone="fa-medal" aTrabalhar={comecar.isPending} onClick={() => comecar.mutate(modeloDeQualidade.valor)}>{t('Fazer o controlo de qualidade')}</Botao>
+            )}
+        </div>
+    );
+
     if (!escolhida) {
         return (
             <div className="space-y-4">
+                {avisoDeQualidade}
                 <SemNada icone="fa-list-check" titulo={t('Sem inspecção')} frase={t('Confira o carro ponto a ponto — travões, pneus, suspensão, motor — com verde, amarelo ou vermelho, fotografia e nota. O cliente vê o resultado no portal.')} />
                 {d.pode_editar && <div className={cls('border border-slate-200 bg-slate-50 p-4', RAIO_GRANDE)}>{escolherModelo}<AvisoDeErro erro={comecar.error} /></div>}
             </div>
@@ -84,13 +97,14 @@ export function InspeccaoDaOrdem({ id }: { id: number }) {
 
     return (
         <div className="space-y-4">
+            {avisoDeQualidade}
             {(d.inspeccoes.length > 1 || d.pode_editar) && (
                 <div className="flex flex-wrap items-center gap-2">
                     {d.inspeccoes.map((i) => (
                         <button key={i.id} type="button" onClick={() => porActiva(i.id)} aria-pressed={i.id === escolhida.id}
                             className={cls('inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ring-inset', TRANSICAO, FOCO,
                                 i.id === escolhida.id ? 'bg-slate-800 text-white ring-slate-800' : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50')}>
-                            <i className={cls('fas', i.concluida_em ? 'fa-circle-check text-emerald-400' : 'fa-hourglass-half text-amber-400')} aria-hidden="true" />
+                            <i className={cls('fas', i.tipo === 'qualidade' ? 'fa-medal text-amber-300' : i.concluida_em ? 'fa-circle-check text-emerald-400' : 'fa-hourglass-half text-amber-400')} aria-hidden="true" />
                             {i.nome}
                             <span className="opacity-70">{dataHora(i.em)}</span>
                         </button>

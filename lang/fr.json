@@ -11961,5 +11961,13 @@
     "Pedidas :n peça em falta na requisição :numero.|Pedidas :n peças em falta na requisição :numero.": "Demande de :n pièce manquante dans la demande :numero.|Demande de :n pièces manquantes dans la demande :numero.",
     "Requisição :numero criada.": "Demande :numero créée.",
     "Chegaram as peças da encomenda :numero.": "Les pièces de la commande :numero sont arrivées.",
-    "Chegou parte das peças da encomenda :numero.": "Une partie des pièces de la commande :numero est arrivée."
+    "Chegou parte das peças da encomenda :numero.": "Une partie des pièces de la commande :numero est arrivée.",
+    "Controlo de qualidade": "Contrôle qualité",
+    "Fazer o controlo de qualidade": "Faire le contrôle qualité",
+    "Falta o controlo de qualidade: faça-o no separador Inspecção antes de concluir a ordem.": "Le contrôle qualité manque : faites-le dans l’onglet Inspection avant de terminer l’ordre.",
+    "O controlo de qualidade tem pontos urgentes: resolva-os e volte a fazê-lo antes de concluir.": "Le contrôle qualité a des points urgents : corrigez-les et refaites-le avant de terminer.",
+    "O que se confere antes de dar o carro por pronto: teste de estrada, luzes, fugas e limpeza.": "Ce qui est vérifié avant de déclarer le véhicule prêt : essai routier, voyants, fuites et nettoyage.",
+    "Obrigatório para concluir a ordem": "Obligatoire pour terminer l’ordre",
+    "Só nos modelos de controlo de qualidade: a ordem não passa a Concluída sem ele feito e sem pontos urgentes.": "Uniquement pour les modèles de contrôle qualité : l’ordre ne passe pas à Terminé sans lui et sans points urgents.",
+    "Obrigatório": "Obligatoire"
 }

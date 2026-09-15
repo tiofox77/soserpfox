@@ -18,7 +18,7 @@ class WorkOrderInspection extends Model
 
     protected $table = 'workshop_work_order_inspections';
 
-    protected $fillable = ['tenant_id', 'work_order_id', 'template_id', 'name', 'results', 'completed_at', 'user_id'];
+    protected $fillable = ['tenant_id', 'work_order_id', 'template_id', 'name', 'kind', 'results', 'completed_at', 'user_id'];
 
     protected $casts = ['results' => 'array', 'completed_at' => 'datetime'];
 

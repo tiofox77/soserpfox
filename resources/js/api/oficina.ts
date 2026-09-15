@@ -507,6 +507,8 @@ export type PontoDaInspeccao = { seccao: string; ponto: string; estado: EstadoDo
 export type InspeccaoDaOrdem = {
     id: number;
     nome: string;
+    /** OF-09: `qualidade` é o controlo de qualidade antes de concluir. */
+    tipo?: 'inspecao' | 'qualidade';
     concluida_em: string | null;
     por: string | null;
     em: string | null;
@@ -516,8 +518,10 @@ export type InspeccaoDaOrdem = {
 
 export type RespostaDasInspeccoes = {
     inspeccoes: InspeccaoDaOrdem[];
-    modelos: Array<Escolha & { pontos: number; padrao: boolean }>;
+    modelos: Array<Escolha & { pontos: number; padrao: boolean; tipo: 'inspecao' | 'qualidade'; obrigatorio: boolean }>;
     estados: Escolha[];
+    /** OF-09: se a ordem só conclui com o controlo de qualidade, e o que falta. */
+    qualidade: { obrigatorio: boolean; pendente: string | null };
     recomendacoes: string | null;
     pode_editar: boolean;
     criada?: number;

@@ -11961,5 +11961,13 @@
     "Pedidas :n peça em falta na requisição :numero.|Pedidas :n peças em falta na requisição :numero.": "Requested :n missing part in requisition :numero.|Requested :n missing parts in requisition :numero.",
     "Requisição :numero criada.": "Requisition :numero created.",
     "Chegaram as peças da encomenda :numero.": "The parts from order :numero arrived.",
-    "Chegou parte das peças da encomenda :numero.": "Part of the parts from order :numero arrived."
+    "Chegou parte das peças da encomenda :numero.": "Part of the parts from order :numero arrived.",
+    "Controlo de qualidade": "Quality control",
+    "Fazer o controlo de qualidade": "Do the quality control",
+    "Falta o controlo de qualidade: faça-o no separador Inspecção antes de concluir a ordem.": "Quality control is missing: do it in the Inspection tab before completing the order.",
+    "O controlo de qualidade tem pontos urgentes: resolva-os e volte a fazê-lo antes de concluir.": "The quality control has urgent points: fix them and do it again before completing.",
+    "O que se confere antes de dar o carro por pronto: teste de estrada, luzes, fugas e limpeza.": "What is checked before the car is ready: road test, lights, leaks and cleaning.",
+    "Obrigatório para concluir a ordem": "Required to complete the order",
+    "Só nos modelos de controlo de qualidade: a ordem não passa a Concluída sem ele feito e sem pontos urgentes.": "Only for quality control templates: the order cannot be Completed without it done and without urgent points.",
+    "Obrigatório": "Required"
 }

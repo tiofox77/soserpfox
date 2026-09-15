@@ -74,6 +74,11 @@ final class OrdensDeServico
             return [__('O estado já era esse.'), []];
         }
 
+        // OF-09: com um controlo de qualidade obrigatório, não se conclui sem ele feito e sem nada urgente.
+        if ($novo === 'completed' || ($novo === 'delivered' && ! $ordem->completed_at)) {
+            $this->exigirControloDeQualidade($ordem);
+        }
+
         $falhas = [];
 
         if ($novo === 'in_progress') {
@@ -116,6 +121,37 @@ final class OrdensDeServico
         };
 
         return [$mensagem, []];
+    }
+
+    /**
+     * O CONTROLO DE QUALIDADE OBRIGATÓRIO (OF-09).
+     *
+     * Só vale quando a oficina tem um modelo de controlo de qualidade activo e
+     * marcado «obrigatório». Uma inspecção desse tipo concluída sem pontos
+     * urgentes deixa passar; qualquer outra coisa pára com uma frase que diz o
+     * que falta fazer.
+     *
+     * @throws \InvalidArgumentException
+     */
+    public function exigirControloDeQualidade(WorkOrder $ordem): void
+    {
+        $obrigatorio = \App\Models\Workshop\InspectionTemplate::withoutGlobalScopes()->where('tenant_id', $ordem->tenant_id)
+            ->where('kind', 'qualidade')->where('is_required', true)->where('is_active', true)->exists();
+
+        if (! $obrigatorio) {
+            return;
+        }
+
+        $feitas = \App\Models\Workshop\WorkOrderInspection::withoutGlobalScopes()->where('work_order_id', $ordem->id)
+            ->where('kind', 'qualidade')->whereNotNull('completed_at')->get();
+
+        if ($feitas->isEmpty()) {
+            throw new \InvalidArgumentException(__('Falta o controlo de qualidade: faça-o no separador Inspecção antes de concluir a ordem.'));
+        }
+
+        if ($feitas->every(fn ($i) => $i->contas()['urgente'] > 0)) {
+            throw new \InvalidArgumentException(__('O controlo de qualidade tem pontos urgentes: resolva-os e volte a fazê-lo antes de concluir.'));
+        }
     }
 
     /**

@@ -1957,7 +1957,8 @@ final class Catalogos
             'antes' => fn (int $tenantId) => $modelo::garantirCatalogo($tenantId),
             'colunas' => [
                 ['chave' => 'name', 'rotulo' => 'Nome', 'formato' => 'texto'],
-                ['chave' => 'description', 'rotulo' => 'Descrição', 'formato' => 'texto'],
+                ['chave' => 'kind', 'rotulo' => 'Tipo', 'formato' => 'escolha'],
+                ['chave' => 'is_required', 'rotulo' => 'Obrigatório', 'formato' => 'booleano'],
                 ['chave' => 'points_count', 'rotulo' => 'Pontos', 'formato' => 'numero', 'alinhar' => 'direita'],
                 ['chave' => 'is_default', 'rotulo' => 'Padrão', 'formato' => 'padrao'],
                 ['chave' => 'is_active', 'rotulo' => 'Activo', 'formato' => 'booleano'],
@@ -1965,17 +1966,24 @@ final class Catalogos
             'filtros' => [],
             'campos' => [
                 self::campo('name', 'Nome', 'texto', obrigatorio: true, ajuda: 'Ex.: Revisão geral, Pré-compra, Antes de viagem.'),
+                self::campo('kind', 'Tipo', 'escolha', obrigatorio: true, omissao: 'inspecao', opcoes: [
+                    ['valor' => 'inspecao', 'rotulo' => 'Inspecção'], ['valor' => 'qualidade', 'rotulo' => 'Controlo de qualidade'],
+                ]),
                 self::campo('description', 'Descrição', 'texto'),
                 self::campo('points', 'Pontos a conferir', 'textarea', obrigatorio: true, largura: 'inteira',
                     ajuda: 'Um ponto por linha, com a secção antes dos dois pontos. Ex.: «Travões: Pastilhas da frente».'),
                 self::campo('is_default', 'Modelo que aparece primeiro', 'booleano', omissao: false),
+                self::campo('is_required', 'Obrigatório para concluir a ordem', 'booleano', omissao: false,
+                    ajuda: 'Só nos modelos de controlo de qualidade: a ordem não passa a Concluída sem ele feito e sem pontos urgentes.'),
                 self::campo('is_active', 'Activo', 'booleano', omissao: true),
             ],
             'regras' => [
                 'name' => 'required|string|max:120',
                 'description' => 'nullable|string|max:500',
                 'points' => 'required|string|max:20000',
+                'kind' => 'nullable|in:inspecao,qualidade',
                 'is_default' => 'boolean',
+                'is_required' => 'boolean',
                 'is_active' => 'boolean',
             ],
             'validar' => function (array $d, ?Model $m, int $tenantId) use ($modelo) {
@@ -1998,6 +2006,9 @@ final class Catalogos
             'preparar' => function (array $d) {
                 $d['is_default'] = (bool) ($d['is_default'] ?? false);
                 $d['is_active'] = (bool) ($d['is_active'] ?? true);
+                $d['kind'] = ($d['kind'] ?? '') === 'qualidade' ? 'qualidade' : 'inspecao';
+                // Só um controlo de qualidade pode ser obrigatório para concluir.
+                $d['is_required'] = ($d['kind'] ?? 'inspecao') === 'qualidade' && (bool) ($d['is_required'] ?? false);
 
                 return $d;
             },

@@ -306,17 +306,15 @@ class OrdensApiController extends Controller
         $ordem = $this->encontrar($id);
         $dados = $this->validar($request);
 
-        [$ordem, $mensagem] = $this->ordens->guardar($dados, $ordem, activeTenantId());
+        try {
+            [$ordem, $mensagem] = $this->ordens->guardar($dados, $ordem, activeTenantId());
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
 
         return response()->json(['data' => $this->linha($ordem->fresh(['vehicle', 'mechanic'])), 'message' => $mensagem]);
     }
 
-    /**
-     * MUDAR O ESTADO — a porta única.
-     *
-     * Passar a «Concluída» desconta as peças do stock e anular devolve-as; é
-     * por isso que isto não é um `update` de uma coluna.
-     */
     /**
      * O QUADRO DE TRABALHO (15/09/2026, OF-04) — as ordens abertas em colunas
      * pelo estado, e as entregues nos últimos 7 dias. As canceladas ficam fora.
@@ -413,6 +411,12 @@ class OrdensApiController extends Controller
         ]);
     }
 
+    /**
+     * MUDAR O ESTADO — a porta única.
+     *
+     * Passar a «Concluída» desconta as peças do stock e anular devolve-as; é
+     * por isso que isto não é um `update` de uma coluna.
+     */
     public function estado(Request $request, int $id): JsonResponse
     {
         $this->exigir($request, 'workshop.work-orders.edit');
@@ -423,7 +427,11 @@ class OrdensApiController extends Controller
 
         $ordem = $this->encontrar($id);
 
-        [$mensagem, $falhas] = $this->ordens->aplicarEstado($ordem, $dados['estado']);
+        try {
+            [$mensagem, $falhas] = $this->ordens->aplicarEstado($ordem, $dados['estado']);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
 
         return response()->json([
             'data' => $this->linha($ordem->fresh(['vehicle', 'mechanic'])),
