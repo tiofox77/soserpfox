@@ -5,6 +5,7 @@ namespace App\Services\Workshop;
 use App\Models\NotificationTemplate;
 use App\Models\Tenant;
 use App\Models\TenantNotificationSetting;
+use App\Models\Workshop\Vehicle;
 use App\Models\Workshop\WorkOrder;
 use App\Models\Workshop\WorkOrderHistory;
 use App\Services\Notifications\EnvioDeNotificacoes;
@@ -63,6 +64,47 @@ class AvisosDaOficina
             'email_subject' => 'O orçamento da viatura {{matricula}} espera a sua aprovação',
             'email_body' => "Olá {{cliente}},\n\nPreparámos o orçamento da sua viatura {{viatura}} ({{matricula}}). Veja, aprove ou recuse cada trabalho aqui:\n{{link}}\n\n{{empresa}}",
             'sms_body' => '{{empresa}}: o orcamento da viatura {{matricula}} espera a sua aprovacao: {{link}}',
+            'is_active' => true,
+        ],
+        /*
+         * OS LEMBRETES (OF-11) — saem do ecrã Lembretes de Manutenção, por
+         * clique ou sozinhos se a oficina o ligar. `{{quando}}` é «aos 60 000 km
+         * ou a 20/10/2026»; `{{data}}` é a validade do documento.
+         */
+        'revisao' => [
+            'estado' => null,
+            'name' => 'Oficina — Revisão a chegar',
+            'description' => 'Lembrete da próxima revisão da viatura, por km ou por data.',
+            'email_subject' => 'Está na hora da revisão da viatura {{matricula}}',
+            'email_body' => "Olá {{cliente}},\n\nA sua viatura {{viatura}} ({{matricula}}) está a chegar à revisão: {{quando}}.\nMarque connosco por telefone ou responda a este email.\n\n{{empresa}}",
+            'sms_body' => '{{empresa}}: a viatura {{matricula}} esta a chegar a revisao ({{quando}}). Marque connosco.',
+            'is_active' => true,
+        ],
+        'seguro' => [
+            'estado' => null,
+            'name' => 'Oficina — Seguro a caducar',
+            'description' => 'Quando o seguro da viatura está a caducar.',
+            'email_subject' => 'O seguro da viatura {{matricula}} caduca a {{data}}',
+            'email_body' => "Olá {{cliente}},\n\nO seguro da sua viatura {{viatura}} ({{matricula}}) caduca a {{data}}. Não se esqueça de o renovar.\n\n{{empresa}}",
+            'sms_body' => '{{empresa}}: o seguro da viatura {{matricula}} caduca a {{data}}. Nao se esqueca de renovar.',
+            'is_active' => true,
+        ],
+        'inspeccao' => [
+            'estado' => null,
+            'name' => 'Oficina — Inspecção a caducar',
+            'description' => 'Quando a inspecção periódica da viatura está a caducar.',
+            'email_subject' => 'A inspecção da viatura {{matricula}} caduca a {{data}}',
+            'email_body' => "Olá {{cliente}},\n\nA inspecção periódica da sua viatura {{viatura}} ({{matricula}}) caduca a {{data}}. Podemos preparar a viatura para a inspecção.\n\n{{empresa}}",
+            'sms_body' => '{{empresa}}: a inspeccao da viatura {{matricula}} caduca a {{data}}. Podemos preparar a viatura.',
+            'is_active' => true,
+        ],
+        'livrete' => [
+            'estado' => null,
+            'name' => 'Oficina — Livrete a caducar',
+            'description' => 'Quando o livrete da viatura está a caducar.',
+            'email_subject' => 'O livrete da viatura {{matricula}} caduca a {{data}}',
+            'email_body' => "Olá {{cliente}},\n\nO livrete da sua viatura {{viatura}} ({{matricula}}) caduca a {{data}}.\n\n{{empresa}}",
+            'sms_body' => '{{empresa}}: o livrete da viatura {{matricula}} caduca a {{data}}.',
             'is_active' => true,
         ],
     ];
@@ -156,58 +198,106 @@ class AvisosDaOficina
      */
     public static function avisar(WorkOrder $ordem, string $chave, array $extra = []): array
     {
+        $ordem->loadMissing(['vehicle' => fn ($q) => $q->withoutGlobalScopes()]);
+
+        return self::avisarViatura($ordem->vehicle, $chave, [
+            'ordem' => $ordem->order_number,
+            'total' => number_format((float) $ordem->total, 2, ',', '.'),
+            'estado' => __(OrdensDeServico::ESTADOS[$ordem->status] ?? $ordem->status),
+        ] + $extra, $ordem);
+    }
+
+    /**
+     * O aviso a partir da viatura — os lembretes (OF-11) não têm ordem.
+     *
+     * @param  list<string>|null  $so  só estes canais ('sms', 'email'); nulo = os dois
+     * @return list<string> os canais por onde saiu
+     */
+    public static function avisarViatura(?Vehicle $v, string $chave, array $extra = [], ?WorkOrder $ordem = null, ?array $so = null): array
+    {
+        if (! $v) {
+            return [];
+        }
+
         try {
-            if (! self::activos($ordem->tenant_id)) {
+            $tenantId = (int) $v->tenant_id;
+
+            if (! self::activos($tenantId)) {
                 return [];
             }
 
-            self::garantirModelos($ordem->tenant_id);
+            self::garantirModelos($tenantId);
 
-            $modelo = NotificationTemplate::withoutGlobalScopes()->where('slug', "oficina-{$chave}-{$ordem->tenant_id}")->where('is_active', true)->first();
+            $modelo = NotificationTemplate::withoutGlobalScopes()->where('slug', "oficina-{$chave}-{$tenantId}")->where('is_active', true)->first();
             if (! $modelo) {
                 return [];
             }
 
-            $ordem->loadMissing(['vehicle' => fn ($q) => $q->withoutGlobalScopes()]);
-            $v = $ordem->vehicle;
-            $cliente = $v?->client_id ? \App\Models\Client::withoutGlobalScopes()->find($v->client_id) : null;
-            $telefone = $v?->owner_phone ?: ($cliente?->phone ?: $cliente?->mobile);
-            $email = $v?->owner_email ?: $cliente?->email;
-
-            $variaveis = [
-                'cliente' => $v?->owner_name ?: $cliente?->name,
-                'matricula' => $v?->plate,
-                'viatura' => trim(($v?->brand ?? '') . ' ' . ($v?->model ?? '')),
-                'ordem' => $ordem->order_number,
-                'total' => number_format((float) $ordem->total, 2, ',', '.'),
-                'estado' => __(OrdensDeServico::ESTADOS[$ordem->status] ?? $ordem->status),
-                'empresa' => Tenant::find($ordem->tenant_id)?->name,
-            ] + $extra;
+            [$telefone, $email] = self::contactos($v);
+            $variaveis = self::variaveis($v) + $extra;
+            $registo = $ordem?->id ?? $v->id;
 
             $envio = app(EnvioDeNotificacoes::class);
             $sairam = [];
             // Só pelos canais que a empresa ligou: o modelo pode ter os dois e a empresa só o SMS.
-            $d = TenantNotificationSetting::getForTenant($ordem->tenant_id);
-            $comSms = (bool) ($d->sms_enabled ?? false);
-            $comEmail = ($d->email_enabled ?? false) && filled($d->smtp_host ?? null);
+            $d = TenantNotificationSetting::getForTenant($tenantId);
+            $comSms = (bool) ($d->sms_enabled ?? false) && ($so === null || in_array('sms', $so, true));
+            $comEmail = ($d->email_enabled ?? false) && filled($d->smtp_host ?? null) && ($so === null || in_array('email', $so, true));
 
-            if ($comSms && $modelo->sms_enabled && filled($telefone) && $envio->enviar($modelo, 'sms', (string) $telefone, $variaveis, $ordem->id)) {
+            if ($comSms && $modelo->sms_enabled && filled($telefone) && $envio->enviar($modelo, 'sms', (string) $telefone, $variaveis, $registo)) {
                 $sairam[] = 'SMS';
             }
-            if ($comEmail && $modelo->email_enabled && filled($email) && filter_var($email, FILTER_VALIDATE_EMAIL) && $envio->enviar($modelo, 'email', (string) $email, $variaveis, $ordem->id)) {
+            if ($comEmail && $modelo->email_enabled && filled($email) && filter_var($email, FILTER_VALIDATE_EMAIL) && $envio->enviar($modelo, 'email', (string) $email, $variaveis, $registo)) {
                 $sairam[] = 'email';
             }
 
-            if ($sairam) {
+            if ($sairam && $ordem) {
                 WorkOrderHistory::logAction($ordem->id, WorkOrderHistory::ACTION_COMMENT,
                     __('Aviso «:aviso» enviado ao cliente por :canais.', ['aviso' => $modelo->name, 'canais' => implode(' e ', $sairam)]));
             }
 
             return $sairam;
         } catch (\Throwable $e) {
-            Log::warning('Aviso da oficina não enviado', ['ordem' => $ordem->id, 'aviso' => $chave, 'erro' => $e->getMessage()]);
+            Log::warning('Aviso da oficina não enviado', ['ordem' => $ordem?->id, 'viatura' => $v->id, 'aviso' => $chave, 'erro' => $e->getMessage()]);
 
             return [];
         }
+    }
+
+    /** @return array{0: ?string, 1: ?string} o telefone e o email de quem se avisa */
+    public static function contactos(Vehicle $v): array
+    {
+        $cliente = $v->client_id ? \App\Models\Client::withoutGlobalScopes()->find($v->client_id) : null;
+
+        return [
+            $v->owner_phone ?: ($cliente?->phone ?: $cliente?->mobile),
+            $v->owner_email ?: $cliente?->email,
+        ];
+    }
+
+    public static function variaveis(Vehicle $v): array
+    {
+        $cliente = $v->client_id ? \App\Models\Client::withoutGlobalScopes()->find($v->client_id) : null;
+
+        return [
+            'cliente' => $v->owner_name ?: $cliente?->name,
+            'matricula' => $v->plate,
+            'viatura' => trim(($v->brand ?? '') . ' ' . ($v->model ?? '')),
+            'empresa' => Tenant::find($v->tenant_id)?->name,
+        ];
+    }
+
+    /**
+     * O texto curto do aviso, já preenchido — o do modelo da empresa se o tem,
+     * senão o de origem. É o que segue no WhatsApp (que sai do telefone de quem
+     * clica, sem o módulo Notificações).
+     */
+    public static function texto(Vehicle $v, string $chave, array $extra = []): string
+    {
+        $modelo = NotificationTemplate::where('tenant_id', $v->tenant_id)->where('slug', "oficina-{$chave}-{$v->tenant_id}")->first();
+        $texto = $modelo?->sms_body ?: __(self::MODELOS[$chave]['sms_body'] ?? '');
+        $variaveis = self::variaveis($v) + $extra;
+
+        return (string) preg_replace_callback('/\{\{\s*(\w+)\s*\}\}/', fn ($m) => (string) ($variaveis[$m[1]] ?? ''), $texto);
     }
 }

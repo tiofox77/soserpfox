@@ -57,7 +57,14 @@ export default function Agenda() {
     const cache = useQueryClient();
     const [vista, porVista] = useState<'dia' | 'semana'>(() => (typeof window !== 'undefined' && window.innerWidth < 640 ? 'semana' : 'dia'));
     const [dia, porDia] = useState(() => diaIso(new Date()));
-    const [formulario, porFormulario] = useState<{ id: number | null; valores: MarcacaoParaGravar; marcacao: MarcacaoDaAgenda | null } | null>(null);
+    // OF-11: «Marcar» nos Lembretes chega com ?viatura=ID&servico=… e abre a marcação já com a viatura.
+    const [formulario, porFormulario] = useState<{ id: number | null; valores: MarcacaoParaGravar; marcacao: MarcacaoDaAgenda | null } | null>(() => {
+        const p = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+        const viatura = p?.get('viatura');
+        return viatura && /^\d+$/.test(viatura)
+            ? { id: null, marcacao: null, valores: { ...vazio(diaIso(new Date())), vehicle_id: viatura, service: p?.get('servico') ?? '' } }
+            : null;
+    });
 
     const de = vista === 'dia' ? dia : diaIso(segunda(deIso(dia)));
     const ate = vista === 'dia' ? dia : diaIso(somarDias(segunda(deIso(dia)), 6));

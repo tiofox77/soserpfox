@@ -755,3 +755,70 @@ export const pecasDaOrdem = {
     requisitar: (id: number, linhas: Array<{ linha_id: number; quantidade: number }>, submeter: boolean, esperar: boolean) =>
         api.criar<PecasDaOrdem>(`/oficina/ordens/${id}/pecas/requisicao`, { linhas, submeter, esperar }),
 };
+
+/* ─── Os lembretes de manutenção (OF-11) ────────────────────────────── */
+
+export type TipoDeLembrete = 'revisao' | 'seguro' | 'inspeccao' | 'livrete';
+export type CanalDeContacto = 'sms' | 'email' | 'whatsapp' | 'telefone' | 'nota';
+
+export type Lembrete = {
+    chave: string;
+    viatura_id: number;
+    tipo: TipoDeLembrete;
+    tipo_rotulo: string;
+    vencimento: string;
+    vencido: boolean;
+    /** Dias até à data (negativo = já passou); nulo na revisão só por km. */
+    dias: number | null;
+    data: string | null;
+    km_previstos: number | null;
+    km_estimados: number | null;
+    km_por_dia: number | null;
+    faltam_km: number | null;
+    ultima_revisao: string | null;
+    matricula: string;
+    marca_modelo: string;
+    dono: string | null;
+    telefone: string | null;
+    email: string | null;
+    na_oficina: boolean;
+    pausado_ate: string | null;
+    /** O texto curto já preenchido — o que segue no WhatsApp. */
+    mensagem: string;
+    contactos: number;
+    ultimo_contacto: { canal: CanalDeContacto; canal_rotulo: string; quando: string | null; por: string | null; nota: string | null } | null;
+};
+
+export type DefinicoesDosLembretes = {
+    service_interval_km: number;
+    service_interval_months: number;
+    remind_days_before: number;
+    remind_km_before: number;
+    documents_days_before: number;
+    auto_reminders: boolean;
+};
+
+export type LembretesDaOficina = {
+    data: Lembrete[];
+    definicoes: DefinicoesDosLembretes;
+    canais: { sms: boolean; email: boolean };
+    tipos: Escolha[];
+    pode_gerir: boolean;
+};
+
+export type RevisaoParaGravar = {
+    proxima_data: string | null;
+    proximo_km: number | null;
+    intervalo_km: number | null;
+    intervalo_meses: number | null;
+    feita?: boolean;
+};
+
+export const lembretesDaOficina = {
+    ler: () => api.ler<LembretesDaOficina>('/oficina/lembretes'),
+    definicoes: (d: DefinicoesDosLembretes) => api.guardar<{ definicoes: DefinicoesDosLembretes; message: string }>('/oficina/lembretes/definicoes', d),
+    contacto: (viatura: number, d: { tipo: TipoDeLembrete; canal: CanalDeContacto; nota?: string }) =>
+        api.criar<{ message: string }>(`/oficina/lembretes/${viatura}/contacto`, d),
+    adiar: (viatura: number, dias: number) => api.criar<{ message: string }>(`/oficina/lembretes/${viatura}/adiar`, { dias }),
+    revisao: (viatura: number, d: RevisaoParaGravar) => api.guardar<{ message: string }>(`/oficina/lembretes/${viatura}/revisao`, d),
+};

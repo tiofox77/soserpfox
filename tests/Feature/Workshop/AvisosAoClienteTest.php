@@ -75,7 +75,7 @@ class AvisosAoClienteTest extends TenantTestCase
         $this->assertTrue($this->getJson(self::API . '/opcoes')->json('avisos_ao_cliente'));
 
         // Os modelos nascem na empresa, editáveis no ecrã das Notificações.
-        $this->assertSame(4, NotificationTemplate::withoutGlobalScopes()->where('tenant_id', $this->tenant->id)->where('module', 'workshop')->count());
+        $this->assertSame(count(\App\Services\Workshop\AvisosDaOficina::MODELOS), NotificationTemplate::withoutGlobalScopes()->where('tenant_id', $this->tenant->id)->where('module', 'workshop')->count());
     }
 
     public function test_um_modelo_desligado_nao_avisa_e_o_orcamento_leva_o_link(): void

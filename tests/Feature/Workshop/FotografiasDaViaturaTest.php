@@ -133,7 +133,7 @@ class FotografiasDaViaturaTest extends TenantTestCase
 
         $opcoes = $this->getJson(self::CATALOGOS . '/viaturas/opcoes')->assertOk();
 
-        $this->assertSame(['viatura', 'dono', 'documentos'], array_column($opcoes->json('grupos'), 'chave'));
+        $this->assertSame(['viatura', 'dono', 'documentos', 'manutencao'], array_column($opcoes->json('grupos'), 'chave'));
 
         // Nenhum campo fica sem separador.
         $nosGrupos = array_merge(...array_column($opcoes->json('grupos'), 'campos'));

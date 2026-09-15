@@ -2061,6 +2061,17 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::delete('/{id}', [$c, 'destroy'])->whereNumber('id')->name('destroy');
         });
 
+        // Os lembretes de manutenção (OF-11): revisões e documentos a caducar.
+        Route::prefix('oficina/lembretes')->name('oficina.lembretes.')->group(function () {
+            $c = \App\Http\Controllers\Api\Workshop\LembretesDaOficinaApiController::class;
+
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::put('/definicoes', [$c, 'definicoes'])->name('definicoes');
+            Route::post('/{id}/contacto', [$c, 'contacto'])->whereNumber('id')->name('contacto');
+            Route::post('/{id}/adiar', [$c, 'adiar'])->whereNumber('id')->name('adiar');
+            Route::put('/{id}/revisao', [$c, 'revisao'])->whereNumber('id')->name('revisao');
+        });
+
         // A agenda da oficina (OF-05): marcações por elevador/baia e mecânico.
         Route::prefix('oficina/agenda')->name('oficina.agenda.')->group(function () {
             $c = \App\Http\Controllers\Api\Workshop\AgendaDaOficinaApiController::class;
@@ -3149,6 +3160,9 @@ Route::middleware(['auth', 'tenant.module:oficina'])->prefix('workshop')->name('
     // O quadro de trabalho (OF-04): as ordens em colunas por estado, arrastáveis.
     Route::middleware('permission:workshop.work-orders.view')
         ->get('/board', \App\Support\EcraReact::pagina('oficina/quadro', 'Quadro de Trabalho'))->name('board');
+    // Os lembretes de manutenção (OF-11): quem chamar para a revisão e os documentos a caducar.
+    Route::middleware('permission:workshop.vehicles.view')
+        ->get('/reminders', \App\Support\EcraReact::pagina('oficina/lembretes', 'Lembretes de Manutenção'))->name('reminders');
     // A ordem em papel leva a viatura, o dono e o preço: a mesma permissão do
     // ecrã de onde se abre.
     Route::get('/work-orders/{id}/print', [\App\Http\Controllers\Workshop\WorkOrderController::class, 'printPreview'])

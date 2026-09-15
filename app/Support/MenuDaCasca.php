@@ -390,6 +390,7 @@ final class MenuDaCasca
                     ['rota' => 'workshop.packages', 'rotulo' => 'Pacotes de Serviço', 'icone' => 'fa-box-open', 'cor' => 'violet-400', 'activo' => 'workshop.packages*', 'permissao' => 'workshop.work-orders.view'],
                     ['rota' => 'workshop.parts', 'rotulo' => 'Peças', 'icone' => 'fa-boxes', 'cor' => 'orange-400', 'activo' => 'workshop.parts*', 'permissao' => 'workshop.parts.view'],
                     ['rota' => 'workshop.schedule', 'rotulo' => 'Agenda', 'icone' => 'fa-calendar-days', 'cor' => 'cyan-400', 'activo' => 'workshop.schedule*', 'permissao' => 'workshop.work-orders.view'],
+                    ['rota' => 'workshop.reminders', 'rotulo' => 'Lembretes', 'icone' => 'fa-bell', 'cor' => 'amber-400', 'activo' => 'workshop.reminders*', 'permissao' => 'workshop.vehicles.view'],
                     ['rota' => 'workshop.board', 'rotulo' => 'Quadro de Trabalho', 'icone' => 'fa-table-columns', 'cor' => 'pink-400', 'activo' => 'workshop.board*', 'permissao' => 'workshop.work-orders.view'],
                     ['rota' => 'workshop.work-orders', 'rotulo' => 'Ordens de Serviço', 'icone' => 'fa-clipboard-list', 'cor' => 'yellow-400', 'activo' => 'workshop.work-orders*', 'permissao' => 'workshop.work-orders.view'],
                     ['rota' => 'workshop.reports', 'rotulo' => 'Relatórios', 'icone' => 'fa-chart-bar', 'cor' => 'green-400', 'activo' => 'workshop.reports*', 'permissao' => 'workshop.reports.view'],

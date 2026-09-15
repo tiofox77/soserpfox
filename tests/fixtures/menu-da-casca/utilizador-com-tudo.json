@@ -644,6 +644,11 @@
         },
         {
             "tag": "a",
+            "href": "/workshop/reminders",
+            "texto": "Lembretes"
+        },
+        {
+            "tag": "a",
             "href": "/workshop/board",
             "texto": "Quadro de Trabalho"
         },

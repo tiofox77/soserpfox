@@ -67,6 +67,21 @@ class SendScheduledNotifications extends Command
         }
         
         $this->info("🎉 Concluído! Total de notificações enviadas: {$totalSent}");
+
+        // OF-11: os lembretes de manutenção da oficina (só com a opção ligada; uma volta por dia).
+        $empresas = $this->option('tenant')
+            ? [(int) $this->option('tenant')]
+            : \App\Models\Workshop\WorkshopSetting::where('auto_reminders', true)->pluck('tenant_id')->all();
+        foreach ($empresas as $empresa) {
+            try {
+                $n = \App\Services\Workshop\LembretesDaOficina::despachar((int) $empresa);
+                if ($n > 0) {
+                    $this->info("   🔧 Lembretes da oficina: {$n} viaturas avisadas");
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Lembretes da oficina falharam', ['tenant' => $empresa, 'erro' => $e->getMessage()]);
+            }
+        }
     }
     
     protected function processTemplate(NotificationTemplate $template)

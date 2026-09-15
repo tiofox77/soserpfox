@@ -105,6 +105,11 @@ final class OrdensDeServico
          * primeira prova no browser. Um observador é a rede que apanha as
          * mudanças venham elas de onde vierem; este método é uma delas.
          */
+        // OF-11: a revisão feita marca a próxima (por km e por data).
+        if (in_array($novo, ['completed', 'delivered'], true)) {
+            LembretesDaOficina::revisaoFeita($ordem);
+        }
+
         if ($falhas) {
             AvisosDaOficina::estadoMudou($ordem, $novo);
 
