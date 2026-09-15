@@ -11584,5 +11584,9 @@
     "Se o dono já é cliente da casa: os dados do dono preenchem-se sozinhos.": "Si le propriétaire est déjà client : ses coordonnées se remplissent automatiquement.",
     "Antes, durante, depois ou danos — bate-chapa, pintura e o resto.": "Avant, pendant, après ou dégâts — carrosserie, peinture et le reste.",
     "Matrícula por escrever": "Immatriculation non renseignée",
-    "Matrícula :m": "Immatriculation :m"
+    "Matrícula :m": "Immatriculation :m",
+    "Folha de obra (WO#)": "Ordre de réparation (WO#)",
+    "O número da folha de obra escrito no papel. Ex.: 1050186": "Le numéro de l’ordre de réparation écrit sur le papier. Ex. : 1050186",
+    "O número da etiqueta da chave. Ex.: 42": "Le numéro de l’étiquette de la clé. Ex. : 42",
+    "Matrícula, WO#, TAG#, nº, dono, marca, modelo ou chassis": "Immatriculation, WO#, TAG#, nº, propriétaire, marque, modèle ou châssis"
 }

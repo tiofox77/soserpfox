@@ -20,6 +20,9 @@ class Vehicle extends Model
         'client_id',
         'plate',
         'vehicle_number',
+        // O WO# (folha de obra) e o TAG# (etiqueta da chave) escritos no papel da oficina.
+        'work_order_ref',
+        'tag_number',
         'owner_name',
         'owner_phone',
         'owner_email',

@@ -60,7 +60,24 @@ export function CabecaDaViatura({ valores, o, fotos = 0 }: { valores: Record<str
 
             <div className="relative flex flex-wrap items-center gap-4">
                 {/* A CHAPA DA MATRÍCULA */}
-                <ChapaDaMatricula matricula={matricula} />
+                <div className="flex flex-col items-start gap-1.5">
+                    <ChapaDaMatricula matricula={matricula} />
+                    {/* O WO# e o TAG# do papel da oficina. */}
+                    {(v('work_order_ref') || v('tag_number')) && (
+                        <span className="flex flex-wrap gap-1.5">
+                            {v('work_order_ref') && (
+                                <span className="inline-flex items-center gap-1 rounded-md bg-purple-400/20 px-2 py-0.5 font-mono text-xs font-bold text-purple-100 ring-1 ring-inset ring-purple-300/30">
+                                    <i className="fas fa-clipboard-list text-[10px]" aria-hidden="true" />WO# {v('work_order_ref')}
+                                </span>
+                            )}
+                            {v('tag_number') && (
+                                <span className="inline-flex items-center gap-1 rounded-md bg-amber-400/20 px-2 py-0.5 font-mono text-xs font-bold text-amber-100 ring-1 ring-inset ring-amber-300/30">
+                                    <i className="fas fa-key text-[10px]" aria-hidden="true" />TAG# {v('tag_number').toUpperCase()}
+                                </span>
+                            )}
+                        </span>
+                    )}
+                </div>
 
                 <div className="min-w-0 flex-1 basis-[15rem]">
                     <p className="flex flex-wrap items-center gap-x-2 break-words text-lg font-bold leading-tight">

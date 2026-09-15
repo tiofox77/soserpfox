@@ -146,4 +146,26 @@ class FotografiasDaViaturaTest extends TenantTestCase
         $this->assertSame('923000111', $op['dados']['telefone']);
         $this->assertNotEmpty($opcoes->json('referencias.fotos_zonas'));
     }
+
+    public function test_o_wo_e_o_tag_gravam_se_aparecem_na_lista_e_procuram_se(): void
+    {
+        $this->comPermissoes('workshop.vehicles.view', 'workshop.vehicles.create');
+
+        $opcoes = $this->getJson(self::CATALOGOS . '/viaturas/opcoes')->assertOk();
+        $colunas = array_column($opcoes->json('colunas'), 'rotulo', 'chave');
+        $this->assertSame('WO#', $colunas['work_order_ref']);
+        $this->assertSame('TAG#', $colunas['tag_number']);
+
+        $this->postJson(self::CATALOGOS . '/viaturas', [
+            'plate' => 'lda2862rp', 'work_order_ref' => ' 1050186 ', 'tag_number' => '42a',
+            'owner_name' => 'Dono', 'brand' => 'Toyota', 'model' => 'Hilux', 'status' => 'active',
+        ])->assertCreated();
+
+        $v = Vehicle::where('plate', 'LDA2862RP')->firstOrFail();
+        $this->assertSame(['1050186', '42A'], [$v->work_order_ref, $v->tag_number]);
+
+        $this->assertContains('LDA2862RP', array_column($this->getJson(self::CATALOGOS . '/viaturas?procura=1050186')->assertOk()->json('data'), 'plate'));
+        $linha = collect($this->getJson(self::CATALOGOS . '/viaturas?procura=42A')->assertOk()->json('data'))->firstWhere('plate', 'LDA2862RP');
+        $this->assertSame('1050186', $linha['work_order_ref']);
+    }
 }

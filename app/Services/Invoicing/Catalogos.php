@@ -1689,17 +1689,20 @@ final class Catalogos
              * fotografias são o quarto separador (desenhado pelo ecrã).
              */
             'grupos' => [
-                ['chave' => 'viatura', 'rotulo' => 'Viatura', 'icone' => 'fa-car', 'campos' => ['plate', 'status', 'brand', 'model', 'year', 'color', 'fuel_type', 'mileage', 'vin', 'engine_number', 'notes']],
+                ['chave' => 'viatura', 'rotulo' => 'Viatura', 'icone' => 'fa-car', 'campos' => ['plate', 'work_order_ref', 'tag_number', 'status', 'brand', 'model', 'year', 'color', 'fuel_type', 'mileage', 'vin', 'engine_number', 'notes']],
                 ['chave' => 'dono', 'rotulo' => 'Dono', 'icone' => 'fa-user', 'campos' => ['client_id', 'owner_name', 'owner_phone', 'owner_email', 'owner_nif', 'owner_address']],
                 ['chave' => 'documentos', 'rotulo' => 'Documentos', 'icone' => 'fa-id-card', 'campos' => ['registration_document', 'registration_expiry', 'insurance_company', 'insurance_policy', 'insurance_expiry', 'inspection_expiry']],
             ],
-            'pesquisa' => ['plate', 'vehicle_number', 'owner_name', 'brand', 'model', 'vin'],
-            'pesquisa_ajuda' => 'Matrícula, nº, dono, marca, modelo ou chassis',
+            'pesquisa' => ['plate', 'vehicle_number', 'work_order_ref', 'tag_number', 'owner_name', 'brand', 'model', 'vin'],
+            'pesquisa_ajuda' => 'Matrícula, WO#, TAG#, nº, dono, marca, modelo ou chassis',
             'ordem' => [['created_at', 'desc']],
             'colunas' => [
                 // A chapa pequena, como a matrícula nova de Angola.
                 ['chave' => 'plate', 'rotulo' => 'Matrícula', 'formato' => 'matricula'],
                 ['chave' => 'vehicle_number', 'rotulo' => 'Nº', 'formato' => 'texto'],
+                // O WO# e o TAG# do papel da oficina — pedido de 15/09/2026.
+                ['chave' => 'work_order_ref', 'rotulo' => 'WO#', 'formato' => 'codigo', 'icone' => 'fa-clipboard-list', 'tom' => 'roxo'],
+                ['chave' => 'tag_number', 'rotulo' => 'TAG#', 'formato' => 'codigo', 'icone' => 'fa-key', 'tom' => 'ambar'],
                 ['chave' => 'owner_name', 'rotulo' => 'Proprietário', 'formato' => 'texto'],
                 ['chave' => 'brand', 'rotulo' => 'Marca', 'formato' => 'texto'],
                 ['chave' => 'model', 'rotulo' => 'Modelo', 'formato' => 'texto'],
@@ -1728,6 +1731,12 @@ final class Catalogos
             ],
             'campos' => [
                 self::campo('plate', 'Matrícula', 'texto', obrigatorio: true, ajuda: 'Única nesta empresa.'),
+                /*
+                 * O WO# E O TAG# — os dois números do papel que acompanha o carro:
+                 * o da folha de obra (WO#) e o da etiqueta pendurada na chave (TAG#).
+                 */
+                self::campo('work_order_ref', 'Folha de obra (WO#)', 'texto', ajuda: 'O número da folha de obra escrito no papel. Ex.: 1050186'),
+                self::campo('tag_number', 'TAG#', 'texto', ajuda: 'O número da etiqueta da chave. Ex.: 42'),
                 // Os estados são um catálogo de cada oficina (Estados de Viatura).
                 self::campo('status', 'Estado', 'escolha', obrigatorio: true, omissao: 'active', referencia: 'estados'),
                 /*
@@ -1763,6 +1772,8 @@ final class Catalogos
             ],
             'regras' => [
                 'plate' => 'required|string|max:20',
+                'work_order_ref' => 'nullable|string|max:40',
+                'tag_number' => 'nullable|string|max:20',
                 'client_id' => 'nullable|integer',
                 'owner_name' => 'required|string|max:255',
                 'owner_phone' => 'nullable|string|max:20',
@@ -1805,6 +1816,8 @@ final class Catalogos
                 // A matrícula lê-se sempre igual: sem espaços à volta e em
                 // maiúsculas, senão «LD-42-11-AA» e «ld-42-11-aa» são duas.
                 'plate' => mb_strtoupper(trim((string) ($d['plate'] ?? ''))),
+                'work_order_ref' => trim((string) ($d['work_order_ref'] ?? '')) ?: null,
+                'tag_number' => mb_strtoupper(trim((string) ($d['tag_number'] ?? ''))) ?: null,
                 'client_id' => ($d['client_id'] ?? null) ?: null,
                 'year' => ($d['year'] ?? '') === '' ? null : (int) $d['year'],
                 'mileage' => ($d['mileage'] ?? '') === '' ? 0 : (int) $d['mileage'],

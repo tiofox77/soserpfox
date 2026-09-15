@@ -1049,6 +1049,16 @@ function Celula({ c, l }: { c: Coluna; l: Linha }) {
     const v = l[c.chave];
 
     switch (c.formato) {
+        case 'codigo':
+            return v === null || v === undefined || v === ''
+                ? <span className="text-slate-300">—</span>
+                : (
+                    <span className={cls('inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 font-mono text-xs font-bold ring-1 ring-inset transition-transform duration-200 hover:scale-105',
+                        c.tom === 'ambar' ? 'bg-amber-50 text-amber-800 ring-amber-200' : 'bg-purple-50 text-purple-800 ring-purple-200')}>
+                        {c.icone && <i className={cls('fas text-[10px] opacity-70', c.icone)} aria-hidden="true" />}
+                        {String(v)}
+                    </span>
+                );
         case 'matricula':
             return v ? <ChapaDaMatricula matricula={String(v)} tamanho="pequeno" /> : <span className="text-slate-300">—</span>;
         case 'escolha': {

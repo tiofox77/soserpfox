@@ -76,7 +76,12 @@ export type Coluna = {
         // aqui e na célula, e a coluna «Banco» das contas bancárias escrevia «7».
         | 'referencia' | 'hora' | 'dias' | 'data' | 'validade' | 'multi' | 'etiquetas'
         // A chapa da matrícula de Angola (as viaturas).
-        | 'matricula';
+        | 'matricula'
+        // Um número curto numa pastilha com ícone: o WO# e o TAG# da viatura.
+        | 'codigo';
+    /** Nas colunas `codigo`: o ícone e a cor da pastilha. */
+    icone?: string;
+    tom?: 'roxo' | 'ambar';
     alinhar?: 'direita';
     /** Nas colunas `multi` os rótulos das chaves; nas `rapido`, a lista que muda o valor na tabela. */
     opcoes?: Escolha[];
