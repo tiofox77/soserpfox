@@ -270,6 +270,9 @@ class MaintenanceController extends Controller
         // Troca de plano pela mesma regra do ecra. Simulacao por omissao.
         'empresas:trocar-plano',
         'empresas:criar',
+        // Empresa de testes com quem entra e só os módulos pedidos. Simulação
+        // por omissão; a senha é gerada no servidor e só sai na resposta.
+        'empresas:conta-de-teste',
         'empresas:regime',
         'empresas:contas-bancarias',
         // Que nome da empresa sai impresso. Sem --usar apenas lista.
