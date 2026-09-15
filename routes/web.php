@@ -2085,6 +2085,15 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::delete('/{id}', [$c, 'destroy'])->whereNumber('id')->name('destroy');
         });
 
+        // A facturação de frotas (OF-16): uma factura com as ordens de uma empresa.
+        Route::prefix('oficina/frotas')->name('oficina.frotas.')->group(function () {
+            $c = \App\Http\Controllers\Api\Workshop\FrotasApiController::class;
+
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::get('/{cliente}/ordens', [$c, 'ordens'])->whereNumber('cliente')->name('ordens');
+            Route::post('/{cliente}/facturar', [$c, 'facturar'])->whereNumber('cliente')->name('facturar');
+        });
+
         // As recomendações adiadas (OF-12): o que o cliente deixou para depois.
         Route::prefix('oficina/recomendacoes')->name('oficina.recomendacoes.')->group(function () {
             $c = \App\Http\Controllers\Api\Workshop\RecomendacoesAdiadasApiController::class;
@@ -3208,6 +3217,9 @@ Route::middleware(['auth', 'tenant.module:oficina'])->prefix('workshop')->name('
     // O quadro de trabalho (OF-04): as ordens em colunas por estado, arrastáveis.
     Route::middleware('permission:workshop.work-orders.view')
         ->get('/board', \App\Support\EcraReact::pagina('oficina/quadro', 'Quadro de Trabalho'))->name('board');
+    // A facturação de frotas (OF-16): uma factura por empresa com as ordens do período.
+    Route::middleware('permission:workshop.work-orders.view')
+        ->get('/fleet-billing', \App\Support\EcraReact::pagina('oficina/frotas', 'Facturação de Frotas'))->name('fleet-billing');
     // As recomendações adiadas (OF-12): o que o cliente recusou ou deixou para depois.
     Route::middleware('permission:workshop.work-orders.view')
         ->get('/deferred-work', \App\Support\EcraReact::pagina('oficina/recomendacoes', 'Recomendações Adiadas'))->name('deferred-work');

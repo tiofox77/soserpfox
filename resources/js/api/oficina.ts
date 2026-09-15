@@ -1020,3 +1020,29 @@ export const sinistroDaOrdem = {
     gravar: (id: number, d: SinistroParaGravar) => api.guardar<RespostaDoSinistro>(`/oficina/ordens/${id}/sinistro`, d),
     tirar: (id: number) => api.apagar<RespostaDoSinistro>(`/oficina/ordens/${id}/sinistro`),
 };
+
+/* ─── A facturação de frotas (OF-16) ────────────────────────────────── */
+
+export type FrotaPorFacturar = { id: number; nome: string; nif: string | null; empresa: boolean; ordens: number; viaturas: number; valor: number; desde: string | null };
+
+export type OrdemDaFrota = {
+    id: number;
+    numero: string;
+    matricula: string | null;
+    viatura: string;
+    entrada: string | null;
+    concluida: string | null;
+    estado: string;
+    estado_rotulo: string;
+    linhas: number;
+    total: number;
+    pode: boolean;
+    motivo: string | null;
+};
+
+export const frotas = {
+    lista: () => api.ler<{ data: FrotaPorFacturar[]; pode_facturar: boolean }>('/oficina/frotas'),
+    ordens: (cliente: number, de: string, ate: string) => api.ler<{ data: OrdemDaFrota[]; total: number }>(`/oficina/frotas/${cliente}/ordens`, { de, ate }),
+    facturar: (cliente: number, ids: number[]) =>
+        api.criar<{ message: string; factura: { id: number; numero: string; total: number; morada: string } }>(`/oficina/frotas/${cliente}/facturar`, { ids }),
+};

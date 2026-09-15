@@ -98,6 +98,10 @@ class SinistrosDaOficina
         if (! $ordem->vehicle) {
             throw new \InvalidArgumentException(__('Ordem de serviço sem veículo associado.'));
         }
+        // As duas facturas levam as mesmas peças: só depois de a ordem as ter tirado do stock.
+        if (! in_array($ordem->status, ['completed', 'delivered'], true)) {
+            throw new \InvalidArgumentException(__('Um sinistro factura-se depois de a ordem estar concluída.'));
+        }
         $aEspera = $ordem->pendingItems()->count();
         if ($aEspera > 0) {
             throw new \InvalidArgumentException(trans_choice('Há :n linha à espera da aprovação do cliente. Registe a decisão antes de facturar.|Há :n linhas à espera da aprovação do cliente. Registe a decisão antes de facturar.', $aEspera, ['n' => $aEspera]));

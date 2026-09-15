@@ -664,6 +664,11 @@
         },
         {
             "tag": "a",
+            "href": "/workshop/fleet-billing",
+            "texto": "Facturação de Frotas"
+        },
+        {
+            "tag": "a",
             "href": "/workshop/reports",
             "texto": "Relatórios"
         },

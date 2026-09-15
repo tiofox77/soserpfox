@@ -224,6 +224,13 @@ class SalesInvoiceObserver
                 ->value('id');
         }
 
+        // A factura de FROTA (OF-16) junta várias ordens: só aceita ordens cujas
+        // peças já saíram do stock, por isso nunca desconta outra vez.
+        if (!$osId && $invoice->source_module === 'oficina'
+            && str_starts_with((string) $invoice->source_reference, \App\Services\Workshop\FacturacaoDeFrotas::PREFIXO)) {
+            return true;
+        }
+
         if (!$osId) {
             return false;
         }
