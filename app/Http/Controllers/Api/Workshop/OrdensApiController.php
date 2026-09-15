@@ -251,7 +251,12 @@ class OrdensApiController extends Controller
                 'referencia' => $i->part_number,
                 'marca' => $i->brand,
                 'original' => (bool) $i->is_original,
+                'aprovacao' => $i->approval ?? 'approved',
+                'aprovacao_em' => $i->approval_at?->toIso8601String(),
+                'aprovacao_por' => $i->approval_by,
             ])->values(),
+            // OF-03: o link de aprovação e a assinatura do cliente.
+            'aprovacao' => AprovacaoDoOrcamentoApiController::resumo($ordem),
             'historico' => $ordem->history->map(fn (WorkOrderHistory $h) => [
                 'id' => $h->id,
                 'accao' => $h->action,
@@ -379,6 +384,8 @@ class OrdensApiController extends Controller
             'part_number' => ['nullable', 'string', 'max:100'],
             'brand' => ['nullable', 'string', 'max:100'],
             'is_original' => ['nullable', 'boolean'],
+            // OF-03: a linha fica à espera da aprovação do cliente.
+            'precisa_aprovacao' => ['nullable', 'boolean'],
         ]);
 
         // Os ids vêm do pedido e não provam nada: um serviço, um artigo ou um

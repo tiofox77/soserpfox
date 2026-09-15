@@ -148,6 +148,8 @@ class PortalPorModuloTest extends TenantTestCase
         $this->assertSame(['photo_after', 'Pintura', 'Capô'], [$fotos[0]['tipo'], $fotos[0]['servico'], $fotos[0]['zona']]);
 
         $this->assertCount(1, $concluida['inspeccoes']);
+        $this->assertNull($concluida['aprovar'], 'sem linhas à espera não há link');
+        $this->assertSame('approved', $concluida['linhas'][0]['aprovacao'] ?? 'approved');
         $this->assertSame(['Revisão geral', 1, '2 mm'], [$concluida['inspeccoes'][0]['nome'], $concluida['inspeccoes'][0]['contas']['urgente'], $concluida['inspeccoes'][0]['pontos'][0]['nota']]);
     }
 

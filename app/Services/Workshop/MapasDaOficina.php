@@ -95,6 +95,8 @@ final class MapasDaOficina
             ->where('o.tenant_id', $tenantId)
             ->whereNull('o.deleted_at')
             ->where('i.type', 'service')
+            // Só o trabalho aprovado pelo cliente conta como feito (OF-03).
+            ->where('i.approval', 'approved')
             ->whereBetween('o.received_at', [$de, $ate])
             ->groupBy('i.name')
             ->selectRaw('i.name as nome, COUNT(*) as vezes, SUM(i.quantity) as quantidade,'

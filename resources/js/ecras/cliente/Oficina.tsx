@@ -176,6 +176,20 @@ function Folha({ o, i, aberta = false }: { o: OrdemDoCliente; i: number; aberta?
                         ))}
                     </div>
 
+                    {/* OF-03: o orçamento à espera da decisão do cliente. */}
+                    {o.aprovar && (
+                        <a href={o.aprovar} className={cls('group flex flex-wrap items-center gap-3 border border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50 p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md', RAIO, FOCO)}>
+                            <span className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-lg text-white shadow transition-transform duration-300 group-hover:scale-110">
+                                <i className="fas fa-hand" aria-hidden="true" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                                <span className="block font-semibold text-gray-900">{t('O orçamento está à espera da sua aprovação')}</span>
+                                <span className="block text-sm text-gray-600">{t('Veja o que a oficina propõe, aprove ou recuse cada trabalho e assine.')}</span>
+                            </span>
+                            <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-sm font-bold text-white">{t('Decidir agora')}<i className="fas fa-arrow-right transition-transform group-hover:translate-x-1" aria-hidden="true" /></span>
+                        </a>
+                    )}
+
                     {o.linhas.length > 0 && (
                         <div className="overflow-x-auto">
                             <table className="min-w-full text-sm">
@@ -184,8 +198,13 @@ function Folha({ o, i, aberta = false }: { o: OrdemDoCliente; i: number; aberta?
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
                                     {o.linhas.map((l, n) => (
-                                        <tr key={n}>
-                                            <td className="px-4 py-2 text-gray-800"><i className={cls('fas mr-2 text-gray-400', l.tipo === 'part' ? 'fa-gear' : 'fa-screwdriver-wrench')} aria-hidden="true" />{l.nome}</td>
+                                        <tr key={n} className={cls(l.aprovacao === 'pending' && 'bg-amber-50', l.aprovacao === 'declined' && 'text-gray-400')}>
+                                            <td className="px-4 py-2 text-gray-800">
+                                                <i className={cls('fas mr-2 text-gray-400', l.tipo === 'part' ? 'fa-gear' : 'fa-screwdriver-wrench')} aria-hidden="true" />
+                                                <span className={cls(l.aprovacao === 'declined' && 'text-gray-400 line-through')}>{l.nome}</span>
+                                                {l.aprovacao === 'pending' && <span className="ml-2 rounded-full bg-amber-200 px-2 py-0.5 text-[11px] font-bold text-amber-900">{t('À sua espera')}</span>}
+                                                {l.aprovacao === 'declined' && <span className="ml-2 text-[11px] font-semibold">{t('Recusada')}</span>}
+                                            </td>
                                             <td className="px-4 py-2 text-right tabular-nums text-gray-600">{l.quantidade}</td>
                                             <td className="px-4 py-2 text-right tabular-nums font-semibold text-gray-900">{kwanzas(l.total)}</td>
                                         </tr>

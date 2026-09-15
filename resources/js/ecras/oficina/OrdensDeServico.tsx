@@ -25,10 +25,11 @@ import { PorPagina } from '@/ui/FiltrosComuns';
 import { SemNada } from '@/ui/SemNada';
 import { Separadores } from '@/ui/Separadores';
 import { ACCAO_DA_FAIXA, Faixa } from '@/ecras/facturacao/faixa';
-import { CARTAO, FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
+import { CARTAO, FOCO, RAIO, TRANSICAO, cls, data, kz } from '@/ui/tokens';
 import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { CheckinDaViatura } from './CheckinDaViatura';
 import { InspeccaoDaOrdem } from './InspeccaoDaOrdem';
+import { AprovacaoDoCliente, SeloDaAprovacao } from './AprovacaoDoCliente';
 import { etiquetaIntl, t, tPartes } from '@/i18n';
 
 /**
@@ -89,7 +90,7 @@ const formularioVazio = (): OrdemParaGravar => ({
 const linhaVazia = (tipo: 'service' | 'part'): LinhaParaGravar => ({
     type: tipo, service_id: '', product_id: '', code: '', name: '', description: '',
     quantity: '1', unit_price: '0', discount_percent: '0', hours: '0',
-    mechanic_id: '', part_number: '', brand: '', is_original: false,
+    mechanic_id: '', part_number: '', brand: '', is_original: false, precisa_aprovacao: false,
 });
 
 export default function OrdensDeServico() {
@@ -721,6 +722,7 @@ function FichaDaOrdemModal({ id, o, abaInicial = 'info', aoFechar, aoMudar, muda
                     </div>
 
                     <div hidden={aba !== 'linhas'} className="space-y-3">
+                        <AprovacaoDoCliente id={id} ficha={f} podeEditar={o.permissoes.pode_editar} aoMudar={(m) => { refazer(); aoMudar(m); }} />
                         {o.permissoes.pode_editar && (
                             <div className="flex flex-wrap gap-2">
                                 <Botao cor="primaria" tom="solida" icone="fa-screwdriver-wrench" onClick={() => porAJuntar('service')}>
@@ -750,14 +752,15 @@ function FichaDaOrdemModal({ id, o, abaInicial = 'info', aoFechar, aoMudar, muda
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
                                         {f.linhas.map((l) => (
-                                            <tr key={l.id}>
+                                            <tr key={l.id} className={cls(l.aprovacao === 'declined' && 'bg-slate-50 text-slate-400', l.aprovacao === 'pending' && 'bg-amber-50/50')}>
                                                 <td className="px-3 py-2">
                                                     <Etiqueta cor={l.tipo === 'service' ? 'primaria' : 'bom'}>
                                                         {l.tipo === 'service' ? t('Serviço') : t('Peça')}
                                                     </Etiqueta>
                                                 </td>
                                                 <td className="px-3 py-2">
-                                                    <span className="block font-semibold text-slate-800">{l.nome}</span>
+                                                    <span className={cls('block font-semibold', l.aprovacao === 'declined' ? 'text-slate-400 line-through' : 'text-slate-800')}>{l.nome}</span>
+                                                    <SeloDaAprovacao l={l} id={id} podeEditar={o.permissoes.pode_editar && !f.factura} aoMudar={(m) => { refazer(); aoMudar(m); }} />
                                                     {l.codigo && <span className="block font-mono text-xs text-slate-400">{l.codigo}</span>}
                                                     {l.mecanico && (
                                                         <span className="block text-xs text-slate-400">
@@ -1151,6 +1154,17 @@ function JuntarLinha({ id, tipo, o, aoFechar, aoGravar }: {
                         </label>
                     </>
                 )}
+
+                {/* OF-03: propor a linha ao cliente em vez de a dar por aprovada. */}
+                <label className={cls('flex cursor-pointer items-start gap-3 border px-3 py-2.5 text-sm sm:col-span-2', RAIO, TRANSICAO,
+                    valores.precisa_aprovacao ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-slate-200 text-slate-700 hover:bg-slate-50')}>
+                    <input type="checkbox" checked={valores.precisa_aprovacao} onChange={(e) => mudar('precisa_aprovacao', e.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-amber-600" />
+                    <span>
+                        <span className="block font-semibold"><i className="fas fa-hand mr-1.5" aria-hidden="true" />{t('Precisa da aprovação do cliente')}</span>
+                        <span className="block text-xs opacity-80">{t('Fica à espera: não conta para o total nem gasta peças até o cliente aprovar.')}</span>
+                    </span>
+                </label>
 
                 <Campo etiqueta={t('Notas da linha')} className="sm:col-span-2" erro={erros.description}>
                     <textarea rows={2} value={valores.description}

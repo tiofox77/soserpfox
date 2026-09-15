@@ -78,6 +78,8 @@ class PainelApiController extends Controller
             ->join('workshop_services as s', 'i.service_id', '=', 's.id')
             ->where('o.tenant_id', $tenantId)
             ->where('i.type', 'service')
+            // Só o que o cliente aprovou (OF-03).
+            ->where('i.approval', 'approved')
             ->whereBetween('o.received_at', $intervalo)
             ->groupBy('s.id', 's.name')
             ->selectRaw('s.name as nome, COUNT(*) as vezes, SUM(i.subtotal) as receita')

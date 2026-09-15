@@ -158,7 +158,11 @@ class PortalDaOficinaApiController extends Controller
                 'nome' => $l->name,
                 'quantidade' => (float) $l->quantity,
                 'total' => round((float) $l->subtotal, 2),
+                'aprovacao' => $l->approval ?? 'approved',
             ])->values(),
+            // OF-03: o orçamento à espera da decisão do cliente.
+            'aprovar' => \App\Http\Controllers\Api\Workshop\AprovacaoDoOrcamentoApiController::linkActivo($o) && $o->items->contains('approval', 'pending')
+                ? route('oficina.aprovar-orcamento', $o->approval_token) : null,
             'total' => round((float) $o->total, 2),
             'garantia_ate' => $o->warranty_expires?->toDateString(),
             'inspeccoes' => $o->inspections->map(fn ($i) => \App\Http\Controllers\Api\Workshop\InspeccoesDaOrdemApiController::paraEcra($i))->values(),

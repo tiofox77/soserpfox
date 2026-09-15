@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef, useState, type PointerEvent as EventoDoPonteiro, type MouseEvent as EventoDoRato } from 'react';
+import { useEffect, useRef, useState, type MouseEvent as EventoDoRato } from 'react';
 
 import { ErroDaApi } from '@/api/cliente';
 import { checkin, type CheckinDaOrdem, type CheckinParaGravar, type DanoDoCheckin, type RespostaDoCheckin } from '@/api/oficina';
@@ -8,6 +8,7 @@ import { AvisoDeErro } from '@/ui/AvisoDeErro';
 import { Botao } from '@/ui/Botao';
 import { Carregando } from '@/ui/Carregando';
 import { Modal } from '@/ui/Modal';
+import { QuadroDeAssinatura, type QuadroDeAssinaturaRef } from '@/ui/QuadroDeAssinatura';
 import { cascata } from '@/ui/SemNada';
 import { FOCO, RAIO, RAIO_GRANDE, TRANSICAO, cls, dataHora } from '@/ui/tokens';
 
@@ -350,78 +351,17 @@ function Assinar({ id, nomeInicial, porGravar, aoFechar, aoAssinar }: {
     id: number; nomeInicial: string; porGravar: CheckinParaGravar | null;
     aoFechar: () => void; aoAssinar: (r: RespostaDoCheckin) => void;
 }) {
-    const tela = useRef<HTMLCanvasElement>(null);
-    const aDesenhar = useRef(false);
-    const ultimo = useRef<{ x: number; y: number } | null>(null);
+    const quadro = useRef<QuadroDeAssinaturaRef>(null);
     const [riscado, porRiscado] = useState(false);
     const [nome, porNome] = useState(nomeInicial);
 
-    const preparar = useMemo(() => () => {
-        const c = tela.current;
-        if (!c) return;
-        const r = c.getBoundingClientRect();
-        const escala = window.devicePixelRatio || 1;
-        c.width = Math.round(r.width * escala);
-        c.height = Math.round(r.height * escala);
-        const g = c.getContext('2d');
-        if (!g) return;
-        g.scale(escala, escala);
-        g.lineCap = 'round';
-        g.lineJoin = 'round';
-        g.lineWidth = 2.4;
-        g.strokeStyle = '#0f172a';
-    }, []);
-
-    useEffect(() => {
-        // O <dialog> anima a entrada: mede-se o quadro depois de ele ter o tamanho final.
-        const tempo = window.setTimeout(preparar, 260);
-        return () => window.clearTimeout(tempo);
-    }, [preparar]);
-
-    const ponto = (e: EventoDoPonteiro<HTMLCanvasElement>) => {
-        const r = e.currentTarget.getBoundingClientRect();
-        return { x: e.clientX - r.left, y: e.clientY - r.top };
-    };
-
-    const comecar = (e: EventoDoPonteiro<HTMLCanvasElement>) => {
-        e.currentTarget.setPointerCapture(e.pointerId);
-        aDesenhar.current = true;
-        ultimo.current = ponto(e);
-    };
-    const mover = (e: EventoDoPonteiro<HTMLCanvasElement>) => {
-        if (!aDesenhar.current || !ultimo.current) return;
-        const g = e.currentTarget.getContext('2d');
-        const p = ponto(e);
-        if (!g) return;
-        g.beginPath();
-        g.moveTo(ultimo.current.x, ultimo.current.y);
-        g.lineTo(p.x, p.y);
-        g.stroke();
-        ultimo.current = p;
-        if (!riscado) porRiscado(true);
-    };
-    const parar = () => { aDesenhar.current = false; ultimo.current = null; };
-
-    const limpar = () => {
-        const c = tela.current;
-        c?.getContext('2d')?.clearRect(0, 0, c.width, c.height);
-        porRiscado(false);
-    };
+    const limpar = () => quadro.current?.limpar();
 
     const assinar = useMutation({
         mutationFn: async () => {
             if (porGravar) await checkin.gravar(id, porGravar);
-            // Fundo branco: um PNG transparente aparece preto em alguns visualizadores de PDF.
-            const origem = tela.current as HTMLCanvasElement;
-            const copia = document.createElement('canvas');
-            copia.width = origem.width;
-            copia.height = origem.height;
-            const g = copia.getContext('2d') as CanvasRenderingContext2D;
-            g.fillStyle = '#ffffff';
-            g.fillRect(0, 0, copia.width, copia.height);
-            g.drawImage(origem, 0, 0);
 
-            return checkin.assinar(id, copia.toDataURL('image/png'), nome);
+            return checkin.assinar(id, quadro.current?.imagem() ?? '', nome);
         },
         onSuccess: aoAssinar,
     });
@@ -451,17 +391,7 @@ function Assinar({ id, nomeInicial, porGravar, aoFechar, aoAssinar }: {
                     <span className="mb-1 block font-medium text-slate-700">{t('Nome de quem assina')}</span>
                     <input value={nome} maxLength={150} onChange={(e) => porNome(e.target.value)} className={cls('w-full border border-slate-300 px-3 py-2 text-sm', RAIO, FOCO)} />
                 </label>
-                <div className="relative">
-                    <canvas ref={tela} onPointerDown={comecar} onPointerMove={mover} onPointerUp={parar} onPointerLeave={parar} onPointerCancel={parar}
-                        aria-label={t('Quadro para assinar')}
-                        className={cls('block h-48 w-full touch-none border-2 border-dashed bg-white', RAIO_GRANDE, riscado ? 'border-emerald-300' : 'border-slate-300')} />
-                    {!riscado && (
-                        <span className="pointer-events-none absolute inset-0 grid place-items-center text-sm text-slate-400">
-                            <span><i className="fas fa-pen-nib mr-1.5" aria-hidden="true" />{t('Assine aqui com o dedo ou com o rato')}</span>
-                        </span>
-                    )}
-                    <span className="pointer-events-none absolute inset-x-6 bottom-9 border-b border-slate-300" aria-hidden="true" />
-                </div>
+                <QuadroDeAssinatura ref={quadro} aoRiscar={porRiscado} />
                 <p className="text-xs text-slate-500">{t('Ao assinar, o cliente confirma os km, o combustível, os danos, os acessórios e os objectos registados neste check-in.')}</p>
             </div>
         </Modal>

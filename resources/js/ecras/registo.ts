@@ -387,6 +387,9 @@ export const ecras: Record<string, Ecra> = {
         import('./oficina/Relatorios'),
     'oficina/ordens': () =>
         import('./oficina/OrdensDeServico'),
+    // O orçamento aprovado pelo cliente, pelo link (OF-03) — página solta, sem sessão.
+    'oficina/aprovar-orcamento': () =>
+        import('./oficina/AprovarOrcamento'),
 
     // O HOTEL. Os catálogos (tipos de quarto, quartos, hóspedes, pessoal,
     // pacotes, códigos) passam pelo ecrã genérico; estes são só dele.

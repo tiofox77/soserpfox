@@ -30,9 +30,16 @@ class WorkOrderItem extends Model
         'part_number',
         'brand',
         'is_original',
+        // OF-03: approved | pending | declined — só as aprovadas contam, saem do stock e vão à factura.
+        'approval',
+        'approval_at',
+        'approval_by',
     ];
 
+    public const APROVACOES = ['approved' => 'Aprovada', 'pending' => 'À espera do cliente', 'declined' => 'Recusada'];
+
     protected $casts = [
+        'approval_at' => 'datetime',
         'quantity' => 'decimal:2',
         'unit_price' => 'decimal:2',
         'discount_percent' => 'decimal:2',

@@ -44,6 +44,13 @@ class WorkOrder extends Model
         'notes',
         'invoice_id',
         'invoiced_at',
+        // OF-03: o link de aprovação do orçamento e a assinatura do cliente.
+        'approval_token',
+        'approval_requested_at',
+        'approval_expires_at',
+        'approval_signature',
+        'approval_signed_by',
+        'approval_signed_at',
     ];
 
     protected $casts = [
@@ -53,6 +60,9 @@ class WorkOrder extends Model
         'completed_at' => 'datetime',
         'delivered_at' => 'datetime',
         'invoiced_at' => 'datetime',
+        'approval_requested_at' => 'datetime',
+        'approval_expires_at' => 'datetime',
+        'approval_signed_at' => 'datetime',
         'warranty_expires' => 'date',
         'mileage_in' => 'integer',
         'labor_total' => 'decimal:2',
@@ -101,14 +111,26 @@ class WorkOrder extends Model
         return $this->hasMany(WorkOrderItem::class);
     }
 
+    /*
+     * OS SERVIÇOS E AS PEÇAS QUE CONTAM — só as linhas APROVADAS (OF-03).
+     *
+     * São estas que fazem os totais e saem do stock. Uma linha à espera do
+     * cliente, ou recusada, está na ordem mas não vale dinheiro nem gasta peças.
+     */
     public function services()
     {
-        return $this->items()->where('type', 'service');
+        return $this->items()->where('type', 'service')->where('approval', 'approved');
     }
 
     public function parts()
     {
-        return $this->items()->where('type', 'part');
+        return $this->items()->where('type', 'part')->where('approval', 'approved');
+    }
+
+    /** As linhas à espera da decisão do cliente. */
+    public function pendingItems()
+    {
+        return $this->items()->where('approval', 'pending');
     }
     
     public function invoice()
@@ -304,6 +326,15 @@ class WorkOrder extends Model
         if (!$this->vehicle) {
             throw new \Exception('Ordem de serviço sem veículo associado.');
         }
+
+        // OF-03: não se factura um orçamento a meio — o cliente ainda não disse que sim nem que não.
+        $aEspera = $this->pendingItems()->count();
+        if ($aEspera > 0) {
+            throw new \Exception(trans_choice('Há :n linha à espera da aprovação do cliente. Registe a decisão antes de facturar.|Há :n linhas à espera da aprovação do cliente. Registe a decisão antes de facturar.', $aEspera, ['n' => $aEspera]));
+        }
+        if (! $this->items()->where('approval', 'approved')->exists()) {
+            throw new \Exception(__('A ordem não tem linhas aprovadas para facturar.'));
+        }
         
         \DB::beginTransaction();
         try {
@@ -405,7 +436,8 @@ class WorkOrder extends Model
 
         $linhas = [];
 
-        foreach ($this->items as $item) {
+        // Só as linhas aprovadas vão à factura (OF-03).
+        foreach ($this->items->where('approval', 'approved') as $item) {
             $ehServico = $item->type === 'service';
 
             // A AGT exige artigo do catálogo na linha — o mesmo vínculo que os

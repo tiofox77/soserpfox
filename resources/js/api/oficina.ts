@@ -1,4 +1,4 @@
-import { api } from './cliente';
+import { api, criarApi } from './cliente';
 
 /**
  * A OFICINA, para os ecrãs em React.
@@ -171,6 +171,23 @@ export type LinhaDaOrdem = {
     referencia: string | null;
     marca: string | null;
     original: boolean;
+    /** OF-03: só as aprovadas contam para os totais, saem do stock e vão à factura. */
+    aprovacao: 'approved' | 'pending' | 'declined';
+    aprovacao_em: string | null;
+    aprovacao_por: string | null;
+};
+
+/** O estado da aprovação do orçamento pelo cliente (OF-03). */
+export type AprovacaoDaOrdem = {
+    a_espera: number;
+    valor_a_espera: number;
+    recusadas: number;
+    link: string | null;
+    pedido_em: string | null;
+    expira_em: string | null;
+    assinado_por: string | null;
+    assinado_em: string | null;
+    assinatura: string | null;
 };
 
 export type EventoDaOrdem = {
@@ -222,6 +239,7 @@ export type FichaDaOrdem = Ordem & {
     recomendacoes: string | null;
     notas: string | null;
     linhas: LinhaDaOrdem[];
+    aprovacao: AprovacaoDaOrdem;
     historico: EventoDaOrdem[];
     anexos: AnexoDaOrdem[];
     factura: { id: number; numero: string; cliente: string | null; quando: string | null; morada: string } | null;
@@ -273,6 +291,8 @@ export type LinhaParaGravar = {
     part_number: string;
     brand: string;
     is_original: boolean;
+    /** OF-03: a linha fica à espera da aprovação do cliente. */
+    precisa_aprovacao: boolean;
 };
 
 export const ordens = {
@@ -327,6 +347,12 @@ export const ordens = {
 
     apagarAnexo: (id: number, anexo: number) =>
         api.apagar<{ message: string }>(`/oficina/ordens/${id}/anexos/${anexo}`),
+
+    /* OF-03: o orçamento aprovado pelo cliente. */
+    pedirAprovacao: (id: number) => api.criar<{ data: AprovacaoDaOrdem; message: string }>(`/oficina/ordens/${id}/aprovacao`, {}),
+    cancelarAprovacao: (id: number) => api.apagar<{ data: AprovacaoDaOrdem; message: string }>(`/oficina/ordens/${id}/aprovacao`),
+    decidirLinha: (id: number, linha: number, decisao: LinhaDaOrdem['aprovacao']) =>
+        api.criar<{ data: AprovacaoDaOrdem; message: string }>(`/oficina/ordens/${id}/linhas/${linha}/aprovacao`, { decisao }),
 };
 
 /** Uma folha de obra na ficha da viatura, com a factura que saiu dela. */
@@ -511,4 +537,26 @@ export const inspeccoes = {
         return api.enviar<RespostaDasInspeccoes>(`/oficina/ordens/${id}/inspeccoes/${inspeccao}/pontos/${ponto}/foto`, corpo);
     },
     tirarFoto: (id: number, inspeccao: number, ponto: number) => api.apagar<RespostaDasInspeccoes>(`/oficina/ordens/${id}/inspeccoes/${inspeccao}/pontos/${ponto}/foto`),
+};
+
+/* ─── O orçamento visto pelo cliente, pelo link (OF-03) — sem sessão ── */
+
+export type OrcamentoParaAprovar = {
+    empresa: { nome: string | null; telefone: string | null; email: string | null };
+    ordem: { numero: string; matricula: string | null; viatura: string; dono: string | null; problema: string | null; diagnostico: string | null };
+    linhas: Array<{ id: number; tipo: 'service' | 'part'; nome: string; descricao: string | null; quantidade: number; preco: number; desconto: number; subtotal: number; aprovacao: 'approved' | 'pending' | 'declined'; decidida_em: string | null }>;
+    contas: { aprovado: number; a_espera: number; desconto: number };
+    aberto: boolean;
+    motivo: string | null;
+    expira_em: string | null;
+    assinado_por: string | null;
+    assinado_em: string | null;
+};
+
+const pelaChave = criarApi('/oficina/aprovar');
+
+export const orcamentoPeloLink = {
+    ver: (token: string) => pelaChave.ler<OrcamentoParaAprovar>(`/${token}/dados`),
+    responder: (token: string, decisoes: Record<number, 'approved' | 'declined'>, nome: string, assinatura: string) =>
+        pelaChave.criar<{ message: string }>(`/${token}`, { decisoes, nome, assinatura }),
 };

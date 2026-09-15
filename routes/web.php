@@ -2013,6 +2013,12 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::post('/{id}/checkin/assinatura', [$k, 'assinar'])->whereNumber('id')->name('checkin.assinar');
             Route::delete('/{id}/checkin/assinatura', [$k, 'tirarAssinatura'])->whereNumber('id')->name('checkin.tirar-assinatura');
 
+            // O orçamento aprovado pelo cliente (OF-03): o link e as decisões registadas pela oficina.
+            $ap = \App\Http\Controllers\Api\Workshop\AprovacaoDoOrcamentoApiController::class;
+            Route::post('/{id}/aprovacao', [$ap, 'pedir'])->whereNumber('id')->name('aprovacao.pedir');
+            Route::delete('/{id}/aprovacao', [$ap, 'cancelar'])->whereNumber('id')->name('aprovacao.cancelar');
+            Route::post('/{id}/linhas/{linha}/aprovacao', [$ap, 'decidirLinha'])->whereNumber('id')->whereNumber('linha')->name('aprovacao.linha');
+
             // A inspecção digital com semáforo (OF-02).
             $n = \App\Http\Controllers\Api\Workshop\InspeccoesDaOrdemApiController::class;
             Route::get('/{id}/inspeccoes', [$n, 'index'])->whereNumber('id')->name('inspeccoes.lista');
@@ -2769,6 +2775,22 @@ Route::group([], function () {
     Route::post('/client/login/empresa', [\App\Http\Controllers\Cliente\EntradaNoPortalController::class, 'escolherEmpresa'])->name('client.login.empresa');
     // A vista `client.forgot-password` nunca existiu: a ligação dava erro 500.
     Route::get('/client/forgot-password', \App\Support\EcraReact::entradaCliente('cliente/esqueci-a-senha', 'Esqueceu a senha?'))->name('client.forgot-password');
+});
+
+/*
+ * O ORÇAMENTO DA OFICINA APROVADO PELO LINK (OF-03) — sem sessão.
+ *
+ * O cliente recebe o link por WhatsApp ou email e decide sem ter conta no
+ * portal. A chave tem 48 caracteres e expira em 14 dias; o limite de pedidos
+ * trava quem tente adivinhar chaves.
+ */
+Route::middleware('throttle:30,1')->prefix('oficina/aprovar')->group(function () {
+    Route::get('/{token}', \App\Support\EcraReact::solta('oficina/aprovar-orcamento', 'Aprovar orçamento'))
+        ->where('token', '[A-Za-z0-9]{48}')->name('oficina.aprovar-orcamento');
+    Route::get('/{token}/dados', [\App\Http\Controllers\Api\Workshop\AprovacaoDoOrcamentoApiController::class, 'ver'])
+        ->where('token', '[A-Za-z0-9]{48}')->name('oficina.aprovar-orcamento.dados');
+    Route::post('/{token}', [\App\Http\Controllers\Api\Workshop\AprovacaoDoOrcamentoApiController::class, 'responder'])
+        ->where('token', '[A-Za-z0-9]{48}')->name('oficina.aprovar-orcamento.responder');
 });
 
 // Rotas protegidas do cliente

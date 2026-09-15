@@ -201,10 +201,14 @@ final class OrdensDeServico
                 'part_number' => $dados['part_number'] ?? null,
                 'brand' => $dados['brand'] ?? null,
                 'is_original' => (bool) ($dados['is_original'] ?? false),
+                // OF-03: uma linha proposta fica à espera do cliente e não conta para os totais.
+                'approval' => ! empty($dados['precisa_aprovacao']) ? 'pending' : 'approved',
             ]);
 
             WorkOrderHistory::logAction($ordem->id, WorkOrderHistory::ACTION_ITEM_ADDED,
-                __('Linha adicionada: :nome', ['nome' => $linha->name]),
+                $linha->approval === 'pending'
+                    ? __('Linha proposta ao cliente: :nome', ['nome' => $linha->name])
+                    : __('Linha adicionada: :nome', ['nome' => $linha->name]),
                 ['tipo' => $linha->type, 'subtotal' => (float) $linha->subtotal]);
 
             return $linha;
