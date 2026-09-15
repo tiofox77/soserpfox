@@ -633,7 +633,7 @@
                         <td>AOA</td>
                         <td>{{ $receipt->payment_date->format('d/m/Y') }}</td>
                         <td>{{ $receipt->created_at->format('H:i') }}</td>
-                        <td>{{ $receipt->payment_method ?? 'Dinheiro' }}</td>
+                        <td>{{ \App\Support\FormaDePagamento::nome($receipt->payment_method, $tenant->id ?? null) ?? 'Dinheiro' }}</td>
                         <td>{{ $receipt->creator->name ?? 'Sistema' }}</td>
                         <td>{{ $receipt->status_label }}</td>
                     </tr>
@@ -649,7 +649,7 @@
                     {{ number_format($receipt->amount, 2, ',', '.') }} AOA
                 </div>
                 <div style="font-size: 9px; color: #666; margin-top: 10px;">
-                    Método de Pagamento: <strong>{{ $receipt->payment_method ?? 'Dinheiro' }}</strong>
+                    Método de Pagamento: <strong>{{ \App\Support\FormaDePagamento::nome($receipt->payment_method, $tenant->id ?? null) ?? 'Dinheiro' }}</strong>
                 </div>
                 @if($receipt->notes)
                 <div style="margin-top: 20px; padding: 15px; background-color: white; border-radius: 5px; text-align: left; font-size: 9px; border-left: 4px solid #0066cc;">
@@ -675,7 +675,7 @@
                         <div style="font-size: 9px; font-weight: bold; color: #0066cc; margin-bottom: 5px;">Informação do Pagamento</div>
                         <div style="font-size: 8px; line-height: 1.5; color: #333;">
                             <strong>Data:</strong> {{ $receipt->payment_date->format('d/m/Y') }}<br>
-                            <strong>Método:</strong> {{ $receipt->payment_method ?? 'Dinheiro' }}<br>
+                            <strong>Método:</strong> {{ \App\Support\FormaDePagamento::nome($receipt->payment_method, $tenant->id ?? null) ?? 'Dinheiro' }}<br>
                             <strong>Status:</strong> {{ $receipt->status_label }}
                         </div>
                     </div>
@@ -737,7 +737,7 @@
                         
                         <div class="summary-row">
                             <span>Método</span>
-                            <span>{{ $receipt->payment_method ?? 'Dinheiro' }}</span>
+                            <span>{{ \App\Support\FormaDePagamento::nome($receipt->payment_method, $tenant->id ?? null) ?? 'Dinheiro' }}</span>
                         </div>
                         
                         <div style="margin: 15px 0; border-top: 2px solid #0066cc; padding-top: 15px;">

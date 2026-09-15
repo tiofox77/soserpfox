@@ -45,6 +45,22 @@ export function fmtHora(iso: unknown): string {
     return Number.isNaN(d.getTime()) ? '' : String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
 }
 
+/** Os mesmos nomes do servidor (`App\Support\FormaDePagamento::NOMES`); um código desconhecido sai em maiúsculas. */
+const FORMAS_DE_PAGAMENTO: Record<string, string> = {
+    CASH: 'Dinheiro', NU: 'Dinheiro', DINHEIRO: 'Dinheiro',
+    TRANSFER: 'Transferência Bancária', TB: 'Transferência Bancária',
+    TPA: 'TPA (Multicaixa)', CC: 'Cartão de Crédito', CD: 'Cartão de Débito',
+    MCX: 'Multicaixa Express', MULTICAIXA: 'Multicaixa', MB: 'Multicaixa',
+    CHECK: 'Cheque', CH: 'Cheque', DEBIT: 'Débito Direto', MBWAY: 'MB Way',
+    OTHER: 'Outro', OU: 'Outro', MIXED: 'Pagamento Misto', MISTO: 'Pagamento Misto',
+};
+
+export function nomeDaFormaDePagamento(codigo: unknown): string {
+    const chave = String(codigo || 'cash').trim().toUpperCase();
+
+    return FORMAS_DE_PAGAMENTO[chave] ?? chave;
+}
+
 function escapar(s: unknown): string {
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
@@ -274,7 +290,9 @@ export function preencherMolde(moldeHtml: string, doc: Registo, extras: ExtrasDo
         RETENCAO: fmt2(c.retencao),
         A_PAGAR: fmt2(c.aPagar),
         RECEBIDO: fmt2(doc.amount_received != null ? doc.amount_received : c.total),
-        PAGAMENTO: String(doc.payment_method || 'Dinheiro').toUpperCase(),
+        // O NOME, como no papel do servidor (`App\Support\FormaDePagamento`) —
+        // não o código: «Dinheiro», e não «CASH».
+        PAGAMENTO: nomeDaFormaDePagamento(doc.payment_method),
         EXTENSO: valorPorExtenso(c.aPagar),
         NOTAS: doc.notes || '',
         ENTREGA_DATA: '', ENTREGA_LOCAL: '',

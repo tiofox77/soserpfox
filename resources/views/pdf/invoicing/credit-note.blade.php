@@ -652,6 +652,7 @@
                         <th>Moeda</th>
                         <th>Data De Emissão</th>
                         <th>Hora De Emissão</th>
+                        <th>Método de Pagamento</th>
                         <th>Motivo</th>
                         <th>Operador</th>
                         <th>Status</th>
@@ -662,6 +663,7 @@
                         <td>AOA</td>
                         <td>{{ $creditNote->issue_date->format('d/m/Y') }}</td>
                         <td>{{ $creditNote->created_at->format('H:i') }}</td>
+                        <td>{{ \App\Support\FormaDePagamento::doDocumento($creditNote->invoice?->payment_method, $creditNote->client, $tenant->id ?? null) }}</td>
                         <td>{{ $creditNote->reason_text ?? $creditNote->reason_expression }} — {{ $creditNote->reason_label }}</td>
                         <td>{{ $creditNote->creator->name ?? 'Sistema' }}</td>
                         <td>{{ $creditNote->status_label }}</td>

@@ -635,6 +635,7 @@
                         <th>Data De Emissão</th>
                         <th>Hora De Emissão</th>
                         <th>Data de Venc.</th>
+                        <th>Método de Pagamento</th>
                         <th>Operador</th>
                         <th>Referência</th>
                     </tr>
@@ -645,6 +646,7 @@
                         <td>{{ $proforma->proforma_date->format('d/m/Y') }}</td>
                         <td>{{ $proforma->created_at->format('H:i') }}</td>
                         <td>{{ $proforma->valid_until ? $proforma->valid_until->format('d/m/Y') : 'N/A' }}</td>
+                        <td>{{ \App\Support\FormaDePagamento::doDocumento(null, $proforma->client, $tenant->id ?? null) }}</td>
                         <td>{{ $proforma->creator->name ?? 'Sistema' }}</td>
                         <td>{{ $proforma->reference ?? $proforma->proforma_number }}</td>
                     </tr>

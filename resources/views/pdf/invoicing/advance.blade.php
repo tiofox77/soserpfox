@@ -598,6 +598,7 @@
                         <th>Moeda</th>
                         <th>Data De Emissão</th>
                         <th>Hora De Emissão</th>
+                        <th>Método de Pagamento</th>
                         <th>Motivo</th>
                         <th>Operador</th>
                         <th>Status</th>
@@ -608,6 +609,7 @@
                         <td>AOA</td>
                         <td>{{ $advance->payment_date->format('d/m/Y') }}</td>
                         <td>{{ $advance->created_at->format('H:i') }}</td>
+                        <td>{{ \App\Support\FormaDePagamento::doDocumento($advance->payment_method, $advance->client, $tenant->id ?? null) }}</td>
                         <td>{{ $advance->type_label ?? 'N/A' }}</td>
                         <td>{{ $advance->creator->name ?? 'Sistema' }}</td>
                         <td>{{ $advance->status_label }}</td>
@@ -634,7 +636,7 @@
                     </div>
                 </div>
                 <div style="font-size: 9px; color: #666; margin-top: 15px;">
-                    Método de Pagamento: <strong>{{ $advance->payment_method ?? 'Dinheiro' }}</strong>
+                    Método de Pagamento: <strong>{{ \App\Support\FormaDePagamento::nome($advance->payment_method, $tenant->id ?? null) ?? 'Dinheiro' }}</strong>
                 </div>
                 @if($advance->notes)
                 <div style="margin-top: 20px; padding: 15px; background-color: white; border-radius: 5px; text-align: left; font-size: 9px; border-left: 4px solid #f59e0b;">
@@ -660,7 +662,7 @@
                         <div style="font-size: 9px; font-weight: bold; color: #f59e0b; margin-bottom: 5px;">Informação do Adiantamento</div>
                         <div style="font-size: 8px; line-height: 1.5; color: #333;">
                             <strong>Data:</strong> {{ $advance->payment_date->format('d/m/Y') }}<br>
-                            <strong>Método:</strong> {{ $advance->payment_method ?? 'Dinheiro' }}<br>
+                            <strong>Método:</strong> {{ \App\Support\FormaDePagamento::nome($advance->payment_method, $tenant->id ?? null) ?? 'Dinheiro' }}<br>
                             <strong>Status:</strong> {{ $advance->status_label }}<br>
                             <strong>Finalidade:</strong> {{ $advance->purpose ?? 'Adiantamento para serviços' }}
                         </div>
@@ -716,7 +718,7 @@
                         
                         <div class="summary-row">
                             <span>Método</span>
-                            <span>{{ $advance->payment_method ?? 'Dinheiro' }}</span>
+                            <span>{{ \App\Support\FormaDePagamento::nome($advance->payment_method, $tenant->id ?? null) ?? 'Dinheiro' }}</span>
                         </div>
                         
                         <div class="summary-row">

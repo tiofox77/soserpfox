@@ -496,6 +496,7 @@
                         <th>Data De Emissão</th>
                         <th>Hora De Emissão</th>
                         <th>Data de Venc.</th>
+                        <th>Método de Pagamento</th>
                         <th>Operador</th>
                         <th>Referência</th>
                     </tr>
@@ -506,6 +507,7 @@
                         <td>{{ $invoice->invoice_date->format('d/m/Y') }}</td>
                         <td>{{ $invoice->created_at->format('H:i') }}</td>
                         <td>{{ $invoice->due_date ? $invoice->due_date->format('d/m/Y') : 'N/A' }}</td>
+                        <td>{{ \App\Support\FormaDePagamento::doDocumento($invoice->payment_method ?? null, $invoice->client ?? null, $tenant->id ?? null) }}</td>
                         <td>{{ $invoice->creator->name ?? 'Sistema' }}</td>
                         <td>{{ $invoice->reference ?: $invoice->numeroInterno() }}</td>
                     </tr>

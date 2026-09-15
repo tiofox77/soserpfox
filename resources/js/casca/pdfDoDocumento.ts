@@ -59,12 +59,84 @@ function pdfDeCanvas(canvas: HTMLCanvasElement): JsPdf {
     return pdf;
 }
 
-/** A altura é a do DOCUMENTO, não a da página que o contém (senão entram as margens e uma folha a mais). */
-function fotografar(elemento: HTMLElement, escala = 2): Promise<HTMLCanvasElement> {
+/**
+ * NO MODO NATIVO UMA IMAGEM POR ENDEREÇO NÃO SE DESENHA — embute-se antes.
+ *
+ * O desenho nativo passa o documento por um SVG, e um SVG feito imagem não vai
+ * buscar nada fora: um logótipo por URL saía como imagem partida. O logótipo e
+ * o QR já vêm quase sempre em `data:`; o resto converte-se aqui. O que não se
+ * conseguir buscar esconde-se — no desenho antigo também saía em branco.
+ */
+async function embutirImagens(doc: Document, limiteMs = 4000): Promise<void> {
+    const porEndereco = Array.from(doc.images).filter((img) => (img.currentSrc || img.src) && !(img.currentSrc || img.src).startsWith('data:'));
+
+    const trabalho = Promise.all(porEndereco.map(async (img) => {
+        try {
+            const resposta = await fetch(img.currentSrc || img.src, { credentials: 'same-origin' });
+            if (!resposta.ok) throw new Error(String(resposta.status));
+            const blob = await resposta.blob();
+            const dados = await new Promise<string>((ok, falha) => {
+                const leitor = new FileReader();
+                leitor.onload = () => ok(String(leitor.result));
+                leitor.onerror = () => falha(leitor.error);
+                leitor.readAsDataURL(blob);
+            });
+            await new Promise((ok) => {
+                img.addEventListener('load', ok, { once: true });
+                img.addEventListener('error', ok, { once: true });
+                img.removeAttribute('srcset');
+                img.src = dados;
+            });
+        } catch {
+            img.style.visibility = 'hidden';
+        }
+    }));
+
+    await Promise.race([trabalho, new Promise((r) => setTimeout(r, limiteMs))]);
+}
+
+/**
+ * Um canvas em branco (ou que o browser não deixa ler) não é uma fotografia.
+ * O Safari marca como «contaminado» o que passa por SVG com HTML dentro e
+ * recusa lê-lo; alguns browsers desenham-no vazio. Nos dois casos volta-se ao
+ * desenho antigo.
+ */
+function naoServe(canvas: HTMLCanvasElement): boolean {
+    try {
+        const amostra = document.createElement('canvas');
+        amostra.width = 48;
+        amostra.height = 48;
+        const ctx = amostra.getContext('2d')!;
+        ctx.drawImage(canvas, 0, 0, 48, 48);
+        const pixeis = ctx.getImageData(0, 0, 48, 48).data;
+
+        for (let i = 0; i + 2 < pixeis.length; i += 4) {
+            if ((pixeis[i] ?? 255) < 235 || (pixeis[i + 1] ?? 255) < 235 || (pixeis[i + 2] ?? 255) < 235) return false;
+        }
+
+        return true;
+    } catch {
+        return true;
+    }
+}
+
+/**
+ * A altura é a do DOCUMENTO, não a da página que o contém (senão entram as margens e uma folha a mais).
+ *
+ * `nativo`: O BROWSER DESENHA O TEXTO, NÃO O HTML2CANVAS. Por omissão o
+ * html2canvas volta a escrever cada palavra com as suas próprias medidas, e
+ * elas não são as do browser: com o `line-height: 1.1` dos modelos, no Chrome
+ * de quem usa, o texto descia e as linhas das tabelas passavam-lhe por cima —
+ * «o PDF está mal escrito, a pré-visualização está certa» (15/09/2026, factura
+ * FR 000004). Com `foreignObjectRendering` é o próprio motor do browser que
+ * pinta, e o PDF sai igual ao que se vê. Se o browser não o souber fazer, o
+ * desenho antigo fica de rede.
+ */
+async function fotografar(elemento: HTMLElement, escala = 2, nativo = false): Promise<HTMLCanvasElement> {
     const larguraPx = Math.round(elemento.getBoundingClientRect().width) || Math.round(A4_LARGURA_MM * PX_POR_MM);
     const alturaPx = Math.max(elemento.scrollHeight, 1);
 
-    return window.html2canvas!(elemento, {
+    const opcoes = {
         scale: escala,
         useCORS: true,
         backgroundColor: '#ffffff',
@@ -75,7 +147,18 @@ function fotografar(elemento: HTMLElement, escala = 2): Promise<HTMLCanvasElemen
         windowHeight: alturaPx,
         // Barras de acções, filtros e paginação marcadas com data-pdf-fora ficam de fora do papel.
         ignoreElements: (el: Element) => el.nodeType === 1 && el.hasAttribute('data-pdf-fora'),
-    });
+    };
+
+    if (nativo) {
+        try {
+            const canvas = await window.html2canvas!(elemento, { ...opcoes, foreignObjectRendering: true });
+            if (!naoServe(canvas)) return canvas;
+        } catch {
+            // segue para o desenho antigo
+        }
+    }
+
+    return window.html2canvas!(elemento, opcoes);
 }
 
 export function nomeSeguro(nome: string | null | undefined): string {
@@ -116,19 +199,27 @@ export async function daPreVisualizacao(url: string, nomeFicheiro?: string | nul
 
         // A barra de deslocamento roubava 15 px à folha e partia a proporção A4:
         // sem barra, e a moldura cresce ANTES de se medir.
+        //
+        // E A FOLHA COMO SE IMPRIME: sem o fundo cinzento, a margem de 20 px
+        // e a sombra que a pré-visualização tem no ecrã — é o que os modelos
+        // já fazem no `@media print`. Sem isto, no desenho nativo a folha
+        // subia os 20 px da margem e cortava o topo do cliente.
         const semBarra = doc.createElement('style');
-        semBarra.textContent = 'html{scrollbar-width:none}html::-webkit-scrollbar{display:none}';
+        semBarra.textContent = 'html{scrollbar-width:none}html::-webkit-scrollbar{display:none}'
+            + 'body{padding:0!important;margin:0!important;background:#fff!important;min-height:0!important}'
+            + `${o.seletor}{margin:0!important;box-shadow:none!important}`;
         (doc.head || doc.documentElement).appendChild(semBarra);
         moldura.style.height = '4000px';
 
         await esperarImagens(doc, 4000);
+        await embutirImagens(doc, 4000);
 
         const alvo = (doc.querySelector(o.seletor) as HTMLElement | null) || doc.body;
         moldura.style.height = `${Math.max(alvo.scrollHeight, 1)}px`;
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
         // O nome sai do TÍTULO da própria pré-visualização — «Fatura de Venda FT A/000035».
-        return guardar(pdfDeCanvas(await fotografar(alvo, o.escala)), nomeFicheiro || doc.title, o);
+        return guardar(pdfDeCanvas(await fotografar(alvo, o.escala, true)), nomeFicheiro || doc.title, o);
     } finally {
         moldura.remove();
     }

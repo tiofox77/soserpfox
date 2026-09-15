@@ -630,6 +630,7 @@
                         <th>Moeda</th>
                         <th>Data De Emissão</th>
                         <th>Hora De Emissão</th>
+                        <th>Método de Pagamento</th>
                         <th>Motivo</th>
                         <th>Operador</th>
                         <th>Status</th>
@@ -640,6 +641,7 @@
                         <td>AOA</td>
                         <td>{{ $debitNote->issue_date->format('d/m/Y') }}</td>
                         <td>{{ $debitNote->created_at->format('H:i') }}</td>
+                        <td>{{ \App\Support\FormaDePagamento::doDocumento($debitNote->invoice?->payment_method, $debitNote->client, $tenant->id ?? null) }}</td>
                         <td>{{ $debitNote->type_label ?? 'N/A' }}</td>
                         <td>{{ $debitNote->creator->name ?? 'Sistema' }}</td>
                         <td>{{ $debitNote->status_label }}</td>

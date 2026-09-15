@@ -273,6 +273,8 @@ class MaintenanceController extends Controller
         // Empresa de testes com quem entra e só os módulos pedidos. Simulação
         // por omissão; a senha é gerada no servidor e só sai na resposta.
         'empresas:conta-de-teste',
+        // NIF de uma empresa que ainda não emitiu documentos fiscais. Simulação por omissão.
+        'empresas:nif',
         'empresas:regime',
         'empresas:contas-bancarias',
         // Que nome da empresa sai impresso. Sem --usar apenas lista.

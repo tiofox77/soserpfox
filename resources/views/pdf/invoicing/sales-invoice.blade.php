@@ -641,6 +641,7 @@
                         <th>Data De Emissão</th>
                         <th>Hora De Emissão</th>
                         <th>Data de Venc.</th>
+                        <th>Método de Pagamento</th>
                         <th>Operador</th>
                         <th>Referência</th>
                     </tr>
@@ -650,7 +651,9 @@
                         <td>AOA</td>
                         <td>{{ $invoice->invoice_date->format('d/m/Y') }}</td>
                         <td>{{ $invoice->created_at->format('H:i') }}</td>
-                        <td>{{ $invoice->valid_until ? $invoice->valid_until->format('d/m/Y') : 'N/A' }}</td>
+                        {{-- A factura guarda o vencimento em `due_date`; o `valid_until` é das propostas e aqui dava sempre N/A. --}}
+                        <td>{{ ($invoice->due_date ?? $invoice->valid_until) ? ($invoice->due_date ?? $invoice->valid_until)->format('d/m/Y') : 'N/A' }}</td>
+                        <td>{{ \App\Support\FormaDePagamento::doDocumento($invoice->payment_method, $invoice->client, $tenant->id ?? null) }}</td>
                         <td>{{ $invoice->creator->name ?? 'Sistema' }}</td>
                         <td>{{ $invoice->reference ?: $invoice->numeroInterno() }}</td>
                     </tr>
@@ -836,7 +839,7 @@
                         {{-- Fatura-Recibo: o documento serve de recibo de quitação --}}
                         <div class="summary-row" style="border-top:1px dashed #999; margin-top:4px; padding-top:4px;">
                             <span>Forma de pagamento</span>
-                            <span>{{ $invoice->paymentMethodLabel ?? strtoupper($invoice->payment_method ?? 'Dinheiro') }}</span>
+                            <span>{{ \App\Support\FormaDePagamento::nome($invoice->payment_method, $tenant->id ?? null) ?? 'Dinheiro' }}</span>
                         </div>
                         <div class="summary-row">
                             <span>Recebido</span>

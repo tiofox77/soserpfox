@@ -464,6 +464,7 @@
                         <th>Data De Emissão</th>
                         <th>Hora De Emissão</th>
                         <th>Válido Até</th>
+                        <th>Método de Pagamento</th>
                         <th>Operador</th>
                         <th>Referência</th>
                     </tr>
@@ -474,6 +475,7 @@
                         <td>{{ $quote->quote_date->format('d/m/Y') }}</td>
                         <td>{{ $quote->created_at->format('H:i') }}</td>
                         <td>{{ $quote->valid_until ? $quote->valid_until->format('d/m/Y') : 'N/A' }}</td>
+                        <td>{{ \App\Support\FormaDePagamento::doDocumento(null, $quote->client, $tenant->id ?? null) }}</td>
                         <td>{{ $quote->creator->name ?? 'Sistema' }}</td>
                         <td>{{ $quote->quote_number }}</td>
                     </tr>
