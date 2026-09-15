@@ -28,6 +28,8 @@ export type Cliente = {
     pais_nome: string | null;
     /** Se tem porta aberta para o portal. O FACTO, nunca a senha. */
     portal_access: boolean;
+    /** O nome de utilizador com que também entra no portal (além do email e do telefone). */
+    portal_username: string | null;
     /** As áreas do portal que este cliente vê (as marcadas, ou as de sempre). */
     portal_modulos: string[];
     documentos: number;
@@ -145,9 +147,9 @@ export const clientes = {
     lista: (filtros: FiltrosDeClientes) =>
         api.ler<Pagina<Cliente> & { resumo: ResumoDosClientes }>('/clients', filtros),
     opcoes: () => api.ler<OpcoesDosClientes>('/clients/opcoes'),
-    criar: (dados: ClienteParaGravar) => api.criar<{ data: Cliente }>('/clients', paraGravar(dados)),
+    criar: (dados: ClienteParaGravar) => api.criar<{ data: Cliente; portal?: ResultadoDoPortal }>('/clients', paraGravar(dados)),
     guardar: (id: number, dados: ClienteParaGravar) =>
-        api.guardar<{ data: Cliente }>(`/clients/${id}`, paraGravar(dados)),
+        api.guardar<{ data: Cliente; portal?: ResultadoDoPortal }>(`/clients/${id}`, paraGravar(dados)),
     apagar: (id: number) => api.apagar<{ message: string }>(`/clients/${id}`),
 
     /**
@@ -165,3 +167,10 @@ export const clientes = {
     apagarLogotipo: (id: number) =>
         api.apagar<{ data: Cliente; message: string }>(`/clients/${id}/logotipo`),
 };
+
+/**
+ * O QUE O SERVIDOR DIZ DO PORTAL depois de gravar: se os dados de entrada
+ * seguiram por email — e, quando não seguiram, a senha, para a empresa a
+ * entregar (só nesta resposta; nunca mais volta).
+ */
+export type ResultadoDoPortal = { mensagem: string; email_enviado: boolean; senha?: string };

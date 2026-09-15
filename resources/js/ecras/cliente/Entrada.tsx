@@ -14,16 +14,17 @@ import { FOCO, TRANSICAO, cls } from '@/ui/tokens';
  * entrar, e com ela o token.
  */
 export default function Entrada({ logo = null, nome = '' }: { logo?: string | null; nome?: string }) {
-    const [email, porEmail] = useState('');
+    // Email, telefone ou nome de utilizador — o servidor percebe qual é (15/09/2026).
+    const [login, porLogin] = useState('');
     const [senha, porSenha] = useState('');
     const [lembrar, porLembrar] = useState(false);
 
     /* O MESMO EMAIL EM VÁRIAS EMPRESAS: a senha bateu em mais de uma, e o
        cliente escolhe onde entra (só entre essas). */
-    const [empresas, porEmpresas] = useState<Array<{ id: number; empresa: string }> | null>(null);
+    const [empresas, porEmpresas] = useState<Array<{ id: number; empresa: string; cliente?: string }> | null>(null);
 
     const entrar = useMutation({
-        mutationFn: () => portal.entrar({ email, password: senha, remember: lembrar }),
+        mutationFn: () => portal.entrar({ login, password: senha, remember: lembrar }),
         onSuccess: (r) => {
             if (r.escolher && r.escolher.length > 0) porEmpresas(r.escolher);
             else if (r.ir_para) window.location.assign(r.ir_para);
@@ -64,7 +65,7 @@ export default function Entrada({ logo = null, nome = '' }: { logo?: string | nu
                                     <i className="fas fa-building icon-float" aria-hidden="true" />
                                 </span>
                                 <h2 className="text-xl font-bold text-gray-900">{t('Em que empresa quer entrar?')}</h2>
-                                <p className="text-sm text-gray-600">{t('É cliente de mais de uma empresa com este email.')}</p>
+                                <p className="text-sm text-gray-600">{t('Estes dados de entrada abrem mais de uma ficha. Escolha onde quer entrar.')}</p>
                             </div>
                             <ul className="space-y-2">
                                 {empresas.map((e, i) => (
@@ -74,7 +75,10 @@ export default function Entrada({ logo = null, nome = '' }: { logo?: string | nu
                                             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-100 text-blue-600 transition-transform duration-300 group-hover:scale-110">
                                                 <i className={cls('fas', escolher.isPending && escolher.variables === e.id ? 'fa-spinner fa-spin' : 'fa-building')} aria-hidden="true" />
                                             </span>
-                                            <span className="min-w-0 flex-1 font-semibold text-gray-900">{e.empresa}</span>
+                                            <span className="min-w-0 flex-1">
+                                                <span className="block font-semibold text-gray-900">{e.empresa}</span>
+                                                {e.cliente && <span className="block text-xs text-gray-500">{e.cliente}</span>}
+                                            </span>
                                             <i className="fas fa-arrow-right text-gray-400 transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" />
                                         </button>
                                     </li>
@@ -88,11 +92,14 @@ export default function Entrada({ logo = null, nome = '' }: { logo?: string | nu
                     ) : (
                     <form onSubmit={submeter} className="space-y-6" noValidate>
                         <label className="block">
-                            <span className="mb-2 block text-sm font-semibold text-gray-700"><i className="fas fa-envelope mr-2 text-blue-500" aria-hidden="true" />{t('Email')}</span>
-                            <input type="email" name="email" autoComplete="email" required autoFocus value={email} onChange={(e) => porEmail(e.target.value)}
-                                placeholder="seu@email.com"
+                            <span className="mb-2 block text-sm font-semibold text-gray-700">
+                                <i className={cls('fas mr-2 text-blue-500 transition-all duration-300', login.includes('@') ? 'fa-envelope' : /^[\d\s+()-]{3,}$/.test(login) ? 'fa-mobile-screen' : 'fa-user')} aria-hidden="true" />
+                                {t('Email, telefone ou utilizador')}
+                            </span>
+                            <input type="text" name="login" autoComplete="username" required autoFocus value={login} onChange={(e) => porLogin(e.target.value)}
+                                placeholder={t('seu@email.com, 923 000 000 ou utilizador')} autoCapitalize="none" spellCheck={false}
                                 className={cls('w-full rounded-xl border border-gray-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-blue-500', TRANSICAO)} />
-                            {erros.email?.[0] && <span role="alert" className="mt-2 block text-sm text-red-600"><i className="fas fa-circle-exclamation mr-1" aria-hidden="true" />{erros.email[0]}</span>}
+                            {(erros.login?.[0] ?? erros.email?.[0]) && <span role="alert" className="mt-2 block text-sm text-red-600"><i className="fas fa-circle-exclamation mr-1" aria-hidden="true" />{erros.login?.[0] ?? erros.email?.[0]}</span>}
                         </label>
 
                         <label className="block">

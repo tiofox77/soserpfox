@@ -113,7 +113,7 @@ class AcessoAoPortalTest extends TenantTestCase
         auth()->logout();
         $this->postJson('/client/login', ['email' => $cliente->email, 'password' => $r['senha']])
             ->assertStatus(422)
-            ->assertJsonValidationErrors('email');
+            ->assertJsonValidationErrors('login');
 
         $this->assertFalse(Auth::guard('client')->check());
     }
@@ -170,7 +170,7 @@ class AcessoAoPortalTest extends TenantTestCase
         $this->assertTrue(Hash::check('AMinhaSenha123', $cliente->password));
     }
 
-    /** Sem email, ligar o portal é recusado: é por lá que se autentica. */
+    /** Sem email, telefone nem nome de utilizador, ligar o portal é recusado: não haveria com que entrar. */
     public function test_formulario_recusa_portal_sem_email(): void
     {
         $this->postJson(self::RAIZ, $this->corpo(['name' => 'Sem Email Lda', 'email' => '', 'portal_access' => true]))
@@ -275,8 +275,9 @@ class AcessoAoPortalTest extends TenantTestCase
         $this->assertStringContainsString('Dar acesso ao portal do cliente', $ecra);
         $this->assertStringContainsString('Repor a senha', $ecra);
         $this->assertStringContainsString('portal_repor_senha', $ecra);
-        // E diz que o email é preciso ANTES de o servidor recusar.
-        $this->assertStringContainsString('é por lá que o cliente entra no portal', $ecra);
+        // E diz o que falta (email, telefone ou utilizador) ANTES de o servidor recusar.
+        $this->assertStringContainsString('é com um deles que o cliente entra no portal', $ecra);
+        $this->assertStringContainsString('portal_username', $ecra);
     }
 
     /**

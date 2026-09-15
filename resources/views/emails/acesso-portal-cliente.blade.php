@@ -14,19 +14,42 @@
             </p>
 
             <p style="margin:0 0 20px;color:#374151;font-size:14px;line-height:1.6">
-                A <strong>{{ $empresa }}</strong> criou-lhe acesso ao portal do cliente. Aí pode consultar
-                as suas facturas, proformas, o extracto de conta e os seus dados, a qualquer hora.
+                @if($senha !== null)
+                    A <strong>{{ $empresa }}</strong> criou-lhe acesso ao portal do cliente. Aí pode consultar
+                    as suas facturas, proformas, o extracto de conta e os seus dados, a qualquer hora.
+                @else
+                    A <strong>{{ $empresa }}</strong> actualizou os seus dados de entrada no portal do cliente.
+                    A senha continua a mesma.
+                @endif
             </p>
 
+            {{-- Entra-se com QUALQUER UM destes, sempre com a mesma senha. --}}
+            <p style="margin:0 0 8px;color:#6b7280;font-size:12px">Pode entrar com qualquer um destes dados:</p>
             <table style="width:100%;border-collapse:collapse;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:20px">
                 <tr>
-                    <td style="padding:12px 16px;color:#6b7280;font-size:12px;width:90px">Email</td>
+                    <td style="padding:12px 16px;color:#6b7280;font-size:12px;width:110px">Email</td>
                     <td style="padding:12px 16px;color:#111827;font-size:14px;font-weight:bold">{{ $cliente->email }}</td>
                 </tr>
+                @if($telefone)
+                <tr>
+                    <td style="padding:12px 16px;color:#6b7280;font-size:12px;border-top:1px solid #e5e7eb">Telefone</td>
+                    <td style="padding:12px 16px;color:#111827;font-size:14px;font-weight:bold;border-top:1px solid #e5e7eb">{{ $telefone }}</td>
+                </tr>
+                @endif
+                @if($utilizador)
+                <tr>
+                    <td style="padding:12px 16px;color:#6b7280;font-size:12px;border-top:1px solid #e5e7eb">Utilizador</td>
+                    <td style="padding:12px 16px;color:#111827;font-size:14px;font-weight:bold;border-top:1px solid #e5e7eb;font-family:'Courier New',monospace">{{ $utilizador }}</td>
+                </tr>
+                @endif
                 <tr>
                     <td style="padding:12px 16px;color:#6b7280;font-size:12px;border-top:1px solid #e5e7eb">Senha</td>
                     <td style="padding:12px 16px;border-top:1px solid #e5e7eb">
-                        <span style="font-family:'Courier New',monospace;font-size:16px;font-weight:bold;color:#111827;letter-spacing:1px">{{ $senha }}</span>
+                        @if($senha !== null)
+                            <span style="font-family:'Courier New',monospace;font-size:16px;font-weight:bold;color:#111827;letter-spacing:1px">{{ $senha }}</span>
+                        @else
+                            <span style="color:#374151;font-size:13px">A que já usava</span>
+                        @endif
                     </td>
                 </tr>
             </table>
@@ -40,12 +63,14 @@
 
             {{-- A senha viajou por email e passou por quem a criou: dizer isto
                  é o mínimo, e o portal tem ecrã próprio para a trocar. --}}
+            @if($senha !== null)
             <div style="background:#fffbeb;border-left:3px solid #f59e0b;padding:12px 16px;border-radius:0 6px 6px 0">
                 <p style="margin:0;color:#92400e;font-size:13px;line-height:1.5">
                     <strong>Mude a senha assim que entrar.</strong> Esta chegou-lhe por email, por isso
                     não é secreta. No portal, em <em>Perfil</em>, pode escolher outra.
                 </p>
             </div>
+            @endif
 
             <p style="margin:20px 0 0;color:#6b7280;font-size:12px;line-height:1.5">
                 Se este endereço não lhe é familiar: {{ $url }}<br>

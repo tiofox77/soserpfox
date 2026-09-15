@@ -38,27 +38,56 @@ class AcessoAoPortal
             'password_changed_at' => null,
         ])->save();
 
-        $enviado = false;
-        $erro = null;
-
-        if ($avisarPorEmail && filter_var($cliente->email, FILTER_VALIDATE_EMAIL)) {
-            try {
-                Mail::to($cliente->email)->send(new AcessoAoPortalDoCliente($cliente, $senha));
-                $enviado = true;
-            } catch (\Throwable $e) {
-                // O acesso já está criado e é isso que interessa: falhar o
-                // email não pode desfazer a senha, senão a empresa ficava sem
-                // saber se o cliente tem acesso ou não.
-                $erro = $e->getMessage();
-                \Log::error('Falhou o email de acesso ao portal', [
-                    'cliente'   => $cliente->id,
-                    'tenant_id' => $cliente->tenant_id,
-                    'erro'      => $erro,
-                ]);
-            }
-        }
+        [$enviado, $erro] = $avisarPorEmail ? $this->enviar($cliente, $senha) : [false, null];
 
         return ['senha' => $senha, 'email_enviado' => $enviado, 'erro_email' => $erro];
+    }
+
+    /**
+     * OS DADOS DE ENTRADA MUDARAM (nome de utilizador, telefone, email) sem
+     * senha nova — o cliente recebe-os na mesma, com a indicação de que a senha
+     * é a que já tinha.
+     *
+     * @return array{email_enviado:bool, erro_email:?string}
+     */
+    public function avisarDadosDeEntrada(Client $cliente): array
+    {
+        [$enviado, $erro] = $this->enviar($cliente, null);
+
+        return ['email_enviado' => $enviado, 'erro_email' => $erro];
+    }
+
+    /**
+     * O EMAIL SAI PELO SMTP DA PLATAFORMA (o do super admin) — pedido de
+     * 15/09/2026. É a plataforma que dá a porta do portal, e a empresa pode não
+     * ter SMTP nenhum. Sem SMTP da plataforma configurado, vai pelo correio do
+     * sistema (o do `.env`).
+     *
+     * @return array{0: bool, 1: ?string}
+     */
+    private function enviar(Client $cliente, ?string $senha): array
+    {
+        if (! filter_var($cliente->email, FILTER_VALIDATE_EMAIL)) {
+            return [false, null];
+        }
+
+        try {
+            \App\Models\SmtpSetting::getForTenant(null)?->configure();
+            Mail::to($cliente->email)->send(new AcessoAoPortalDoCliente($cliente, $senha));
+
+            return [true, null];
+        } catch (\Throwable $e) {
+            // O acesso já está criado e é isso que interessa: falhar o
+            // email não pode desfazer a senha, senão a empresa ficava sem
+            // saber se o cliente tem acesso ou não.
+            \Log::error('Falhou o email de acesso ao portal', [
+                'cliente'   => $cliente->id,
+                'tenant_id' => $cliente->tenant_id,
+                'erro'      => $e->getMessage(),
+            ]);
+
+            return [false, $e->getMessage()];
+        }
     }
 
     /** Fecha a porta sem apagar a senha — reabrir não obriga a criar outra. */

@@ -94,8 +94,9 @@ type Filtros = Record<string, string | number | undefined>;
 
 export const portal = {
     /** Com o mesmo email em várias empresas, a resposta traz `escolher` em vez de `ir_para`. */
-    entrar: (dados: { email: string; password: string; remember: boolean }) =>
-        entrada.criar<Recado & { ir_para?: string; escolher?: Array<{ id: number; empresa: string }> }>('/login', dados),
+    /** `login` é o email, o telefone ou o nome de utilizador — o servidor percebe qual. */
+    entrar: (dados: { login: string; password: string; remember: boolean }) =>
+        entrada.criar<Recado & { ir_para?: string; escolher?: Array<{ id: number; empresa: string; cliente?: string }> }>('/login', dados),
     escolherEmpresa: (id: number) => entrada.criar<Recado & { ir_para: string }>('/login/empresa', { id }),
     oficina: () => apiDoPortal.ler<{
         resumo: ResumoDaOficina;

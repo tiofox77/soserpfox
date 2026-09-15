@@ -20,9 +20,10 @@ class AcessoAoPortalDoCliente extends Mailable
 {
     use Queueable, SerializesModels;
 
+    /** @param  string|null  $senha  nula quando só mudaram os dados de entrada (a senha é a de antes) */
     public function __construct(
         public Client $cliente,
-        public string $senha,
+        public ?string $senha,
     ) {
     }
 
@@ -31,7 +32,7 @@ class AcessoAoPortalDoCliente extends Mailable
         $empresa = $this->cliente->tenant?->name ?: config('app.name');
 
         return new Envelope(
-            subject: 'Os seus dados de acesso — ' . $empresa,
+            subject: ($this->senha !== null ? __('Os seus dados de acesso') : __('Os seus dados de acesso foram actualizados')) . ' — ' . $empresa,
         );
     }
 
@@ -42,6 +43,9 @@ class AcessoAoPortalDoCliente extends Mailable
             with: [
                 'cliente' => $this->cliente,
                 'senha'   => $this->senha,
+                // As três maneiras de entrar: email, telefone e nome de utilizador.
+                'telefone' => $this->cliente->portal_phone ? ($this->cliente->mobile ?: $this->cliente->phone) : null,
+                'utilizador' => $this->cliente->portal_username,
                 'empresa' => $this->cliente->tenant?->name ?: config('app.name'),
                 'url'     => route('client.login'),
             ],

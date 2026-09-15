@@ -53,6 +53,7 @@ const VAZIO: ClienteParaGravar = {
     postal_code: '',
     country: 'AO',
     portal_access: false,
+    portal_username: '',
     portal_modulos: [],
     portal_password: '',
     portal_repor_senha: false,
@@ -70,6 +71,8 @@ export default function Clientes() {
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [aApagar, porAApagar] = useState<Cliente | null>(null);
     const [recado, porRecado] = useRecadoNoCanto('');
+    // A senha do portal que não seguiu por email: mostra-se uma vez, para a entregar.
+    const [senhaParaEntregar, porSenhaParaEntregar] = useState<{ cliente: string; senha: string; mensagem: string } | null>(null);
     /** O ficheiro escolhido no formulário — sobe DEPOIS da ficha gravar. */
     const [logotipo, porLogotipo] = useState<File | null>(null);
     /** O cliente cuja FICHA está aberta — só para ler. */
@@ -102,16 +105,17 @@ export default function Clientes() {
             const resposta = aEditar ? await clientes.guardar(aEditar.id, dados) : await clientes.criar(dados);
 
             if (!logotipo) {
-                return { cliente: resposta.data, avisoDoLogotipo: '' };
+                return { cliente: resposta.data, avisoDoLogotipo: '', portal: resposta.portal };
             }
 
             try {
                 const comLogo = await clientes.logotipo(resposta.data.id, logotipo);
 
-                return { cliente: comLogo.data, avisoDoLogotipo: '' };
+                return { cliente: comLogo.data, avisoDoLogotipo: '', portal: resposta.portal };
             } catch (e) {
                 return {
                     cliente: resposta.data,
+                    portal: resposta.portal,
                     avisoDoLogotipo:
                         e instanceof ErroDaApi
                             ? (e.erros.logotipo?.[0] ?? e.message)
@@ -119,14 +123,17 @@ export default function Clientes() {
                 };
             }
         },
-        onSuccess: ({ avisoDoLogotipo }) => {
+        onSuccess: ({ avisoDoLogotipo, portal, cliente }) => {
+            if (portal?.senha) {
+                porSenhaParaEntregar({ cliente: cliente.name, senha: portal.senha, mensagem: portal.mensagem });
+            }
             void cache.invalidateQueries({ queryKey: ['clientes'] });
             porFormulario(null);
             porAEditar(null);
             porErros({});
             porLogotipo(null);
 
-            const feito = aEditar ? t('Cliente guardado.') : t('Cliente criado.');
+            const feito = portal && !portal.senha ? portal.mensagem : aEditar ? t('Cliente guardado.') : t('Cliente criado.');
 
             porRecado(
                 avisoDoLogotipo
@@ -212,6 +219,7 @@ export default function Clientes() {
             // formulário abre sempre sem ela. Guardar a ficha não pode
             // trocar a senha de quem já entra no portal.
             portal_access: c.portal_access,
+            portal_username: c.portal_username ?? '',
             portal_modulos: c.portal_modulos ?? [],
             portal_password: '',
             portal_repor_senha: false,
@@ -626,6 +634,8 @@ export default function Clientes() {
                     </p>
                 )}
             </Modal>
+
+            {senhaParaEntregar && <SenhaParaEntregar {...senhaParaEntregar} aoFechar={() => porSenhaParaEntregar(null)} />}
         </div>
     );
 }
@@ -1397,6 +1407,10 @@ function AcessoAoPortal({
 }) {
     const jaTinha = Boolean(aEditar?.portal_access);
     const semEmail = !dados.email?.trim();
+    const telefone = (dados.mobile || dados.phone || '').trim();
+    const temTelefone = telefone.replace(/\D/g, '').length >= 9;
+    const utilizador = (dados.portal_username ?? '').trim().toLowerCase();
+    const semNada = semEmail && !temTelefone && !utilizador;
 
     return (
         <div className="mt-2 border-t border-slate-200 pt-4 sm:col-span-2">
@@ -1442,14 +1456,47 @@ function AcessoAoPortal({
                     {/* O PORTAL AUTENTICA PELO EMAIL. O servidor exige-o, e o
                         ecrã diz porquê ANTES de recusar — descobrir a regra
                         num 422 é descobri-la tarde. */}
-                    {semEmail && (
-                        <p role="alert" className="text-xs font-medium text-amber-700">
+                    {semNada ? (
+                        <p role="alert" className="text-xs font-medium text-red-700">
                             <i className="fas fa-circle-exclamation mr-1" aria-hidden="true" />
-                            {t(
-                                'Escreva o email: é por lá que o cliente entra no portal, e sem ele o acesso não se liga.',
-                            )}
+                            {t('Escreva o email, o telefone ou um nome de utilizador: é com um deles que o cliente entra no portal.')}
                         </p>
-                    )}
+                    ) : semEmail ? (
+                        <p className="text-xs font-medium text-amber-700">
+                            <i className="fas fa-envelope-circle-check mr-1" aria-hidden="true" />
+                            {t('Sem email, os dados de entrada não seguem por correio: ao guardar mostramos a senha para a entregar ao cliente.')}
+                        </p>
+                    ) : null}
+
+                    {/* COM QUE ENTRA — os três, sempre com a mesma senha. */}
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                        <span className="text-slate-500">{t('Entra com:')}</span>
+                        {[
+                            { ok: !semEmail, icone: 'fa-envelope', texto: dados.email?.trim() || t('email') },
+                            { ok: temTelefone, icone: 'fa-mobile-screen', texto: temTelefone ? telefone : t('telefone') },
+                            { ok: Boolean(utilizador), icone: 'fa-at', texto: utilizador || t('utilizador') },
+                        ].map((x) => (
+                            <span key={x.icone} className={cls('inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold transition-colors duration-300', x.ok ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-400 line-through')}>
+                                <i className={cls('fas', x.icone)} aria-hidden="true" />{x.texto}
+                            </span>
+                        ))}
+                    </div>
+
+                    <Campo etiqueta={t('Nome de utilizador do portal')} erro={erros.portal_username}
+                        ajuda={t('Opcional. Letras, algarismos, ponto, hífen ou sublinhado — ex.: joao.silva')}>
+                        <div className="relative">
+                            <i className="fas fa-at pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                            <input
+                                type="text"
+                                value={dados.portal_username ?? ''}
+                                onChange={(e) => aoMudar({ ...dados, portal_username: e.target.value.toLowerCase().replace(/\s+/g, '') })}
+                                placeholder="joao.silva"
+                                maxLength={50}
+                                autoComplete="off"
+                                className={cls(entrada, 'pl-9 font-mono')}
+                            />
+                        </div>
+                    </Campo>
 
                     {/* O QUE O CLIENTE VÊ NO PORTAL — escolhido aqui, pela empresa,
                         entre as áreas dos módulos que ela tem. Um cliente da oficina
@@ -1516,7 +1563,7 @@ function AcessoAoPortal({
                         <span>
                             {t('Avisar o cliente por email')}
                             <span className="mt-0.5 block text-xs text-slate-500">
-                                {t('Desligue se preferir entregar a senha em mão.')}
+                                {t('Os dados de entrada seguem pelo correio da plataforma — também quando muda o utilizador, o telefone ou o email. Desligue se preferir entregar a senha em mão.')}
                             </span>
                         </span>
                     </label>
@@ -1568,6 +1615,29 @@ function AcessoAoPortal({
                 </div>
             )}
         </div>
+    );
+}
+
+/**
+ * A SENHA QUE NÃO SEGUIU POR EMAIL — mostrada uma vez, com botão de copiar,
+ * para a empresa a entregar ao cliente. Fechada, não volta a aparecer.
+ */
+function SenhaParaEntregar({ cliente, senha, mensagem, aoFechar }: { cliente: string; senha: string; mensagem: string; aoFechar: () => void }) {
+    const [copiada, porCopiada] = useState(false);
+
+    return (
+        <Modal aberto aoFechar={aoFechar} titulo={t('Senha do portal')} subtitulo={cliente} icone="fa-key" cor="aviso" largura="sm"
+            rodape={<Botao cor="primaria" tom="solida" icone="fa-check" onClick={aoFechar}>{t('Já entreguei')}</Botao>}>
+            <div className="space-y-3 text-center">
+                <p className="text-sm text-slate-600">{mensagem}</p>
+                <button type="button" onClick={() => { void navigator.clipboard?.writeText(senha); porCopiada(true); }}
+                    className={cls('group mx-auto flex items-center gap-3 rounded-xl border-2 border-dashed border-amber-300 bg-amber-50 px-5 py-3 font-mono text-2xl font-bold tracking-wider text-slate-900 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md', FOCO)}>
+                    {senha}
+                    <i className={cls('fas text-base', copiada ? 'fa-check text-emerald-600' : 'fa-copy text-amber-600 group-hover:scale-110')} aria-hidden="true" />
+                </button>
+                <p className="text-xs text-slate-500">{t('Esta senha não volta a ser mostrada. O cliente pode trocá-la no portal, em Perfil.')}</p>
+            </div>
+        </Modal>
     );
 }
 

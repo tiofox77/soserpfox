@@ -27,6 +27,8 @@ class Client extends Authenticatable
         'address', 'city', 'province', 'municipality', 'neighbourhood', 'postal_code', 'country',
         'tax_regime', 'is_iva_subject', 'credit_limit', 'payment_term_days', 'payment_term_id',
         'website', 'notes', 'is_active', 'password', 'portal_access', 'portal_modulos',
+        // A entrada no portal por nome de utilizador (o telefone normalizado, `portal_phone`, mantém-no o modelo).
+        'portal_username',
         'last_login_at', 'password_changed_at',
         // Hotel guest fields
         'hotel_vip', 'hotel_blacklisted', 'document_type', 'document_number',
@@ -80,6 +82,16 @@ class Client extends Authenticatable
      */
     protected static function booted(): void
     {
+        /*
+         * O TELEFONE DO PORTAL segue o telemóvel (ou o telefone) a cada gravação,
+         * já normalizado — é com ele que o cliente entra. E o nome de utilizador
+         * guarda-se em minúsculas: «Joao.Silva» e «joao.silva» são o mesmo.
+         */
+        static::saving(function (self $cliente) {
+            $cliente->portal_phone = \App\Support\TelefoneDoPortal::normalizar($cliente->mobile ?: $cliente->phone);
+            $cliente->portal_username = \App\Support\TelefoneDoPortal::utilizador($cliente->portal_username);
+        });
+
         static::creating(function (self $cliente) {
             if ($cliente->payment_term_id) {
                 return;

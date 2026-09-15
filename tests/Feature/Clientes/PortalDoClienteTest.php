@@ -183,6 +183,6 @@ class PortalDoClienteTest extends TenantTestCase
         // Nem a senha certa entra enquanto dura o travão.
         $this->postJson('/client/login', ['email' => $this->doPortal->email, 'password' => 'SenhaDoPortal1'])
             ->assertStatus(429)
-            ->assertJsonPath('errors.email.0', fn ($m) => str_contains($m, 'Demasiadas tentativas'));
+            ->assertJsonPath('errors.login.0', fn ($m) => str_contains($m, 'Demasiadas tentativas'));
     }
 }

@@ -99,9 +99,10 @@ class ClientApiController extends Controller
             ['tenant_id' => activeTenantId()]
         ));
 
-        $this->tratarDoPortal($request, $cliente);
+        $portal = $this->tratarDoPortal($request, $cliente, null);
 
         return (new ClientResource($cliente->fresh()->load('paymentTerm')->loadCount('facturas')))
+            ->additional($portal ? ['portal' => $portal] : [])
             ->response()
             ->setStatusCode(201);
     }
@@ -111,11 +112,14 @@ class ClientApiController extends Controller
         $this->exigir($request, 'invoicing.clients.edit');
 
         $cliente = $this->doTenant($id);
+        // Os dados de entrada de antes: se mudarem, o cliente recebe os novos.
+        $antes = $cliente->only(['email', 'portal_username', 'portal_phone']);
         $cliente->update($this->validar($request, $cliente->id));
 
-        $this->tratarDoPortal($request, $cliente);
+        $portal = $this->tratarDoPortal($request, $cliente, $antes);
 
-        return new ClientResource($cliente->fresh()->load('paymentTerm')->loadCount('facturas'));
+        return (new ClientResource($cliente->fresh()->load('paymentTerm')->loadCount('facturas')))
+            ->additional($portal ? ['portal' => $portal] : []);
     }
 
     public function destroy(Request $request, int $id): JsonResponse
@@ -430,6 +434,15 @@ class ClientApiController extends Controller
          */
         $emAngola = $request->input('country', 'AO') === 'AO';
 
+        // O nome de utilizador compara-se em minúsculas (é assim que se guarda).
+        if ($request->filled('portal_username')) {
+            $request->merge(['portal_username' => \App\Support\TelefoneDoPortal::utilizador($request->input('portal_username'))]);
+        }
+        $utilizadorUnico = Rule::unique('invoicing_clients', 'portal_username')->where(fn ($q) => $q->where('tenant_id', activeTenantId()));
+        if ($exceptoId) {
+            $utilizadorUnico->ignore($exceptoId);
+        }
+
         $dados = $request->validate([
             'type' => ['required', 'in:pessoa_juridica,pessoa_fisica'],
             'name' => ['required', 'string', 'min:3', 'max:200'],
@@ -470,17 +483,34 @@ class ClientApiController extends Controller
             'portal_repor_senha' => ['nullable', 'boolean'],
             'portal_avisar' => ['nullable', 'boolean'],
             /*
+             * O NOME DE UTILIZADOR DO PORTAL (15/09/2026): letras, algarismos, «.»,
+             * «_» e «-», e não só algarismos — só algarismos seria lido como
+             * telefone na entrada. Único dentro da empresa.
+             */
+            'portal_username' => ['nullable', 'string', 'min:3', 'max:50', 'regex:/^(?=.*[a-z._-])[a-z0-9._-]+$/', $utilizadorUnico],
+            /*
              * O QUE O CLIENTE VÊ NO PORTAL — escolhido aqui, pela empresa, entre
              * as áreas dos módulos que ela tem. Com o acesso ligado, pelo menos
              * uma: um portal sem nada para ver é uma porta para uma sala vazia.
              */
             'portal_modulos' => ['nullable', 'array', Rule::requiredIf(fn () => $request->boolean('portal_access') && $request->has('portal_modulos')), 'min:' . ($request->boolean('portal_access') && $request->has('portal_modulos') ? 1 : 0)],
             'portal_modulos.*' => ['string', Rule::in(\App\Support\PortalDoCliente::disponiveis(\App\Models\Tenant::find(activeTenantId())))],
+            /*
+             * SEM EMAIL TAMBÉM HÁ PORTAL (15/09/2026): o cliente pode entrar com o
+             * telefone ou com o nome de utilizador. Pelo menos um dos três tem de
+             * existir — e sem email a senha não segue por correio: a empresa
+             * recebe-a para a entregar.
+             */
             'email' => [
-                Rule::requiredIf(fn () => $request->boolean('portal_access') || $request->boolean('portal_repor_senha')),
+                Rule::requiredIf(fn () => ($request->boolean('portal_access') || $request->boolean('portal_repor_senha'))
+                    && ! $request->filled('portal_username')
+                    && ! \App\Support\TelefoneDoPortal::normalizar($request->input('mobile') ?: $request->input('phone'))),
                 'nullable', 'email', 'max:150',
             ],
         ], [
+            'email.required' => __('Para o portal, escreva o email, o telefone ou um nome de utilizador: é com um deles que o cliente entra.'),
+            'portal_username.regex' => __('Use letras, algarismos, ponto, hífen ou sublinhado (não só algarismos).'),
+            'portal_username.unique' => __('Este nome de utilizador já está a ser usado por outro cliente.'),
             'portal_modulos.required' => __('Escolha pelo menos uma área do portal para este cliente.'),
             'portal_modulos.min' => __('Escolha pelo menos uma área do portal para este cliente.'),
             'portal_modulos.*.in' => __('Essa área do portal não existe nesta empresa.'),
@@ -530,7 +560,11 @@ class ClientApiController extends Controller
      * porquê. Só se gera senha nova quando o acesso é dado pela primeira vez,
      * quando a empresa escreve uma, ou quando é pedida a reposição.
      */
-    private function tratarDoPortal(Request $request, Client $cliente): void
+    /**
+     * @param  array<string, mixed>|null  $antes  os dados de entrada antes de gravar (nulo ao criar)
+     * @return array{mensagem: string, email_enviado: bool, senha?: string}|null
+     */
+    private function tratarDoPortal(Request $request, Client $cliente, ?array $antes): ?array
     {
         $pedeAcesso = $request->boolean('portal_access');
         $repoe = $request->boolean('portal_repor_senha');
@@ -550,7 +584,7 @@ class ClientApiController extends Controller
         $avisa = ! $request->has('portal_avisar') || $request->boolean('portal_avisar');
 
         if (!$request->has('portal_access') && !$repoe) {
-            return;
+            return null;
         }
 
         if (!$pedeAcesso && !$repoe) {
@@ -558,11 +592,33 @@ class ClientApiController extends Controller
                 app(AcessoAoPortal::class)->revogar($cliente);
             }
 
-            return;
+            return null;
         }
 
         if ($repoe || $escolhida || !$cliente->password) {
-            app(AcessoAoPortal::class)->conceder($cliente, $escolhida, $avisa);
+            $r = app(AcessoAoPortal::class)->conceder($cliente, $escolhida, $avisa);
+
+            return $r['email_enviado']
+                ? ['mensagem' => __('Dados de acesso ao portal enviados por email a :email.', ['email' => $cliente->email]), 'email_enviado' => true]
+                // Sem email (ou sem aviso, ou o envio falhou): quem deu o acesso fica com a senha para a entregar.
+                : ['mensagem' => $r['erro_email'] ? __('O email com os dados de acesso não saiu. Entregue a senha ao cliente.') : __('Acesso ao portal criado. Entregue a senha ao cliente.'), 'email_enviado' => false, 'senha' => $r['senha']];
         }
+
+        /*
+         * OS DADOS DE ENTRADA MUDARAM sem senha nova — o nome de utilizador, o
+         * telefone ou o email. O cliente recebe-os (a senha é a de antes).
+         */
+        $mudou = $antes !== null && $cliente->portal_access && $cliente->password
+            && $cliente->only(['email', 'portal_username', 'portal_phone']) != $antes;
+
+        if ($mudou && $avisa) {
+            $r = app(AcessoAoPortal::class)->avisarDadosDeEntrada($cliente);
+
+            if ($r['email_enviado']) {
+                return ['mensagem' => __('Os novos dados de entrada foram enviados por email a :email.', ['email' => $cliente->email]), 'email_enviado' => true];
+            }
+        }
+
+        return null;
     }
 }
