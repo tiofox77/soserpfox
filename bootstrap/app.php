@@ -135,6 +135,12 @@ return Application::configure(basePath: dirname(__DIR__))
         // disparava o empurrão para si mesmo. Tranca de cinco minutos.
         $middleware->appendToGroup('web', \App\Http\Middleware\EmpurrarErrosParaOAgente::class);
 
+        // Faz as cópias de segurança que estão na hora (a da plataforma de 6
+        // em 6 horas, e as das empresas). Pela mesma via e pela mesma razão:
+        // uma cópia pendurada num cron que não existe nunca se faz. Tranca de
+        // cinco minutos, uma cópia no máximo por passagem.
+        $middleware->appendToGroup('web', \App\Http\Middleware\FazerCopiasDevidas::class);
+
         // Com o sistema em manutenção, as rotas de manutenção continuam a
         // responder.
         //

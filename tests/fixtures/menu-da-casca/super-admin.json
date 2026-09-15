@@ -183,6 +183,11 @@
         },
         {
             "tag": "a",
+            "href": "/empresa/copias-de-seguranca",
+            "texto": "Cópias de Segurança"
+        },
+        {
+            "tag": "a",
             "href": "/changelog",
             "texto": "Atualizações v2026.09.13.11"
         },

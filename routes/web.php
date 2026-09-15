@@ -185,6 +185,18 @@ Route::middleware(['auth'])->group(function () {
     // produtos. Um caixa punha a empresa inteira no regime errado.
     Route::middleware('permission:settings.view')
         ->get('/empresa', \App\Support\EcraReact::pagina('empresa/dados', 'Dados da Empresa'))->name('company.profile');
+
+    // As cópias de segurança da empresa — só os dados dela. Quem gere a conta;
+    // a API recusa os outros, e a página não abre sem isso.
+    Route::get('/empresa/copias-de-seguranca', \App\Support\EcraReact::pagina('empresa/copias', 'Cópias de segurança', [], function () {
+        abort_unless(auth()->user()?->canManageAccount(), 403);
+
+        return [];
+    }))->name('company.copias');
+
+    // O retorno do Google, da Microsoft e do Dropbox depois de autorizar um
+    // destino de cópias. Um endereço só, registado na consola de cada um.
+    Route::get('/copias/oauth/retorno', \App\Http\Controllers\Copias\RetornoOAuthController::class)->name('copias.oauth.retorno');
 });
 
 // Keep-alive: ping leve para manter a sessão viva enquanto o utilizador
@@ -248,6 +260,14 @@ Route::middleware(['auth'])->prefix('api/v1/casca')->name('api.casca.')->group(f
 });
 
 Route::middleware(['auth', 'superadmin'])->prefix('api/v1/plataforma/react')->name('api.plataforma.react.')->group(function () {
+    // As cópias de segurança da base inteira, os destinos e as aplicações OAuth.
+    Route::prefix('copias')->name('copias.')->group(function () {
+        $c = \App\Http\Controllers\Api\Copias\CopiasDaPlataformaApiController::class;
+        require base_path('routes/copias.php');
+        Route::get('/aplicacoes', [$c, 'aplicacoes'])->name('aplicacoes');
+        Route::put('/aplicacoes/{fornecedor}', [$c, 'guardarAplicacao'])->where('fornecedor', 'google|microsoft|dropbox')->name('aplicacoes.guardar');
+    });
+
     Route::get('/inicio', [\App\Http\Controllers\Api\Plataforma\InicioApiController::class, 'index'])->name('inicio');
 
     Route::prefix('painel')->name('painel.')->group(function () {
@@ -551,6 +571,8 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
     Route::get('/system-commands', \App\Support\EcraReact::plataforma('plataforma/comandos', 'Comandos do Sistema'))->name('system-commands');
     Route::get('/script-runner', \App\Support\EcraReact::plataforma('plataforma/scripts', 'Executar Scripts'))->name('script-runner');
     Route::get('/system-settings', \App\Support\EcraReact::plataforma('plataforma/sistema', 'Definições do sistema'))->name('system-settings');
+    // As cópias de segurança da base inteira: de 6 em 6 horas, destinos e restauro.
+    Route::get('/copias-de-seguranca', \App\Support\EcraReact::plataforma('plataforma/copias', 'Cópias de segurança'))->name('copias');
     Route::get('/software-settings', \App\Support\EcraReact::plataforma('plataforma/software', 'Definições do software'))->name('software-settings');
     // O .user.ini gerado com os valores do formulário: é um ficheiro, e por isso uma rota de página.
     Route::get('/system-optimization/user-ini', [\App\Http\Controllers\Api\Plataforma\OtimizacaoApiController::class, 'descarregarIni'])->name('system-optimization.ini');
@@ -1847,6 +1869,12 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
                 Route::post('/{id}/confirmar', [$c, 'confirmar'])->whereNumber('id')->name('confirmar');
                 Route::post('/{id}/estornar', [$c, 'estornar'])->whereNumber('id')->name('estornar');
             });
+        });
+
+        // As cópias de segurança desta empresa (só os dados dela).
+        Route::prefix('copias')->name('copias.')->group(function () {
+            $c = \App\Http\Controllers\Api\Copias\CopiasDaEmpresaApiController::class;
+            require base_path('routes/copias.php');
         });
 
         Route::prefix('conta')->name('conta.')->group(function () {

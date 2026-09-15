@@ -70,6 +70,10 @@ final class MenuDaCasca
                     $u->canManageAccount()
                         ? ['url' => route('my-account') . '?tab=plan', 'rotulo' => 'Meu Plano', 'icone' => 'fa-crown', 'cor' => 'yellow-600']
                         : null,
+                    // As cópias de segurança só dos dados desta empresa.
+                    $u->canManageAccount()
+                        ? ['url' => route('company.copias'), 'rotulo' => 'Cópias de Segurança', 'icone' => 'fa-shield-halved', 'cor' => 'emerald-600']
+                        : null,
                 ])),
                 'atualizacoes' => ['url' => route('changelog'), 'rotulo' => 'Atualizações', 'versao' => 'v' . config('changelog.current', '1.0')],
                 'sair' => route('logout'),
@@ -146,6 +150,7 @@ final class MenuDaCasca
                 $e('superadmin.system-commands', 'fa-terminal', 'green-400', 'Comandos & Seeders'),
                 $e('superadmin.script-runner', 'fa-code', 'amber-400', 'Script Runner'),
                 $e('superadmin.system-optimization', 'fa-rocket', 'yellow-400', 'Otimização'),
+                $e('superadmin.copias', 'fa-shield-halved', 'emerald-400', 'Cópias de Segurança'),
             ]],
             ['titulo' => 'Configuração', 'entradas' => [
                 $e('superadmin.system-settings', 'fa-cog', 'purple-400', 'Gerais'),

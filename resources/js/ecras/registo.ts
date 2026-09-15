@@ -434,6 +434,8 @@ export const ecras: Record<string, Ecra> = {
 
     // OS DADOS DA EMPRESA — identificação, morada, regime fiscal e logótipo.
     // Ver e mudar são direitos diferentes, e o ecrã mostra-o.
+    'empresa/copias': () =>
+        import('./empresa/Copias'),
     'empresa/dados': () =>
         import('./empresa/Dados'),
 
@@ -499,6 +501,8 @@ export const ecras: Record<string, Ecra> = {
         import('./plataforma/WhatsApp'),
     'plataforma/chaves-saft': () =>
         import('./plataforma/ChavesSaft'),
+    'plataforma/copias': () =>
+        import('./plataforma/Copias'),
     'plataforma/sistema': () =>
         import('./plataforma/Sistema'),
     'plataforma/software': () =>

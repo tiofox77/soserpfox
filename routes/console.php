@@ -87,3 +87,12 @@ Schedule::command('audit:archive')
     ->withoutOverlapping()
     ->onOneServer()
     ->emailOutputOnFailure(config('mail.from.address'));
+
+// As cópias de segurança que estão na hora (a da plataforma de 6 em 6 horas,
+// e as das empresas). Onde houver cron, também por aqui; onde não houver, o
+// middleware FazerCopiasDevidas fá-las à boleia do tráfego. As duas vias são
+// seguras juntas: cada âmbito tem a sua tranca.
+Schedule::command('copias devidas')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping(120)
+    ->onOneServer();
