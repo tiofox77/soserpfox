@@ -198,6 +198,23 @@ class PortalPorModuloTest extends TenantTestCase
         $this->assertSame(['pronta', 'Pronta a levantar'], [$estados[$pronta->id]['chave'], $estados[$pronta->id]['rotulo']]);
     }
 
+    /**
+     * OS MIDDLEWARES DA CASA NÃO SÃO PARA O CLIENTE (16/09/2026, erro 500 em
+     * produção): com `auth:client` o guard do pedido é o `client`, e o
+     * RecordLastLogin chamava `activeTenantId()` num Client. Rebentava cinco
+     * minutos depois de o cliente entrar — o intervalo que trava esse registo.
+     */
+    public function test_as_paginas_do_portal_aguentam_o_registo_do_ultimo_acesso(): void
+    {
+        $this->entrar();
+        // Como se o cliente estivesse a navegar há mais de cinco minutos.
+        $this->doPortal->forceFill(['last_login_at' => now()->subHour()])->save();
+
+        $this->get('/client/oficina')->assertOk();
+        $this->getJson('/client/api/oficina')->assertOk();
+        $this->get('/client/dashboard')->assertOk();
+    }
+
     public function test_o_pdf_da_factura_so_das_que_o_cliente_ve(): void
     {
         $daOficina = $this->factura(['source_module' => 'oficina']);

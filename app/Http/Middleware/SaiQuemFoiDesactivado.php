@@ -21,6 +21,14 @@ class SaiQuemFoiDesactivado
     {
         $u = Auth::user();
 
+        // O CLIENTE DO PORTAL NÃO É DAQUI: com `auth:client` o guard do pedido é
+        // o `client`, e um cliente desactivado ia parar à entrada dos
+        // funcionários com a sessão do portal de pé. Quem trata dele é o
+        // middleware `portal`, que o põe fora do portal.
+        if ($u instanceof \App\Models\Client) {
+            return $next($request);
+        }
+
         // Só um `false` gravado conta: um modelo acabado de criar ainda não trouxe o valor da base.
         if ($u && $u->getAttribute('is_active') !== null && ! $u->is_active) {
             Auth::guard('web')->logout();

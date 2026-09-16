@@ -20,6 +20,20 @@ class RecordLastLogin
         if (auth()->check() && ! session()->has(\App\Services\Plataforma\Personificacao::CHAVE_DO_ADMIN)) {
             $user = auth()->user();
 
+            /*
+             * SÓ AS PESSOAS DAS EMPRESAS.
+             *
+             * No portal do cliente o `auth:client` põe o guard `client` como o
+             * do pedido, e `auth()->user()` devolve um Client — que não tem
+             * empresa activa. O `activeTenantId()` lá abaixo não existe nele e
+             * TODAS as páginas do portal davam erro 500 cinco minutos depois de
+             * o cliente entrar (o intervalo que trava este registo). O
+             * CheckSubscription tem esta mesma guarda, pela mesma razão.
+             */
+            if (! $user instanceof \App\Models\User) {
+                return $next($request);
+            }
+
             // Atualizar last_login_at apenas se passou mais de 5 minutos do último login
             // Isso evita updates desnecessários a cada request
             if (!$user->last_login_at || $user->last_login_at->diffInMinutes(now()) > 5) {
