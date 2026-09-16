@@ -5,6 +5,7 @@ import { t, tn } from '@/i18n';
 import { dataEHora, dinheiro, useBaseViva } from '../ganchos';
 import { db, lerMeta, type Registo } from '../motor/base';
 import { sync } from '../motor/sincronizar';
+import { produtosVendidos, vendasDesdeAAbertura } from '../motor/produtosDoTurno';
 import { closeShiftOffline, diferencaNoFecho, dinheiroEsperado, dinheiroLocalDesdeAAbertura, getShift, openShiftOffline, type Turno } from '../motor/turno';
 import { PosOfflineTicket } from '../papel';
 import { avisar, Nota } from '../ui/Dialogos';
@@ -133,12 +134,20 @@ function FolhaDeFechar({ c }: { c: ControloDoTurno }) {
     const valorContado = contado ?? esperado.toFixed(2);
     const [notas, setNotas] = useState('');
     const [ocupado, setOcupado] = useState(false);
+    // A PERGUNTA do fecho: resumido ou com produtos. Não vem escolhida.
+    const [tipo, setTipo] = useState<'resumido' | 'produtos' | null>(null);
+    const doTurno = vendasDesdeAAbertura(c.turno.opened_at, c.vendas);
+    const vendidos = produtosVendidos(doTurno);
     const diferenca = diferencaNoFecho(valorContado, esperado);
 
     const sair = () => { c.fecharFolhas(); setContado(null); setNotas(''); };
 
     const confirmar = async () => {
         if (ocupado) return;
+        if (!tipo) {
+            avisar(t('Escolha o tipo de fecho: resumido ou com produtos.'), 'aviso');
+            return;
+        }
         const n = parseFloat(valorContado);
 
         if (Number.isNaN(n) || n < 0) {
@@ -165,7 +174,7 @@ function FolhaDeFechar({ c }: { c: ControloDoTurno }) {
 
             // Relatório de fecho (X/Z) — imprime sem rede.
             try {
-                PosOfflineTicket.printShiftReport(retrato, vendas, (await lerMeta<Registo>('company')) || {});
+                PosOfflineTicket.printShiftReport(retrato, vendas, (await lerMeta<Registo>('company')) || {}, tipo === 'produtos');
             } catch (re) {
                 console.warn('[PWA] Erro ao imprimir relatório de fecho:', re);
             }
@@ -189,7 +198,7 @@ function FolhaDeFechar({ c }: { c: ControloDoTurno }) {
                rodape={(
                    <div className="flex gap-2">
                        <button type="button" onClick={sair} className="pwa-toque flex-1 py-3 border-2 border-gray-300 bg-white text-gray-700 rounded-xl font-bold text-sm">{t('Cancelar')}</button>
-                       <button type="button" onClick={() => void confirmar()} disabled={ocupado || valorContado === ''}
+                       <button type="button" onClick={() => void confirmar()} disabled={ocupado || valorContado === '' || !tipo}
                                className="pwa-toque flex-[2] bg-gradient-to-r from-red-500 to-rose-600 text-white py-3 rounded-xl font-bold text-sm shadow-lg disabled:opacity-50">
                            {ocupado
                                ? <><i className="fas fa-spinner fa-spin mr-1" aria-hidden="true" />{t('A fechar…')}</>
@@ -206,6 +215,45 @@ function FolhaDeFechar({ c }: { c: ControloDoTurno }) {
                 )}
                 {!navigator.onLine && (
                     <Nota tipo="aviso" icone="fa-wifi">{t('Está offline — o fecho é guardado localmente e sincroniza quando a internet voltar.')}</Nota>
+                )}
+
+                <fieldset>
+                    <legend className={ROTULO}>{t('Que fecho quer?')} <span className="text-red-500">*</span></legend>
+                    <div className="grid grid-cols-2 gap-2" role="radiogroup">
+                        {([
+                            ['resumido', t('Fecho resumido'), t('Totais e caixa'), 'fa-receipt'],
+                            ['produtos', t('Fecho com produtos'), t('Artigo a artigo'), 'fa-boxes-stacked'],
+                        ] as const).map(([valor, titulo, frase, icone]) => (
+                            <button key={valor} type="button" role="radio" aria-checked={tipo === valor} onClick={() => setTipo(valor)}
+                                    className={`pwa-toque rounded-2xl border-2 p-3 text-left transition-all ${tipo === valor ? 'border-emerald-500 bg-emerald-50 shadow-md' : 'border-gray-200 bg-white'}`}>
+                                <i className={`fas ${icone} text-lg ${tipo === valor ? 'text-emerald-600' : 'text-gray-400'}`} aria-hidden="true" />
+                                <span className="mt-1 block text-sm font-bold text-gray-900">{titulo}</span>
+                                <span className="block text-[11px] text-gray-500">{frase}</span>
+                            </button>
+                        ))}
+                    </div>
+                </fieldset>
+
+                {tipo === 'produtos' && (
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-3 text-sm" data-produtos-offline>
+                        <p className="mb-1 flex justify-between font-semibold text-emerald-900">
+                            <span><i className="fas fa-boxes-stacked mr-1" aria-hidden="true" />{tn(':n artigo|:n artigos', vendidos.produtos.length, { n: vendidos.produtos.length })}</span>
+                            <span className="tabular-nums">{dinheiro(vendidos.total)} Kz</span>
+                        </p>
+                        {vendidos.produtos.length === 0
+                            ? <p className="text-xs text-gray-500">{t('Sem vendas neste aparelho desde a abertura.')}</p>
+                            : (
+                                <ul className="max-h-40 space-y-0.5 overflow-auto text-xs tabular-nums">
+                                    {vendidos.produtos.map((p) => (
+                                        <li key={p.chave} className="flex justify-between gap-2">
+                                            <span className="truncate">{p.nome} <span className="text-gray-500">× {p.quantidade}</span></span>
+                                            <strong className="whitespace-nowrap">{dinheiro(p.total)}</strong>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        <p className="mt-1 text-[11px] text-gray-500">{t('Vendas deste aparelho desde a abertura. A lista inteira sai no papel.')}</p>
+                    </div>
                 )}
 
                 <div className="bg-gray-50 rounded-2xl p-3 text-sm space-y-1 tabular-nums">

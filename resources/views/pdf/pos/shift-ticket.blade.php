@@ -40,7 +40,7 @@
     </div>
 
     <hr class="solid">
-    <h4 class="center">RESUMO DE TURNO</h4>
+    <h4 class="center">{{ !empty($produtos) ? 'FECHO DE TURNO COM PRODUTOS' : 'RESUMO DE TURNO' }}</h4>
     <hr class="solid">
 
     <table>
@@ -104,6 +104,10 @@
     @if($shift->closing_notes)
     <hr class="dashed">
     <div><span class="b">Notas fecho:</span> {{ $shift->closing_notes }}</div>
+    @endif
+
+    @if(!empty($produtos))
+        @include('pdf.pos.partials.turno-produtos-talao', ['produtos' => $produtos])
     @endif
 
     <hr class="solid">

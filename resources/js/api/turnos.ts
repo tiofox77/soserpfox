@@ -13,8 +13,36 @@ export type Turno = {
     credit_notes_amount: number; net_sales: number; total_credit_notes: number;
     total_invoices: number; total_receipts: number; expected_cash: number; actual_cash: number | null; cash_difference: number | null;
     closing_notes: string | null; difference_reason: string | null;
-    exportar: { pdf: string; talao: string };
+    /** O papel resumido e o com produtos (`?detalhe=produtos`). */
+    exportar: { pdf: string; talao: string; pdf_produtos: string; talao_produtos: string };
     movimentos?: Movimento[]; movimentos_n?: number;
+};
+
+/** A pergunta do fecho: só os totais, ou também artigo a artigo. */
+export type TipoDeFecho = 'resumido' | 'produtos';
+
+export type ProdutoDoTurno = {
+    chave: string; nome: string; codigo: string | null;
+    /** Vendida, devolvida e a que ficou (vendida − devolvida). */
+    quantidade: number; devolvida: number; liquida: number;
+    preco_medio: number; total: number; devolvido: number; liquido: number;
+    documentos: number;
+    /** A parte do líquido do turno, em %. */
+    peso: number;
+};
+
+export type DocumentoDoTurno = {
+    tipo: 'factura' | 'nota'; numero: string; hora: string | null; cliente: string | null;
+    meio: string; artigos: number; total: number; anulada: boolean;
+};
+
+export type VendasDoTurno = {
+    produtos: ProdutoDoTurno[];
+    totais: {
+        artigos: number; quantidade: number; bruto: number; descontos: number; devolvido: number; liquido: number; imposto: number;
+        facturas: number; anuladas: number; notas: number; ticket_medio: number;
+    };
+    documentos: DocumentoDoTurno[];
 };
 
 export type EstadoDoTurno = { turno: Turno | null; caixa: { id: number; nome: string; estado: string } | null; pode_ver_todos: boolean };
@@ -27,4 +55,5 @@ export const turnos = {
     fechar: (corpo: { actual_cash: number; closing_notes?: string; difference_reason?: string }) => api.criar<{ turno: Turno; message: string }>('/turnos/fechar', corpo),
     historico: (f: { dateFrom?: string; dateTo?: string; userId?: string; status?: string; page?: number }) => api.ler<Pagina>('/turnos/historico', f),
     mostrar: (id: number) => api.ler<{ turno: Turno }>(`/turnos/${id}`),
+    produtos: (id: number) => api.ler<VendasDoTurno>(`/turnos/${id}/produtos`),
 };

@@ -42,7 +42,7 @@
             </div>
         </div>
         <div class="right">
-            <h2 style="border:0;color:#000;">RESUMO DE TURNO POS</h2>
+            <h2 style="border:0;color:#000;">{{ !empty($produtos) ? 'FECHO DE TURNO COM PRODUTOS' : 'RESUMO DE TURNO POS' }}</h2>
             <div><strong>{{ $shift->shift_number }}</strong></div>
             <span class="badge {{ $shift->status === 'open' ? 'badge-open' : 'badge-closed' }}">
                 {{ $shift->status_label }}
@@ -121,6 +121,87 @@
     @endif
     @if($shift->closing_notes)
     <p class="small"><strong>Fecho:</strong> {{ $shift->closing_notes }}</p>
+    @endif
+    @endif
+
+    @if(!empty($produtos))
+    @php
+        $tp = $produtos['totais'];
+        $qtd = fn ($v) => rtrim(rtrim(number_format((float) $v, 3), '0'), '.');
+    @endphp
+    {{-- O FECHO COM PRODUTOS (ver App\Services\POS\ProdutosDoTurno). --}}
+    <h2>Vendas por Produto ({{ $tp['artigos'] }})</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Artigo</th>
+                <th class="text-right">Qtd.</th>
+                <th class="text-right">Preço médio</th>
+                <th class="text-right">Vendido (Kz)</th>
+                <th class="text-right">Devolvido (Kz)</th>
+                <th class="text-right">Líquido (Kz)</th>
+                <th class="text-right">%</th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse($produtos['produtos'] as $p)
+            <tr>
+                <td>{{ $p['nome'] }}@if($p['codigo'])<br><span class="small">{{ $p['codigo'] }}</span>@endif</td>
+                <td class="text-right">{{ $qtd($p['liquida']) }}@if($p['devolvida'] > 0)<br><span class="small">{{ $qtd($p['quantidade']) }} − {{ $qtd($p['devolvida']) }}</span>@endif</td>
+                <td class="text-right">{{ number_format($p['preco_medio'], 2) }}</td>
+                <td class="text-right">{{ number_format($p['total'], 2) }}</td>
+                <td class="text-right">{{ $p['devolvido'] > 0 ? '-' . number_format($p['devolvido'], 2) : '—' }}</td>
+                <td class="text-right"><strong>{{ number_format($p['liquido'], 2) }}</strong></td>
+                <td class="text-right">{{ number_format($p['peso'], 1) }}</td>
+            </tr>
+            @empty
+            <tr><td colspan="7" class="text-center">Sem artigos vendidos neste turno.</td></tr>
+            @endforelse
+            <tr class="totals-row">
+                <td>TOTAL DOS ARTIGOS</td>
+                <td class="text-right">{{ $qtd($tp['quantidade']) }}</td>
+                <td></td>
+                <td class="text-right">{{ number_format($tp['bruto'], 2) }}</td>
+                <td class="text-right">{{ $tp['devolvido'] > 0 ? '-' . number_format($tp['devolvido'], 2) : '—' }}</td>
+                <td class="text-right">{{ number_format($tp['bruto'] - $tp['devolvido'], 2) }}</td>
+                <td class="text-right">100</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <table>
+        <tr><th>Facturas válidas</th><td class="text-right">{{ $tp['facturas'] }}</td><th>Anuladas</th><td class="text-right">{{ $tp['anuladas'] }}</td></tr>
+        <tr><th>Notas de crédito</th><td class="text-right">{{ $tp['notas'] }}</td><th>Ticket médio</th><td class="text-right">{{ number_format($tp['ticket_medio'], 2) }} Kz</td></tr>
+        <tr><th>Descontos nos documentos</th><td class="text-right">{{ $tp['descontos'] > 0 ? '-' . number_format($tp['descontos'], 2) : '0.00' }} Kz</td><th>IVA incluído</th><td class="text-right">{{ number_format($tp['imposto'], 2) }} Kz</td></tr>
+        <tr class="totals-row"><td colspan="3">TOTAL LÍQUIDO DO TURNO</td><td class="text-right">{{ number_format($tp['liquido'], 2) }} Kz</td></tr>
+    </table>
+
+    @if(!empty($produtos['documentos']))
+    <h2>Documentos do Turno ({{ count($produtos['documentos']) }})</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Hora</th>
+                <th>Documento</th>
+                <th>Cliente</th>
+                <th>Pagamento</th>
+                <th class="text-right">Artigos</th>
+                <th class="text-right">Total (Kz)</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($produtos['documentos'] as $d)
+            <tr @if($d['anulada']) style="color:#9ca3af;text-decoration:line-through" @endif>
+                <td>{{ $d['hora'] }}</td>
+                <td>{{ $d['numero'] }}@if($d['anulada']) (anulada)@endif</td>
+                <td>{{ $d['cliente'] ?? '—' }}</td>
+                <td>{{ $d['meio'] }}</td>
+                <td class="text-right">{{ $d['artigos'] }}</td>
+                <td class="text-right {{ $d['total'] < 0 ? 'diff-neg' : '' }}">{{ number_format($d['total'], 2) }}</td>
+            </tr>
+            @endforeach
+        </tbody>
+    </table>
     @endif
     @endif
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Invoicing;
 use App\Http\Controllers\Controller;
 use App\Models\Invoicing\PosShift;
 use App\Models\User;
+use App\Services\POS\ProdutosDoTurno;
 use App\Services\POS\TurnosDoPos;
 use DomainException;
 use Illuminate\Http\JsonResponse;
@@ -84,6 +85,15 @@ class TurnosApiController extends Controller
         return response()->json(['turno' => $this->turno($turno, true)]);
     }
 
+    /** O FECHO COM PRODUTOS: o que se vendeu artigo a artigo, os totais e os documentos. */
+    public function produtos(Request $request, int $id): JsonResponse
+    {
+        $turno = $this->turnos($request)->turno($id, $this->veTodos($request));
+        abort_unless($turno, 404, __('Turno não encontrado ou sem acesso.'));
+
+        return response()->json(ProdutosDoTurno::de($turno));
+    }
+
     /* ─── Por dentro ──────────────────────────────────────────────────── */
 
     private function turnos(Request $request): TurnosDoPos
@@ -135,9 +145,13 @@ class TurnosApiController extends Controller
             'cash_difference' => $s->cash_difference !== null ? (float) $s->cash_difference : null,
             'closing_notes' => $s->closing_notes,
             'difference_reason' => $s->difference_reason,
+            // O resumido e o com produtos: o mesmo documento, com e sem a
+            // lista dos artigos e dos documentos.
             'exportar' => [
                 'pdf' => route('invoicing.pos.export.shift-pdf', $s->id),
                 'talao' => route('invoicing.pos.export.shift-ticket', $s->id),
+                'pdf_produtos' => route('invoicing.pos.export.shift-pdf', [$s->id, 'detalhe' => 'produtos']),
+                'talao_produtos' => route('invoicing.pos.export.shift-ticket', [$s->id, 'detalhe' => 'produtos']),
             ],
         ];
 

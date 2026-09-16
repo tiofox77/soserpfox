@@ -2388,6 +2388,7 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::post('/turnos/fechar', [\App\Http\Controllers\Api\Invoicing\TurnosApiController::class, 'fechar'])->name('turnos.fechar');
         Route::get('/turnos/historico', [\App\Http\Controllers\Api\Invoicing\TurnosApiController::class, 'historico'])->name('turnos.historico');
         Route::get('/turnos/{id}', [\App\Http\Controllers\Api\Invoicing\TurnosApiController::class, 'mostrar'])->whereNumber('id')->name('turnos.mostrar');
+        Route::get('/turnos/{id}/produtos', [\App\Http\Controllers\Api\Invoicing\TurnosApiController::class, 'produtos'])->whereNumber('id')->name('turnos.produtos');
 
 
         /*

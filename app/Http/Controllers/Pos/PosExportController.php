@@ -7,6 +7,7 @@ use App\Models\Invoicing\PosShift;
 use App\Models\Invoicing\SalesInvoice;
 use App\Models\Tenant;
 use App\Services\POS\PosSalesReportQuery;
+use App\Services\POS\ProdutosDoTurno;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -21,21 +22,23 @@ class PosExportController extends Controller
     /**
      * PDF A4 do resumo de turno (Histórico de Turnos / Fecho de turno).
      */
-    public function shiftPdf(int $shiftId)
+    public function shiftPdf(int $shiftId, Request $request)
     {
         $shift = $this->resolveShift($shiftId);
         $tenant = Tenant::find(activeTenantId());
+        $produtos = $this->produtosPedidos($shift, $request);
 
         $pdf = Pdf::loadView('pdf.pos.shift-summary', [
             'shift' => $shift,
             'tenant' => $tenant,
+            'produtos' => $produtos,
         ]);
         $pdf->setPaper('a4', 'portrait');
 
-        $filename = 'turno-' . $shift->shift_number . '.pdf';
+        $filename = 'turno-' . $shift->shift_number . ($produtos ? '-produtos' : '') . '.pdf';
 
         app(\App\Services\Audit\AuditRecorder::class)
-            ->exportou('resumo de turno', 'pdf', null, ['turno' => $shift->shift_number]);
+            ->exportou($produtos ? 'fecho de turno com produtos' : 'resumo de turno', 'pdf', null, ['turno' => $shift->shift_number]);
 
         return $pdf->download($filename);
     }
@@ -49,15 +52,18 @@ class PosExportController extends Controller
     {
         $shift = $this->resolveShift($shiftId);
         $tenant = Tenant::find(activeTenantId());
+        $produtos = $this->produtosPedidos($shift, $request);
 
         // Modo "pdf" mantém comportamento antigo (download/preview PDF)
         if ($request->query('format') === 'pdf') {
             $pdf = Pdf::loadView('pdf.pos.shift-ticket', [
                 'shift' => $shift,
                 'tenant' => $tenant,
+                'produtos' => $produtos,
             ]);
-            $customPaper = [0, 0, 226, 800]; // 80mm × ~282mm
-            $pdf->setPaper($customPaper, 'portrait');
+            // 80mm × ~282mm; com os produtos o rolo cresce com as linhas.
+            $altura = 800 + ($produtos ? 34 * count($produtos['produtos']) + 26 * count($produtos['documentos']) + 200 : 0);
+            $pdf->setPaper([0, 0, 226, $altura], 'portrait');
             return $pdf->stream('ticket-turno-' . $shift->shift_number . '.pdf');
         }
 
@@ -65,6 +71,7 @@ class PosExportController extends Controller
         return response()->view('pdf.pos.shift-ticket-html', [
             'shift' => $shift,
             'tenant' => $tenant,
+            'produtos' => $produtos,
             'autoPrint' => $request->query('print', '1') !== '0',
         ]);
     }
@@ -241,6 +248,12 @@ class PosExportController extends Controller
     }
 
     // ============================== helpers ==============================
+
+    /** O fecho com produtos só quando pedido (`?detalhe=produtos`); o resumido é o de sempre. */
+    protected function produtosPedidos(PosShift $shift, Request $request): ?array
+    {
+        return $request->query('detalhe') === 'produtos' ? ProdutosDoTurno::de($shift) : null;
+    }
 
     protected function resolveShift(int $shiftId): PosShift
     {

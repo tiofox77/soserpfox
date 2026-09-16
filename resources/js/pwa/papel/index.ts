@@ -75,8 +75,9 @@ export const PosOfflineTicket = {
         printHtml(buildDocumentHtml(doc, company), DOCUMENT_CSS, 'width=820,height=900');
     },
 
-    printShiftReport(shiftData: Registo, sales: Registo[], company: Registo): void {
-        printHtml(buildShiftReportHtml(shiftData, sales, company));
+    /** `comProdutos`: o fecho com as vendas artigo a artigo e os documentos. */
+    printShiftReport(shiftData: Registo, sales: Registo[], company: Registo, comProdutos = false): void {
+        printHtml(buildShiftReportHtml(shiftData, sales, company, comProdutos));
     },
 };
 

@@ -1,6 +1,7 @@
 import { t, tn } from '@/i18n';
 
 import type { Registo } from '../motor/base';
+import { produtosVendidos, vendasDesdeAAbertura } from '../motor/produtosDoTurno';
 import { esc, money } from './talao';
 
 /**
@@ -24,8 +25,9 @@ function paymentLabelTraduzido(code: string): string {
     return mapa[code.toLowerCase()] || (code ? code.toUpperCase() : t('DINHEIRO'));
 }
 
-export function buildShiftReportHtml(shiftData: Registo = {}, vendas: Registo[] = [], company: Registo = {}): string {
-    const sales = Array.isArray(vendas) ? vendas : [];
+export function buildShiftReportHtml(shiftData: Registo = {}, vendas: Registo[] = [], company: Registo = {}, comProdutos = false): string {
+    // Só as deste turno: o aparelho guarda 30 dias de vendas, e somavam-se todas.
+    const sales = vendasDesdeAAbertura(shiftData.opened_at, Array.isArray(vendas) ? vendas : []);
     const agora = new Date();
     const dateStr = agora.toLocaleDateString('pt-AO') + ' ' + agora.toLocaleTimeString('pt-AO', { hour: '2-digit', minute: '2-digit' });
 
@@ -72,7 +74,7 @@ export function buildShiftReportHtml(shiftData: Registo = {}, vendas: Registo[] 
                 </div>
             </div>
 
-            <h4>${t('RELATÓRIO DE FECHO DE TURNO')}</h4>
+            <h4>${comProdutos ? t('FECHO DE TURNO COM PRODUTOS') : t('RELATÓRIO DE FECHO DE TURNO')}</h4>
             <h4 style="font-size:10px;font-weight:400">${t('(Documento Local / Offline)')}</h4>
             ${pendingWarning}
 
@@ -103,10 +105,45 @@ export function buildShiftReportHtml(shiftData: Registo = {}, vendas: Registo[] 
                 <div class="line grand"><span>${t('ESPERADO EM CAIXA:')}</span><span>${money(expectedCash)} Kz</span></div>
             </div>
 
+            ${comProdutos ? seccaoDeProdutos(sales) : ''}
+
             <div class="foot">
                 <p class="sep">═══════════════════════</p>
                 <p>${t('Impresso offline — :data', { data: esc(dateStr) })}</p>
                 <p class="b">Software: SOS ERP - SOLUÇÕES EMPRESARIAIS</p>
             </div>
         `;
+}
+
+/** As vendas artigo a artigo e os documentos — o «fecho com produtos» no papel. */
+function seccaoDeProdutos(sales: Registo[]): string {
+    const { produtos, quantidade, total } = produtosVendidos(sales);
+    const qtd = (v: number) => String(Math.round(v * 1000) / 1000).replace('.', ',');
+
+    const linhas = produtos.map((p) => `
+                <div class="b" style="margin-top:3px">${esc(p.nome)}</div>
+                <div class="line"><span>${qtd(p.quantidade)} × ${money(p.quantidade > 0 ? p.total / p.quantidade : 0)}</span><span class="b">${money(p.total)}</span></div>`).join('');
+
+    const documentos = sales.map((s) => {
+        const hora = s.created_at ? new Date(s.created_at).toLocaleTimeString('pt-AO', { hour: '2-digit', minute: '2-digit' }) : '—';
+        const numero = s._server_number || s.provisional_number || '—';
+
+        return `
+                <div class="line"><span>${esc(hora)} ${esc(numero)}</span><span>${money(s.total)}</span></div>
+                <div style="font-size:9px">${esc(paymentLabelTraduzido(String(s.payment_method || 'cash')))} · ${esc(s.client_name || '')} · ${(s.items || []).length} ${t('art.')}</div>`;
+    }).join('');
+
+    return `
+            <p class="sep" style="text-align:center;margin:6px 0">─────────────────────</p>
+            <p class="b" style="margin-bottom:3px">${t('VENDAS POR PRODUTO (:n)', { n: produtos.length })}</p>
+            <div class="meta">${linhas || `<div class="line"><span>${t('Sem artigos vendidos')}</span><span>—</span></div>`}</div>
+            <div class="totals">
+                <div class="line"><span>${t('Artigos diferentes:')}</span><span>${produtos.length}</span></div>
+                <div class="line"><span>${t('Quantidade vendida:')}</span><span>${qtd(quantidade)}</span></div>
+                <div class="line grand"><span>${t('TOTAL DOS ARTIGOS:')}</span><span>${money(total)} Kz</span></div>
+            </div>
+            ${sales.length ? `
+            <p class="sep" style="text-align:center;margin:6px 0">─────────────────────</p>
+            <p class="b" style="margin-bottom:3px">${t('DOCUMENTOS (:n)', { n: sales.length })}</p>
+            <div class="meta">${documentos}</div>` : ''}`;
 }

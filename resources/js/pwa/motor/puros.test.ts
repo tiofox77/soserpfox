@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { CATALOGO_A_CADA, CATALOGO_AO_VOLTAR, deveSincronizarAoVoltar, deveSincronizarNoTemporizador, desdeAUltimaSync, PENDENTES_A_CADA } from './cadencia';
 import { dataDeHoje, formasDeCodigo, motivoDoServidor, uuidV4 } from './util';
+import { produtosVendidos, vendasDesdeAAbertura } from './produtosDoTurno';
 import { contasDoDocumento, fmt2, valorPorExtenso } from '../papel/molde';
 
 /**
@@ -134,5 +135,39 @@ describe('as contas do documento (ecrã, papel e lista batem com o servidor)', (
     it('o papel escreve como o servidor', () => {
         expect(fmt2(1234567.5)).toBe('1.234.567,50');
         expect(valorPorExtenso(1001.5)).toBe('Mil e um kwanzas e cinquenta cêntimos');
+    });
+});
+
+describe('o fecho com produtos no aparelho', () => {
+    const venda = (criada: string, itens: Array<Record<string, unknown>>, extra: Record<string, unknown> = {}) => ({ local_uuid: criada, created_at: criada, items: itens, ...extra });
+    const pao = { product_id: 7, product_name: 'Pão', quantity: 2, unit_price: 1000, tax_rate: 14 };
+    const cafe = { product_id: null, product_name: 'Café', quantity: 1, unit_price: 500, tax_rate: 0 };
+
+    it('só conta as vendas desde a abertura do turno', () => {
+        const vendas = [venda('2026-09-15T10:00:00Z', [pao]), venda('2026-09-16T09:00:00Z', [pao])];
+
+        expect(vendasDesdeAAbertura('2026-09-16T08:00:00Z', vendas)).toHaveLength(1);
+        // Sem abertura conhecida, não se esconde nada.
+        expect(vendasDesdeAAbertura(null, vendas)).toHaveLength(2);
+    });
+
+    it('junta o mesmo artigo, aplica o desconto da venda e põe o maior primeiro', () => {
+        const r = produtosVendidos([
+            venda('a', [pao, cafe]),
+            venda('b', [{ ...pao, quantity: 1 }], { discount_commercial: 10 }),
+        ]);
+
+        expect(r.produtos.map((p) => p.nome)).toEqual(['Pão', 'Café']);
+        expect(r.produtos[0]).toMatchObject({ chave: 'p7', quantidade: 3, vendas: 2 });
+        // 2 × 1000 × 1,14 + 1 × 1000 × 0,9 × 1,14
+        expect(r.produtos[0]?.total).toBeCloseTo(2280 + 1026, 2);
+        expect(r.produtos[1]).toMatchObject({ chave: 'ncafé', quantidade: 1, total: 500, vendas: 1 });
+        expect(r.quantidade).toBe(4);
+        expect(r.total).toBeCloseTo(3806, 2);
+        expect(r.vendas).toBe(2);
+    });
+
+    it('sem vendas não há artigos', () => {
+        expect(produtosVendidos([])).toEqual({ produtos: [], quantidade: 0, total: 0, vendas: 0 });
     });
 });

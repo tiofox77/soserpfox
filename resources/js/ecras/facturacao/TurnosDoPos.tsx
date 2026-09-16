@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { turnos, type Turno } from '@/api/turnos';
+import { turnos, type TipoDeFecho, type Turno } from '@/api/turnos';
 import { ErroDaApi } from '@/api/cliente';
 import { AvisoDeErro } from '@/ui/AvisoDeErro';
 import { Botao } from '@/ui/Botao';
@@ -14,6 +14,7 @@ import { CARTAO, FOCO, RAIO, cls } from '@/ui/tokens';
 import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t } from '@/i18n';
 import { ACCAO_DA_FAIXA, EstadoNaFaixa, Faixa, SemNada, cascata } from './faixa';
+import { EscolhaDoFecho, Mosaico, PapelDoFecho, VendasPorProduto } from './VendasDoTurno';
 
 /**
  * O TURNO DO BALCÃO: abrir, ver o que entrou, fechar com o dinheiro
@@ -28,7 +29,7 @@ export default function TurnosDoPos() {
     const q = useQuery({ queryKey: ['turnos', 'estado'], queryFn: turnos.estado });
     const [abrirModal, porAbrirModal] = useState(false);
     const [fecharModal, porFecharModal] = useState(false);
-    const [fechado, porFechado] = useState<Turno | null>(null);
+    const [fechado, porFechado] = useState<{ turno: Turno; tipo: TipoDeFecho } | null>(null);
     const [recado, porRecado] = useRecadoNoCanto('');
 
     const feito = (m: string) => { porRecado(m); void cache.invalidateQueries({ queryKey: ['turnos'] }); };
@@ -122,6 +123,14 @@ export default function TurnosDoPos() {
                 </div>
             )}
 
+            {/* O QUE SE VENDEU ATÉ AGORA, artigo a artigo — o mesmo que o
+                fecho com produtos leva para o papel. */}
+            {turno && (
+                <Cartao titulo={t('Vendas por produto')} subtitulo={t('O que este turno já vendeu, artigo a artigo')} icone="fa-boxes-stacked">
+                    <VendasPorProduto id={turno.id} />
+                </Cartao>
+            )}
+
             {turno && (
                 <Cartao titulo={t('Movimentos do turno (:quantos)', { quantos: turno.movimentos_n ?? 0 })} icone="fa-list" semPadding>
                     <div className="max-h-96 overflow-auto">
@@ -139,19 +148,9 @@ export default function TurnosDoPos() {
             )}
 
             {abrirModal && <AbrirTurno aoFechar={() => porAbrirModal(false)} feito={(m) => { feito(m); porAbrirModal(false); }} />}
-            {fecharModal && turno && <FecharTurno turno={turno} aoFechar={() => porFecharModal(false)} feito={(t, m) => { feito(m); porFecharModal(false); porFechado(t); }} />}
+            {fecharModal && turno && <FecharTurno turno={turno} aoFechar={() => porFecharModal(false)} feito={(t, m, tipo) => { feito(m); porFecharModal(false); porFechado({ turno: t, tipo }); }} />}
 
-            <Modal aberto={fechado !== null} aoFechar={() => porFechado(null)} titulo={t('Turno fechado')} rodape={<Botao onClick={() => porFechado(null)}>{t('Fechar')}</Botao>}>
-                {fechado && (
-                    <div className="space-y-3 text-sm text-slate-700" data-pos-fecho>
-                        <p>{t('Turno')} <strong>{fechado.shift_number}</strong> {t('fechado. Esperado :esperado, contado :contado, diferença', { esperado: kz(fechado.expected_cash), contado: kz(fechado.actual_cash) })} <strong className={cls((fechado.cash_difference ?? 0) < 0 && 'text-red-700')}>{kz(fechado.cash_difference)}</strong>.</p>
-                        <div className="flex flex-wrap gap-2">
-                            <a href={fechado.exportar.pdf} target="_blank" rel="noreferrer" className={cls('inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50', RAIO)}><i className="fas fa-file-pdf" aria-hidden="true" />{t('Resumo em PDF')}</a>
-                            <a href={fechado.exportar.talao} target="_blank" rel="noreferrer" className={cls('inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50', RAIO)}><i className="fas fa-receipt" aria-hidden="true" />{t('Talão')}</a>
-                        </div>
-                    </div>
-                )}
-            </Modal>
+            {fechado && <TurnoFechado turno={fechado.turno} tipo={fechado.tipo} aoFechar={() => porFechado(null)} />}
         </div>
     );
 }
@@ -173,17 +172,72 @@ function AbrirTurno({ aoFechar, feito }: { aoFechar: () => void; feito: (m: stri
     );
 }
 
-function FecharTurno({ turno, aoFechar, feito }: { turno: Turno; aoFechar: () => void; feito: (t: Turno, m: string) => void }) {
+/**
+ * O TURNO FECHADO: a conferência da caixa e, no fecho com produtos, o que se
+ * vendeu artigo a artigo — com o papel no formato escolhido à frente.
+ */
+function TurnoFechado({ turno, tipo, aoFechar }: { turno: Turno; tipo: TipoDeFecho; aoFechar: () => void }) {
+    const diferenca = turno.cash_difference ?? 0;
+
+    return (
+        <Modal aberto aoFechar={aoFechar} titulo={t('Turno :numero fechado', { numero: turno.shift_number })}
+            subtitulo={tipo === 'produtos' ? t('Fecho com produtos') : t('Fecho resumido')} icone="fa-lock" cor="bom"
+            largura={tipo === 'produtos' ? 'xl' : 'lg'} rodape={<Botao onClick={aoFechar}>{t('Fechar')}</Botao>}>
+            <div className="space-y-4 text-sm text-slate-700" data-pos-fecho data-tipo-fecho={tipo}>
+                <div className="grid gap-2 sm:grid-cols-3">
+                    <Mosaico i={0} rotulo={t('Esperado em caixa')} valor={kz(turno.expected_cash)} icone="fa-vault" tom="ambar" />
+                    <Mosaico i={1} rotulo={t('Contado')} valor={kz(turno.actual_cash)} icone="fa-hand-holding-dollar" tom="azul" />
+                    <Mosaico i={2} rotulo={t('Diferença')} valor={kz(turno.cash_difference)} icone={diferenca < 0 ? 'fa-triangle-exclamation' : 'fa-scale-balanced'}
+                        tom={diferenca < 0 ? 'vermelho' : diferenca > 0 ? 'ambar' : 'verde'} />
+                </div>
+
+                <PapelDoFecho turno={turno} tipo={tipo} />
+
+                <div className="grid gap-x-6 gap-y-1 tabular-nums sm:grid-cols-2">
+                    {([
+                        [t('Dinheiro'), turno.cash_sales], [t('Cartão / TPA'), turno.card_sales],
+                        [t('Transferência'), turno.bank_transfer_sales], [t('Outros'), turno.other_sales],
+                        ...(turno.credit_notes_amount > 0 ? [[t('Devolvido'), -turno.credit_notes_amount]] as Array<[string, number]> : []),
+                        [t('Total de vendas'), turno.net_sales],
+                    ] as Array<[string, number]>).map(([r, v]) => (
+                        <p key={r} className="flex justify-between gap-3 border-b border-dashed border-slate-200 py-1"><span className="text-slate-600">{r}</span><strong>{kz(v)}</strong></p>
+                    ))}
+                </div>
+
+                {tipo === 'produtos' && <VendasPorProduto id={turno.id} />}
+            </div>
+        </Modal>
+    );
+}
+
+function FecharTurno({ turno, aoFechar, feito }: { turno: Turno; aoFechar: () => void; feito: (t: Turno, m: string, tipo: TipoDeFecho) => void }) {
+    const [tipo, porTipo] = useState<TipoDeFecho | null>(null);
     const [contado, porContado] = useState('');
     const [notas, porNotas] = useState('');
     const [motivo, porMotivo] = useState('');
     const [erros, porErros] = useState<Record<string, string[]>>({});
-    const fechar = useMutation({ mutationFn: () => turnos.fechar({ actual_cash: Number(contado.replace(',', '.')), closing_notes: notas || undefined, difference_reason: motivo || undefined }), onSuccess: (r) => feito(r.turno, r.message), onError: (e) => porErros(e instanceof ErroDaApi ? e.erros : {}) });
+    const fechar = useMutation({ mutationFn: () => turnos.fechar({ actual_cash: Number(contado.replace(',', '.')), closing_notes: notas || undefined, difference_reason: motivo || undefined }), onSuccess: (r) => feito(r.turno, r.message, tipo ?? 'resumido'), onError: (e) => porErros(e instanceof ErroDaApi ? e.erros : {}) });
     const diferenca = contado === '' ? null : (Number(contado.replace(',', '.')) || 0) - turno.expected_cash;
+    const falta = !tipo ? t('Escolha o tipo de fecho.') : contado === '' ? t('Escreva o dinheiro contado.') : null;
 
     return (
-        <Modal aberto aoFechar={aoFechar} titulo={t('Fechar o turno :numero', { numero: turno.shift_number })} rodape={<><Botao onClick={aoFechar}>{t('Cancelar')}</Botao><Botao cor="perigo" tom="solida" icone="fa-lock" aTrabalhar={fechar.isPending} disabled={contado === ''} onClick={() => fechar.mutate()}>{t('Fechar turno')}</Botao></>}>
+        <Modal aberto aoFechar={aoFechar} titulo={t('Fechar o turno :numero', { numero: turno.shift_number })} icone="fa-lock" cor="perigo" largura={tipo === 'produtos' ? 'lg' : 'md'}
+            rodape={(
+                <>
+                    {falta && <span className="mr-auto text-xs text-slate-500"><i className="fas fa-circle-info mr-1" aria-hidden="true" />{falta}</span>}
+                    <Botao onClick={aoFechar}>{t('Cancelar')}</Botao>
+                    <Botao cor="perigo" tom="solida" icone="fa-lock" aTrabalhar={fechar.isPending} disabled={falta !== null} onClick={() => fechar.mutate()}>{t('Fechar turno')}</Botao>
+                </>
+            )}>
             <AvisoDeErro erro={fechar.error} />
+            <div className="mb-5 space-y-4">
+                <EscolhaDoFecho valor={tipo} aoMudar={porTipo} />
+                {tipo === 'produtos' && (
+                    <div className="entra">
+                        <VendasPorProduto id={turno.id} compacto />
+                    </div>
+                )}
+            </div>
             <p className="mb-4 text-sm text-slate-600">{t('Esperado em caixa:')} <strong className="tabular-nums">{kz(turno.expected_cash)}</strong> {t('(saldo inicial :saldo + dinheiro :dinheiro). Conte a gaveta e escreva o que lá está.', { saldo: kz(turno.opening_balance), dinheiro: kz(turno.cash_sales) })}</p>
             <div className="grid gap-4">
                 <Campo etiqueta={t('Dinheiro contado (Kz)')} erro={erros.actual_cash} obrigatorio><input type="number" min="0" step="0.01" value={contado} onChange={(e) => porContado(e.target.value)} placeholder="0,00" className={cls(entrada, 'text-right tabular-nums')} /></Campo>
