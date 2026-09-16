@@ -12502,5 +12502,7 @@
     "A próxima revisão é :quando.": "La prochaine révision est :quando.",
     "Tudo em dia": "Tout est à jour",
     "Última visita a :data.": "Dernière visite le :data.",
-    "Sem visitas registadas nesta oficina.": "Aucune visite enregistrée dans cet atelier."
+    "Sem visitas registadas nesta oficina.": "Aucune visite enregistrée dans cet atelier.",
+    "Este código é atribuído ao guardar. Escreva outro se tiver o seu.": "Ce code est attribué à l’enregistrement. Saisissez le vôtre si vous en avez un.",
+    "Escreveu o seu código. Apague-o para voltar ao automático.": "Vous avez saisi votre propre code. Effacez-le pour revenir à l’automatique."
 }

@@ -1146,6 +1146,9 @@ function Formulario({
     // depois de o artigo estar gravado — a criar, nem número tem antes disso.
     const [destaque, porDestaque] = useState<File | null>(null);
     const [galeria, porGaleria] = useState<File[]>([]);
+    // O código é do próprio a partir do momento em que ele lhe escreve algo;
+    // apagar o campo devolve-o ao automático.
+    const [codigoEscrito, porCodigoEscrito] = useState(false);
 
     const chaveDaFicha = aEditar?.id ?? 'novo';
 
@@ -1154,6 +1157,7 @@ function Formulario({
     useEffect(() => {
         porDestaque(null);
         porGaleria([]);
+        porCodigoEscrito(false);
     }, [chaveDaFicha, dados === null]);
 
     if (!dados) {
@@ -1164,6 +1168,20 @@ function Formulario({
         aoMudar({ ...dados, [chave]: valor });
 
     const eServico = dados.type === 'servico';
+
+    /*
+     * O CÓDIGO SUGERIDO, À VISTA E JÁ CERTO PARA O TIPO ESCOLHIDO.
+     *
+     * O campo ficava vazio com um «Ex.: PROD000001» e o selo AUTO ao lado: o
+     * código só nascia ao gravar, e trocar para Serviço não mudava nada (queixa
+     * de 16/09/2026). Agora mostra-se o próximo livre — PROD nos produtos, SVC
+     * nos serviços —, e continua a ser o servidor a atribuí-lo na gravação,
+     * para duas pessoas a criar artigos ao mesmo tempo não ficarem com o mesmo.
+     */
+    const sugerido = aEditar ? '' : opcoes?.codigos_sugeridos?.[eServico ? 'servico' : 'produto'] ?? '';
+    const codigoAutomatico = !aEditar && !codigoEscrito;
+    // Enquanto for o sugerido, vai vazio para o servidor — é ele que o gera.
+    const paraGravar: ArtigoParaGravar = codigoAutomatico ? { ...dados, code: null } : dados;
 
     /*
      * A EMPRESA AINDA NÃO TEM TAXAS DE IVA.
@@ -1195,7 +1213,7 @@ function Formulario({
                         tom="solida"
                         icone="fa-check"
                         aTrabalhar={aGravar}
-                        onClick={() => aoGravar({ dados, destaque, galeria })}
+                        onClick={() => aoGravar({ dados: paraGravar, destaque, galeria })}
                     >
                         {t('Guardar')}
                     </Botao>
@@ -1208,7 +1226,7 @@ function Formulario({
                 className="grid gap-4 sm:grid-cols-3"
                 onSubmit={(e) => {
                     e.preventDefault();
-                    aoGravar({ dados, destaque, galeria });
+                    aoGravar({ dados: paraGravar, destaque, galeria });
                 }}
             >
                 <Campo etiqueta={t('Nome')} erro={erros.name} obrigatorio className="sm:col-span-2">
@@ -1338,24 +1356,29 @@ function Formulario({
                     ajuda={
                         aEditar
                             ? t('Único nesta empresa.')
-                            : t('Código sugerido automaticamente, mas pode alterá-lo')
+                            : codigoAutomatico
+                              ? t('Este código é atribuído ao guardar. Escreva outro se tiver o seu.')
+                              : t('Escreveu o seu código. Apague-o para voltar ao automático.')
                     }
                 >
                     <div className="relative">
                         <input
-                            value={dados.code ?? ''}
-                            onChange={(e) => campo('code', e.target.value)}
+                            value={codigoAutomatico ? sugerido : dados.code ?? ''}
+                            onChange={(e) => {
+                                porCodigoEscrito(e.target.value.trim() !== '');
+                                campo('code', e.target.value);
+                            }}
                             placeholder={aEditar ? '' : t('Ex.: PROD000001')}
                             className={cls(
                                 entrada,
                                 'font-mono font-semibold',
-                                // A CAIXA VERDE do ecrã de sempre, só a criar:
-                                // é o sinal de que aquele código foi gerado e
-                                // não escrito — e que se pode trocar.
-                                !aEditar && 'border-2 border-emerald-300 bg-emerald-50 pr-16',
+                                // A CAIXA VERDE do ecrã de sempre, só enquanto o
+                                // código é o gerado: é o sinal de que aquele
+                                // código veio de casa — e que se pode trocar.
+                                codigoAutomatico && 'border-2 border-emerald-300 bg-emerald-50 pr-16',
                             )}
                         />
-                        {!aEditar && (
+                        {codigoAutomatico && (
                             <span
                                 aria-hidden="true"
                                 className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white"

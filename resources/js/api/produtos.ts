@@ -222,6 +222,8 @@ export type OpcoesDosArtigos = {
     fornecedores: Array<{ id: number; name: string }>;
     taxas: Array<{ id: number; name: string; rate: number }>;
     unidades: string[];
+    /** O próximo código livre de cada tipo — o formulário mostra-o enquanto se cria. */
+    codigos_sugeridos: { produto: string; servico: string };
     generos: Escolha[];
     conservacao: Escolha[];
     /**

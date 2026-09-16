@@ -88,6 +88,34 @@ class ApiDosProdutosParaReactTest extends TenantTestCase
         ], $por);
     }
 
+    /**
+     * O CÓDIGO SUGERIDO vai nas opções, um por tipo (16/09/2026).
+     *
+     * O campo do formulário mostrava «Ex.: PROD000001» e um selo AUTO, mas o
+     * código só nascia ao gravar — e trocar para Serviço não mudava nada.
+     */
+    /** @test */
+    public function as_opcoes_levam_o_proximo_codigo_de_cada_tipo(): void
+    {
+        $this->comPermissoes('invoicing.products.view');
+
+        $sugeridos = fn () => $this->getJson(self::RAIZ . '/opcoes')->assertOk()->json('codigos_sugeridos');
+
+        $this->assertSame(['produto' => 'PROD000001', 'servico' => 'SVC000001'], $sugeridos());
+
+        $this->artigo(['code' => 'PROD000007']);
+        $this->artigo(['type' => 'servico', 'code' => 'SVC000003']);
+
+        $this->assertSame(['produto' => 'PROD000008', 'servico' => 'SVC000004'], $sugeridos());
+
+        // O sugerido é só uma sugestão: quem grava sem código continua a receber
+        // o gerado no momento — é isso que protege duas pessoas a criar ao mesmo tempo.
+        $this->comPermissoes('invoicing.products.view', 'invoicing.products.create');
+        $criado = $this->postJson(self::RAIZ, $this->corpo(['code' => null]))->assertCreated()->json('data.code');
+        $this->assertSame('PROD000008', $criado);
+        $this->assertSame('PROD000009', $sugeridos()['produto']);
+    }
+
     /* ─── Permissões ──────────────────────────────────────────────────── */
 
     /** @test */

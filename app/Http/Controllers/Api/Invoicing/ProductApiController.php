@@ -559,6 +559,24 @@ class ProductApiController extends Controller
                 ->values()
                 ->all(),
 
+            /*
+             * O PRÓXIMO CÓDIGO DE CADA TIPO — para o formulário o MOSTRAR.
+             *
+             * O código nasce no `Product::creating` a quem vier sem nenhum, e o
+             * campo ficava vazio com um «Ex.: PROD000001» e um selo AUTO a
+             * prometer uma coisa que só acontecia depois de gravar (queixa de
+             * 16/09/2026). Vêm os dois porque o tipo troca-se dentro da janela:
+             * PROD nos produtos, SVC nos serviços, sem outra viagem ao servidor.
+             *
+             * É uma SUGESTÃO: quem não lhe tocar manda o campo vazio e o código
+             * continua a ser gerado no momento de gravar — que é o que o protege
+             * de duas pessoas a criar artigos ao mesmo tempo.
+             */
+            'codigos_sugeridos' => [
+                'produto' => Product::generateProductCode(activeTenantId(), 'produto'),
+                'servico' => Product::generateProductCode(activeTenantId(), 'servico'),
+            ],
+
             'generos' => collect(self::GENEROS)->map(fn ($r, $v) => ['valor' => $v, 'rotulo' => __($r)])->values(),
             'conservacao' => collect(self::CONSERVACAO)->map(fn ($r, $v) => ['valor' => $v, 'rotulo' => __($r)])->values(),
 
