@@ -116,6 +116,23 @@ class ApiDosProdutosParaReactTest extends TenantTestCase
         $this->assertSame('PROD000009', $sugeridos()['produto']);
     }
 
+    /** O código de um artigo na lixeira não se reutiliza — e diz-se porquê, em vez de um erro 500 (#89). */
+    /** @test */
+    public function o_codigo_de_um_artigo_apagado_nao_rebenta_a_gravacao(): void
+    {
+        $this->comPermissoes('invoicing.products.view', 'invoicing.products.create');
+        $apagado = $this->artigo(['code' => '8906057192540', 'name' => 'Óleo antigo']);
+        $apagado->delete();
+        $this->artigo(['code' => 'VIVO-1', 'name' => 'Arroz']);
+
+        $this->postJson(self::RAIZ, $this->corpo(['code' => '8906057192540']))
+            ->assertStatus(422)
+            ->assertJsonPath('errors.code.0', 'Este código é do artigo «Óleo antigo», que está na lixeira. Restaure-o ou use outro código.');
+        $this->postJson(self::RAIZ, $this->corpo(['code' => 'VIVO-1']))
+            ->assertStatus(422)
+            ->assertJsonPath('errors.code.0', 'Este código já é do artigo «Arroz».');
+    }
+
     /* ─── Permissões ──────────────────────────────────────────────────── */
 
     /** @test */

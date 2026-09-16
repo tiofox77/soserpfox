@@ -773,9 +773,29 @@ class ProductApiController extends Controller
              * EMPRESA, que é o que a coluna promete e o que o gerador presume
              * ao procurar o maior número usado.
              */
-            'code' => ['nullable', 'string', 'max:50', Rule::unique('invoicing_products', 'code')
-                ->where(fn ($q) => $q->where('tenant_id', activeTenantId())->whereNull('deleted_at'))
-                ->ignore($exceptoId)],
+            /*
+             * E OS APAGADOS TAMBÉM CONTAM: o índice único da base
+             * (tenant_id, code) não sabe da lixeira. A regra ignorava-os e o
+             * artigo novo com o código de um apagado rebentava com erro 500 na
+             * gravação (erro #89, 16/09/2026). Agora diz-se o que se passa e
+             * como sair dali.
+             */
+            'code' => ['nullable', 'string', 'max:50', function ($atributo, $valor, $falhar) use ($exceptoId) {
+                if (blank($valor)) {
+                    return;
+                }
+
+                $dono = Product::withoutGlobalScopes()->withTrashed()
+                    ->where('tenant_id', activeTenantId())->where('code', $valor)
+                    ->when($exceptoId, fn ($q) => $q->whereKeyNot($exceptoId))
+                    ->first(['id', 'name', 'deleted_at']);
+
+                if ($dono) {
+                    $falhar($dono->deleted_at
+                        ? __('Este código é do artigo «:nome», que está na lixeira. Restaure-o ou use outro código.', ['nome' => $dono->name])
+                        : __('Este código já é do artigo «:nome».', ['nome' => $dono->name]));
+                }
+            }],
 
             'sku' => ['nullable', 'string', 'max:255'],
             'barcode' => ['nullable', 'string', 'max:255'],

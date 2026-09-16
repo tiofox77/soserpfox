@@ -12808,5 +12808,7 @@
     "Tem o código de um revendedor?": "Vous avez le code d’un revendeur ?",
     "Código do revendedor (opcional)": "Code revendeur (facultatif)",
     "Se um revendedor o ajudou a chegar aqui, escreva o código dele: fica a acompanhar a sua conta.": "Si un revendeur vous a aidé à arriver ici, saisissez son code : il suivra votre compte.",
-    "Revendedor: :nome": "Revendeur : :nome"
+    "Revendedor: :nome": "Revendeur : :nome",
+    "Este código é do artigo «:nome», que está na lixeira. Restaure-o ou use outro código.": "Ce code appartient à l’article « :nome », qui est dans la corbeille. Restaurez-le ou utilisez un autre code.",
+    "Este código já é do artigo «:nome».": "Ce code appartient déjà à l’article « :nome »."
 }
