@@ -122,6 +122,15 @@ class NotificacoesDoSistema
                     __(':n pedido(s) aguardando aprovação.', ['n' => $pedidos]),
                     __('Requer atenção'), route('superadmin.billing'));
             }
+
+            // Os pedidos para ser revendedor (programa de revendedores, RV-02).
+            $revendedores = \App\Models\Reseller::where('status', 'pendente')->count();
+
+            if ($revendedores > 0) {
+                $avisos[] = $this->aviso('info', 'fa-handshake', 'purple', __('Pedidos de revendedor'),
+                    __(':n pedido(s) para ser revendedor por aprovar.', ['n' => $revendedores]),
+                    __('Requer atenção'), route('superadmin.revendedores'));
+            }
         } else {
             $empresas = $user->tenants()->count();
             $maximo = $user->getMaxCompaniesLimit();

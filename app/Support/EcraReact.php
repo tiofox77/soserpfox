@@ -45,6 +45,12 @@ final class EcraReact
         return self::servir('react.ecra-cliente', $ecra, $titulo, $props, null);
     }
 
+    /** NO PORTAL DO REVENDEDOR — o layout dele, com o menu dele (guard `revendedor`). */
+    public static function revendedor(string $ecra, string $titulo, array $props = []): Closure
+    {
+        return self::servir('react.ecra-revendedor', $ecra, $titulo, $props, null);
+    }
+
     /** A entrada do portal: página sem menu, só o ecrã. */
     public static function entradaCliente(string $ecra, string $titulo, array $props = []): Closure
     {

@@ -22,6 +22,10 @@ type Props = {
     perfil: string;
     sair: string;
     csrf: string;
+    /** O nome do portal ao lado do logótipo — o do revendedor usa esta mesma barra. */
+    titulo?: string;
+    /** O nome de quem está dentro, no menu. */
+    quem?: string;
 };
 
 function Sair({ sair, csrf, className }: { sair: string; csrf: string; className: string }) {
@@ -56,7 +60,7 @@ export default function Topo(p: Props) {
                                 <i className="fas fa-users text-white" aria-hidden="true" />
                             </span>
                         )}
-                        <span className="text-xl font-bold text-gray-900">{t('Portal do Cliente')}</span>
+                        <span className="text-xl font-bold text-gray-900">{p.titulo ?? t('Portal do Cliente')}</span>
                     </a>
 
                     <div className="hidden items-center space-x-1 md:flex">
@@ -74,7 +78,8 @@ export default function Topo(p: Props) {
                                 <i className={cls('fas fa-chevron-down ml-2 text-sm transition-transform duration-200', menu === 'utilizador' && 'rotate-180')} aria-hidden="true" />
                             </button>
                             {menu === 'utilizador' && (
-                                <div className="animate-scale-in absolute right-0 z-20 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black/5">
+                                <div className="animate-scale-in absolute right-0 z-20 mt-2 w-56 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black/5">
+                                    {p.quem && <p className="truncate border-b border-gray-100 px-4 py-2 text-xs font-semibold text-gray-500">{p.quem}</p>}
                                     <a href={p.perfil} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                         <i className="fas fa-circle-user mr-2" aria-hidden="true" />{t('Meu Perfil')}
                                     </a>

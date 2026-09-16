@@ -39,6 +39,8 @@ class AssistenteDeRegisto
         'name', 'email',
         'company_name', 'company_nif', 'company_regime', 'company_address', 'company_phone', 'company_email',
         'selected_plan_id', 'payment_method', 'payment_reference',
+        // O código do revendedor (programa de revendedores, RV-06) — opcional.
+        'reseller_code',
     ];
 
     public int $passo = 1;
@@ -61,6 +63,12 @@ class AssistenteDeRegisto
     public string $payment_reference = '';
     public ?UploadedFile $payment_proof = null;
     public bool $aceito_termos = false;
+
+    /** O código do revendedor: escrito à mão, ou deixado pelo link de afiliado. */
+    public string $reseller_code = '';
+
+    /** O código veio do link (o cookie) — a ligação fica «por link», não «por código». */
+    public bool $revendedorVeioDoLink = false;
 
     public bool $planoVeioDoLink = false;
     public ?int $passoAntesDaSenha = null;
@@ -109,6 +117,14 @@ class AssistenteDeRegisto
 
         $a->verificarDepoisDeRecarregar();
 
+        // O LINK DO REVENDEDOR deixou o código no browser: o campo já nasce
+        // preenchido (e só com um revendedor aprovado).
+        $doLink = \App\Services\Revenda\LigacaoAoRevendedor::doCookie($request);
+        if ($a->reseller_code === '' && $doLink && \App\Services\Revenda\LigacaoAoRevendedor::porCodigo($doLink)) {
+            $a->reseller_code = $doLink;
+            $a->revendedorVeioDoLink = true;
+        }
+
         if (! $a->selected_plan_id) {
             $a->selected_plan_id = $a->planos()->firstWhere('slug', 'starter')?->id;
         }
@@ -150,6 +166,11 @@ class AssistenteDeRegisto
                 ? (filled($valor) && ctype_digit((string) $valor) ? (int) $valor : null)
                 : trim((string) $valor);
         }
+
+        $a->reseller_code = strtoupper($a->reseller_code);
+        // Veio do link se é o mesmo código que o link deixou.
+        $a->revendedorVeioDoLink = $a->reseller_code !== ''
+            && $a->reseller_code === \App\Services\Revenda\LigacaoAoRevendedor::doCookie($request);
 
         $a->password = (string) $request->input('password', '');
         $a->password_confirmation = (string) $request->input('password_confirmation', '');
@@ -201,7 +222,7 @@ class AssistenteDeRegisto
             $this->email = (string) ($p['email'] ?? $this->email);
         }
 
-        foreach (['company_name', 'company_nif', 'company_regime', 'company_address', 'company_phone', 'company_email', 'payment_method', 'payment_reference'] as $campo) {
+        foreach (['company_name', 'company_nif', 'company_regime', 'company_address', 'company_phone', 'company_email', 'payment_method', 'payment_reference', 'reseller_code'] as $campo) {
             $this->{$campo} = (string) ($p[$campo] ?? $this->{$campo});
         }
 
@@ -228,6 +249,7 @@ class AssistenteDeRegisto
             'passoAntesDaSenha' => $this->passoAntesDaSenha,
             'payment_method' => $this->payment_method,
             'payment_reference' => $this->payment_reference,
+            'reseller_code' => $this->reseller_code,
             'saved_at' => now()->toDateTimeString(),
         ]]);
     }
@@ -380,6 +402,7 @@ class AssistenteDeRegisto
             'payment_reference' => $this->payment_reference,
             'payment_proof' => $this->payment_proof,
             'aceito_termos' => $this->aceito_termos,
+            'reseller_code' => $this->reseller_code,
         ];
     }
 
@@ -416,10 +439,51 @@ class AssistenteDeRegisto
             'company_address' => 'nullable|string|max:255',
             'company_phone' => 'nullable|string|max:50',
             'company_email' => 'nullable|email',
+            // Um código escrito tem de ser de um revendedor aprovado: um engano
+            // aqui deixava a empresa sem o revendedor que a trouxe.
+            'reseller_code' => ['nullable', 'string', 'max:20', function ($atributo, $valor, $falhar) {
+                if (filled($valor) && ! \App\Services\Revenda\LigacaoAoRevendedor::porCodigo($valor)) {
+                    $falhar(__('Não encontramos nenhum revendedor com este código.'));
+                }
+            }],
         ], [
             'company_regime.required' => __('Escolha o regime fiscal da empresa.'),
             'company_regime.in' => __('Regime fiscal inválido.'),
         ]);
+    }
+
+    /** O revendedor do código escrito (ou do link), se for válido. */
+    public function revendedor(): ?\App\Models\Reseller
+    {
+        return \App\Services\Revenda\LigacaoAoRevendedor::porCodigo($this->reseller_code);
+    }
+
+    /**
+     * UMA EMPRESA CRIADA PELO REVENDEDOR (RV-09) — o mesmo caminho do registo,
+     * sem sessão nem passos: os dados chegam já validados do portal dele.
+     *
+     * @param  array{name:string, email:string, password:string, company_name:string, company_nif:string, company_regime:string, company_address:?string, company_phone:?string, company_email:?string, selected_plan_id:int, payment_reference:?string}  $dados
+     */
+    public static function paraRevendedor(array $dados, ?UploadedFile $comprovativo = null): self
+    {
+        $a = new self(null);
+        $a->name = $dados['name'];
+        $a->email = $dados['email'];
+        $a->password = $dados['password'];
+        $a->password_confirmation = $dados['password'];
+        $a->company_name = $dados['company_name'];
+        $a->company_nif = $dados['company_nif'];
+        $a->company_regime = $dados['company_regime'];
+        $a->company_address = (string) ($dados['company_address'] ?? '');
+        $a->company_phone = (string) ($dados['company_phone'] ?? '');
+        $a->company_email = (string) ($dados['company_email'] ?? '');
+        $a->selected_plan_id = (int) $dados['selected_plan_id'];
+        $a->payment_method = 'transfer';
+        $a->payment_reference = (string) ($dados['payment_reference'] ?? '');
+        $a->payment_proof = $comprovativo;
+        $a->aceito_termos = true;
+
+        return $a;
     }
 
     public function validarPasso3(): void
@@ -528,7 +592,10 @@ class AssistenteDeRegisto
                 'selected_plan_id' => $this->selected_plan_id,
                 'payment_method' => $this->payment_method,
                 'payment_reference' => $this->payment_reference,
+                'reseller_code' => $this->reseller_code,
             ],
+            // O revendedor do código, para o ecrã confirmar o nome antes de criar a conta.
+            'revendedor' => ($rev = $this->revendedor()) ? ['codigo' => $rev->code, 'nome' => $rev->nomeVisivel()] : null,
             'plano_veio_do_link' => $this->planoVeioDoLink,
             'passo_antes_da_senha' => $this->passoAntesDaSenha,
             'sem_teste' => ($direito->jaTeveTeste() || $direito->jaTeveGratuito()) ? __($direito->motivoSemTeste()) : null,

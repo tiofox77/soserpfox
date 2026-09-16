@@ -220,6 +220,11 @@ class AppServiceProvider extends ServiceProvider
         // manda facturas para a contabilidade da empresa, e o que a empresa
         // paga à plataforma não entra nos livros dela).
         Invoice::observe(\App\Observers\FacturaDeSubscricaoObserver::class);
+
+        // A comissão do revendedor sai do pagamento confirmado (programa de
+        // revendedores, RV-11) — pedido aprovado ou factura da subscrição paga.
+        Order::observe(\App\Observers\ComissaoDoRevendedorObserver::class);
+        Invoice::observe(\App\Observers\ComissaoDoRevendedorObserver::class);
         
         // Registrar Observers para notificações imediatas de eventos
         if (class_exists(\App\Models\Events\Event::class)) {

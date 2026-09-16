@@ -131,6 +131,61 @@ Route::prefix('register')->name('register.')->controller(\App\Http\Controllers\R
     Route::post('/', 'registar')->middleware('throttle:10,1')->name('registar');
 });
 
+/*
+ * O PROGRAMA DE REVENDEDORES (16/09/2026).
+ *
+ * Público: a página «Seja revendedor», o pedido, o link de afiliado e a
+ * confirmação do código no registo. O portal tem guard próprio (`revendedor`)
+ * e a porta `revendedor` só deixa passar quem está aprovado.
+ */
+Route::get('/revendedores', \App\Support\EcraReact::solta('revenda/seja-revendedor', 'Seja revendedor', [], [
+    'descricao' => 'Revenda o SOSERP em Angola: traga empresas, acompanhe-as num portal próprio e ganhe comissão por cada pagamento.',
+]))->name('revendedores.pagina');
+Route::post('/revendedores/pedido', [\App\Http\Controllers\Revenda\RevendaPublicaController::class, 'pedir'])
+    ->middleware('throttle:5,10')->name('revendedores.pedir');
+Route::get('/r/{codigo}', [\App\Http\Controllers\Revenda\RevendaPublicaController::class, 'link'])
+    ->where('codigo', '[A-Za-z0-9]{3,20}')->middleware('throttle:60,1')->name('revendedor.link');
+Route::post('/register/revendedor', [\App\Http\Controllers\Revenda\RevendaPublicaController::class, 'verificarCodigo'])
+    ->middleware('throttle:30,1')->name('register.revendedor');
+
+Route::prefix('revendedor')->name('revendedor.')->group(function () {
+    $e = \App\Http\Controllers\Revenda\EntradaDoRevendedorController::class;
+
+    Route::get('/entrar', \App\Support\EcraReact::solta('revenda/entrada', 'Portal do Revendedor'))->name('login');
+    Route::post('/entrar', [$e, 'entrar'])->name('entrar');
+    Route::post('/sair', [$e, 'sair'])->name('sair');
+    Route::get('/esqueci-a-senha', \App\Support\EcraReact::solta('revenda/esqueci-a-senha', 'Esqueceu a senha?'))->name('esqueci');
+    Route::post('/esqueci-a-senha', [$e, 'pedirNovaSenha'])->middleware('throttle:5,10')->name('esqueci.enviar');
+    Route::get('/nova-senha/{token}', \App\Support\EcraReact::solta('revenda/nova-senha', 'Nova senha'))->name('nova-senha');
+    Route::post('/nova-senha', [$e, 'novaSenha'])->middleware('throttle:10,10')->name('nova-senha.guardar');
+
+    Route::middleware(['auth:revendedor', 'revendedor'])->group(function () {
+        Route::get('/', \App\Support\EcraReact::revendedor('revenda/painel', 'Painel do Revendedor'))->name('painel');
+        Route::get('/empresas', \App\Support\EcraReact::revendedor('revenda/empresas', 'As minhas empresas'))->name('empresas');
+        Route::get('/empresas/nova', \App\Support\EcraReact::revendedor('revenda/nova-empresa', 'Nova empresa'))->name('empresas.nova');
+        Route::get('/empresas/{id}', \App\Support\EcraReact::revendedor('revenda/empresa', 'Empresa'))->whereNumber('id')->name('empresas.ver');
+        Route::get('/comissoes', \App\Support\EcraReact::revendedor('revenda/comissoes', 'Comissões'))->name('comissoes');
+        Route::get('/perfil', \App\Support\EcraReact::revendedor('revenda/perfil', 'O meu perfil'))->name('perfil');
+
+        Route::prefix('api')->name('api.')->group(function () {
+            $c = \App\Http\Controllers\Api\Revenda\PortalDoRevendedorApiController::class;
+
+            Route::get('/painel', [$c, 'painel'])->name('painel');
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/qr', [$c, 'qr'])->name('qr');
+            Route::get('/empresas', [$c, 'empresas'])->name('empresas');
+            Route::post('/empresas', [$c, 'criarEmpresa'])->middleware('throttle:10,10')->name('empresas.criar');
+            Route::get('/empresas/{id}', [$c, 'empresa'])->whereNumber('id')->name('empresas.ver');
+            Route::post('/empresas/{id}/pedidos', [$c, 'pedirPlano'])->whereNumber('id')->middleware('throttle:10,1')->name('empresas.pedir');
+            Route::post('/empresas/{id}/pedidos/{pedido}/comprovativo', [$c, 'comprovativo'])->whereNumber('id')->whereNumber('pedido')->middleware('throttle:10,1')->name('empresas.comprovativo');
+            Route::get('/comissoes', [$c, 'comissoes'])->name('comissoes');
+            Route::get('/perfil', [$c, 'perfil'])->name('perfil');
+            Route::put('/perfil', [$c, 'guardarPerfil'])->name('perfil.guardar');
+            Route::put('/senha', [$c, 'senha'])->middleware('throttle:5,10')->name('senha');
+        });
+    });
+});
+
 // User Invitation Routes
 Route::get('/invitation/{token}', [App\Http\Controllers\InvitationController::class, 'show'])->name('invitation.accept');
 Route::post('/invitation/{token}', [App\Http\Controllers\InvitationController::class, 'accept'])->middleware('throttle:10,10')->name('invitation.accept.post');
@@ -269,6 +324,22 @@ Route::middleware(['auth', 'superadmin'])->prefix('api/v1/plataforma/react')->na
     });
 
     Route::get('/inicio', [\App\Http\Controllers\Api\Plataforma\InicioApiController::class, 'index'])->name('inicio');
+
+    // O PROGRAMA DE REVENDEDORES (16/09/2026): aprovar, comissão, pagamentos.
+    Route::prefix('revendedores')->name('revendedores.')->group(function () {
+        $c = \App\Http\Controllers\Api\Plataforma\RevendedoresApiController::class;
+
+        Route::get('/', [$c, 'index'])->name('index');
+        Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+        Route::get('/{id}', [$c, 'ver'])->whereNumber('id')->name('ver');
+        Route::put('/{id}', [$c, 'guardar'])->whereNumber('id')->name('guardar');
+        Route::post('/{id}/aprovar', [$c, 'aprovar'])->whereNumber('id')->name('aprovar');
+        Route::post('/{id}/recusar', [$c, 'recusar'])->whereNumber('id')->name('recusar');
+        Route::post('/{id}/suspender', [$c, 'suspender'])->whereNumber('id')->name('suspender');
+        Route::post('/{id}/reactivar', [$c, 'reactivar'])->whereNumber('id')->name('reactivar');
+        Route::post('/{id}/pagamentos', [$c, 'pagar'])->whereNumber('id')->name('pagar');
+        Route::post('/{id}/comissoes/{comissao}/anular', [$c, 'anularComissao'])->whereNumber('id')->whereNumber('comissao')->name('comissoes.anular');
+    });
 
     Route::prefix('painel')->name('painel.')->group(function () {
         $c = \App\Http\Controllers\Api\Plataforma\PainelApiController::class;
@@ -562,6 +633,7 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
     Route::get('/modules', \App\Support\EcraReact::plataforma('plataforma/modulos', 'Módulos'))->name('modules');
     Route::get('/plans', \App\Support\EcraReact::plataforma('plataforma/planos', 'Planos'))->name('plans');
     Route::get('/billing', \App\Support\EcraReact::plataforma('plataforma/facturacao', 'Facturação da plataforma'))->name('billing');
+    Route::get('/revendedores', \App\Support\EcraReact::plataforma('plataforma/revendedores', 'Revendedores'))->name('revendedores');
     Route::get('/licenciamento', \App\Support\EcraReact::plataforma('plataforma/licenciamento', 'Licenciamento offline'))->name('licenciamento');
 
     // Que empresas usam o PWA, em que aparelhos e em que VERSÃO. Existe porque

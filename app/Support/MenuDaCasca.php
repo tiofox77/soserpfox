@@ -132,6 +132,8 @@ final class MenuDaCasca
                 $e('superadmin.plans', 'fa-tags', 'pink-400', 'Planos'),
                 $e('superadmin.modules', 'fa-puzzle-piece', 'purple-400', 'Módulos'),
                 $e('superadmin.billing', 'fa-file-invoice-dollar', 'emerald-400', 'Faturação / Billing'),
+                // O programa de revendedores (16/09/2026).
+                $e('superadmin.revendedores', 'fa-handshake', 'purple-400', 'Revendedores'),
                 $e('superadmin.licenciamento', 'fa-key', 'indigo-400', 'Licenciamento Offline'),
                 $e('superadmin.aparelhos-pwa', 'fa-mobile-screen-button', 'emerald-400', 'Aparelhos com PWA'),
             ]],

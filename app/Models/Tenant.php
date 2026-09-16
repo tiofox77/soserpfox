@@ -143,6 +143,7 @@ class Tenant extends Model
     protected $casts = [
         'settings' => 'array',
         'is_active' => 'boolean',
+        'reseller_linked_at' => 'datetime',
         'accounting_integration_enabled' => 'boolean',
         'trial_ends_at' => 'datetime',
         'subscription_ends_at' => 'datetime',
@@ -702,6 +703,17 @@ class Tenant extends Model
     public function subscriptions()
     {
         return $this->hasMany(Subscription::class);
+    }
+
+    /**
+     * O REVENDEDOR que trouxe esta empresa (programa de revendedores, RV-01).
+     *
+     * `reseller_id`, `reseller_via` e `reseller_linked_at` não estão no
+     * fillable de propósito: a ligação só se faz por App\Services\Revenda\LigacaoAoRevendedor.
+     */
+    public function revendedor()
+    {
+        return $this->belongsTo(Reseller::class, 'reseller_id');
     }
 
     public function activeSubscription()

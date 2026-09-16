@@ -175,6 +175,13 @@ class RegistarEmpresa
             return ['utilizador' => $user, 'empresa' => $tenant, 'plano' => $plan, 'estado' => $estado, 'dias_de_teste' => $diasDeTeste];
         });
 
+        // O REVENDEDOR que trouxe a empresa — pelo link ou pelo código (RV-05/06).
+        // Fora da transacção: um revendedor que entretanto deixou de estar
+        // aprovado não pode deitar o registo abaixo.
+        if ($revendedor = $a->revendedor()) {
+            \App\Services\Revenda\LigacaoAoRevendedor::ligar($r['empresa'], $revendedor, $a->revendedorVeioDoLink ? 'link' : 'codigo');
+        }
+
         $this->registarConversao($r['utilizador'], $r['empresa'], $r['plano'], $r['estado']);
 
         try {

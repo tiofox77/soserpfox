@@ -517,6 +517,30 @@ export const ecras: Record<string, Ecra> = {
         import('./plataforma/Modulos'),
     'plataforma/empresas': () =>
         import('./plataforma/Empresas'),
+    // O programa de revendedores (16/09/2026): o ecrã do super admin, a página
+    // pública, a entrada e o portal do revendedor (guard `revendedor`).
+    'plataforma/revendedores': () =>
+        import('./plataforma/Revendedores'),
+    'revenda/seja-revendedor': () =>
+        import('./revenda/SejaRevendedor'),
+    'revenda/entrada': () =>
+        import('./revenda/Entrada'),
+    'revenda/esqueci-a-senha': () =>
+        import('./revenda/EsqueciASenha'),
+    'revenda/nova-senha': () =>
+        import('./revenda/NovaSenha'),
+    'revenda/painel': () =>
+        import('./revenda/Painel'),
+    'revenda/empresas': () =>
+        import('./revenda/Empresas'),
+    'revenda/nova-empresa': () =>
+        import('./revenda/NovaEmpresa'),
+    'revenda/empresa': () =>
+        import('./revenda/Empresa'),
+    'revenda/comissoes': () =>
+        import('./revenda/Comissoes'),
+    'revenda/perfil': () =>
+        import('./revenda/Perfil'),
     'plataforma/facturacao': () =>
         import('./plataforma/Facturacao'),
     'plataforma/correio': () =>

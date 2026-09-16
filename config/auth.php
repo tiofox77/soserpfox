@@ -45,6 +45,11 @@ return [
             'driver' => 'session',
             'provider' => 'clients',
         ],
+        // O portal do revendedor (programa de revendedores, 16/09/2026).
+        'revendedor' => [
+            'driver' => 'session',
+            'provider' => 'resellers',
+        ],
     ],
 
     /*
@@ -73,6 +78,10 @@ return [
         'clients' => [
             'driver' => 'eloquent',
             'model' => App\Models\Client::class,
+        ],
+        'resellers' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\Reseller::class,
         ],
 
         // 'users' => [
@@ -104,6 +113,14 @@ return [
         'users' => [
             'provider' => 'users',
             'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
+            'expire' => 60,
+            'throttle' => 60,
+        ],
+        // Tabela própria: a de sempre é chaveada pelo email e um revendedor com
+        // o email de um utilizador apagava-lhe o pedido de nova senha.
+        'revendedores' => [
+            'provider' => 'resellers',
+            'table' => 'reseller_password_reset_tokens',
             'expire' => 60,
             'throttle' => 60,
         ],

@@ -24,9 +24,12 @@ return Application::configure(basePath: dirname(__DIR__))
         // UM CLIENTE SEM SESSÃO VAI À ENTRADA DO PORTAL, e não à dos funcionários:
         // o `/client/dashboard` mandava para `/login`, onde a senha do portal
         // não serve e o cliente ficava sem perceber porquê.
-        $middleware->redirectGuestsTo(fn (\Illuminate\Http\Request $request) => $request->is('client', 'client/*')
-            ? route('client.login')
-            : route('login'));
+        $middleware->redirectGuestsTo(fn (\Illuminate\Http\Request $request) => match (true) {
+            $request->is('client', 'client/*') => route('client.login'),
+            // O revendedor tem a sua entrada (programa de revendedores).
+            $request->is('revendedor', 'revendedor/*') => route('revendedor.login'),
+            default => route('login'),
+        });
 
         // Cabeçalhos de segurança em todas as respostas (HSTS, CSP, X-Frame,
         // nosniff, Referrer-Policy, Permissions-Policy; remove X-Powered-By).
@@ -204,6 +207,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.active' => \App\Http\Middleware\CheckTenantActive::class,
             // As portas do portal do cliente: empresa activa e, com área, a área do cliente.
             'portal' => \App\Http\Middleware\PortalDoCliente::class,
+            // A porta do portal do revendedor: só o aprovado passa.
+            'revendedor' => \App\Http\Middleware\PortalDoRevendedor::class,
             'api.token' => \App\Http\Middleware\ResolveApiToken::class,
             'pwa.api' => \App\Http\Middleware\AutorizaApiDoPwa::class,
             // A porta de cada ecra do PWA, com a mesma regra que desenha o menu.
