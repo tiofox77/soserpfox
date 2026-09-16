@@ -79,6 +79,26 @@ class AgtImpostoPorLinhaTest extends TenantTestCase
         $this->assertNotSame(2800921.46, $enviado);
     }
 
+    /**
+     * E o CEIL não pode subir um cêntimo quando o imposto já é exacto.
+     *
+     * Caso real (JG Inox, 16/09/2026, E70 na FR …/000006, linha 2): base
+     * 35.018,00 × 14% = 4.902,52 certos — mas em vírgula flutuante isso é
+     * 4902.5200000000004 e o ceil dava 4.902,53, um cêntimo acima do apurado.
+     */
+    public function test_o_ceil_nao_inventa_um_centimo_quando_a_conta_e_exacta(): void
+    {
+        $this->assertSame(4902.52, \App\Services\AGT\AGTPayloadBuilder::ceilCents(35018.00 * 14 / 100));
+        // As fracções verdadeiras continuam a subir.
+        $this->assertSame(2800921.47, \App\Services\AGT\AGTPayloadBuilder::ceilCents(20006581.89 * 14 / 100));
+        $this->assertSame(0.01, \App\Services\AGT\AGTPayloadBuilder::ceilCents(0.0001));
+
+        $doc = (new DocumentMapper())->map($this->facturaComBase(35018.00));
+
+        $this->assertSame(4902.52, (float) $doc['lines'][0]['taxes'][0]['taxContribution']);
+        $this->assertSame(4902.52, (float) $doc['documentTotals']['taxPayable']);
+    }
+
     public function test_os_totais_fecham_com_o_imposto_apurado(): void
     {
         $factura = $this->facturaComBase(20006581.89);

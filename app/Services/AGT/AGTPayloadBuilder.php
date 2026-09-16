@@ -564,8 +564,20 @@ class AGTPayloadBuilder
      */
     public static function ceilCents(float|int|string $v): float
     {
-        $factor = 100.0;
-        return ceil(((float) $v) * $factor) / $factor;
+        /*
+         * O CEIL TEM DE SER AO CÊNTIMO VERDADEIRO, não ao lixo do binário.
+         *
+         * Caso real (JG Inox, 16/09/2026, E70 na FR …/000006): base 35.018,00 ×
+         * 14% = 4.902,52 certos, mas em vírgula flutuante isso é
+         * 4902.5200000000004 — e o `ceil` subia para 4.902,53, um cêntimo acima
+         * do que a AGT apura. Arredondar a seis casas antes limpa a
+         * representação sem tocar numa fracção de cêntimo verdadeira: uma base
+         * × taxa com duas casas cada nunca passa das quatro casas, e
+         * 2.800.921,4646 continua a subir para …,47 (DS.120 §4.1).
+         */
+        $centimos = round(((float) $v) * 100, 6);
+
+        return ceil($centimos) / 100;
     }
 
     public function getSigner(): JwsSigner
