@@ -1921,6 +1921,8 @@
                         <li><a href="#sobre" class="hover:text-white">Sobre</a></li>
                         <li><a href="#contacto" class="hover:text-white">Contacto</a></li>
                         <li><a href="#contacto" class="hover:text-white">Suporte</a></li>
+                        <li><a href="{{ route('revendedores.pagina') }}" class="hover:text-white"><i class="fas fa-handshake mr-1 text-emerald-400"></i>Seja revendedor</a></li>
+                        <li><a href="{{ route('revendedor.login') }}" class="hover:text-white">Portal do revendedor</a></li>
                     </ul>
                 </div>
                 

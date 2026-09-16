@@ -161,6 +161,7 @@
                 <p class="font-black text-white mb-2 uppercase text-xs tracking-widest">SOS ERP</p>
                 <a href="/" class="block py-1 hover:text-orange-300">Início</a>
                 <a href="{{ route('login') }}" class="block py-1 hover:text-orange-300">Entrar</a>
+                <a href="{{ route('revendedores.pagina') }}" class="block py-1 hover:text-orange-300"><i class="fas fa-handshake mr-1"></i>Seja revendedor</a>
             </div>
         </div>
         <div class="border-t border-white/10">
