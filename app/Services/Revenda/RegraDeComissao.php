@@ -144,16 +144,22 @@ final class RegraDeComissao
         return ['base' => $base, 'valor' => round($valor, 2), 'tipo' => $tipo, 'taxa' => $taxa];
     }
 
+    /** Só a primeira letra desce: «Sobre o valor sem IVA» → «sobre o valor sem IVA». */
+    private static function minuscula(string $texto): string
+    {
+        return mb_strtolower(mb_substr($texto, 0, 1)) . mb_substr($texto, 1);
+    }
+
     /** «20% sobre o valor sem IVA, em todos os pagamentos» — para os ecrãs. */
     public function resumo(): string
     {
         $quanto = $this->tipo === 'fixo'
             ? __(':v Kz por pagamento', ['v' => number_format($this->valor, 2, ',', '.')])
-            : __(':v% :base', ['v' => rtrim(rtrim(number_format($this->valor, 2, ',', '.'), '0'), ','), 'base' => mb_strtolower(__(self::BASES[$this->base]))]);
+            : __(':v% :base', ['v' => rtrim(rtrim(number_format($this->valor, 2, ',', '.'), '0'), ','), 'base' => self::minuscula(__(self::BASES[$this->base]))]);
 
         $quando = $this->aplica === 'meses'
             ? trans_choice('nos primeiros :n mês da empresa|nos primeiros :n meses da empresa', (int) $this->meses, ['n' => $this->meses])
-            : mb_strtolower(__(self::QUANDO[$this->aplica]));
+            : self::minuscula(__(self::QUANDO[$this->aplica]));
 
         $resumo = $quanto . ', ' . $quando;
 

@@ -79,7 +79,7 @@ class ComissoesDoRevendedorTest extends TenantTestCase
         $this->assertSame(['base' => 35018.0, 'valor' => 5252.7, 'tipo' => 'percentagem', 'taxa' => 15.0], $regra->calcular(35018, 39920.52, 3));
         $this->assertSame(2500.0, $regra->calcular(35018, 39920.52, 7)['valor']);
         $this->assertSame(39920.52, RegraDeComissao::de(['base' => 'com_iva'])->calcular(35018, 39920.52, null)['base']);
-        $this->assertStringContainsString('15%', $regra->resumo());
+        $this->assertSame('15% sobre o valor sem IVA, em todos os pagamentos (+1 excepção por plano)', $regra->resumo());
 
         $this->assertTrue(RegraDeComissao::de(['aplica' => 'primeiro'])->aplicaSe(false, 0));
         $this->assertFalse(RegraDeComissao::de(['aplica' => 'primeiro'])->aplicaSe(true, 0));
