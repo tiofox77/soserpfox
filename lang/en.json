@@ -12504,5 +12504,8 @@
     "Última visita a :data.": "Last visit on :data.",
     "Sem visitas registadas nesta oficina.": "No visits recorded at this workshop.",
     "Este código é atribuído ao guardar. Escreva outro se tiver o seu.": "This code is assigned when you save. Type your own if you have one.",
-    "Escreveu o seu código. Apague-o para voltar ao automático.": "You typed your own code. Clear it to go back to automatic."
+    "Escreveu o seu código. Apague-o para voltar ao automático.": "You typed your own code. Clear it to go back to automatic.",
+    "Demasiadas tentativas seguidas. Tente de novo dentro de :espera.": "Too many attempts in a row. Try again in :espera.",
+    ":n minuto|:n minutos": ":n minute|:n minutes",
+    ":n segundo|:n segundos": ":n second|:n seconds"
 }

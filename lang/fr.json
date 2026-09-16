@@ -12504,5 +12504,8 @@
     "Última visita a :data.": "Dernière visite le :data.",
     "Sem visitas registadas nesta oficina.": "Aucune visite enregistrée dans cet atelier.",
     "Este código é atribuído ao guardar. Escreva outro se tiver o seu.": "Ce code est attribué à l’enregistrement. Saisissez le vôtre si vous en avez un.",
-    "Escreveu o seu código. Apague-o para voltar ao automático.": "Vous avez saisi votre propre code. Effacez-le pour revenir à l’automatique."
+    "Escreveu o seu código. Apague-o para voltar ao automático.": "Vous avez saisi votre propre code. Effacez-le pour revenir à l’automatique.",
+    "Demasiadas tentativas seguidas. Tente de novo dentro de :espera.": "Trop de tentatives d’affilée. Réessayez dans :espera.",
+    ":n minuto|:n minutos": ":n minute|:n minutes",
+    ":n segundo|:n segundos": ":n seconde|:n secondes"
 }

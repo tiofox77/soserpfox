@@ -208,6 +208,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'pwa.api' => \App\Http\Middleware\AutorizaApiDoPwa::class,
             // A porta de cada ecra do PWA, com a mesma regra que desenha o menu.
             'pwa' => \App\Http\Middleware\EntradaDoPwa::class,
+            // O travão com o contador DA ROTA — o do Laravel partilhava um só
+            // entre todas (ver o middleware).
+            'throttle' => \App\Http\Middleware\TravaoPorRota::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
@@ -219,6 +222,26 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($request->ajax() || $request->expectsJson()) {
                 return response()->json(['message' => 'Sessão expirada'], 419);
             }
+        });
+
+        // DEMASIADOS PEDIDOS, EM PORTUGUÊS E COM O TEMPO DE ESPERA. O ecrã
+        // mostrava «Erro: Too Many Attempts.» — em inglês e sem dizer quanto
+        // esperar. Os cabeçalhos (Retry-After) seguem como vinham.
+        $exceptions->render(function (\Illuminate\Http\Exceptions\ThrottleRequestsException $e, \Illuminate\Http\Request $request) {
+            if (! ($request->ajax() || $request->expectsJson())) {
+                return null;
+            }
+
+            $segundos = (int) ($e->getHeaders()['Retry-After'] ?? 60);
+            $espera = $segundos >= 90
+                ? trans_choice(':n minuto|:n minutos', (int) ceil($segundos / 60), ['n' => (int) ceil($segundos / 60)])
+                : trans_choice(':n segundo|:n segundos', max(1, $segundos), ['n' => max(1, $segundos)]);
+
+            return response()->json(
+                ['message' => __('Demasiadas tentativas seguidas. Tente de novo dentro de :espera.', ['espera' => $espera])],
+                429,
+                $e->getHeaders(),
+            );
         });
 
     })->create();

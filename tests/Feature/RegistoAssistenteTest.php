@@ -117,6 +117,44 @@ class RegistoAssistenteTest extends TestCase
         $this->assertFalse($this->planoNoEstado($estado, $pago->id)['gratuito']);
     }
 
+    /**
+     * O GUARDAR AUTOMÁTICO NÃO GASTA O TRAVÃO DO REGISTO (16/09/2026).
+     *
+     * O `throttle:N,M` do Laravel partilhava um contador por IP entre TODAS as
+     * rotas: vinte gravações do progresso enchiam-no, e o «Criar conta» (tecto
+     * 10) respondia «Too Many Attempts.» sem a pessoa ter tentado nada.
+     */
+    public function test_o_progresso_guardado_nao_trava_o_botao_final(): void
+    {
+        $gratis = $this->planoGratuito();
+
+        for ($i = 0; $i < 25; $i++) {
+            $this->putJson('/register/progresso', ['passo' => 2, 'company_name' => 'Padaria ' . $i])->assertOk();
+            $this->postJson('/api/analytics/track', ['event' => 'page_view', 'url' => '/register']);
+        }
+
+        $this->postJson('/register', $this->registoCompleto($gratis))->assertOk();
+    }
+
+    /** Cada travão conta só os seus pedidos — e o aviso chega em português, com a espera. */
+    public function test_o_travao_e_por_rota_e_o_aviso_diz_quanto_esperar(): void
+    {
+        // Os guardados de outra rota não contam para o «Recomeçar» (tecto 20).
+        for ($i = 0; $i < 15; $i++) {
+            $this->putJson('/register/progresso', ['passo' => 2, 'company_name' => 'Padaria ' . $i])->assertOk();
+        }
+        for ($i = 0; $i < 20; $i++) {
+            $this->deleteJson('/register/progresso')->assertOk();
+        }
+
+        $r = $this->deleteJson('/register/progresso')->assertStatus(429);
+        $this->assertStringStartsWith('Demasiadas tentativas seguidas. Tente de novo dentro de', $r->json('message'));
+        $this->assertNotNull($r->headers->get('Retry-After'));
+
+        // E o recomeçar esgotado não toca nos outros.
+        $this->putJson('/register/progresso', ['passo' => 2, 'company_name' => 'Padaria'])->assertOk();
+    }
+
     /** O plano gratuito não pede referência nem comprovativo — nem à entrada do servidor. */
     public function test_o_plano_gratuito_regista_sem_dados_de_pagamento(): void
     {
