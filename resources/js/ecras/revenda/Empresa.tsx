@@ -12,6 +12,7 @@ import { SemNada, cascata } from '@/ui/SemNada';
 import { CARTAO, FOCO, RAIO, TRANSICAO, cls, data } from '@/ui/tokens';
 
 import { Cabecalho, Copiar, Dado, EstadoDaComissao, EstadoDaEmpresaEtiquetas, GRADIENTE_DO_PORTAL, dataOuTraco, kwanzas } from './comum';
+import { PagarPeloCliente, type AlvoDoPagamento } from './PagarPeloCliente';
 import { Campo, entrada } from './SejaRevendedor';
 
 /**
@@ -28,7 +29,7 @@ export default function Empresa({ id }: { id: number }) {
     const q = useQuery({ queryKey: ['revenda', 'empresa', id], queryFn: () => revenda.empresa(id) });
     const opcoes = useQuery({ queryKey: ['revenda', 'opcoes'], queryFn: revenda.opcoes, staleTime: 5 * 60_000 });
     const [aPedir, porAPedir] = useState(false);
-    const [comprovativoDe, porComprovativoDe] = useState<number | null>(null);
+    const [aPagar, porAPagar] = useState<AlvoDoPagamento | null>(null);
 
     if (q.isPending) return <Carregando linhas={8} />;
     if (q.isError) {
@@ -43,6 +44,12 @@ export default function Empresa({ id }: { id: number }) {
     const f = q.data;
     const e = f.empresa;
     const pedidoPendente = f.pedidos.find((p) => p.estado === 'pending');
+    const pagarPedido = (p: FichaDaEmpresa['pedidos'][number]) => porAPagar({
+        tipo: 'pedido', id: p.id, empresaId: e.id, empresa: e.nome, descricao: [p.plano, p.ciclo].filter(Boolean).join(' · '), valor: p.valor, referencia: p.referencia,
+    });
+    const pagarFactura = (fa: FichaDaEmpresa['facturas'][number]) => porAPagar({
+        tipo: 'factura', id: fa.id, empresaId: e.id, empresa: e.nome, descricao: fa.numero, valor: fa.total, referencia: fa.referencia,
+    });
 
     return (
         <div className="space-y-6">
@@ -66,8 +73,8 @@ export default function Empresa({ id }: { id: number }) {
                         <b>{t('Pedido à espera de confirmação')}</b> — {pedidoPendente.plano} · {kwanzas(pedidoPendente.valor)} · {pedidoPendente.ciclo}.{' '}
                         {pedidoPendente.comprovativo ? t('O comprovativo já foi enviado; falta a confirmação.') : t('Falta o comprovativo da transferência.')}
                     </p>
-                    <Botao cor="aviso" tom="solida" icone="fa-paperclip" onClick={() => porComprovativoDe(pedidoPendente.id)}>
-                        {pedidoPendente.comprovativo ? t('Trocar o comprovativo') : t('Anexar o comprovativo')}
+                    <Botao cor="aviso" tom="solida" icone={pedidoPendente.comprovativo ? 'fa-rotate' : 'fa-money-bill-transfer'} onClick={() => pagarPedido(pedidoPendente)}>
+                        {pedidoPendente.comprovativo ? t('Trocar o comprovativo') : t('Pagar pelo cliente')}
                     </Botao>
                 </div>
             )}
@@ -120,8 +127,8 @@ export default function Empresa({ id }: { id: number }) {
                                 </td>
                                 <td className="px-4 py-3 text-right">
                                     {p.estado === 'pending' && (
-                                        <button type="button" onClick={() => porComprovativoDe(p.id)} className={cls('inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100', RAIO, TRANSICAO, FOCO)}>
-                                            <i className="fas fa-paperclip" aria-hidden="true" />{t('Comprovativo')}
+                                        <button type="button" onClick={() => pagarPedido(p)} className={cls('inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100', RAIO, TRANSICAO, FOCO)}>
+                                            <i className="fas fa-money-bill-transfer" aria-hidden="true" />{p.comprovativo ? t('Trocar') : t('Pagar')}
                                         </button>
                                     )}
                                 </td>
@@ -134,13 +141,28 @@ export default function Empresa({ id }: { id: number }) {
             <div className="grid gap-6 xl:grid-cols-2">
                 <Bloco i={3} icone="fa-file-invoice-dollar" titulo={t('Facturas da subscrição')}>
                     {f.facturas.length === 0 ? <SemNada icone="fa-file-invoice" frase={t('Sem facturas da plataforma.')} /> : (
-                        <Tabela cabecalho={[t('Número'), t('Vencimento'), t('Total'), t('Estado')]}>
+                        <Tabela cabecalho={[t('Número'), t('Vencimento'), t('Total'), t('Estado'), '']}>
                             {f.facturas.map((fa, i) => (
                                 <tr key={fa.id} style={cascata(i)} className="entra hover:bg-slate-50">
                                     <td className="px-4 py-3"><span className="font-mono font-semibold">{fa.numero}</span><span className="block text-xs text-gray-500">{fa.descricao}</span></td>
-                                    <td className="px-4 py-3 text-gray-700">{dataOuTraco(fa.vencimento)}</td>
-                                    <td className="px-4 py-3 tabular-nums font-semibold">{kwanzas(fa.total)}</td>
-                                    <td className="px-4 py-3"><Etiqueta cor={COR_DA_FACTURA[fa.estado] ?? 'neutra'} ponto>{fa.estado_rotulo}</Etiqueta></td>
+                                    <td className="whitespace-nowrap px-4 py-3 text-gray-700">{dataOuTraco(fa.vencimento)}</td>
+                                    <td className="whitespace-nowrap px-4 py-3 tabular-nums font-semibold">{kwanzas(fa.total)}</td>
+                                    <td className="px-4 py-3">
+                                        {fa.pagamento_enviado
+                                            ? <Etiqueta cor="primaria" icone="fa-clock">{t('À espera de confirmação')}</Etiqueta>
+                                            : <Etiqueta cor={COR_DA_FACTURA[fa.estado] ?? 'neutra'} ponto>{fa.estado_rotulo}</Etiqueta>}
+                                        {fa.motivo_recusa && !fa.pagamento_enviado && <span className="mt-1 block text-xs text-red-700"><i className="fas fa-circle-exclamation mr-1" aria-hidden="true" />{t('Pagamento recusado: :m', { m: fa.motivo_recusa })}</span>}
+                                    </td>
+                                    <td className="whitespace-nowrap px-4 py-3 text-right">
+                                        {fa.pode_pagar && (
+                                            <button type="button" onClick={() => pagarFactura(fa)}
+                                                className={cls('inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold', RAIO, TRANSICAO, FOCO,
+                                                    fa.pagamento_enviado ? 'text-violet-700 hover:bg-violet-100' : 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-700')}>
+                                                <i className={cls('fas', fa.pagamento_enviado ? 'fa-rotate' : 'fa-money-bill-transfer')} aria-hidden="true" />
+                                                {fa.pagamento_enviado ? t('Trocar') : t('Pagar')}
+                                            </button>
+                                        )}
+                                    </td>
                                 </tr>
                             ))}
                         </Tabela>
@@ -164,7 +186,7 @@ export default function Empresa({ id }: { id: number }) {
             </div>
 
             {aPedir && opcoes.data && <PedirPlano id={id} ficha={f} opcoes={opcoes.data} aoFechar={() => porAPedir(false)} />}
-            {comprovativoDe !== null && <EnviarComprovativo id={id} pedido={comprovativoDe} conta={opcoes.data?.conta} aoFechar={() => porComprovativoDe(null)} />}
+            {aPagar && <PagarPeloCliente alvo={aPagar} conta={opcoes.data?.conta} aoFechar={() => porAPagar(null)} />}
         </div>
     );
 }
@@ -265,41 +287,6 @@ function PedirPlano({ id, ficha, opcoes, aoFechar }: { id: number; ficha: FichaD
                     </Campo>
                 </div>
                 <p className="text-xs text-gray-500">{t('Sem comprovativo, o pedido fica à espera: pode anexá-lo depois. O plano muda quando confirmarmos o pagamento.')}</p>
-            </div>
-        </Modal>
-    );
-}
-
-/** O COMPROVATIVO de um pedido por pagar. */
-function EnviarComprovativo({ id, pedido, conta, aoFechar }: { id: number; pedido: number; conta?: OpcoesDoPortal['conta']; aoFechar: () => void }) {
-    const cache = useQueryClient();
-    const [ficheiro, porFicheiro] = useState<File | null>(null);
-    const [referencia, porReferencia] = useState('');
-
-    const enviar = useMutation({
-        mutationFn: () => {
-            if (!ficheiro) throw new Error(t('Escolha o ficheiro do comprovativo.'));
-            return revenda.comprovativo(id, pedido, ficheiro, referencia);
-        },
-        onSuccess: () => { void cache.invalidateQueries({ queryKey: ['revenda'] }); aoFechar(); },
-    });
-    const erros = enviar.error instanceof ErroDaApi ? enviar.error.erros : {};
-
-    return (
-        <Modal aberto aoFechar={aoFechar} titulo={t('Comprovativo da transferência')} icone="fa-paperclip" cor="aviso" largura="md"
-            rodape={<>
-                <Botao onClick={aoFechar}>{t('Cancelar')}</Botao>
-                <Botao cor="aviso" tom="solida" icone="fa-upload" aTrabalhar={enviar.isPending} onClick={() => enviar.mutate()}>{t('Enviar')}</Botao>
-            </>}>
-            <div className="space-y-4">
-                <ContaParaTransferir conta={conta} />
-                <Campo id="ec-ficheiro" rotulo={t('Ficheiro (PDF, JPG ou PNG, até 5 MB)')} obrigatorio erro={erros.comprovativo?.[0] ?? (enviar.error && !Object.keys(erros).length ? (enviar.error as Error).message : undefined)} icone="fa-file-arrow-up">
-                    <input id="ec-ficheiro" type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => porFicheiro(e.target.files?.[0] ?? null)}
-                        className="block w-full text-sm text-gray-700 file:mr-3 file:rounded-lg file:border-0 file:bg-amber-100 file:px-3 file:py-2 file:font-semibold file:text-amber-800 hover:file:bg-amber-200" />
-                </Campo>
-                <Campo id="ec-ref" rotulo={t('Referência da transferência')} erro={erros.referencia?.[0]} icone="fa-hashtag">
-                    <input id="ec-ref" value={referencia} onChange={(e) => porReferencia(e.target.value)} className={entrada(erros.referencia?.[0])} />
-                </Campo>
             </div>
         </Modal>
     );

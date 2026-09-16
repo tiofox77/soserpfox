@@ -48,7 +48,14 @@ class Invoice extends Model
         'paid_at' => 'datetime',
         'is_exported_agt' => 'boolean',
         'exported_agt_at' => 'datetime',
+        'payment_submitted_at' => 'datetime',
     ];
+
+    /** O revendedor que enviou o pagamento desta factura em nome da empresa. */
+    public function revendedorQuePagou()
+    {
+        return $this->belongsTo(Reseller::class, 'payment_submitted_by_reseller_id');
+    }
 
     protected static function boot()
     {

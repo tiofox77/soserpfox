@@ -214,16 +214,36 @@ class EmpresasDoRevendedor
                 'estado' => $i->status,
                 'estado_rotulo' => __(['pending' => 'Por pagar', 'paid' => 'Paga', 'overdue' => 'Vencida', 'cancelled' => 'Anulada'][$i->status] ?? $i->status),
                 'referencia' => $i->payment_reference,
+                'pagamento_enviado' => $i->payment_submitted_at !== null && $i->status !== 'paid',
+                'comprovativo' => $i->payment_proof ? Storage::url($i->payment_proof) : null,
+                'motivo_recusa' => $i->payment_rejection_reason,
+                'pode_pagar' => in_array($i->status, ['pending', 'overdue'], true),
             ])->values(),
             'comissoes' => ResellerCommission::with(['plano', 'pagamento'])->where('reseller_id', $r->id)->where('tenant_id', $t->id)
                 ->latest()->limit(20)->get()->map(fn ($c) => ComissoesDoRevendedor::paraEcra($c))->values(),
         ];
     }
 
-    /** Os planos que se podem escolher, com o preço de cada ciclo. */
+    /**
+     * UM PLANO 100% GRATUITO não passa pelo revendedor (16/09/2026): a empresa
+     * activa-o sozinha no registo, e o revendedor não o pode dar aos clientes.
+     */
+    public static function gratuito(Plan $p): bool
+    {
+        return (float) ($p->getPrice('monthly') ?? 0) <= 0;
+    }
+
+    private static function recusarGratuito(Plan $p, string $campo): void
+    {
+        if (self::gratuito($p)) {
+            throw ValidationException::withMessages([$campo => __('Os planos gratuitos não se dão pelo revendedor: a empresa pode activá-los sozinha no registo.')]);
+        }
+    }
+
+    /** Os planos que se podem escolher, com o preço de cada ciclo — sem os gratuitos. */
     public static function planos(): array
     {
-        return Plan::publico()->orderBy('order')->get()->map(fn (Plan $p) => [
+        return Plan::publico()->orderBy('order')->get()->reject(fn (Plan $p) => self::gratuito($p))->values()->map(fn (Plan $p) => [
             'id' => $p->id,
             'nome' => $p->name,
             'descricao' => $p->description,
@@ -250,6 +270,7 @@ class EmpresasDoRevendedor
     public function criar(Reseller $r, array $dados, ?UploadedFile $comprovativo): array
     {
         $plano = Plan::publico()->findOrFail($dados['selected_plan_id']);
+        self::recusarGratuito($plano, 'selected_plan_id');
 
         if ($recusa = DireitoACortesia::de(null, $dados['company_nif'])->motivoParaRecusar($plano)) {
             throw ValidationException::withMessages(['selected_plan_id' => __($recusa)]);
@@ -262,6 +283,9 @@ class EmpresasDoRevendedor
         $empresa = $feito['empresa'];
 
         LigacaoAoRevendedor::ligar($empresa, $r, 'revendedor');
+
+        // O pedido do plano é do revendedor: é ele que paga pelo cliente.
+        Order::where('tenant_id', $empresa->id)->update(['reseller_id' => $r->id]);
 
         $enviado = app(AvisosDaRevenda::class)->empresaCriada($feito['utilizador'], $empresa, $senha, $r, $plano, $feito['estado']);
 
@@ -277,6 +301,7 @@ class EmpresasDoRevendedor
     {
         $t = $this->empresa($r, $empresaId);
         $plano = Plan::publico()->findOrFail($dados['plan_id']);
+        self::recusarGratuito($plano, 'plan_id');
         $dono = $t->users()->orderBy('tenant_user.id')->first();
 
         if ($recusa = DireitoACortesia::daEmpresa($t, $dono)->motivoParaRecusar($plano)) {
@@ -293,18 +318,23 @@ class EmpresasDoRevendedor
             throw ValidationException::withMessages(['plan_id' => __('Este plano não tem preço neste ciclo.')]);
         }
 
-        return DB::transaction(fn () => Order::create([
-            'tenant_id' => $t->id,
-            'user_id' => $dono?->id,
-            'plan_id' => $plano->id,
-            'amount' => $valor,
-            'billing_cycle' => $dados['ciclo'],
-            'status' => 'pending',
-            'payment_method' => 'bank_transfer',
-            'payment_reference' => $dados['referencia'] ?? null,
-            'payment_proof' => $comprovativo?->store('payment-proofs', 'public'),
-            'notes' => __('Pedido feito pelo revendedor :nome (:codigo).', ['nome' => $r->nomeVisivel(), 'codigo' => $r->code]),
-        ]));
+        return DB::transaction(function () use ($t, $dono, $plano, $valor, $dados, $comprovativo, $r) {
+            $pedido = new Order([
+                'tenant_id' => $t->id,
+                'user_id' => $dono?->id,
+                'plan_id' => $plano->id,
+                'amount' => $valor,
+                'billing_cycle' => $dados['ciclo'],
+                'status' => 'pending',
+                'payment_method' => 'bank_transfer',
+                'payment_reference' => $dados['referencia'] ?? null,
+                'payment_proof' => $comprovativo?->store('payment-proofs', 'public'),
+                'notes' => __('Pedido feito pelo revendedor :nome (:codigo).', ['nome' => $r->nomeVisivel(), 'codigo' => $r->code]),
+            ]);
+            $pedido->forceFill(['reseller_id' => $r->id])->save();
+
+            return $pedido;
+        });
     }
 
     /** O comprovativo de um pedido que já existe, de uma empresa dele. */
@@ -317,12 +347,132 @@ class EmpresasDoRevendedor
             throw ValidationException::withMessages(['comprovativo' => __('Este pedido já não está à espera de pagamento.')]);
         }
 
-        $pedido->update(array_filter([
+        $pedido->forceFill(array_filter([
             'payment_proof' => $ficheiro->store('payment-proofs', 'public'),
             'payment_reference' => $referencia ?: null,
-        ]));
+            'reseller_id' => $r->id,
+        ]))->save();
 
         return $pedido;
+    }
+
+    /**
+     * PAGAR UMA FACTURA DE RENOVAÇÃO PELO CLIENTE: a referência e o
+     * comprovativo da transferência. Fica «por confirmar» até o super admin a
+     * dar como paga (ou recusar, com o motivo).
+     */
+    public function pagarFactura(Reseller $r, int $empresaId, int $facturaId, UploadedFile $ficheiro, ?string $referencia): Invoice
+    {
+        $t = $this->empresa($r, $empresaId);
+        $factura = Invoice::where('tenant_id', $t->id)->whereNotNull('subscription_id')->findOrFail($facturaId);
+
+        if (! in_array($factura->status, ['pending', 'overdue'], true)) {
+            throw ValidationException::withMessages(['comprovativo' => __('Esta factura já não está por pagar.')]);
+        }
+
+        $factura->forceFill([
+            'payment_method' => 'bank_transfer',
+            'payment_reference' => $referencia ?: $factura->payment_reference,
+            'payment_proof' => $ficheiro->store('payment-proofs', 'public'),
+            'payment_submitted_at' => now(),
+            'payment_submitted_by_reseller_id' => $r->id,
+            'payment_rejection_reason' => null,
+        ])->save();
+
+        app(AvisosDaRevenda::class)->pagamentoEnviado($r, $t, $factura);
+
+        return $factura;
+    }
+
+    private static function linhaDoPedido(Order $o): array
+    {
+        return [
+            'tipo' => 'pedido',
+            'id' => $o->id,
+            'empresa_id' => $o->tenant_id,
+            'empresa' => $o->tenant?->name,
+            'descricao' => trim(($o->plan?->name ?? '') . ' · ' . __(CicloDeFacturacao::nome($o->billing_cycle ?? 'monthly')), ' ·'),
+            'valor' => (float) $o->amount,
+            'referencia' => $o->payment_reference,
+            'comprovativo' => $o->payment_proof ? Storage::url($o->payment_proof) : null,
+            'estado' => match (true) {
+                $o->status === 'approved' => 'confirmado',
+                $o->status === 'rejected' => 'recusado',
+                (bool) $o->payment_proof => 'por_confirmar',
+                default => 'por_pagar',
+            },
+            'motivo' => $o->rejection_reason,
+            'vence' => null,
+            'data' => ($o->approved_at ?? $o->rejected_at ?? $o->updated_at)?->toIso8601String(),
+        ];
+    }
+
+    private static function linhaDaFactura(Invoice $i): array
+    {
+        return [
+            'tipo' => 'factura',
+            'id' => $i->id,
+            'empresa_id' => $i->tenant_id,
+            'empresa' => $i->tenant?->name,
+            'descricao' => trim($i->invoice_number . ' · ' . ($i->description ?? ''), ' ·'),
+            'valor' => (float) $i->total,
+            'referencia' => $i->payment_reference,
+            'comprovativo' => $i->payment_proof ? Storage::url($i->payment_proof) : null,
+            'estado' => match (true) {
+                $i->status === 'paid' => 'confirmado',
+                $i->payment_submitted_at !== null => 'por_confirmar',
+                $i->status === 'overdue' || ($i->due_date && $i->due_date->lt(today())) => 'vencida',
+                default => 'por_pagar',
+            },
+            'motivo' => $i->payment_rejection_reason,
+            'vence' => $i->due_date?->toDateString(),
+            'data' => ($i->paid_at ?? $i->payment_submitted_at ?? $i->invoice_date)?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * OS PAGAMENTOS DO REVENDEDOR: o que as empresas dele têm por pagar (pedidos
+     * e facturas), o que ele já enviou e espera confirmação, e o histórico do
+     * que foi confirmado ou recusado.
+     */
+    public function pagamentos(Reseller $r): array
+    {
+        $ids = Tenant::where('reseller_id', $r->id)->pluck('id');
+
+        $pedidos = Order::with(['tenant', 'plan'])->whereIn('tenant_id', $ids)->where('status', 'pending')->latest()->get()->map(fn ($o) => self::linhaDoPedido($o));
+        $facturas = Invoice::with('tenant')->whereIn('tenant_id', $ids)->whereNotNull('subscription_id')
+            ->whereIn('status', ['pending', 'overdue'])->orderBy('due_date')->get()->map(fn ($i) => self::linhaDaFactura($i));
+        $abertos = $pedidos->concat($facturas);
+
+        $historico = Order::with(['tenant', 'plan'])->where('reseller_id', $r->id)->whereIn('status', ['approved', 'rejected'])->latest('updated_at')->limit(20)->get()
+            ->map(fn ($o) => self::linhaDoPedido($o))
+            ->concat(Invoice::with('tenant')->where('payment_submitted_by_reseller_id', $r->id)->where('status', 'paid')->latest('paid_at')->limit(20)->get()->map(fn ($i) => self::linhaDaFactura($i)))
+            ->sortByDesc('data')->take(20)->values();
+
+        return [
+            'por_pagar' => $abertos->whereIn('estado', ['por_pagar', 'vencida'])->values(),
+            'por_confirmar' => $abertos->where('estado', 'por_confirmar')->values(),
+            'historico' => $historico,
+            'totais' => [
+                'por_pagar' => round((float) $abertos->whereIn('estado', ['por_pagar', 'vencida'])->sum('valor'), 2),
+                'por_pagar_n' => $abertos->whereIn('estado', ['por_pagar', 'vencida'])->count(),
+                'por_confirmar' => round((float) $abertos->where('estado', 'por_confirmar')->sum('valor'), 2),
+                'por_confirmar_n' => $abertos->where('estado', 'por_confirmar')->count(),
+            ],
+        ];
+    }
+
+    /** Os números da barra lateral: empresas e pagamentos por fazer. */
+    public static function contadores(Reseller $r): array
+    {
+        $ids = Tenant::where('reseller_id', $r->id)->pluck('id');
+
+        return [
+            'empresas' => $ids->count(),
+            'pagamentos' => $ids->isEmpty() ? 0
+                : Order::whereIn('tenant_id', $ids)->where('status', 'pending')->whereNull('payment_proof')->count()
+                    + Invoice::whereIn('tenant_id', $ids)->whereNotNull('subscription_id')->whereIn('status', ['pending', 'overdue'])->whereNull('payment_submitted_at')->count(),
+        ];
     }
 
     /** O dono que a empresa teria: um email que já tem conta não se pode usar. */

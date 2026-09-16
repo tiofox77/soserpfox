@@ -146,6 +146,43 @@ class AvisosDaRevenda
         ));
     }
 
+    /** O revendedor enviou o pagamento de uma factura: o super admin confirma. */
+    public function pagamentoEnviado(Reseller $r, Tenant $empresa, \App\Models\Invoice $factura): void
+    {
+        foreach (User::where('is_super_admin', true)->where('is_active', true)->pluck('email') as $email) {
+            $this->enviar($email, new AvisoDaRevenda(
+                __('Pagamento enviado por um revendedor'),
+                __('Olá,'),
+                [__(':revendedor enviou o comprovativo do pagamento da factura :numero da :empresa. Confirme-o na Facturação.', ['revendedor' => $r->nomeVisivel(), 'numero' => $factura->invoice_number, 'empresa' => $empresa->name])],
+                array_filter([
+                    __('Factura') => $factura->invoice_number,
+                    __('Empresa') => $empresa->name,
+                    __('Valor') => self::kz((float) $factura->total),
+                    __('Referência') => $factura->payment_reference,
+                ]),
+                ['texto' => __('Abrir a facturação'), 'url' => route('superadmin.billing')],
+            ));
+        }
+    }
+
+    /** O super admin recusou um pagamento enviado pelo revendedor. */
+    public function pagamentoRecusado(Reseller $r, string $empresa, string $documento, string $motivo): bool
+    {
+        return $this->enviar($r->email, new AvisoDaRevenda(
+            __('Pagamento recusado'),
+            __('Olá, :nome', ['nome' => $r->name]),
+            [
+                __('Não conseguimos confirmar o pagamento de :documento da :empresa.', ['documento' => $documento, 'empresa' => $empresa]),
+                __('Motivo: :motivo', ['motivo' => $motivo]),
+                __('Pode enviar outro comprovativo no portal, em Pagamentos.'),
+            ],
+            [],
+            ['texto' => __('Abrir os pagamentos'), 'url' => route('revendedor.pagamentos')],
+            null,
+            '#dc2626',
+        ));
+    }
+
     /** A empresa criada pelo revendedor: os dados de entrada ao dono. */
     public function empresaCriada(User $dono, Tenant $empresa, string $senha, Reseller $r, Plan $plano, string $estado): bool
     {

@@ -94,7 +94,11 @@ export type FichaDaEmpresa = {
     };
     subscricao: { plano_id: number; plano: string | null; ciclo: string; ciclo_rotulo: string; valor: number; inicio: string | null; fim: string | null } | null;
     pedidos: Array<{ id: number; plano: string | null; ciclo: string | null; valor: number; estado: 'pending' | 'approved' | 'rejected'; estado_rotulo: string; referencia: string | null; comprovativo: string | null; motivo: string | null; data: string | null }>;
-    facturas: Array<{ id: number; numero: string; descricao: string | null; data: string | null; vencimento: string | null; total: number; estado: string; estado_rotulo: string; referencia: string | null }>;
+    facturas: Array<{
+        id: number; numero: string; descricao: string | null; data: string | null; vencimento: string | null; total: number; estado: string; estado_rotulo: string; referencia: string | null;
+        /** O revendedor já enviou o pagamento e espera a confirmação. */
+        pagamento_enviado: boolean; comprovativo: string | null; motivo_recusa: string | null; pode_pagar: boolean;
+    }>;
     comissoes: Comissao[];
 };
 
@@ -109,6 +113,22 @@ export type NovaEmpresa = {
     email: string;
     selected_plan_id: number | '';
     payment_reference: string;
+};
+
+/** Um pagamento do revendedor pelo cliente: um pedido de plano ou uma factura de renovação. */
+export type PagamentoDoRevendedor = {
+    tipo: 'pedido' | 'factura';
+    id: number;
+    empresa_id: number;
+    empresa: string | null;
+    descricao: string;
+    valor: number;
+    referencia: string | null;
+    comprovativo: string | null;
+    estado: 'por_pagar' | 'vencida' | 'por_confirmar' | 'confirmado' | 'recusado';
+    motivo: string | null;
+    vence: string | null;
+    data: string | null;
 };
 
 export type Pagamento = { id: number; valor: number; data: string | null; forma: string; referencia: string | null; comissoes: number; notas?: string | null; por?: string | null };
@@ -161,6 +181,15 @@ export const revenda = {
         doPortal.enviar<Recado & { pedido: number }>(`/empresas/${id}/pedidos`, formulario(dados, { comprovativo })),
     comprovativo: (id: number, pedido: number, ficheiro: File, referencia: string) =>
         doPortal.enviar<Recado>(`/empresas/${id}/pedidos/${pedido}/comprovativo`, formulario({ referencia }, { comprovativo: ficheiro })),
+    pagamentos: () => doPortal.ler<{
+        por_pagar: PagamentoDoRevendedor[];
+        por_confirmar: PagamentoDoRevendedor[];
+        historico: PagamentoDoRevendedor[];
+        totais: { por_pagar: number; por_pagar_n: number; por_confirmar: number; por_confirmar_n: number };
+        conta: OpcoesDoPortal['conta'];
+    }>('/pagamentos'),
+    pagarFactura: (empresa: number, factura: number, ficheiro: File, referencia: string) =>
+        doPortal.enviar<Recado>(`/empresas/${empresa}/facturas/${factura}/pagamento`, formulario({ referencia }, { comprovativo: ficheiro })),
     comissoes: (f: { estado?: string; pagina?: number }) => doPortal.ler<{
         comissoes: Comissao[]; paginacao: Paginacao; totais: TotaisDeComissoes; regra: string; pagamentos: Pagamento[];
     }>('/comissoes', f),

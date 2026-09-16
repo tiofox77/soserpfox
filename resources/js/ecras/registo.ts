@@ -537,6 +537,10 @@ export const ecras: Record<string, Ecra> = {
         import('./revenda/NovaEmpresa'),
     'revenda/empresa': () =>
         import('./revenda/Empresa'),
+    'revenda/moldura': () =>
+        import('./revenda/Moldura'),
+    'revenda/pagamentos': () =>
+        import('./revenda/Pagamentos'),
     'revenda/comissoes': () =>
         import('./revenda/Comissoes'),
     'revenda/perfil': () =>

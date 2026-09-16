@@ -47,6 +47,12 @@ class Order extends Model
         return $this->belongsTo(Plan::class);
     }
 
+    /** O revendedor que fez o pedido (e o pagamento) em nome da empresa. */
+    public function revendedor()
+    {
+        return $this->belongsTo(Reseller::class, 'reseller_id');
+    }
+
     public function approvedBy()
     {
         return $this->belongsTo(User::class, 'approved_by');

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { ErroDaApi } from '@/api/cliente';
 import {
-    type FacturaDaPlataforma, type FacturacaoDaPlataforma, type FichaDaFactura, type PedidoPendente,
+    type FacturaDaPlataforma, type FacturacaoDaPlataforma, type FichaDaFactura, type PagamentoPorConfirmar, type PedidoPendente,
     type SubscricaoDaLista, plataforma,
 } from '@/api/plataforma';
 import { t } from '@/i18n';
@@ -82,6 +82,9 @@ export default function Facturacao() {
                     <EstadoNaFaixa icone="fa-hourglass-half">
                         {t(':n pedido(s) por aprovar', { n: n.pedidos_pendentes })}
                     </EstadoNaFaixa>
+                    {n.pagamentos_por_confirmar > 0 && (
+                        <EstadoNaFaixa icone="fa-file-invoice-dollar">{t(':n pagamento(s) por confirmar', { n: n.pagamentos_por_confirmar })}</EstadoNaFaixa>
+                    )}
                     <EstadoNaFaixa icone="fa-crown">{t(':n subscrição(ões)', { n: n.subscricoes })}</EstadoNaFaixa>
                 </div>
             </Faixa>
@@ -107,7 +110,7 @@ export default function Facturacao() {
             <div className={cls(CARTAO, 'p-4')}>
                 <Separadores
                     abas={[
-                        { chave: 'pedidos', rotulo: t('Pedidos pendentes (:n)', { n: d.pedidos.length }), icone: 'fa-hourglass-half' },
+                        { chave: 'pedidos', rotulo: t('Pedidos pendentes (:n)', { n: d.pedidos.length + d.pagamentos.length }), icone: 'fa-hourglass-half' },
                         { chave: 'subscricoes', rotulo: t('Subscrições (:n)', { n: n.subscricoes }), icone: 'fa-crown' },
                         { chave: 'facturas', rotulo: t('Facturas (:n)', { n: n.facturas }), icone: 'fa-file-invoice' },
                     ]}
@@ -117,7 +120,7 @@ export default function Facturacao() {
 
                 <div className="pt-4">
                     <PainelDoSeparador chave="pedidos" activa={aba}>
-                        <Pedidos pedidos={d.pedidos} aoFazer={feito} />
+                        <Pedidos pedidos={d.pedidos} pagamentos={d.pagamentos} metodos={d.opcoes.metodos} aoFazer={feito} />
                     </PainelDoSeparador>
                     <PainelDoSeparador chave="subscricoes" activa={aba}>
                         {aba === 'subscricoes' && <Subscricoes opcoes={d.opcoes} aoFazer={feito} />}
@@ -197,7 +200,7 @@ function Saft({ saft, aoGuardar }: { saft: FacturacaoDaPlataforma['saft']; aoGua
 
 /* ─── Os pedidos ──────────────────────────────────────────────────────── */
 
-function Pedidos({ pedidos, aoFazer }: { pedidos: PedidoPendente[]; aoFazer: (m: string) => void }) {
+function Pedidos({ pedidos, pagamentos, metodos, aoFazer }: { pedidos: PedidoPendente[]; pagamentos: PagamentoPorConfirmar[]; metodos: FacturacaoDaPlataforma['opcoes']['metodos']; aoFazer: (m: string) => void }) {
     const [aRecusar, porARecusar] = useState<PedidoPendente | null>(null);
 
     const aprovar = useMutation({
@@ -205,12 +208,16 @@ function Pedidos({ pedidos, aoFazer }: { pedidos: PedidoPendente[]; aoFazer: (m:
         onSuccess: (r) => aoFazer(r.message),
     });
 
-    if (pedidos.length === 0) {
+    if (pedidos.length === 0 && pagamentos.length === 0) {
         return <SemNada icone="fa-inbox" titulo={t('Nenhum pedido à espera')} frase={t('Os pedidos de subscrição dos clientes aparecem aqui para aprovar.')} />;
     }
 
     return (
         <div className="space-y-3">
+            <PagamentosPorConfirmar pagamentos={pagamentos} aoFazer={aoFazer} />
+            {pedidos.length > 0 && pagamentos.length > 0 && (
+                <h3 className="pt-2 text-sm font-bold uppercase tracking-wider text-slate-500"><i className="fas fa-cart-shopping mr-1.5" aria-hidden="true" />{t('Pedidos de plano')}</h3>
+            )}
             <AvisoDeErro erro={aprovar.error} />
 
             {pedidos.map((p, i) => (
@@ -240,7 +247,8 @@ function Pedidos({ pedidos, aoFazer }: { pedidos: PedidoPendente[]; aoFazer: (m:
                             {/* COMO PAGOU, E A PROVA. Silêncio não se distingue de
                                 «ainda não verifiquei». */}
                             <div className="flex flex-wrap items-center gap-2 text-xs">
-                                {p.metodo && <Etiqueta cor="neutra" icone="fa-money-bill-wave">{p.metodo}</Etiqueta>}
+                                {p.revendedor && <Etiqueta cor="primaria" icone="fa-handshake">{t('Pago pelo revendedor :nome', { nome: p.revendedor.nome })}{p.revendedor.codigo ? ` · ${p.revendedor.codigo}` : ''}</Etiqueta>}
+                                {p.metodo && <Etiqueta cor="neutra" icone="fa-money-bill-wave">{metodos.find((m) => m.valor === p.metodo)?.rotulo ?? p.metodo}</Etiqueta>}
                                 {p.referencia && <Etiqueta cor="neutra" icone="fa-hashtag">{p.referencia}</Etiqueta>}
                                 {p.comprovativo ? (
                                     <a href={p.comprovativo} target="_blank" rel="noreferrer" className={cls('inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 font-semibold text-emerald-800 ring-1 ring-inset ring-emerald-200 hover:bg-emerald-200', TRANSICAO, FOCO)}>
@@ -265,6 +273,90 @@ function Pedidos({ pedidos, aoFazer }: { pedidos: PedidoPendente[]; aoFazer: (m:
             ))}
 
             {aRecusar && <Recusar pedido={aRecusar} aoFechar={() => porARecusar(null)} aoFazer={(m) => { porARecusar(null); aoFazer(m); }} />}
+        </div>
+    );
+}
+
+/**
+ * OS PAGAMENTOS DE FACTURAS POR CONFIRMAR — enviados pelos revendedores em nome
+ * das empresas (16/09/2026). Confirmar dá a factura como paga (e estende a
+ * subscrição); recusar devolve-a ao revendedor com o motivo.
+ */
+function PagamentosPorConfirmar({ pagamentos, aoFazer }: { pagamentos: PagamentoPorConfirmar[]; aoFazer: (m: string) => void }) {
+    const [aRecusar, porARecusar] = useState<PagamentoPorConfirmar | null>(null);
+    const [motivo, porMotivo] = useState('');
+
+    const confirmar = useMutation({
+        mutationFn: (id: number) => plataforma.facturacao.pagarFactura(id),
+        onSuccess: (r) => aoFazer(r.message),
+    });
+    const recusar = useMutation({
+        mutationFn: () => plataforma.facturacao.recusarPagamento(aRecusar!.id, motivo),
+        onSuccess: (r) => { porARecusar(null); porMotivo(''); aoFazer(r.message); },
+    });
+    const erros = recusar.error instanceof ErroDaApi ? recusar.error.erros : {};
+
+    if (pagamentos.length === 0) return null;
+
+    return (
+        <div className="space-y-3">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500"><i className="fas fa-file-invoice-dollar mr-1.5" aria-hidden="true" />{t('Pagamentos de facturas por confirmar')}</h3>
+            <AvisoDeErro erro={confirmar.error} />
+            {pagamentos.map((p, i) => (
+                <article key={p.id} className={cls('entra border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 p-5', RAIO)} style={cascata(i)}>
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="min-w-0 flex-1 space-y-3">
+                            <div className="flex items-center gap-3">
+                                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-emerald-600 text-white">
+                                    <i className="fas fa-file-invoice-dollar" aria-hidden="true" />
+                                </span>
+                                <div className="min-w-0">
+                                    <h4 className="truncate font-bold text-slate-900">{p.empresa ?? t('— empresa apagada —')}</h4>
+                                    <p className="truncate text-xs text-slate-600">{t('Factura :n', { n: p.numero })}{p.descricao ? ` · ${p.descricao}` : ''}</p>
+                                </div>
+                            </div>
+                            <dl className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+                                <Dado rotulo={t('Valor')} valor={`${kz(p.total)} Kz`} />
+                                <Dado rotulo={t('Vence')} valor={p.vence ?? '—'} />
+                                <Dado rotulo={t('Enviado')} valor={p.enviado ?? '—'} />
+                                <Dado rotulo={t('Referência')} valor={p.referencia ?? '—'} />
+                            </dl>
+                            <div className="flex flex-wrap items-center gap-2 text-xs">
+                                {p.revendedor && <Etiqueta cor="primaria" icone="fa-handshake">{t('Pago pelo revendedor :nome', { nome: p.revendedor.nome })}{p.revendedor.codigo ? ` · ${p.revendedor.codigo}` : ''}</Etiqueta>}
+                                {p.comprovativo && (
+                                    <a href={p.comprovativo} target="_blank" rel="noreferrer" className={cls('inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 font-semibold text-emerald-800 ring-1 ring-inset ring-emerald-200 hover:bg-emerald-200', TRANSICAO, FOCO)}>
+                                        <i className="fas fa-file-invoice-dollar" aria-hidden="true" />{t('Ver comprovativo')}
+                                    </a>
+                                )}
+                            </div>
+                        </div>
+                        <div className="flex shrink-0 gap-2 lg:flex-col">
+                            <Botao cor="bom" tom="solida" icone="fa-check" aTrabalhar={confirmar.isPending && confirmar.variables === p.id} onClick={() => confirmar.mutate(p.id)}>
+                                {t('Confirmar pagamento')}
+                            </Botao>
+                            <Botao cor="perigo" tom="suave" icone="fa-xmark" onClick={() => porARecusar(p)}>{t('Recusar')}</Botao>
+                        </div>
+                    </div>
+                </article>
+            ))}
+
+            {aRecusar && (
+                <Modal aberto aoFechar={() => porARecusar(null)} titulo={t('Recusar o pagamento')} subtitulo={`${aRecusar.empresa ?? '—'} · ${aRecusar.numero} · ${kz(aRecusar.total)} Kz`}
+                    icone="fa-ban" cor="perigo" largura="md"
+                    rodape={
+                        <div className="flex justify-end gap-2">
+                            <Botao cor="neutra" onClick={() => porARecusar(null)}>{t('Cancelar')}</Botao>
+                            <Botao cor="perigo" tom="solida" icone="fa-xmark" aTrabalhar={recusar.isPending} onClick={() => recusar.mutate()}>{t('Recusar pagamento')}</Botao>
+                        </div>
+                    }>
+                    <div className="space-y-3">
+                        {recusar.error && !Object.keys(erros).length && <AvisoDeErro erro={recusar.error} />}
+                        <Campo etiqueta={t('Motivo')} obrigatorio erro={erros.motivo} ajuda={t('O revendedor recebe-o por email e pode enviar outro comprovativo.')}>
+                            <textarea rows={4} className={cls(entrada, 'h-auto py-2')} value={motivo} onChange={(e) => porMotivo(e.target.value)} placeholder={t('Ex.: a transferência ainda não entrou na conta.')} />
+                        </Campo>
+                    </div>
+                </Modal>
+            )}
         </div>
     );
 }

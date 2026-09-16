@@ -123,6 +123,15 @@ class NotificacoesDoSistema
                     __('Requer atenção'), route('superadmin.billing'));
             }
 
+            // Os pagamentos de facturas enviados pelos revendedores, por confirmar.
+            $pagamentos = \App\Models\Invoice::whereNotNull('payment_submitted_at')->whereIn('status', ['pending', 'overdue'])->count();
+
+            if ($pagamentos > 0) {
+                $avisos[] = $this->aviso('info', 'fa-file-invoice-dollar', 'green', __('Pagamentos por confirmar'),
+                    __(':n pagamento(s) de facturas enviado(s) por revendedores.', ['n' => $pagamentos]),
+                    __('Requer atenção'), route('superadmin.billing'));
+            }
+
             // Os pedidos para ser revendedor (programa de revendedores, RV-02).
             $revendedores = \App\Models\Reseller::where('status', 'pendente')->count();
 

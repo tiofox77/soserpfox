@@ -165,6 +165,7 @@ Route::prefix('revendedor')->name('revendedor.')->group(function () {
         Route::get('/empresas/nova', \App\Support\EcraReact::revendedor('revenda/nova-empresa', 'Nova empresa'))->name('empresas.nova');
         Route::get('/empresas/{id}', \App\Support\EcraReact::revendedor('revenda/empresa', 'Empresa'))->whereNumber('id')->name('empresas.ver');
         Route::get('/comissoes', \App\Support\EcraReact::revendedor('revenda/comissoes', 'Comissões'))->name('comissoes');
+        Route::get('/pagamentos', \App\Support\EcraReact::revendedor('revenda/pagamentos', 'Pagamentos'))->name('pagamentos');
         Route::get('/perfil', \App\Support\EcraReact::revendedor('revenda/perfil', 'O meu perfil'))->name('perfil');
 
         Route::prefix('api')->name('api.')->group(function () {
@@ -179,6 +180,8 @@ Route::prefix('revendedor')->name('revendedor.')->group(function () {
             Route::post('/empresas/{id}/pedidos', [$c, 'pedirPlano'])->whereNumber('id')->middleware('throttle:10,1')->name('empresas.pedir');
             Route::post('/empresas/{id}/pedidos/{pedido}/comprovativo', [$c, 'comprovativo'])->whereNumber('id')->whereNumber('pedido')->middleware('throttle:10,1')->name('empresas.comprovativo');
             Route::get('/comissoes', [$c, 'comissoes'])->name('comissoes');
+            Route::get('/pagamentos', [$c, 'pagamentos'])->name('pagamentos');
+            Route::post('/empresas/{id}/facturas/{factura}/pagamento', [$c, 'pagarFactura'])->whereNumber('id')->whereNumber('factura')->middleware('throttle:10,1')->name('empresas.pagar-factura');
             Route::get('/perfil', [$c, 'perfil'])->name('perfil');
             Route::put('/perfil', [$c, 'guardarPerfil'])->name('perfil.guardar');
             Route::put('/senha', [$c, 'senha'])->middleware('throttle:5,10')->name('senha');
@@ -426,6 +429,8 @@ Route::middleware(['auth', 'superadmin'])->prefix('api/v1/plataforma/react')->na
         Route::get('/facturas/{id}', [$c, 'fichaDaFactura'])->whereNumber('id')->name('facturas.ficha');
         Route::put('/facturas/{id}', [$c, 'guardarFactura'])->whereNumber('id')->name('facturas.guardar');
         Route::post('/facturas/{id}/pagar', [$c, 'pagarFactura'])->whereNumber('id')->name('facturas.pagar');
+        // O pagamento enviado por um revendedor que não se confirma: volta para trás com o motivo.
+        Route::post('/facturas/{id}/recusar-pagamento', [$c, 'recusarPagamentoDaFactura'])->whereNumber('id')->name('facturas.recusar-pagamento');
         Route::delete('/facturas/{id}', [$c, 'apagarFactura'])->whereNumber('id')->name('facturas.apagar');
 
         Route::post('/pedidos/{id}/aprovar', [$c, 'aprovarPedido'])->whereNumber('id')->name('pedidos.aprovar');

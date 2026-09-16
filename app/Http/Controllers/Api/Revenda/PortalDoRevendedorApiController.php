@@ -189,6 +189,31 @@ class PortalDoRevendedorApiController extends Controller
         return response()->json(['message' => __('Comprovativo anexado. Aguarda a confirmação do pagamento.')]);
     }
 
+    /** O que as empresas têm por pagar, o que foi enviado e o histórico. */
+    public function pagamentos(Request $request): JsonResponse
+    {
+        return response()->json($this->empresas->pagamentos($this->eu($request)) + [
+            'conta' => \App\Support\ContaDaPlataforma::dados(),
+        ]);
+    }
+
+    /** Pagar uma factura de renovação pelo cliente: referência e comprovativo. */
+    public function pagarFactura(Request $request, int $id, int $factura): JsonResponse
+    {
+        $dados = $request->validate([
+            'comprovativo' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'referencia' => ['nullable', 'string', 'max:120'],
+        ], [
+            'comprovativo.required' => __('Anexe o comprovativo da transferência.'),
+            'comprovativo.mimes' => __('O comprovativo tem de ser PDF, JPG ou PNG.'),
+            'comprovativo.max' => __('O comprovativo não pode passar de 5 MB.'),
+        ]);
+
+        $f = $this->empresas->pagarFactura($this->eu($request), $id, $factura, $request->file('comprovativo'), $dados['referencia'] ?? null);
+
+        return response()->json(['message' => __('Pagamento da factura :n enviado. Aguarda a confirmação.', ['n' => $f->invoice_number])]);
+    }
+
     public function comissoes(Request $request): JsonResponse
     {
         $r = $this->eu($request);

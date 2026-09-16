@@ -58,8 +58,9 @@ class FacturacaoApiController extends Controller
                 'facturas' => Invoice::count(),
                 'subscricoes' => Subscription::count(),
                 'pedidos_pendentes' => Order::where('status', 'pending')->count(),
+                'pagamentos_por_confirmar' => Invoice::whereNotNull('payment_submitted_at')->whereIn('status', ['pending', 'overdue'])->count(),
             ],
-            'pedidos' => Order::with(['tenant' => fn ($q) => $q->withTrashed(), 'user', 'plan'])
+            'pedidos' => Order::with(['tenant' => fn ($q) => $q->withTrashed(), 'user', 'plan', 'revendedor'])
                 ->where('status', 'pending')->latest()->get()
                 ->map(fn (Order $o) => [
                     'id' => $o->id,
@@ -76,6 +77,28 @@ class FacturacaoApiController extends Controller
                     // A PROVA. Quando não havia comprovativo o ecrã ficava
                     // calado — e silêncio não se distingue de «ainda não vi».
                     'comprovativo' => $o->payment_proof ? Storage::url($o->payment_proof) : null,
+                    // Pago pelo revendedor em nome da empresa (programa de revendedores).
+                    'revendedor' => $o->revendedor ? ['nome' => $o->revendedor->nomeVisivel(), 'codigo' => $o->revendedor->code] : null,
+                ])->values(),
+            /*
+             * AS FACTURAS COM O PAGAMENTO ENVIADO e por confirmar — hoje só os
+             * revendedores as mandam. Confirmar é dar a factura como paga (que
+             * estende a subscrição); recusar devolve-a com o motivo.
+             */
+            'pagamentos' => Invoice::with(['tenant' => fn ($q) => $q->withTrashed(), 'revendedorQuePagou'])
+                ->whereNotNull('payment_submitted_at')->whereIn('status', ['pending', 'overdue'])
+                ->orderBy('payment_submitted_at')->get()
+                ->map(fn (Invoice $i) => [
+                    'id' => $i->id,
+                    'numero' => $i->invoice_number,
+                    'empresa' => $i->tenant?->name,
+                    'descricao' => $i->description,
+                    'total' => (float) $i->total,
+                    'vence' => $i->due_date?->format('d/m/Y'),
+                    'enviado' => $i->payment_submitted_at?->format('d/m/Y H:i'),
+                    'referencia' => $i->payment_reference,
+                    'comprovativo' => $i->payment_proof ? Storage::url($i->payment_proof) : null,
+                    'revendedor' => $i->revendedorQuePagou ? ['nome' => $i->revendedorQuePagou->nomeVisivel(), 'codigo' => $i->revendedorQuePagou->code] : null,
                 ])->values(),
             'opcoes' => [
                 // AS EMPRESAS DESACTIVADAS CONTINUAM A PODER SER FACTURADAS: é
@@ -427,6 +450,32 @@ class FacturacaoApiController extends Controller
         return response()->json(['message' => __('Factura :n marcada como paga.', ['n' => $i->invoice_number])]);
     }
 
+    /**
+     * RECUSAR O PAGAMENTO ENVIADO de uma factura: o comprovativo sai, o motivo
+     * fica, e o revendedor que o mandou é avisado para enviar outro.
+     */
+    public function recusarPagamentoDaFactura(Request $request, int $id): JsonResponse
+    {
+        $d = $request->validate(['motivo' => ['required', 'string', 'min:5', 'max:500']], [
+            'motivo.required' => __('Escreva o motivo — é o que o revendedor vai ler.'),
+        ]);
+
+        $i = Invoice::with(['tenant' => fn ($q) => $q->withTrashed(), 'revendedorQuePagou'])->findOrFail($id);
+
+        if (! $i->payment_submitted_at || ! in_array($i->status, ['pending', 'overdue'], true)) {
+            throw ValidationException::withMessages(['motivo' => __('Esta factura não tem nenhum pagamento por confirmar.')]);
+        }
+
+        $revendedor = $i->revendedorQuePagou;
+        $i->forceFill(['payment_proof' => null, 'payment_submitted_at' => null, 'payment_rejection_reason' => $d['motivo']])->save();
+
+        if ($revendedor) {
+            app(\App\Services\Revenda\AvisosDaRevenda::class)->pagamentoRecusado($revendedor, (string) $i->tenant?->name, __('a factura :n', ['n' => $i->invoice_number]), $d['motivo']);
+        }
+
+        return response()->json(['message' => __('Pagamento da factura :n recusado.', ['n' => $i->invoice_number])]);
+    }
+
     public function apagarFactura(int $id): JsonResponse
     {
         $i = Invoice::findOrFail($id);
@@ -479,6 +528,11 @@ class FacturacaoApiController extends Controller
             'rejected_at' => now(),
             'rejected_by' => auth()->id(),
         ]));
+
+        // O pedido feito pelo revendedor: é ele que tem de enviar outro comprovativo.
+        if ($pedido->reseller_id && ($revendedor = \App\Models\Reseller::find($pedido->reseller_id))) {
+            app(\App\Services\Revenda\AvisosDaRevenda::class)->pagamentoRecusado($revendedor, (string) $pedido->tenant?->name, __('o pedido do plano :plano', ['plano' => $pedido->plan?->name]), $d['motivo']);
+        }
 
         return response()->json(['message' => __('Pedido recusado. O cliente foi avisado com o motivo.')]);
     }

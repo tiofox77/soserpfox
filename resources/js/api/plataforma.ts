@@ -339,14 +339,24 @@ export type PedidoPendente = {
     id: number; empresa: string | null; empresa_apagada: boolean; pessoa: string | null; email: string | null;
     plano: string | null; valor: number; ciclo: string; dia: string | null;
     metodo: string | null; referencia: string | null; comprovativo: string | null;
+    /** Pago pelo revendedor em nome da empresa. */
+    revendedor: { nome: string; codigo: string | null } | null;
+};
+
+/** Uma factura com o pagamento enviado (por um revendedor) e por confirmar. */
+export type PagamentoPorConfirmar = {
+    id: number; numero: string; empresa: string | null; descricao: string | null; total: number;
+    vence: string | null; enviado: string | null; referencia: string | null; comprovativo: string | null;
+    revendedor: { nome: string; codigo: string | null } | null;
 };
 
 export type FacturacaoDaPlataforma = {
     numeros: {
         cobrado: number; pendente: number; vencido: number;
-        facturas: number; subscricoes: number; pedidos_pendentes: number;
+        facturas: number; subscricoes: number; pedidos_pendentes: number; pagamentos_por_confirmar: number;
     };
     pedidos: PedidoPendente[];
+    pagamentos: PagamentoPorConfirmar[];
     opcoes: {
         empresas: Escolha[];
         planos: Array<{
@@ -584,6 +594,8 @@ export const plataforma = {
             id ? apiDaPlataforma.guardar<Recado>(`/facturacao/facturas/${id}`, dados)
                : apiDaPlataforma.criar<Recado>('/facturacao/facturas', dados),
         pagarFactura: (id: number) => apiDaPlataforma.criar<Recado>(`/facturacao/facturas/${id}/pagar`, {}),
+        recusarPagamento: (id: number, motivo: string) =>
+            apiDaPlataforma.criar<Recado>(`/facturacao/facturas/${id}/recusar-pagamento`, { motivo }),
         apagarFactura: (id: number) => apiDaPlataforma.apagar<Recado>(`/facturacao/facturas/${id}`),
 
         aprovarPedido: (id: number) => apiDaPlataforma.criar<Recado>(`/facturacao/pedidos/${id}/aprovar`, {}),
