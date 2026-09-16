@@ -37,8 +37,9 @@ class LayoutDaPlataformaTest extends TenantTestCase
         $this->assertSame(['Principal', 'Comercial', 'Comunicação', 'Sistema', 'Configuração'], array_column($menu['superadmin'], 'titulo'));
 
         $urls = array_merge(...array_map(fn ($s) => array_column($s['entradas'], 'url'), $menu['superadmin']));
-        $this->assertCount(25, $urls, 'as 24 áreas do painel de sempre e as cópias de segurança');
+        $this->assertCount(26, $urls, 'as 24 áreas do painel de sempre, as cópias de segurança e os revendedores');
         $this->assertContains(route('superadmin.copias'), $urls);
+        $this->assertContains(route('superadmin.revendedores'), $urls);
         $this->assertContains(route('superadmin.aparelhos-pwa'), $urls);
 
         // O menu do utilizador leva a algum lado.
