@@ -12859,5 +12859,22 @@
     "Pagamentos por confirmar": "Payments to confirm",
     ":n pagamento(s) de facturas enviado(s) por revendedores.": ":n invoice payment(s) sent by resellers.",
     "Financeiro": "Finance",
-    ":n pagamento(s) por confirmar": ":n payment(s) to confirm"
+    ":n pagamento(s) por confirmar": ":n payment(s) to confirm",
+    "Os seus dados de acesso ao portal do revendedor": "Your reseller portal sign-in details",
+    "A sua conta de revendedor do :plataforma está pronta. Estes são os seus dados para entrar e começar.": "Your :plataforma reseller account is ready. Here are your details to sign in and get started.",
+    "No Painel vê o resumo: as suas empresas, as que precisam de atenção e as comissões.": "The Dashboard shows the overview: your companies, the ones that need attention and your commissions.",
+    "Em Empresas acompanha cada cliente e, em Nova empresa, cria a conta de um cliente por ele.": "Under Companies you follow each customer and, under New company, you create an account on a customer's behalf.",
+    "Em Pagamentos paga pelo cliente: transfere o valor para a conta da plataforma, envia o comprovativo e nós confirmamos.": "Under Payments you pay for the customer: transfer the amount to the platform account, send the proof and we confirm.",
+    "Em Comissões vê o que já ganhou e o que está por pagar.": "Under Commissions you see what you have earned and what is still to be paid.",
+    "Partilhe o seu link: quem se registar por ele fica ligado a si. Quem se registar sem o link pode escrever o seu código no registo. Os planos gratuitos não passam pelo revendedor: o cliente activa-os sozinho no registo.": "Share your link: whoever signs up through it is linked to you. Anyone signing up without the link can enter your code at sign-up. Free plans do not go through the reseller: the customer activates them on their own at sign-up.",
+    "Portal": "Portal",
+    "A que lhe foi comunicada": "The one you were given",
+    "Por segurança, a senha nunca vai por email. Se não a tiver ou a quiser mudar, abra :url e peça um link para escolher uma senha nova.": "For security, passwords are never sent by email. If you do not have it or want to change it, open :url and request a link to choose a new password.",
+    "Só se enviam os dados de acesso a um revendedor aprovado.": "Sign-in details are only sent to an approved reseller.",
+    "O email não saiu. Confirme o SMTP da plataforma e tente outra vez.": "The email was not sent. Check the platform SMTP and try again.",
+    "Dados de acesso enviados para :email.": "Sign-in details sent to :email.",
+    "Enviar dados de acesso": "Send sign-in details",
+    "Enviar email": "Send email",
+    "Vai para :email um email com o endereço do portal, o email de entrada, o código, o link de afiliado, a comissão e um guia rápido do portal.": "An email goes to :email with the portal address, the sign-in email, the code, the affiliate link, the commission and a quick guide to the portal.",
+    "A senha não vai no email: se não a tiver, o revendedor escolhe outra em «Esqueci a senha».": "The password is not in the email: if the reseller does not have it, they choose a new one under “Forgot password”."
 }

@@ -340,6 +340,7 @@ Route::middleware(['auth', 'superadmin'])->prefix('api/v1/plataforma/react')->na
         Route::post('/{id}/recusar', [$c, 'recusar'])->whereNumber('id')->name('recusar');
         Route::post('/{id}/suspender', [$c, 'suspender'])->whereNumber('id')->name('suspender');
         Route::post('/{id}/reactivar', [$c, 'reactivar'])->whereNumber('id')->name('reactivar');
+        Route::post('/{id}/dados-de-acesso', [$c, 'dadosDeAcesso'])->whereNumber('id')->middleware('throttle:10,1')->name('dados-de-acesso');
         Route::post('/{id}/pagamentos', [$c, 'pagar'])->whereNumber('id')->name('pagar');
         Route::post('/{id}/comissoes/{comissao}/anular', [$c, 'anularComissao'])->whereNumber('id')->whereNumber('comissao')->name('comissoes.anular');
     });

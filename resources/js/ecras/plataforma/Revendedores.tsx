@@ -71,6 +71,8 @@ export default function Revendedores() {
 
     const reactivar = useMutation({ mutationFn: (id: number) => revendedores.reactivar(id), onSuccess: refrescar });
     const suspender = useMutation({ mutationFn: (id: number) => revendedores.suspender(id), onSuccess: () => { porASuspender(null); refrescar(); } });
+    const [aAvisar, porAAvisar] = useState<LinhaDeRevendedor | null>(null);
+    const enviarAcesso = useMutation({ mutationFn: (id: number) => revendedores.dadosDeAcesso(id), onSuccess: () => porAAvisar(null) });
 
     const c = lista.data?.contagens;
 
@@ -155,6 +157,7 @@ export default function Revendedores() {
                                                 <BotaoDeIcone icone="fa-eye" rotulo={t('Ver a ficha')} cor="text-slate-600 hover:bg-slate-100" onClick={() => porAVer(r.id)} />
                                                 {(r.estado === 'pendente' || r.estado === 'recusado') && <BotaoDeIcone icone="fa-check" rotulo={t('Aprovar')} cor="text-emerald-600 hover:bg-emerald-50" onClick={() => porAAprovar(r)} />}
                                                 {r.estado === 'pendente' && <BotaoDeIcone icone="fa-xmark" rotulo={t('Recusar')} cor="text-red-600 hover:bg-red-50" onClick={() => porARecusar(r)} />}
+                                                {r.estado === 'aprovado' && <BotaoDeIcone icone="fa-paper-plane" rotulo={t('Enviar dados de acesso')} cor="text-violet-600 hover:bg-violet-50" onClick={() => { enviarAcesso.reset(); porAAvisar(r); }} />}
                                                 {r.estado === 'aprovado' && <BotaoDeIcone icone="fa-ban" rotulo={t('Suspender')} cor="text-red-600 hover:bg-red-50" onClick={() => porASuspender(r)} />}
                                                 {r.estado === 'suspenso' && <BotaoDeIcone icone="fa-rotate-left" rotulo={t('Reactivar')} cor="text-emerald-600 hover:bg-emerald-50" desligado={reactivar.isPending} onClick={() => reactivar.mutate(r.id)} />}
                                             </div>
@@ -175,6 +178,11 @@ export default function Revendedores() {
                 aoAprovar={(r) => porAAprovar(r)} aoRecusar={(r) => porARecusar(r)} />}
             {aAprovar && opcoes.data && <Aprovar r={aAprovar} opcoes={opcoes.data} aoFechar={() => porAAprovar(null)} aoFeito={refrescar} />}
             {aRecusar && <Recusar r={aRecusar} aoFechar={() => porARecusar(null)} aoFeito={refrescar} />}
+            <Confirmar aberto={aAvisar !== null} titulo={t('Enviar dados de acesso')} subtitulo={aAvisar?.empresa ?? aAvisar?.nome} rotulo={t('Enviar email')} icone="fa-paper-plane"
+                aTrabalhar={enviarAcesso.isPending} erro={enviarAcesso.error} aoConfirmar={() => aAvisar && enviarAcesso.mutate(aAvisar.id)} aoFechar={() => porAAvisar(null)}>
+                <p>{t('Vai para :email um email com o endereço do portal, o email de entrada, o código, o link de afiliado, a comissão e um guia rápido do portal.', { email: aAvisar?.email ?? '' })}</p>
+                <p className="mt-2 text-xs text-slate-500"><i className="fas fa-lock mr-1" aria-hidden="true" />{t('A senha não vai no email: se não a tiver, o revendedor escolhe outra em «Esqueci a senha».')}</p>
+            </Confirmar>
             <Confirmar aberto={aSuspender !== null} titulo={t('Suspender revendedor')} subtitulo={aSuspender?.empresa ?? aSuspender?.nome} rotulo={t('Suspender')} icone="fa-ban"
                 aTrabalhar={suspender.isPending} erro={suspender.error} aoConfirmar={() => aSuspender && suspender.mutate(aSuspender.id)} aoFechar={() => porASuspender(null)}>
                 <p>{t('O portal fecha já, e os pagamentos das empresas dele deixam de dar comissão enquanto estiver suspenso. As empresas continuam ligadas e as comissões já feitas ficam como estão.')}</p>

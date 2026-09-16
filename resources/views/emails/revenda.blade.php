@@ -20,7 +20,7 @@
                     @foreach($dados as $rotulo => $valor)
                         <tr>
                             <td style="padding:11px 16px;color:#6b7280;font-size:12px;width:150px;{{ $loop->first ? '' : 'border-top:1px solid #e5e7eb;' }}">{{ $rotulo }}</td>
-                            <td style="padding:11px 16px;color:#111827;font-size:14px;font-weight:bold;word-break:break-all;{{ $loop->first ? '' : 'border-top:1px solid #e5e7eb;' }}">{{ $valor }}</td>
+                            <td style="padding:11px 16px;color:#111827;font-size:14px;font-weight:bold;overflow-wrap:anywhere;word-break:break-word;{{ $loop->first ? '' : 'border-top:1px solid #e5e7eb;' }}">{{ $valor }}</td>
                         </tr>
                     @endforeach
                 </table>

@@ -241,6 +241,22 @@ class RevendedoresApiController extends Controller
         return response()->json(['message' => __(':nome suspenso: o portal fechou e os pagamentos deixam de dar comissão.', ['nome' => $r->nomeVisivel()])]);
     }
 
+    /** Envia ao revendedor o email com os dados de acesso e o guia do portal. */
+    public function dadosDeAcesso(int $id): JsonResponse
+    {
+        $r = Reseller::findOrFail($id);
+
+        if (! $r->aprovado()) {
+            throw ValidationException::withMessages(['id' => __('Só se enviam os dados de acesso a um revendedor aprovado.')]);
+        }
+
+        if (! app(AvisosDaRevenda::class)->dadosDeAcesso($r)) {
+            throw ValidationException::withMessages(['id' => __('O email não saiu. Confirme o SMTP da plataforma e tente outra vez.')]);
+        }
+
+        return response()->json(['message' => __('Dados de acesso enviados para :email.', ['email' => $r->email])]);
+    }
+
     public function reactivar(int $id): JsonResponse
     {
         $r = Reseller::findOrFail($id);

@@ -265,6 +265,7 @@ export const revendedores = {
     recusar: (id: number, motivo: string) => daPlataforma.criar<Recado>(`/${id}/recusar`, { motivo }),
     suspender: (id: number) => daPlataforma.criar<Recado>(`/${id}/suspender`, {}),
     reactivar: (id: number) => daPlataforma.criar<Recado>(`/${id}/reactivar`, {}),
+    dadosDeAcesso: (id: number) => daPlataforma.criar<Recado>(`/${id}/dados-de-acesso`, {}),
     pagar: (id: number, dados: { comissoes: number[]; method: string; reference: string; paid_at: string; notes: string }) =>
         daPlataforma.criar<Recado>(`/${id}/pagamentos`, dados),
     anular: (id: number, comissao: number, motivo: string) => daPlataforma.criar<Recado>(`/${id}/comissoes/${comissao}/anular`, { motivo }),

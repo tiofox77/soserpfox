@@ -12859,5 +12859,22 @@
     "Pagamentos por confirmar": "Paiements à confirmer",
     ":n pagamento(s) de facturas enviado(s) por revendedores.": ":n paiement(s) de factures envoyé(s) par des revendeurs.",
     "Financeiro": "Finances",
-    ":n pagamento(s) por confirmar": ":n paiement(s) à confirmer"
+    ":n pagamento(s) por confirmar": ":n paiement(s) à confirmer",
+    "Os seus dados de acesso ao portal do revendedor": "Vos identifiants pour le portail revendeur",
+    "A sua conta de revendedor do :plataforma está pronta. Estes são os seus dados para entrar e começar.": "Votre compte revendeur :plataforma est prêt. Voici vos informations pour vous connecter et commencer.",
+    "No Painel vê o resumo: as suas empresas, as que precisam de atenção e as comissões.": "Le Tableau de bord affiche le résumé : vos entreprises, celles qui demandent votre attention et vos commissions.",
+    "Em Empresas acompanha cada cliente e, em Nova empresa, cria a conta de um cliente por ele.": "Dans Entreprises, vous suivez chaque client et, dans Nouvelle entreprise, vous créez le compte d’un client à sa place.",
+    "Em Pagamentos paga pelo cliente: transfere o valor para a conta da plataforma, envia o comprovativo e nós confirmamos.": "Dans Paiements, vous payez pour le client : virez le montant sur le compte de la plateforme, envoyez le justificatif et nous confirmons.",
+    "Em Comissões vê o que já ganhou e o que está por pagar.": "Dans Commissions, vous voyez ce que vous avez gagné et ce qui reste à payer.",
+    "Partilhe o seu link: quem se registar por ele fica ligado a si. Quem se registar sem o link pode escrever o seu código no registo. Os planos gratuitos não passam pelo revendedor: o cliente activa-os sozinho no registo.": "Partagez votre lien : quiconque s’inscrit par ce lien vous est rattaché. Sans le lien, on peut saisir votre code à l’inscription. Les forfaits gratuits ne passent pas par le revendeur : le client les active lui-même à l’inscription.",
+    "Portal": "Portail",
+    "A que lhe foi comunicada": "Celui qui vous a été communiqué",
+    "Por segurança, a senha nunca vai por email. Se não a tiver ou a quiser mudar, abra :url e peça um link para escolher uma senha nova.": "Par sécurité, le mot de passe n’est jamais envoyé par e-mail. Si vous ne l’avez pas ou souhaitez le changer, ouvrez :url et demandez un lien pour en choisir un nouveau.",
+    "Só se enviam os dados de acesso a um revendedor aprovado.": "Les identifiants ne sont envoyés qu’à un revendeur approuvé.",
+    "O email não saiu. Confirme o SMTP da plataforma e tente outra vez.": "L’e-mail n’est pas parti. Vérifiez le SMTP de la plateforme et réessayez.",
+    "Dados de acesso enviados para :email.": "Identifiants envoyés à :email.",
+    "Enviar dados de acesso": "Envoyer les identifiants",
+    "Enviar email": "Envoyer l’e-mail",
+    "Vai para :email um email com o endereço do portal, o email de entrada, o código, o link de afiliado, a comissão e um guia rápido do portal.": "Un e-mail part vers :email avec l’adresse du portail, l’e-mail de connexion, le code, le lien d’affiliation, la commission et un guide rapide du portail.",
+    "A senha não vai no email: se não a tiver, o revendedor escolhe outra em «Esqueci a senha».": "Le mot de passe n’est pas dans l’e-mail : s’il ne l’a pas, le revendeur en choisit un autre via « Mot de passe oublié »."
 }

@@ -96,6 +96,38 @@ class AvisosDaRevenda
         ));
     }
 
+    /**
+     * OS DADOS DE ACESSO E O GUIA DO PORTAL, a pedido do super admin. A senha
+     * nunca vai no email: só a impressão dela vive na base, e quem não a tiver
+     * escolhe outra pelo «Esqueci a senha».
+     */
+    public function dadosDeAcesso(Reseller $r): bool
+    {
+        return $this->enviar($r->email, new AvisoDaRevenda(
+            __('Os seus dados de acesso ao portal do revendedor'),
+            __('Olá, :nome', ['nome' => $r->name]),
+            [
+                __('A sua conta de revendedor do :plataforma está pronta. Estes são os seus dados para entrar e começar.', ['plataforma' => app_name()]),
+                __('No Painel vê o resumo: as suas empresas, as que precisam de atenção e as comissões.'),
+                __('Em Empresas acompanha cada cliente e, em Nova empresa, cria a conta de um cliente por ele.'),
+                __('Em Pagamentos paga pelo cliente: transfere o valor para a conta da plataforma, envia o comprovativo e nós confirmamos.'),
+                __('Em Comissões vê o que já ganhou e o que está por pagar.'),
+                __('Partilhe o seu link: quem se registar por ele fica ligado a si. Quem se registar sem o link pode escrever o seu código no registo. Os planos gratuitos não passam pelo revendedor: o cliente activa-os sozinho no registo.'),
+            ],
+            [
+                __('Portal') => route('revendedor.login'),
+                __('Entrar com') => $r->email,
+                __('Senha') => __('A que lhe foi comunicada'),
+                __('Código') => (string) $r->code,
+                __('Link de afiliado') => (string) $r->link(),
+                __('Comissão') => $r->regra()->resumo(),
+            ],
+            ['texto' => __('Entrar no portal do revendedor'), 'url' => route('revendedor.login')],
+            __('Por segurança, a senha nunca vai por email. Se não a tiver ou a quiser mudar, abra :url e peça um link para escolher uma senha nova.', ['url' => route('revendedor.esqueci')]),
+            '#059669',
+        ));
+    }
+
     public function recusado(Reseller $r): bool
     {
         return $this->enviar($r->email, new AvisoDaRevenda(

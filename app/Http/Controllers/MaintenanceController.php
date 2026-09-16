@@ -345,6 +345,9 @@ class MaintenanceController extends Controller
         // em storage/app/revenda (os dados nunca vão no endereço). A seco por
         // omissão; --aplicar grava e apaga o ficheiro.
         'revendedor:criar',
+        // Envia a um revendedor aprovado o email dos dados de acesso (pelo
+        // código, que não é dado pessoal). A seco por omissão; --enviar envia.
+        'revendedor:dados-de-acesso',
     ];
 
     /**
