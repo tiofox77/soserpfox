@@ -12804,5 +12804,9 @@
     "Código no registo": "Code at sign-up",
     "Criada pelo revendedor": "Created by the reseller",
     "Seja revendedor": "Become a reseller",
-    "Painel do Revendedor": "Reseller Dashboard"
+    "Painel do Revendedor": "Reseller Dashboard",
+    "Tem o código de um revendedor?": "Have a reseller code?",
+    "Código do revendedor (opcional)": "Reseller code (optional)",
+    "Se um revendedor o ajudou a chegar aqui, escreva o código dele: fica a acompanhar a sua conta.": "If a reseller helped you get here, enter their code: they will follow your account.",
+    "Revendedor: :nome": "Reseller: :nome"
 }

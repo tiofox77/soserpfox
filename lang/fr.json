@@ -12804,5 +12804,9 @@
     "Código no registo": "Code à l’inscription",
     "Criada pelo revendedor": "Créée par le revendeur",
     "Seja revendedor": "Devenir revendeur",
-    "Painel do Revendedor": "Tableau de bord revendeur"
+    "Painel do Revendedor": "Tableau de bord revendeur",
+    "Tem o código de um revendedor?": "Vous avez le code d’un revendeur ?",
+    "Código do revendedor (opcional)": "Code revendeur (facultatif)",
+    "Se um revendedor o ajudou a chegar aqui, escreva o código dele: fica a acompanhar a sua conta.": "Si un revendeur vous a aidé à arriver ici, saisissez son code : il suivra votre compte.",
+    "Revendedor: :nome": "Revendeur : :nome"
 }

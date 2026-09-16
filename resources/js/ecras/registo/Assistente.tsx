@@ -2,6 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 
 import { ErroDaApi, criarApi } from '@/api/cliente';
+import { revenda } from '@/api/revenda';
 import { t } from '@/i18n';
 import { FOCO, TRANSICAO, cls, kz } from '@/ui/tokens';
 
@@ -36,6 +37,8 @@ type Campos = {
     selected_plan_id: number | null;
     payment_method: string;
     payment_reference: string;
+    /** O código do revendedor (programa de revendedores) — opcional. */
+    reseller_code: string;
 };
 
 type Estado = {
@@ -48,6 +51,8 @@ type Estado = {
     planos: Plano[];
     guardado_em: string | null;
     aviso: { tipo: 'info' | 'warning'; texto: string } | null;
+    /** O revendedor do código (ou do link), quando é válido. */
+    revendedor: { codigo: string; nome: string } | null;
 };
 
 type Regime = { valor: string; rotulo: string; descricao: string; volume: string };
@@ -281,6 +286,9 @@ export default function Assistente({ estado: inicial, regimes, conta, site, entr
                                             <input type="email" className={cls(CAMPO, 'focus:border-purple-500 focus:ring-purple-500', erros.company_email && 'border-red-500')} placeholder="contato@empresa.vip" value={campos.company_email} onChange={muda('company_email')} />
                                         </Entrada>
                                     </div>
+
+                                    <CodigoDoRevendedor valor={campos.reseller_code ?? ''} inicial={estado.revendedor}
+                                        aoMudar={(v) => porCampos({ ...campos, reseller_code: v })} erro={erros.reseller_code} />
                                 </Seccao>
                             )}
 
@@ -492,6 +500,62 @@ function Seccao({ titulo, nota, largo = false, children }: { titulo: string; not
                 <p className="mt-2 text-gray-600">{nota}</p>
             </div>
             <div className="space-y-6">{children}</div>
+        </div>
+    );
+}
+
+/**
+ * O CÓDIGO DO REVENDEDOR (programa de revendedores, 16/09/2026) — opcional.
+ *
+ * Quem veio pelo link já o tem escrito. Confirma-se o nome do revendedor
+ * enquanto se escreve, para ninguém criar a conta ligada a um código errado;
+ * o servidor volta a verificá-lo no «Próximo».
+ */
+function CodigoDoRevendedor({ valor, inicial, aoMudar, erro }: {
+    valor: string; inicial: { codigo: string; nome: string } | null; aoMudar: (v: string) => void; erro?: string[];
+}) {
+    const [aberto, porAberto] = useState(valor !== '');
+    const [nome, porNome] = useState<string | null>(inicial?.codigo === valor ? inicial.nome : null);
+    const [naoExiste, porNaoExiste] = useState(false);
+
+    useEffect(() => {
+        const codigo = valor.trim();
+        porNaoExiste(false);
+        if (codigo.length < 3) { porNome(null); return; }
+        if (inicial && inicial.codigo === codigo) { porNome(inicial.nome); return; }
+
+        const espera = window.setTimeout(() => {
+            revenda.verificarCodigo(codigo)
+                .then((r) => porNome(r.nome))
+                .catch(() => { porNome(null); porNaoExiste(true); });
+        }, 450);
+
+        return () => window.clearTimeout(espera);
+    }, [valor]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    if (!aberto) {
+        return (
+            <button type="button" onClick={() => porAberto(true)} className="text-sm font-semibold text-purple-700 underline-offset-2 hover:underline">
+                <i className="fas fa-handshake mr-1.5" aria-hidden="true" />{t('Tem o código de um revendedor?')}
+            </button>
+        );
+    }
+
+    return (
+        <div className="animate-fade-in rounded-xl border-2 border-dashed border-purple-200 bg-purple-50/50 p-4">
+            <Entrada icone="fa-handshake" cor="text-purple-500" rotulo={t('Código do revendedor (opcional)')} erro={erro}
+                ajuda={t('Se um revendedor o ajudou a chegar aqui, escreva o código dele: fica a acompanhar a sua conta.')}>
+                <input className={cls(CAMPO, 'font-mono uppercase tracking-widest focus:border-purple-500 focus:ring-purple-500', (erro || naoExiste) && 'border-red-500', nome && 'border-emerald-400')}
+                    maxLength={20} placeholder="JOAO4821" value={valor} onChange={(e) => aoMudar(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} />
+            </Entrada>
+            {nome && (
+                <p className="animate-fade-in mt-2 inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-800">
+                    <i className="fas fa-circle-check" aria-hidden="true" />{t('Revendedor: :nome', { nome })}
+                </p>
+            )}
+            {naoExiste && !erro?.[0] && (
+                <p role="alert" className="animate-fade-in mt-2 text-sm text-red-600"><i className="fas fa-circle-exclamation mr-1.5" aria-hidden="true" />{t('Não encontramos nenhum revendedor com este código.')}</p>
+            )}
         </div>
     );
 }
