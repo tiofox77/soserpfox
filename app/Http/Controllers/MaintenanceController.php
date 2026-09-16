@@ -341,6 +341,10 @@ class MaintenanceController extends Controller
         // Põe a ficha de cada empresa a dizer, no mínimo, o que o plano dá.
         // Só SOBE limites, nunca desce.
         'tenants:alinhar-limites',
+        // Cria ou aprova um revendedor a pedido do dono, a partir de um ficheiro
+        // em storage/app/revenda (os dados nunca vão no endereço). A seco por
+        // omissão; --aplicar grava e apaga o ficheiro.
+        'revendedor:criar',
     ];
 
     /**
