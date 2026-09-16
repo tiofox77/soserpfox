@@ -42,9 +42,9 @@ export default function Painel() {
                             <span className="mt-2 flex flex-wrap gap-1.5">
                                 {d.oficina.estados.slice(0, 6).map((e) => (
                                     <span key={e.id} className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-1 text-xs font-semibold backdrop-blur-sm transition-colors duration-200 hover:bg-white/30" title={e.viatura}>
-                                        <i className={cls('fas', e.icone)} aria-hidden="true" />
+                                        <i className={cls('fas', e.oficina?.icone ?? e.icone)} aria-hidden="true" />
                                         <span className="font-mono">{e.matricula}</span>
-                                        <span className="text-white/90">· {e.rotulo}</span>
+                                        <span className="text-white/90">· {e.oficina?.rotulo ?? e.rotulo}</span>
                                     </span>
                                 ))}
                             </span>

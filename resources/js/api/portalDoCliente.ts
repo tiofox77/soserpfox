@@ -90,6 +90,9 @@ export type EstadoDaViatura = {
     frase: string;
 };
 
+/** O estado que a oficina pôs na viatura (o catálogo da empresa) — manda no cartão. */
+export type EstadoDaOficina = { codigo: string; rotulo: string; cor: string; icone: string };
+
 export type ViaturaDoCliente = {
     id: number;
     matricula: string;
@@ -99,6 +102,7 @@ export type ViaturaDoCliente = {
     km: number;
     na_oficina: boolean;
     documentos: Array<{ nome: string; ate: string; dias: number }>;
+    estado_oficina: EstadoDaOficina | null;
     estado: EstadoDaViatura;
     ordem: { id: number; numero: string } | null;
     revisao: { data: string | null; km: number | null; km_estimados: number; faltam_km: number | null; dias: number | null; atrasada: boolean; a_chegar: boolean; quando: string } | null;
@@ -113,7 +117,7 @@ export type ResumoDaOficina = {
     na_oficina: number;
     prontas: number;
     por_pagar: number;
-    estados: Array<{ id: number; matricula: string; viatura: string } & Pick<EstadoDaViatura, 'chave' | 'rotulo' | 'cor' | 'icone'>>;
+    estados: Array<{ id: number; matricula: string; viatura: string; oficina: EstadoDaOficina | null } & Pick<EstadoDaViatura, 'chave' | 'rotulo' | 'cor' | 'icone'>>;
 };
 
 export type ProformaDoCliente = {

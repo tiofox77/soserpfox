@@ -33,6 +33,18 @@ class PortalDaOficinaApiController extends Controller
     /** O caminho de uma ordem, pela ordem em que acontece. */
     private const ETAPAS = ['pending', 'in_progress', 'waiting_parts', 'completed', 'delivered'];
 
+    /** Um ícone para cada estado de raiz do catálogo; os que a oficina criar levam o do carro. */
+    private const ICONES = [
+        'active' => 'fa-circle-check',
+        'in_service' => 'fa-screwdriver-wrench',
+        'aguarda_orcamento' => 'fa-file-invoice-dollar',
+        'aguarda_pecas' => 'fa-boxes-stacked',
+        'pronta_entrega' => 'fa-flag-checkered',
+        'completed' => 'fa-circle-check',
+        'inactive' => 'fa-circle-pause',
+        'abatida' => 'fa-car-burst',
+    ];
+
     public function index(Request $request): JsonResponse
     {
         $cliente = $request->user('client');
@@ -90,6 +102,7 @@ class PortalDaOficinaApiController extends Controller
                 'id' => $v->id,
                 'matricula' => $v->plate,
                 'viatura' => trim("{$v->brand} {$v->model}"),
+                'oficina' => $estados[$v->id]['estado_oficina'],
             ] + array_intersect_key($estados[$v->id]['estado'], array_flip(['chave', 'rotulo', 'cor', 'icone'])))->values()->all(),
         ];
     }
@@ -131,6 +144,10 @@ class PortalDaOficinaApiController extends Controller
             ->where('tenant_id', $cliente->tenant_id)->whereIn('work_order_id', $ordens->pluck('id'))->whereNull('returned_at')
             ->get()->keyBy('work_order_id');
 
+        // O ESTADO QUE A OFICINA PÔS NA VIATURA (o catálogo da empresa) — é o que
+        // manda no cartão; o que se apura das ordens fica por baixo, em detalhe.
+        $catalogo = collect(\App\Models\Workshop\VehicleStatus::todosDe((int) $cliente->tenant_id))->keyBy('valor');
+
         $hoje = today();
         $estados = [];
 
@@ -171,7 +188,15 @@ class PortalDaOficinaApiController extends Controller
 
             $emprestimo = $aberta ? $emprestimos->get($aberta->id) : null;
 
+            $doCatalogo = $v->status ? $catalogo->get($v->status) : null;
+
             $estados[$v->id] = [
+                'estado_oficina' => $doCatalogo ? [
+                    'codigo' => $v->status,
+                    'rotulo' => __($doCatalogo['rotulo']),
+                    'cor' => $doCatalogo['cor'],
+                    'icone' => self::ICONES[$v->status] ?? 'fa-car-side',
+                ] : null,
                 'estado' => $this->estado($aberta, $aprovar !== null, $revisao, $caducados->all(), $ultima),
                 'ordem' => $aberta ? ['id' => $aberta->id, 'numero' => $aberta->order_number] : null,
                 'revisao' => $revisao,

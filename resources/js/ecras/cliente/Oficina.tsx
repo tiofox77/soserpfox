@@ -304,9 +304,27 @@ const GRAVIDADE: Record<string, string> = {
     atencao: 'bg-amber-100 text-amber-900',
 };
 
+/**
+ * As cores do CATÁLOGO DE ESTADOS da oficina (verde, azul, âmbar, laranja, teal,
+ * roxo, vermelho, cinza) no mesmo formato das de cima: o estado que a empresa pôs
+ * na viatura manda no cartão, e por isso veste-se com a cor que ela escolheu.
+ */
+const TOM_DO_CATALOGO: Record<string, (typeof TOM)['bom']> = {
+    verde: TOM.bom,
+    teal: { caixa: 'border-teal-200 bg-gradient-to-r from-teal-50 to-emerald-50', icone: 'from-teal-500 to-emerald-600', barra: 'from-teal-400 to-emerald-500', texto: 'text-teal-800' },
+    azul: TOM.primaria,
+    roxo: { caixa: 'border-purple-200 bg-gradient-to-r from-purple-50 to-fuchsia-50', icone: 'from-purple-500 to-fuchsia-600', barra: 'from-purple-400 to-fuchsia-500', texto: 'text-purple-800' },
+    ambar: TOM.aviso,
+    laranja: { caixa: 'border-orange-200 bg-gradient-to-r from-orange-50 to-amber-50', icone: 'from-orange-500 to-amber-500', barra: 'from-orange-400 to-amber-500', texto: 'text-orange-800' },
+    vermelho: TOM.perigo,
+    cinza: TOM.neutra,
+};
+
 function EstadoDoCarro({ v, aprovar }: { v: ViaturaDoCliente; aprovar: string | null }) {
     const e = v.estado;
-    const tom = TOM[e.cor] ?? TOM.neutra;
+    const daOficina = v.estado_oficina;
+    // Manda o estado que a oficina pôs na viatura; sem catálogo, o que se apura das ordens.
+    const tom = (daOficina ? TOM_DO_CATALOGO[daOficina.cor] : TOM[e.cor]) ?? TOM.neutra;
     // A barra enche depois de montar, para se ver o carro a andar no caminho.
     const [largura, porLargura] = useState(0);
     useEffect(() => {
@@ -326,12 +344,18 @@ function EstadoDoCarro({ v, aprovar }: { v: ViaturaDoCliente; aprovar: string | 
                 <div className="flex items-start gap-3">
                     <span className={cls('relative grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br text-white shadow', tom.icone)}>
                         {e.na_oficina && <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 flex h-3 w-3"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/80 motion-reduce:animate-none" /><span className="relative inline-flex h-3 w-3 rounded-full bg-white ring-2 ring-current" /></span>}
-                        <i className={cls('fas icon-float', e.icone)} aria-hidden="true" />
+                        <i className={cls('fas icon-float', daOficina?.icone ?? e.icone)} aria-hidden="true" />
                     </span>
                     <div className="min-w-0 flex-1">
                         <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">{t('Estado da viatura')}</p>
-                        <p className={cls('font-bold', tom.texto)}>{e.rotulo}</p>
-                        <p className="text-sm text-gray-700">{e.frase}</p>
+                        <p className={cls('text-lg font-bold leading-tight', tom.texto)}>{daOficina?.rotulo ?? e.rotulo}</p>
+                        {/* O detalhe: o que se apura das ordens, da revisão e dos documentos. */}
+                        <p className="text-sm text-gray-700">
+                            {/* O detalhe leva a SUA cor: um carro «Activo» com a revisão em atraso
+                                não pode ler-se como se estivesse tudo bem. */}
+                            {daOficina && <span className={cls('font-semibold', (TOM[e.cor] ?? TOM.neutra).texto)}><i className={cls('fas mr-1.5', e.icone)} aria-hidden="true" />{e.rotulo} · </span>}
+                            {e.frase}
+                        </p>
                     </div>
                 </div>
 

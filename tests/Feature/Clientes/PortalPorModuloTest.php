@@ -179,9 +179,17 @@ class PortalPorModuloTest extends TenantTestCase
         $caducada = $viatura(['inspection_expiry' => now()->subDay()]);
         $emDia = $viatura(['next_service_date' => now()->addMonths(4)]);
 
+        // O ESTADO QUE A OFICINA PÔS NA VIATURA manda no cartão; o resto é detalhe.
+        \App\Models\Workshop\VehicleStatus::garantirCatalogo($this->tenant->id);
+        Vehicle::withoutGlobalScopes()->whereKey($emReparacao->id)->update(['status' => 'aguarda_orcamento']);
+
         $this->entrar();
         $viaturas = collect($this->getJson('/client/api/oficina')->assertOk()->json('viaturas'))->keyBy('id');
         $chave = fn (Vehicle $v) => $viaturas[$v->id]['estado']['chave'];
+
+        $daOficina = $viaturas[$emReparacao->id]['estado_oficina'];
+        $this->assertSame(['aguarda_orcamento', 'Aguarda orçamento', 'ambar'], [$daOficina['codigo'], $daOficina['rotulo'], $daOficina['cor']]);
+        $this->assertSame('Activa', $viaturas[$pronta->id]['estado_oficina']['rotulo']);
 
         $this->assertSame(['em_curso', 'pronta'], [$chave($emReparacao), $chave($pronta)]);
         $this->assertSame(['OS-E-1', 50, true], [$viaturas[$emReparacao->id]['ordem']['numero'], $viaturas[$emReparacao->id]['estado']['progresso'], $viaturas[$emReparacao->id]['estado']['na_oficina']]);
@@ -196,6 +204,7 @@ class PortalPorModuloTest extends TenantTestCase
         // O início do portal leva o estado de cada carro.
         $estados = collect($this->getJson('/client/api/painel')->assertOk()->json('oficina.estados'))->keyBy('id');
         $this->assertSame(['pronta', 'Pronta a levantar'], [$estados[$pronta->id]['chave'], $estados[$pronta->id]['rotulo']]);
+        $this->assertSame('Aguarda orçamento', $estados[$emReparacao->id]['oficina']['rotulo']);
     }
 
     /**
