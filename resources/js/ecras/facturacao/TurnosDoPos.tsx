@@ -29,7 +29,7 @@ export default function TurnosDoPos() {
     const q = useQuery({ queryKey: ['turnos', 'estado'], queryFn: turnos.estado });
     const [abrirModal, porAbrirModal] = useState(false);
     const [fecharModal, porFecharModal] = useState(false);
-    const [fechado, porFechado] = useState<{ turno: Turno; tipo: TipoDeFecho } | null>(null);
+    const [fechado, porFechado] = useState<{ turno: Turno; tipo: TipoDeFecho; reimpressao?: boolean } | null>(null);
     const [recado, porRecado] = useRecadoNoCanto('');
 
     const feito = (m: string) => { porRecado(m); void cache.invalidateQueries({ queryKey: ['turnos'] }); };
@@ -44,7 +44,8 @@ export default function TurnosDoPos() {
         );
     }
 
-    const { turno, caixa } = q.data;
+    const { turno, ultimo_fechado, caixa } = q.data;
+    const reimprimir = () => ultimo_fechado && porFechado({ turno: ultimo_fechado, tipo: 'resumido', reimpressao: true });
 
     return (
         <div className="space-y-4" data-turnos>
@@ -61,6 +62,7 @@ export default function TurnosDoPos() {
                 subtitulo={t('Sistema de Caixa e Turnos')}
                 accoes={
                     <>
+                        {ultimo_fechado && <button type="button" onClick={reimprimir} className={ACCAO_DA_FAIXA}><i className="fas fa-print" aria-hidden="true" />{t('Reimprimir último fecho')}</button>}
                         <a href="/invoicing/pos/shift-history" className={ACCAO_DA_FAIXA}><i className="fas fa-clock-rotate-left" aria-hidden="true" />{t('Histórico')}</a>
                         {turno
                             ? <Botao cor="perigo" tom="solida" icone="fa-lock" onClick={() => porFecharModal(true)}>{t('Fechar turno')}</Botao>
@@ -87,7 +89,12 @@ export default function TurnosDoPos() {
                         icone="fa-cash-register"
                         titulo={t('Nenhum turno aberto')}
                         frase={t('Abra o turno com o dinheiro que está na gaveta. As vendas do POS ficam ligadas a ele até o fechar.')}
-                        accao={<Botao cor="bom" tom="solida" altura="grande" icone="fa-play" onClick={() => porAbrirModal(true)}>{t('Abrir novo turno')}</Botao>}
+                        accao={(
+                            <div className="flex flex-wrap items-center justify-center gap-2">
+                                <Botao cor="bom" tom="solida" altura="grande" icone="fa-play" onClick={() => porAbrirModal(true)}>{t('Abrir novo turno')}</Botao>
+                                {ultimo_fechado && <Botao cor="neutra" tom="suave" altura="grande" icone="fa-print" onClick={reimprimir}>{t('Reimprimir o fecho do turno :numero', { numero: ultimo_fechado.shift_number })}</Botao>}
+                            </div>
+                        )}
                     />
                 </div>
             )}
@@ -150,7 +157,7 @@ export default function TurnosDoPos() {
             {abrirModal && <AbrirTurno aoFechar={() => porAbrirModal(false)} feito={(m) => { feito(m); porAbrirModal(false); }} />}
             {fecharModal && turno && <FecharTurno turno={turno} aoFechar={() => porFecharModal(false)} feito={(t, m, tipo) => { feito(m); porFecharModal(false); porFechado({ turno: t, tipo }); }} />}
 
-            {fechado && <TurnoFechado turno={fechado.turno} tipo={fechado.tipo} aoFechar={() => porFechado(null)} />}
+            {fechado && <TurnoFechado turno={fechado.turno} tipo={fechado.tipo} reimpressao={fechado.reimpressao} aoFechar={() => porFechado(null)} />}
         </div>
     );
 }
@@ -176,12 +183,14 @@ function AbrirTurno({ aoFechar, feito }: { aoFechar: () => void; feito: (m: stri
  * O TURNO FECHADO: a conferência da caixa e, no fecho com produtos, o que se
  * vendeu artigo a artigo — com o papel no formato escolhido à frente.
  */
-function TurnoFechado({ turno, tipo, aoFechar }: { turno: Turno; tipo: TipoDeFecho; aoFechar: () => void }) {
+function TurnoFechado({ turno, tipo, reimpressao = false, aoFechar }: { turno: Turno; tipo: TipoDeFecho; reimpressao?: boolean; aoFechar: () => void }) {
     const diferenca = turno.cash_difference ?? 0;
 
     return (
-        <Modal aberto aoFechar={aoFechar} titulo={t('Turno :numero fechado', { numero: turno.shift_number })}
-            subtitulo={tipo === 'produtos' ? t('Fecho com produtos') : t('Fecho resumido')} icone="fa-lock" cor="bom"
+        <Modal aberto aoFechar={aoFechar}
+            titulo={reimpressao ? t('Reimprimir o fecho — turno :numero', { numero: turno.shift_number }) : t('Turno :numero fechado', { numero: turno.shift_number })}
+            subtitulo={reimpressao ? (turno.closed_at ? t('Fechado em :quando', { quando: turno.closed_at }) : undefined) : (tipo === 'produtos' ? t('Fecho com produtos') : t('Fecho resumido'))}
+            icone={reimpressao ? 'fa-print' : 'fa-lock'} cor="bom"
             largura={tipo === 'produtos' ? 'xl' : 'lg'} rodape={<Botao onClick={aoFechar}>{t('Fechar')}</Botao>}>
             <div className="space-y-4 text-sm text-slate-700" data-pos-fecho data-tipo-fecho={tipo}>
                 <div className="grid gap-2 sm:grid-cols-3">

@@ -24,6 +24,8 @@ class TurnosApiController extends Controller
 
         return response()->json([
             'turno' => ($turno = $t->actual()) ? $this->turno($turno, true) : null,
+            // O último fecho deste operador, para reimprimir o talão/PDF sem ir ao histórico.
+            'ultimo_fechado' => ($ultimo = $t->ultimoFechado()) ? $this->turno($ultimo, true) : null,
             'caixa' => ($caixa = $t->caixaAtribuida()) ? ['id' => $caixa->id, 'nome' => $caixa->name, 'estado' => $caixa->status] : null,
             'pode_ver_todos' => $this->veTodos($request),
         ]);

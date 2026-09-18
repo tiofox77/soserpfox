@@ -12923,5 +12923,9 @@
     "DOCUMENTOS (:n)": "DOCUMENTS (:n)",
     "Artigo sem nome": "Unnamed item",
     "Os totais por meio de pagamento e a conferência da caixa.": "Totals by payment method and the cash check.",
-    "O resumido, mais as vendas de cada produto, os totais e os documentos do turno.": "The summary, plus the sales of each product, the totals and the shift documents."
+    "O resumido, mais as vendas de cada produto, os totais e os documentos do turno.": "The summary, plus the sales of each product, the totals and the shift documents.",
+    "Reimprimir último fecho": "Reprint last closing",
+    "Reimprimir o fecho do turno :numero": "Reprint the closing of shift :numero",
+    "Reimprimir o fecho — turno :numero": "Reprint the closing — shift :numero",
+    "Fechado em :quando": "Closed on :quando"
 }

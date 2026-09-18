@@ -12923,5 +12923,9 @@
     "DOCUMENTOS (:n)": "DOCUMENTS (:n)",
     "Artigo sem nome": "Article sans nom",
     "Os totais por meio de pagamento e a conferência da caixa.": "Les totaux par moyen de paiement et le contrôle de caisse.",
-    "O resumido, mais as vendas de cada produto, os totais e os documentos do turno.": "Le résumé, plus les ventes de chaque produit, les totaux et les documents du poste."
+    "O resumido, mais as vendas de cada produto, os totais e os documentos do turno.": "Le résumé, plus les ventes de chaque produit, les totaux et les documents du poste.",
+    "Reimprimir último fecho": "Réimprimer la dernière clôture",
+    "Reimprimir o fecho do turno :numero": "Réimprimer la clôture du poste :numero",
+    "Reimprimir o fecho — turno :numero": "Réimprimer la clôture — poste :numero",
+    "Fechado em :quando": "Clôturé le :quando"
 }

@@ -45,7 +45,7 @@ export type VendasDoTurno = {
     documentos: DocumentoDoTurno[];
 };
 
-export type EstadoDoTurno = { turno: Turno | null; caixa: { id: number; nome: string; estado: string } | null; pode_ver_todos: boolean };
+export type EstadoDoTurno = { turno: Turno | null; ultimo_fechado: Turno | null; caixa: { id: number; nome: string; estado: string } | null; pode_ver_todos: boolean };
 
 type Pagina = { data: Turno[]; meta: { current_page: number; last_page: number; per_page: number; total: number }; utilizadores: Array<{ id: number; nome: string }>; pode_ver_todos: boolean };
 

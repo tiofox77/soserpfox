@@ -57,6 +57,17 @@ class TurnosDoPos
             ->first();
     }
 
+    /** O último turno que este operador fechou — para reimprimir o fecho sem ir ao histórico. */
+    public function ultimoFechado(): ?PosShift
+    {
+        return PosShift::where('tenant_id', $this->tenantId)
+            ->where('user_id', $this->userId)
+            ->where('status', 'closed')
+            ->with(['user', 'closedBy', 'transactions'])
+            ->latest('closed_at')
+            ->first();
+    }
+
     /** A caixa de tesouraria atribuída ao operador: abre e fecha com o turno. */
     public function caixaAtribuida(): ?CashRegister
     {

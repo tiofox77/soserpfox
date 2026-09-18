@@ -161,6 +161,22 @@ class FechoDeTurnoComProdutosTest extends TenantTestCase
         $this->assertStringStartsWith('%PDF', $talaoPdf->getContent());
     }
 
+    public function test_o_estado_traz_o_ultimo_fecho_para_reimprimir(): void
+    {
+        // Sem nenhum turno fechado, não há o que reimprimir.
+        $this->assertNull($this->getJson(self::RAIZ . '/turnos/estado')->assertOk()->json('ultimo_fechado'));
+
+        $this->postJson(self::RAIZ . '/turnos/abrir', ['opening_balance' => 0])->assertCreated();
+        $turno = PosShift::where('user_id', $this->user->id)->where('status', 'open')->latest('id')->firstOrFail();
+        $this->venda($turno, [[$this->pao, 2, 1000]], ['cash']);
+        $this->postJson(self::RAIZ . '/turnos/fechar', ['actual_cash' => 2280])->assertOk();
+
+        $estado = $this->getJson(self::RAIZ . '/turnos/estado')->assertOk();
+        $this->assertNull($estado->json('turno'), 'já não há turno aberto');
+        $this->assertSame($turno->shift_number, $estado->json('ultimo_fechado.shift_number'));
+        $this->assertStringContainsString('detalhe=produtos', $estado->json('ultimo_fechado.exportar.talao_produtos'));
+    }
+
     /* ─── Ferramentas ─────────────────────────────────────────────────── */
 
     private function artigo(string $nome, string $codigo): Product
