@@ -186,6 +186,9 @@ class MaintenanceController extends Controller
         // ?args=--resolver=N ou --empurrar, explícitos).
         'erros:ver',
         'sms:ver',
+        // Reconciliação da campanha (eventos Meta vs inscrições vs empresas vs
+        // 1.º uso, testes de fora). Só LÊ; não envia nada para a Meta.
+        'campanha:conversoes',
         // Facturas de subscricao duplicadas do mesmo periodo. Simulacao por
         // omissao: so trata com ?args=--aplicar. Nunca toca numa factura paga.
         'facturas:duplicadas',
