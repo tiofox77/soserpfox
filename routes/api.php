@@ -3,6 +3,13 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AGTCallbackController;
 
+Route::prefix('integrations/sossaude/v1')
+    ->middleware(['throttle:60,1', \App\Http\Middleware\AuthenticateSossaude::class])
+    ->group(function () {
+        Route::get('connection', [\App\Http\Controllers\Api\Integrations\SossaudeController::class, 'connection']);
+        Route::post('billing-drafts', [\App\Http\Controllers\Api\Integrations\SossaudeController::class, 'store']);
+    });
+
 /*
 |--------------------------------------------------------------------------
 | API Routes
