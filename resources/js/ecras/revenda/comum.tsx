@@ -77,7 +77,7 @@ export function Copiar({ texto, rotulo, className }: { texto: string; rotulo?: s
 }
 
 /**
- * O LINK DE AFILIADO — o cartão que o revendedor mostra e partilha: o link, o
+ * O LINK DO REVENDEDOR — o cartão que o revendedor mostra e partilha: o link, o
  * código, o QR, e os atalhos para o WhatsApp.
  */
 export function LinkDeAfiliado({ link, codigo, regra, compacto = false }: { link: string | null; codigo: string | null; regra?: string; compacto?: boolean }) {
@@ -93,7 +93,7 @@ export function LinkDeAfiliado({ link, codigo, regra, compacto = false }: { link
             <span aria-hidden="true" className="pointer-events-none absolute -bottom-20 left-10 h-40 w-40 rounded-full bg-emerald-300/20 blur-2xl" />
             <div className="relative flex flex-wrap items-start gap-6">
                 <div className="min-w-0 flex-1 basis-72">
-                    <p className="text-xs font-bold uppercase tracking-widest text-white/70"><i className="fas fa-link mr-1.5" aria-hidden="true" />{t('O seu link de afiliado')}</p>
+                    <p className="text-xs font-bold uppercase tracking-widest text-white/70"><i className="fas fa-link mr-1.5" aria-hidden="true" />{t('O seu link de revendedor')}</p>
                     <p className="mt-2 break-all rounded-xl bg-black/20 px-3 py-2 font-mono text-sm sm:text-base">{link}</p>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                         <Copiar texto={link} rotulo={t('Copiar link')} />
@@ -118,7 +118,7 @@ export function LinkDeAfiliado({ link, codigo, regra, compacto = false }: { link
             </div>
             {verQr && !compacto && (
                 <div className="animate-fade-in relative mt-5 flex flex-wrap items-center gap-4 rounded-xl bg-white p-4 text-gray-700">
-                    <img src="/revendedor/api/qr" alt={t('QR do link de afiliado')} className="h-40 w-40" />
+                    <img src="/revendedor/api/qr" alt={t('QR do link de revendedor')} className="h-40 w-40" />
                     <p className="max-w-sm text-sm">{t('Mostre este QR ao cliente: ao lê-lo com a câmara do telemóvel, abre o site já ligado a si. Pode também imprimi-lo com o botão direito do rato.')}</p>
                 </div>
             )}

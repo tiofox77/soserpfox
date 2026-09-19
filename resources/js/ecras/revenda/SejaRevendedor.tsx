@@ -89,7 +89,7 @@ export default function SejaRevendedor({ logo = null, nome = 'SOSERP' }: { logo?
                     {/* O cartão do link: é isto que o revendedor passa a ter. */}
                     <div className="animate-scale-in self-center">
                         <div className={cls('rotate-1 bg-white/95 p-6 text-gray-800 shadow-2xl transition-transform duration-500 hover:rotate-0', RAIO_GRANDE)}>
-                            <p className="text-xs font-bold uppercase tracking-widest text-violet-600">{t('O seu link de afiliado')}</p>
+                            <p className="text-xs font-bold uppercase tracking-widest text-violet-600">{t('O seu link de revendedor')}</p>
                             <p className="mt-2 break-all rounded-lg bg-violet-50 px-3 py-2 font-mono text-sm text-violet-900">soserp.vip/r/<b>JOAO4821</b></p>
                             <div className="mt-5 grid grid-cols-2 gap-3 text-center">
                                 {[['fa-building', t('Empresas'), 'bg-violet-50 text-violet-700'], ['fa-sack-dollar', t('Comissões'), 'bg-emerald-50 text-emerald-700']].map(([icone, rotulo, tom]) => (

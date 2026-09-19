@@ -180,7 +180,7 @@ export default function Revendedores() {
             {aRecusar && <Recusar r={aRecusar} aoFechar={() => porARecusar(null)} aoFeito={refrescar} />}
             <Confirmar aberto={aAvisar !== null} titulo={t('Enviar dados de acesso')} subtitulo={aAvisar?.empresa ?? aAvisar?.nome} rotulo={t('Enviar email')} icone="fa-paper-plane"
                 aTrabalhar={enviarAcesso.isPending} erro={enviarAcesso.error} aoConfirmar={() => aAvisar && enviarAcesso.mutate(aAvisar.id)} aoFechar={() => porAAvisar(null)}>
-                <p>{t('Vai para :email um email com o endereço do portal, o email de entrada, o código, o link de afiliado, a comissão e um guia rápido do portal.', { email: aAvisar?.email ?? '' })}</p>
+                <p>{t('Vai para :email um email com o endereço do portal, o email de entrada, o código, o link de revendedor, a comissão e um guia rápido do portal.', { email: aAvisar?.email ?? '' })}</p>
                 <p className="mt-2 text-xs text-slate-500"><i className="fas fa-lock mr-1" aria-hidden="true" />{t('A senha não vai no email: se não a tiver, o revendedor escolhe outra em «Esqueci a senha».')}</p>
             </Confirmar>
             <Confirmar aberto={aSuspender !== null} titulo={t('Suspender revendedor')} subtitulo={aSuspender?.empresa ?? aSuspender?.nome} rotulo={t('Suspender')} icone="fa-ban"
@@ -324,7 +324,7 @@ function Aprovar({ r, opcoes, aoFechar, aoFeito }: { r: LinhaDeRevendedor; opcoe
                     <p className="mb-3 font-bold text-slate-900"><i className="fas fa-percent mr-1.5 text-purple-500" aria-hidden="true" />{t('A comissão')}</p>
                     <EditorDaRegra regra={regra} porRegra={porRegra} opcoes={opcoes} erros={erros} />
                 </div>
-                <p className="text-xs text-slate-500">{t('O revendedor recebe por email o código, o link de afiliado e a comissão, e passa a poder entrar no portal.')}</p>
+                <p className="text-xs text-slate-500">{t('O revendedor recebe por email o código, o link de revendedor e a comissão, e passa a poder entrar no portal.')}</p>
             </div>
         </Modal>
     );

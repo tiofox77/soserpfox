@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 /**
  * A LIGAÇÃO DE UMA EMPRESA AO REVENDEDOR (16/09/2026, RV-05 e RV-06).
  *
- * Três caminhos: o link de afiliado (um cookie de 60 dias), o código escrito no
+ * Três caminhos: o link de revendedor (um cookie de 60 dias), o código escrito no
  * registo, e a empresa criada pelo próprio revendedor. A primeira ligação
  * fica: um link aberto depois não rouba a empresa a quem a trouxe.
  */
@@ -19,7 +19,7 @@ class LigacaoAoRevendedor
 
     public const DIAS_DO_COOKIE = 60;
 
-    public const VIAS = ['link' => 'Link de afiliado', 'codigo' => 'Código no registo', 'revendedor' => 'Criada pelo revendedor'];
+    public const VIAS = ['link' => 'Link de revendedor', 'codigo' => 'Código no registo', 'revendedor' => 'Criada pelo revendedor'];
 
     /** Um revendedor APROVADO com este código; qualquer outro não conta. */
     public static function porCodigo(?string $codigo): ?Reseller

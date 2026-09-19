@@ -51,7 +51,7 @@ class AvisosDaRevenda
             __('Olá, :nome', ['nome' => $r->name]),
             [
                 __('Obrigado pelo interesse em revender o :plataforma.', ['plataforma' => app_name()]),
-                __('Vamos analisar o seu pedido e respondemos por email. Assim que for aprovado, recebe o seu código e o link de afiliado, e pode entrar no portal do revendedor com o email e a senha que escolheu.'),
+                __('Vamos analisar o seu pedido e respondemos por email. Assim que for aprovado, recebe o seu código e o link de revendedor, e pode entrar no portal do revendedor com o email e a senha que escolheu.'),
             ],
         ));
 
@@ -86,7 +86,7 @@ class AvisosDaRevenda
             ],
             [
                 __('Código') => (string) $r->code,
-                __('Link de afiliado') => (string) $r->link(),
+                __('Link de revendedor') => (string) $r->link(),
                 __('Comissão') => $r->regra()->resumo(),
                 __('Entrar com') => $r->email,
             ],
@@ -119,7 +119,7 @@ class AvisosDaRevenda
                 __('Entrar com') => $r->email,
                 __('Senha') => __('A que lhe foi comunicada'),
                 __('Código') => (string) $r->code,
-                __('Link de afiliado') => (string) $r->link(),
+                __('Link de revendedor') => (string) $r->link(),
                 __('Comissão') => $r->regra()->resumo(),
             ],
             ['texto' => __('Entrar no portal do revendedor'), 'url' => route('revendedor.login')],
