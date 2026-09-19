@@ -46,3 +46,5 @@ A tarefa SOSSaúde comunicou aprovação de `SoserpExportTest::test_cross_app_co
 Validado: handshake, envio do snapshot para rascunho e replay da mesma chave, mantendo draft_id e draft_count=1. Runner: `C:/laragon2/www/clinica/tests/Support/soserp-peer.php`. Reproduzir no workspace clinica com SOSERP_TEST_WORKSPACE=C:/laragon2/www/soserp e `php artisan test --filter=test_cross_app_contract`.
 
 Este resultado foi comunicado pelo responsável SOSSaúde. Não cobre socket HTTP, reverse proxy, TLS, concorrência real nem publicação. O teste concorrente em processos independentes e a homologação HTTP permanecem pendentes. Emissão fiscal, pagamentos, PDFs e eventos pertencem aos contratos seguintes.
+
+Checkpoint do cliente comunicado: commit `ebd7e81` no repositório clinica, working tree limpo; 17 testes / 32 assertions, TypeScript e build aprovados. Bundle local reportado: `recovery/sossaude-code-20260919-062350.bundle`. Checkpoint de implementação SOSERP: `ce9531779cb160736d04045b24ef6a0c69bfb481`. GitHub/publicação pendentes; próxima fase aguarda orientação do utilizador.
