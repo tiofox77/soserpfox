@@ -125,6 +125,21 @@ class AssistenteDeRegisto
             $a->revendedorVeioDoLink = true;
         }
 
+        // Sem plano do link nem do progresso, usa-se o MÓDULO por onde a pessoa
+        // entrou (guardado na sessão na aterragem — ver CapturarCampanha). É a
+        // intenção mais recente; só um plano VÁLIDO para ela é que se aceita.
+        if (! $a->selected_plan_id) {
+            $doModulo = $request->session()->get('registration_plan');
+            if (is_string($doModulo) && $doModulo !== '') {
+                $plano = $a->planos()->firstWhere('slug', $doModulo);
+                if ($plano && $a->direito()->podeEscolher($plano)) {
+                    $a->selected_plan_id = $plano->id;
+                    $a->planoVeioDoLink = true;
+                }
+            }
+        }
+
+        // O Starter fica só para quem não veio de nenhum módulo nem link.
         if (! $a->selected_plan_id) {
             $a->selected_plan_id = $a->planos()->firstWhere('slug', 'starter')?->id;
         }

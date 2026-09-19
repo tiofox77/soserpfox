@@ -241,12 +241,16 @@ class RegistarEmpresa
             Log::warning('Falha ao guardar conversão de cadastro', ['erro' => $e->getMessage()]);
         }
 
+        // O event_id é DETERMINÍSTICO por empresa (não leva uuid aleatório): uma
+        // empresa criada é UMA conversão. Recarregar a página ou reenviar o
+        // pedido repete o mesmo id, e a Meta dedduplica — e um Conversions API,
+        // se um dia existir, tem de reutilizar exactamente este id.
         session()->flash('meta_registration_completed', [
-            'event_id' => 'registration-'.$tenant->id.'-'.Str::uuid(),
+            'event_id' => 'registration-'.$tenant->id,
             'plan' => $plan->slug,
             'status' => $estado,
         ]);
-        session()->forget(['registration_acquisition', 'registration_visitor_id']);
+        session()->forget(['registration_acquisition', 'registration_visitor_id', 'registration_plan']);
     }
 
     /** O email de boas-vindas: o modelo `welcome` e o SMTP da plataforma, da base de dados. */

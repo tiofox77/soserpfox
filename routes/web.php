@@ -70,7 +70,9 @@ Route::get('/sw.js', [\App\Http\Controllers\PwaController::class, 'serviceWorker
 Route::middleware(['auth'])->get('/changelog', [\App\Http\Controllers\ChangelogController::class, 'index'])->name('changelog');
 
 // Landing Page
-Route::get('/', [App\Http\Controllers\LandingController::class, 'home'])->name('landing.home');
+Route::get('/', [App\Http\Controllers\LandingController::class, 'home'])
+    ->middleware(\App\Http\Middleware\CapturarCampanha::class)
+    ->name('landing.home');
 
 // Documentos legais — públicos e sem dependências (têm de abrir mesmo a
 // alguém que ainda não é cliente, e são referenciados no registo).
@@ -96,8 +98,10 @@ Route::post('/webhooks/kiandastay/{tenant}', [\App\Http\Controllers\Webhooks\Kia
     ->where('tenant', '[0-9]+')->name('webhooks.kiandastay');
 
 // Páginas de módulos (marketing)
-Route::get('/modulos', [\App\Http\Controllers\ModulePagesController::class, 'index'])->name('modules.index');
-Route::get('/modulos/{slug}', [\App\Http\Controllers\ModulePagesController::class, 'show'])->name('modules.show');
+Route::middleware(\App\Http\Middleware\CapturarCampanha::class)->group(function () {
+    Route::get('/modulos', [\App\Http\Controllers\ModulePagesController::class, 'index'])->name('modules.index');
+    Route::get('/modulos/{slug}', [\App\Http\Controllers\ModulePagesController::class, 'show'])->name('modules.show');
+});
 Route::post('/contact', [App\Http\Controllers\ContactController::class, 'store'])->name('contact.store');
 
 // Custom Register Wizard
@@ -118,7 +122,9 @@ Route::get('/subscrever/{plan}', function (string $plan) {
 })->where('plan', '[a-z0-9-]+')->name('subscribe.plan');
 
 // O registo de uma conta nova: a página e as acções do assistente (React).
-Route::get('/register', [\App\Http\Controllers\Registo\RegistoController::class, 'index'])->name('register');
+Route::get('/register', [\App\Http\Controllers\Registo\RegistoController::class, 'index'])
+    ->middleware(\App\Http\Middleware\CapturarCampanha::class)
+    ->name('register');
 Route::prefix('register')->name('register.')->controller(\App\Http\Controllers\Registo\RegistoController::class)->group(function () {
     // COM LIMITE (auditoria de 2026-09-15): o «Próximo» diz se um email ou um
     // NIF já estão registados, e sem travão perguntava-se isso sem fim — a

@@ -29,6 +29,10 @@
     <meta name="twitter:image" content="{{ $imagemDePartilha }}">
     {{ $dadosEstruturados }}
     @include('partials.favicon')
+    {{-- Pixel Meta nas páginas dos módulos (é por elas que os anúncios entram),
+         só com consentimento de marketing — o partials.consentimento no fim
+         desta mesma casca activa-o. --}}
+    @include('partials.meta-pixel')
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     {{-- v=2: o recolector passou a medir o tempo em página e a registar
