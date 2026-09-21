@@ -2,6 +2,7 @@
 
 namespace App\Services\Invoicing;
 
+use App\Models\Invoicing\SalesInvoice;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -101,9 +102,39 @@ class SomasDasFacturas
     public static function sqlPorReceber(string $tabela): string
     {
         $semDivida = "'" . implode("', '", self::SEM_NADA_A_RECEBER) . "'";
+        $notas = self::sqlDasNotas($tabela);
 
         return "CASE WHEN COALESCE({$tabela}.invoice_type, 'FT') = 'FR'"
             . " OR {$tabela}.status IN ({$semDivida}) THEN 0"
-            . " ELSE GREATEST(COALESCE({$tabela}.total, 0) - COALESCE({$tabela}.paid_amount, 0), 0) END";
+            . " ELSE GREATEST(COALESCE({$tabela}.total, 0) - COALESCE({$tabela}.paid_amount, 0){$notas}, 0) END";
+    }
+
+    /**
+     * O QUE AS NOTAS TIRAM E PÕEM, em SQL.
+     *
+     * Traduz o `SalesInvoice::getBalanceAttribute()` — e o extracto de conta
+     * corrente, que sempre contou as duas. A nota de crédito ABATE, a de
+     * débito ACRESCE, e o que está em rascunho ou anulado não conta nem numa
+     * nem noutra.
+     *
+     * As notas apontam para facturas de VENDA: numa consulta de compras não há
+     * nada a somar, e juntar os subselects só faria a base procurar por ids que
+     * nunca lá estão.
+     *
+     * Não há aqui nada que venha do pedido — os nomes das tabelas e os estados
+     * são constantes escritas neste ficheiro.
+     */
+    private static function sqlDasNotas(string $tabela): string
+    {
+        if ($tabela !== (new SalesInvoice())->getTable()) {
+            return '';
+        }
+
+        $vivas = fn (string $a) => "{$a}.status NOT IN ('draft', 'cancelled') AND {$a}.deleted_at IS NULL";
+
+        return " - COALESCE((SELECT SUM(nc.total) FROM invoicing_credit_notes nc"
+            . " WHERE nc.invoice_id = {$tabela}.id AND " . $vivas('nc') . "), 0)"
+            . " + COALESCE((SELECT SUM(nd.total) FROM invoicing_debit_notes nd"
+            . " WHERE nd.invoice_id = {$tabela}.id AND " . $vivas('nd') . "), 0)";
     }
 }

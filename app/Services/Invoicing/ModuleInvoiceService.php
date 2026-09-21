@@ -54,6 +54,7 @@ class ModuleInvoiceService
      *   warehouse_id?:        int|null,
      *   invoice_type?:        string,   // FT (por omissão) ou FR
      *   status?:              string,   // draft|sent|paid — por omissão 'sent'
+     *   pago?:                float,    // quanto já foi pago; sem isto, 'paid' = o total
      *   discount_commercial?: float,
      *   discount_financial?:  float,
      *   retencao_irt?:        bool,     // adquirente retém 6,5% sobre serviços
@@ -217,6 +218,27 @@ class ModuleInvoiceService
             $invoice->tax_amount = $impostoTotal;
             $invoice->irt_amount = $irt;
             $invoice->total      = $incidencia + $impostoTotal - $irt;
+
+            /*
+             * QUEM DIZ QUE ESTÁ PAGO TEM DE DIZER QUANTO.
+             *
+             * Escrevia-se `status = 'paid'` e deixava-se o `paid_amount` a
+             * zero. Nesta casa o saldo é `total - paid_amount`, e quem lê o
+             * saldo não olha para o estado: a conta de restaurante paga em
+             * dinheiro, o sinal do hotel e o fecho de estada ficavam com o
+             * valor inteiro por receber.
+             *
+             * O pior não era o número no painel — era o ecrã dos Recibos, que
+             * oferece as facturas com saldo e não exclui as pagas: o sinal que
+             * o hóspede já tinha entregue aparecia ali à espera de ser cobrado
+             * outra vez.
+             *
+             * `pago` deixa o chamador dizer o valor exacto (um fecho de estada
+             * recebido em parte); sem ele, «pago» quer dizer o total.
+             */
+            $invoice->paid_amount = isset($dados['pago'])
+                ? round((float) $dados['pago'], 2)
+                : ($status === 'paid' ? $invoice->total : 0);
 
             // Campos SAFT-AO. Têm default 0.00 (não NULL): se não forem
             // preenchidos, o `??` dos serviços AGT/QR nunca cai no fallback e o

@@ -342,6 +342,41 @@ class SalesInvoice extends Model
     }
 
     /**
+     * As duas notas na mesma consulta, para quem lê o SALDO de várias
+     * facturas seguidas. Sem isto, cada linha de um mapa de dívida faz duas
+     * consultas suas — ver a nota do `porCreditar`.
+     */
+    public function scopeComNotas($query)
+    {
+        return $query->withSum([
+            'creditNotes as creditado_total' => fn ($q) => $q->whereNotIn('status', ['draft', 'cancelled']),
+        ], 'total')->withSum([
+            'debitNotes as debitado_total' => fn ($q) => $q->whereNotIn('status', ['draft', 'cancelled']),
+        ], 'total');
+    }
+
+    /**
+     * O que as notas já mudaram nesta factura: o que se anulou e o que se
+     * acrescentou. Usa o que veio na consulta quando veio.
+     *
+     * @return array{0: float, 1: float}
+     */
+    public function efeitoDasNotas(): array
+    {
+        $creditado = array_key_exists('creditado_total', $this->getAttributes())
+            ? (float) $this->creditado_total
+            : (float) CreditNote::where('invoice_id', $this->id)
+                ->whereNotIn('status', ['draft', 'cancelled'])->sum('total');
+
+        $debitado = array_key_exists('debitado_total', $this->getAttributes())
+            ? (float) $this->debitado_total
+            : (float) DebitNote::where('invoice_id', $this->id)
+                ->whereNotIn('status', ['draft', 'cancelled'])->sum('total');
+
+        return [round($creditado, 2), round($debitado, 2)];
+    }
+
+    /**
      * Quanto desta factura ainda se pode anular por nota de crédito.
      *
      * FONTE ÚNICA. A pergunta «esta factura ainda dá para creditar?» aparece em
@@ -424,9 +459,27 @@ class SalesInvoice extends Model
         $this->save();
     }
 
+    /**
+     * O QUE ESTA FACTURA AINDA DEVE — notas incluídas.
+     *
+     * Era só `total - paid_amount`, e as notas ficavam de fora das duas
+     * pontas: creditar metade de uma factura não lhe tirava um cêntimo à
+     * dívida, e uma nota de DÉBITO não lhe acrescentava nada — o
+     * `DebitNote::updateInvoiceBalance()` somava as notas e deitava fora o
+     * resultado.
+     *
+     * O extracto de conta corrente sempre contou as duas (ver a
+     * `ContaCorrenteQuery`): a dívida do mesmo cliente dava dois números
+     * conforme o ecrã que se abrisse. Agora dá um.
+     */
     public function getBalanceAttribute()
     {
-        return $this->total - ($this->paid_amount ?? 0);
+        [$creditado, $debitado] = $this->efeitoDasNotas();
+
+        return max(0, round(
+            (float) $this->total - (float) ($this->paid_amount ?? 0) - $creditado + $debitado,
+            2,
+        ));
     }
 
     public function getStatusLabelAttribute()

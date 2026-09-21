@@ -12,6 +12,7 @@ use App\Models\Invoicing\LineTax;
 use App\Models\Invoicing\PosShift;
 use App\Models\Invoicing\SalesInvoice;
 use App\Models\Product;
+use App\Models\Treasury\Transaction;
 use App\Services\AGT\AutoSubmissao;
 use DomainException;
 use Illuminate\Support\Collection;
@@ -256,28 +257,104 @@ class EmissorDeNotas
     }
 
     /**
-     * A DEVOLUÇÃO NO TURNO DE QUEM A FEZ.
+     * A DEVOLUÇÃO — na tesouraria E no turno, pelo mesmo valor.
      *
-     * Quem tem turno aberto é o caixa, e o dinheiro que devolve sai da gaveta
-     * dele — como a venda já entrava por `PosSaleService::linkToOpenShift`. Sem
-     * isto, o turno só sabia de facturas: 1177 movimentos gravados, todos
-     * `invoice`, e nem um a dizer que saiu dinheiro. O «Dinheiro Esperado»
-     * ficava alto e o operador fechava o turno com uma falta que não era dele.
+     * Duas coisas estavam erradas, e eram a mesma:
+     *
+     *  · O TURNO baixava a gaveta e a TESOURARIA não sabia de nada. O fecho de
+     *    caixa contava com menos dinheiro e o saldo da caixa continuava alto:
+     *    dois números para a mesma gaveta.
+     *
+     *  · DEVOLVIA-SE SEMPRE, mesmo o que nunca foi pago. Anular uma factura a
+     *    prazo que ninguém pagou tirava dinheiro do esperado, e o operador
+     *    fechava o turno com um excesso que não era dele.
+     *
+     * Devolve-se O QUE FOI RECEBIDO e mais nada: o pago da factura, menos o
+     * que outras notas da mesma factura já devolveram. Anular uma factura por
+     * pagar não mexe num cêntimo.
      *
      * BEST-EFFORT, e depois do commit: a nota já está emitida e assinada, e uma
-     * falha a escrever no turno não a pode desfazer. Sem turno aberto não há
-     * gaveta — a nota fica só nos documentos, que é onde ela sempre esteve.
+     * falha a lançar o dinheiro não a pode desfazer.
      */
     private function ligarAoTurnoAberto(CreditNote $nota, int $tenantId): void
     {
         try {
-            PosShift::abertoDe($tenantId, auth()->id())?->registarNotaDeCredito($nota);
+            $devolvido = $this->quantoSeDevolve($nota, $tenantId);
+
+            if ($devolvido <= 0) {
+                return;
+            }
+
+            $numero = $nota->credit_note_number ?: ('#' . $nota->id);
+
+            app(LancamentoDeDinheiro::class)->lancar($nota, [
+                'valor' => $devolvido,
+                'forma' => $this->formaDaDevolucao($nota, $tenantId),
+                'sentido' => 'expense',
+                'categoria' => 'credit_note',
+                'data' => $nota->issue_date,
+                'invoice_id' => $nota->invoice_id,
+                'referencia' => $numero,
+                'descricao' => __('Devolução :nota', ['nota' => $numero]),
+                'turno' => [
+                    'type' => 'credit_note',
+                    'reference_number' => $nota->credit_note_number,
+                    'metadata' => [
+                        'invoice_id' => $nota->invoice_id,
+                        'invoice_number' => $nota->invoice?->invoice_number,
+                    ],
+                ],
+            ], auth()->id());
         } catch (\Throwable $e) {
-            Log::warning('EmissorDeNotas: falha ao registar a devolução no turno', [
+            Log::warning('EmissorDeNotas: falha ao lançar a devolução', [
                 'nota' => $nota->credit_note_number,
                 'erro' => $e->getMessage(),
             ]);
         }
+    }
+
+    /**
+     * O que há mesmo para devolver: o que a factura recebeu, menos o que já
+     * foi devolvido por outras notas dela.
+     */
+    private function quantoSeDevolve(CreditNote $nota, int $tenantId): float
+    {
+        $factura = $nota->invoice;
+
+        if (! $factura) {
+            return 0.0;
+        }
+
+        $jaDevolvido = (float) Transaction::withoutGlobalScopes()
+            ->where('tenant_id', $tenantId)
+            ->where('related_type', CreditNote::class)
+            ->where('invoice_id', $factura->id)
+            ->sum('amount');
+
+        $porDevolver = round((float) $factura->paid_amount - $jaDevolvido, 2);
+
+        return round(max(0, min((float) $nota->total, $porDevolver)), 2);
+    }
+
+    /**
+     * O MEIO DE PAGAMENTO É O DA VENDA e não uma escolha nova: o dinheiro
+     * volta pelo caminho por onde veio. Vem do movimento do turno que registou
+     * a venda (o mais fiável — foi esta gaveta que o recebeu), depois do que
+     * ficou gravado na factura, e, quando nenhum dos dois se sabe, `other` —
+     * que não mexe na contagem da gaveta. Não saber é razão para não tocar no
+     * dinheiro esperado, não para adivinhar.
+     */
+    private function formaDaDevolucao(CreditNote $nota, int $tenantId): string
+    {
+        $factura = $nota->invoice;
+        $turno = PosShift::abertoDe($tenantId, auth()->id());
+
+        $daVenda = ($turno && $factura)
+            ? $turno->transactions()->where('type', 'invoice')
+                ->where('reference_id', $factura->id)->value('payment_method')
+            : null;
+
+        return (string) ($daVenda ?: ($factura?->payment_method ?: 'other'));
     }
 
     /* ─── Nota de débito ──────────────────────────────────────────────── */

@@ -14,6 +14,7 @@ use App\Models\Treasury\CashRegister;
 use App\Models\Treasury\PaymentMethod;
 use App\Models\Treasury\Transaction;
 use App\Models\Invoicing\PosShift;
+use Illuminate\Support\Facades\Log;
 use App\Services\Invoicing\ModuleInvoiceService;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -196,5 +197,43 @@ class RestaurantCheckoutService
             'reference' => $invoice->invoice_number, 'description' => 'Recebimento Restaurante - '.$invoice->invoice_number,
             'status' => 'completed', 'is_reconciled' => false,
         ]);
+
+        $this->registarNoTurno($invoice, $method, (float) $data['amount'], $tenantId, $userId);
+    }
+
+    /**
+     * O RESTAURANTE TEM DE CONTAR NO FECHO DE CAIXA.
+     *
+     * Este serviço EXIGE turno aberto logo à entrada (ver o `processCheckout`)
+     * e depois nunca lá escrevia nada. Uma casa vendia a noite inteira e o
+     * fecho de turno dava zero: o dinheiro estava na tesouraria e a gaveta não
+     * contava com ele — quem fechava o caixa encontrava um excesso do tamanho
+     * da noite toda.
+     *
+     * BEST-EFFORT: a conta já está facturada e cobrada, e uma falha a escrever
+     * no turno não pode desfazer isso.
+     */
+    private function registarNoTurno($invoice, PaymentMethod $method, float $valor, int $tenantId, ?int $userId): void
+    {
+        try {
+            PosShift::abertoDe($tenantId, $userId)?->addTransaction([
+                'type' => 'invoice',
+                'reference_type' => \App\Models\Invoicing\SalesInvoice::class,
+                'reference_id' => $invoice->id,
+                'reference_number' => $invoice->invoice_number,
+                // O CÓDIGO do método, não o nome: é por ele que o turno decide
+                // se o valor entra na gaveta ou não (ver `recalculateTotals`),
+                // e um nome que o cliente renomeou cai no balde «outros».
+                'payment_method' => (string) ($method->code ?: $method->type),
+                'amount' => $valor,
+                'description' => 'Restaurante — '.$invoice->invoice_number,
+                'metadata' => ['origem' => 'restaurant'],
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Restaurante: falha ao registar a venda no turno', [
+                'factura' => $invoice->invoice_number,
+                'erro' => $e->getMessage(),
+            ]);
+        }
     }
 }

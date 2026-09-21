@@ -20,6 +20,33 @@ class DadosEstruturadosTest extends TestCase
 {
     use DatabaseTransactions;
 
+    /**
+     * ESTE ENSAIO SEMEIA OS SEUS PRÓPRIOS PLANOS.
+     *
+     * Vivia à custa do que estivesse na base: com planos públicos passava, sem
+     * eles a página não tinha `offers` e o ensaio rebentava em «Undefined array
+     * key». E as bases dos processos paralelos nascem SÓ COM O ESQUEMA (ver o
+     * `scripts/prepare_test_db.php`) — portanto sem plano nenhum. Resultado:
+     * verde em sequencial, vermelho em paralelo, sempre, e uma falha que toda
+     * a gente aprendia a ignorar.
+     *
+     * Um ensaio traz o que precisa.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        if (Plan::publico()->doesntExist()) {
+            Plan::create([
+                'name' => 'Plano de Ensaio', 'slug' => 'ensaio-' . uniqid(),
+                'description' => 'Semeado pelo ensaio dos dados estruturados.',
+                'price_monthly' => 25000, 'price_yearly' => 250000,
+                'trial_days' => 0, 'max_users' => 5, 'max_companies' => 1,
+                'is_active' => true, 'is_public' => true, 'order' => 1,
+            ]);
+        }
+    }
+
     /** Todos os nós de todos os blocos JSON-LD da página — e cada bloco tem de ser JSON válido. */
     private function nos(TestResponse $r): array
     {

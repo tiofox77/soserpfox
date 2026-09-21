@@ -32,6 +32,7 @@ class EmissorDeAdiantamentos
         'multicaixa' => 'Multicaixa',
         'tpa' => 'TPA',
         'check' => 'Cheque',
+        'card' => 'Cartão',
         'mbway' => 'MB Way',
         'other' => 'Outro',
     ];
@@ -50,7 +51,7 @@ class EmissorDeAdiantamentos
 
     public function criar(array $d, int $tenantId, ?int $autorId): Advance
     {
-        return Advance::create([
+        $adiantamento = Advance::create([
             'tenant_id' => $tenantId,
             'type' => 'sale',
             'client_id' => $d['client_id'],
@@ -62,6 +63,10 @@ class EmissorDeAdiantamentos
             'status' => 'available',
             'created_by' => $autorId,
         ]);
+
+        $this->lancarNaTesouraria($adiantamento, $autorId);
+
+        return $adiantamento;
     }
 
     /** @throws DomainException quando já foi usado */
@@ -81,6 +86,42 @@ class EmissorDeAdiantamentos
             'notes' => $d['notes'] ?? null,
         ]);
 
+        // O VALOR MUDOU: o movimento antigo deixa de valer. Desfaz-se pelo
+        // caminho certo — devolvendo o valor ao saldo da caixa — e lança-se o
+        // novo. Só se chega aqui com o adiantamento por usar.
+        app(LancamentoDeDinheiro::class)->estornar($a);
+        $this->lancarNaTesouraria($a->fresh(), $a->created_by);
+
         return $a;
+    }
+
+    /**
+     * O DINHEIRO DO ADIANTAMENTO EXISTE.
+     *
+     * O adiantamento é dinheiro que o cliente entregou — muitas vezes em mão,
+     * ao balcão. Gravava-se o documento e o valor não aparecia na tesouraria,
+     * na gaveta nem no fecho de turno: a empresa tinha o dinheiro e os livros
+     * não sabiam dele.
+     *
+     * Pela mesma porta que o recibo usa, e com a data do adiantamento — não a
+     * de agora.
+     */
+    private function lancarNaTesouraria(Advance $a, ?int $userId): void
+    {
+        $numero = $a->advance_number ?: ('#' . $a->id);
+
+        app(LancamentoDeDinheiro::class)->lancar($a, [
+            'valor' => (float) $a->amount,
+            'forma' => (string) $a->payment_method,
+            'sentido' => 'income',
+            'categoria' => 'customer_payment',
+            'data' => $a->payment_date,
+            'referencia' => 'Adiantamento ' . $numero,
+            'descricao' => __('Adiantamento :n', ['n' => $numero])
+                . ($a->purpose ? ' — ' . $a->purpose : ''),
+            'notas' => $a->notes,
+            // Entra ao balcão como qualquer recebimento: conta no fecho.
+            'turno' => ['type' => 'receipt', 'reference_number' => $a->advance_number],
+        ], $userId);
     }
 }

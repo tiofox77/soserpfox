@@ -55,10 +55,15 @@ class RegistoDePagamento
         'cash' => ['CASH', 'Dinheiro', 'cash'],
         'transfer' => ['TRANSFER', 'Transferência Bancária', 'bank_transfer'],
         'multicaixa' => ['MULTICAIXA', 'Multicaixa', 'card'],
+        // `mcx` e `mobile` são os códigos que o balcão grava nos documentos.
+        // Sem entrada aqui, um recibo sobre uma venda feita com eles caía no
+        // `cash` por omissão e o valor entrava na GAVETA.
+        'mcx' => ['MULTICAIXA', 'Multicaixa', 'card'],
         'card' => ['CARD', 'Cartão', 'card'],
         'tpa' => ['TPA', 'TPA', 'card'],
         'check' => ['CHECK', 'Cheque', 'check'],
         'mbway' => ['MBWAY', 'MB Way', 'digital_wallet'],
+        'mobile' => ['MBWAY', 'MB Way', 'digital_wallet'],
         'other' => ['OTHER', 'Outro', 'other'],
     ];
 

@@ -179,6 +179,18 @@ class Receipt extends Model
 
         static::deleted(function ($receipt) {
             $receipt->lancarNaFactura($receipt->documentoPago(), -$receipt->valorQueConta());
+
+            /*
+             * E O DINHEIRO SAI DA TESOURARIA.
+             *
+             * Apagar um recibo desfazia o pagamento na factura e deixava o
+             * movimento de tesouraria para trás: a dívida voltava a existir e
+             * a gaveta continuava a contar com dinheiro que ninguém recebeu.
+             * O estorno devolve o valor ao saldo da caixa ou da conta antes de
+             * apagar o movimento — apagá-lo por baixo deixava os saldos
+             * errados para sempre.
+             */
+            app(\App\Services\Invoicing\LancamentoDeDinheiro::class)->estornar($receipt);
         });
 
         static::updated(function ($receipt) {

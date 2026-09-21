@@ -23,11 +23,26 @@ class QuadroDeTrabalhoTest extends TenantTestCase
         $this->comModulo('oficina');
     }
 
+    /**
+     * SÓ LETRAS NOS IDENTIFICADORES, e não é um capricho.
+     *
+     * A matrícula era `LDA-{10..99}-{10..99}-QT` e o número da ordem levava
+     * cinco caracteres de um `uniqid()` — que é hexadecimal, e portanto tem
+     * dígitos. A procura do quadro varre a matrícula e o número da ordem, e o
+     * ensaio procura «42»: de vez em quando um dos identificadores aleatórios
+     * continha mesmo «42» e vinha uma ordem a mais. Dava uma falha em cada
+     * sete corridas, sempre noutro sítio, sem nada a ver com o código.
+     */
+    private function semDigitos(int $quantos = 5): string
+    {
+        return substr(str_shuffle(str_repeat('ABCDEFGHJKLMNPRSTUVWXYZ', 2)), 0, $quantos);
+    }
+
     private function ordem(array $campos = [], array $viatura = []): WorkOrder
     {
-        $v = Vehicle::create(array_merge(['plate' => 'LDA-' . random_int(10, 99) . '-' . random_int(10, 99) . '-QT', 'vehicle_number' => 'VEH-' . substr(uniqid(), -5), 'owner_name' => 'Dono', 'brand' => 'Toyota', 'model' => 'Hilux', 'status' => 'active'], $viatura));
+        $v = Vehicle::create(array_merge(['plate' => 'LDA-' . $this->semDigitos(2) . '-' . $this->semDigitos(2) . '-QT', 'vehicle_number' => 'VEH-' . $this->semDigitos(), 'owner_name' => 'Dono', 'brand' => 'Toyota', 'model' => 'Hilux', 'status' => 'active'], $viatura));
 
-        return WorkOrder::create(array_merge(['order_number' => 'OS-QT-' . substr(uniqid(), -5), 'vehicle_id' => $v->id, 'received_at' => now()->subHours(3), 'problem_description' => 'x', 'status' => 'pending', 'priority' => 'normal'], $campos));
+        return WorkOrder::create(array_merge(['order_number' => 'OS-QT-' . $this->semDigitos(), 'vehicle_id' => $v->id, 'received_at' => now()->subHours(3), 'problem_description' => 'x', 'status' => 'pending', 'priority' => 'normal'], $campos));
     }
 
     public function test_as_colunas_trazem_as_ordens_abertas_e_as_entregues_da_semana(): void

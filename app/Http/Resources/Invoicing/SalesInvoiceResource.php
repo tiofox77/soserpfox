@@ -133,7 +133,12 @@ class SalesInvoiceResource extends JsonResource
             return 0.0;
         }
 
-        return max(0.0, round((float) $this->total - (float) $this->paid_amount, 2));
+        // As notas contam: a de crédito abate, a de débito acresce. É a mesma
+        // regra do `SalesInvoice::getBalanceAttribute()` e do
+        // `SomasDasFacturas::sqlPorReceber` — se um dia um deles mudar sem os
+        // outros, o ensaio que compara a soma do cartão com a soma das linhas
+        // cai, que é para isso que ele existe.
+        return (float) $this->resource->balance;
     }
 
     /** @return array{natureza: string, estado: ?string, rotulo: string, cor: string, comunicada: bool} */

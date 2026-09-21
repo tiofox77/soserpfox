@@ -115,10 +115,24 @@ class ReciboApiController extends Controller
 
         $compra = $dados['tipo'] === 'purchase';
 
+        /*
+         * O QUE FALTA RECEBER É UMA REGRA SÓ.
+         *
+         * Escrevia-se aqui à mão — `total - paid_amount` — e ficava de fora
+         * tudo o que as notas mudam: uma factura creditada em metade aparecia
+         * inteira, e a acrescentada por nota de débito aparecia a menos. Pior:
+         * o estado `paid` não estava excluído, e uma factura já paga (o sinal
+         * do hotel) oferecia-se para ser cobrada outra vez.
+         */
+        $tabela = $compra ? (new PurchaseInvoice())->getTable() : (new SalesInvoice())->getTable();
+        $falta = \App\Services\Invoicing\SomasDasFacturas::sqlPorReceber($tabela);
+
         $query = ($compra ? PurchaseInvoice::query() : SalesInvoice::query())
             ->where('tenant_id', activeTenantId())
-            ->whereNotIn('status', ['draft', 'cancelled', 'credited'])
-            ->whereRaw('COALESCE(total, 0) - COALESCE(paid_amount, 0) > 0.01');
+            ->whereRaw("({$falta}) > 0.01")
+            // As notas na mesma consulta: sem isto, cada linha da lista faz
+            // duas consultas suas para saber o seu próprio saldo.
+            ->when(! $compra, fn ($q) => $q->comNotas());
 
         if (! empty($dados['parte_id'])) {
             $query->where($compra ? 'supplier_id' : 'client_id', $dados['parte_id']);
@@ -139,7 +153,10 @@ class ReciboApiController extends Controller
                 'data' => optional($f->invoice_date)->toDateString(),
                 'total' => round((float) $f->total, 2),
                 'pago' => round((float) $f->paid_amount, 2),
-                'falta' => max(0, round((float) $f->total - (float) $f->paid_amount, 2)),
+                // O saldo do modelo já conta as notas — ver `getBalanceAttribute`.
+                'falta' => $compra
+                    ? max(0, round((float) $f->total - (float) $f->paid_amount, 2))
+                    : round((float) $f->balance, 2),
             ])->values(),
         ]);
     }
@@ -176,7 +193,12 @@ class ReciboApiController extends Controller
 
             abort_unless($factura, 422, __('Factura não encontrada nesta empresa.'));
 
-            $falta = max(0, round((float) $factura->total - (float) $factura->paid_amount, 2));
+            // O TRAVÃO CONTA AS NOTAS. Uma factura de 10.000 creditada em
+            // 6.000 só tem 4.000 por receber, e era pelos 10.000 que o travão
+            // deixava passar — o recibo punha a factura a pagamento a mais.
+            $falta = $venda
+                ? round((float) $factura->balance, 2)
+                : max(0, round((float) $factura->total - (float) $factura->paid_amount, 2));
 
             if (round((float) $dados['amount_paid'], 2) > $falta + 0.01) {
                 return response()->json([
