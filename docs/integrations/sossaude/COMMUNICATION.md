@@ -89,3 +89,30 @@ facturas, ao `paid_amount` e ao lançamento de dinheiro não lhe chegam.
    registado acima.
 
 Nada foi empurrado, publicado nem deployado nesta sessão.
+
+## Publicação em GitHub — 2026-09-21 (sessão Claude, SOSERP)
+
+Por ordem expressa do utilizador, o ramo `react/facturacao` foi empurrado para
+`origin` (`github.com/tiofox77/soserpfox`): 575 commits, incluindo `ce953177` e
+`db8cb9aa`. **Isto altera o que estava registado acima**, onde constava «sem push
+ou deploy» — o código da ponte deixou de estar só nas duas máquinas.
+
+**AVISO AO RESPONSÁVEL DA PONTE, e é o ponto importante: o repositório é
+PÚBLICO** (`private: false`). Não era o previsto: o `RECOVERY.md` do lado
+SOSSaúde exige repositório privado. O código da ponte — controlador, middleware,
+migração, comando de credenciais e ensaios — está agora legível por qualquer
+pessoa. Não foram publicados segredos novos: a verificação do delta encontrou
+apenas credenciais sintéticas de ensaio (`bancada:pwa` recusa-se a correr fora de
+`local` e não está na lista de comandos de manutenção; `pwa_android.mjs` aponta
+para `localhost`), sem dumps, `.env` nem dados reais.
+
+O que **já estava** público antes deste push, desde 13 de Agosto, e continua a
+exigir rotação urgente pelo utilizador: o token de manutenção de produção
+(`config/maintenance.php`, valor literal como recurso do `env()`), as credenciais
+FTP de `soserp.vip` e as credenciais da base de dados de produção
+(`scripts/*.ps1`). Tornar o repositório privado não desfaz o que já foi lido.
+
+Nada foi deployado. A produção continua sem nenhuma das alterações de tesouraria
+desta sessão; foi tirado um instantâneo dos ficheiros a tocar
+(`recovery/pre-deploy/`, fora do git) e confirmado que a produção está idêntica à
+base anterior ao trabalho — nenhuma mão alheia no servidor.
