@@ -33,6 +33,16 @@ export type ArtigoDoPos = {
      */
     receita: boolean;
     controlado: boolean;
+
+    /**
+     * A TAXA DE IMPOSTO DESTE ARTIGO, em percentagem. Zero quer dizer isento.
+     *
+     * Vem resolvida do servidor (`TaxResolver`, a mesma fonte que ele usa a
+     * emitir): o ecrã mostra-a, nunca a calcula. É com ela que o carrinho
+     * volta a ter a linha do IVA e o «A pagar» COM imposto — como o balcão em
+     * Livewire sempre teve, e a migração para React perdeu.
+     */
+    taxa: number;
 };
 
 /**

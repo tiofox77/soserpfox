@@ -12937,5 +12937,8 @@
     "As caixas do balcão e quem as opera": "Les caisses du comptoir et qui les tient",
     "Nova Caixa": "Nouvelle Caisse",
     "A caixa está aberta. Feche o turno primeiro.": "La caisse est ouverte. Fermez d'abord le poste.",
-    "Já existe uma caixa com esse código.": "Une caisse avec ce code existe déjà."
+    "Já existe uma caixa com esse código.": "Une caisse avec ce code existe déjà.",
+    "IVA (:taxa%)": "TVA (:taxa%)",
+    ":n peças no carrinho": ":n articles dans le panier",
+    "O imposto é o da ficha de cada artigo; o servidor confirma-o ao emitir.": "La taxe vient de la fiche de chaque article; le serveur la confirme à l’émission."
 }

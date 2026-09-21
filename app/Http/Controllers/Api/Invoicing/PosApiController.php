@@ -402,7 +402,7 @@ class PosApiController extends Controller
                    AND s.warehouse_id = ' . (int) $armazemId . ')'
             : 'invoicing_products.stock_quantity';
 
-        $q = Product::where('invoicing_products.tenant_id', $tenantId)
+        $q = Product::with('taxRate')->where('invoicing_products.tenant_id', $tenantId)
             ->where('invoicing_products.is_active', true)
             /*
              * ARTIGOS DE UM MÓDULO DE NEGÓCIO NÃO SE VENDEM AQUI.
@@ -492,9 +492,35 @@ class PosApiController extends Controller
                      */
                     'receita' => (bool) $p->requires_prescription,
                     'controlado' => (bool) $p->is_controlled,
+
+                    /*
+                     * A TAXA DE IMPOSTO DO ARTIGO.
+                     *
+                     * O balcão precisa dela para mostrar a linha do IVA e o
+                     * total COM imposto — como o POS em Livewire sempre fez, e
+                     * como a migração para React perdeu em 07/09/2026: o ecrã
+                     * passou a mostrar a base com o rótulo «A pagar», e o
+                     * operador dizia ao cliente um valor que a factura não ia
+                     * ter (o imposto é somado POR CIMA do preço).
+                     *
+                     * Sai do `TaxResolver`, que é a MESMA fonte que o servidor
+                     * usa a emitir: o ecrã não calcula taxa nenhuma por sua
+                     * conta, só mostra a que lhe dizem. Quem manda continua a
+                     * ser o servidor no momento da emissão.
+                     */
+                    'taxa' => $this->taxaDoArtigo($p),
                 ];
             })->values(),
         ]);
+    }
+
+    /**
+     * A taxa que esta linha vai levar, em percentagem. Zero quer dizer isento
+     * — e é isso que o balcão mostra, por extenso, em vez de se calar.
+     */
+    private function taxaDoArtigo(?\App\Models\Product $p): float
+    {
+        return round((float) (\App\Services\Invoicing\TaxResolver::forProduct($p)['rate'] ?? 0), 2);
     }
 
     /**
@@ -527,7 +553,7 @@ class PosApiController extends Controller
      */
     private function servicosDoSalao(int $tenantId, array $filtros): JsonResponse
     {
-        $q = \App\Models\Salon\Service::where('tenant_id', $tenantId)->where('is_active', true);
+        $q = \App\Models\Salon\Service::with('taxRate')->where('tenant_id', $tenantId)->where('is_active', true);
 
         if ($procura = ($filtros['procura'] ?? null)) {
             $q->where(fn ($w) => $w->where('name', 'like', "%{$procura}%")->orWhere('sku', 'like', "%{$procura}%"));
@@ -556,6 +582,9 @@ class PosApiController extends Controller
                 'duracao' => (int) $s->duration,
                 'receita' => false,
                 'controlado' => false,
+                // O serviço do salão é um artigo do catálogo (ver o módulo do
+                // salão): a taxa resolve-se pela mesma porta que a dos outros.
+                'taxa' => $this->taxaDoArtigo($s),
             ])->values(),
         ]);
     }
@@ -590,7 +619,7 @@ class PosApiController extends Controller
 
         $formas = \App\Support\CodigoDeBarras::formas($lido);
 
-        $encontrados = Product::where('tenant_id', $tenantId)
+        $encontrados = Product::with('taxRate')->where('tenant_id', $tenantId)
             ->where(fn ($q) => $q->whereIn('barcode', $formas)->orWhereIn('sku', $formas))
             ->get();
 
@@ -659,6 +688,9 @@ class PosApiController extends Controller
                 'categoria_id' => $p->category_id ? (int) $p->category_id : null,
                 'receita' => (bool) $p->requires_prescription,
                 'controlado' => (bool) $p->is_controlled,
+                // O artigo lido pelo leitor entra no carrinho por aqui: sem a
+                // taxa, a linha do IVA saltava-o e o total ficava a menos.
+                'taxa' => $this->taxaDoArtigo($p),
             ],
         ]);
     }

@@ -26,6 +26,8 @@ export function ModalDePagamento({
     total,
     subtotal,
     desconto,
+    imposto = 0,
+    rotuloDoImposto,
     formas,
     montantesRapidos,
     aTrabalhar,
@@ -33,10 +35,19 @@ export function ModalDePagamento({
 }: {
     aberto: boolean;
     aoFechar: () => void;
-    /** A base, já sem desconto. O imposto soma-se no servidor. */
+    /**
+     * O QUE SE COBRA AO CLIENTE — com imposto incluído.
+     *
+     * Era a base, sem ele, e com o rótulo «A PAGAR» por cima: o troco saía
+     * calculado sobre um valor que a factura não ia ter.
+     */
     total: number;
     subtotal: number;
     desconto: number;
+    /** O imposto do carrinho, já calculado pelo ecrã com as taxas do servidor. */
+    imposto?: number;
+    /** «IVA (14%)» quando o carrinho tem uma taxa só; senão, «IVA». */
+    rotuloDoImposto?: string;
     formas: Array<{ valor: string; rotulo: string }>;
     montantesRapidos: number[];
     aTrabalhar: boolean;
@@ -145,13 +156,24 @@ export function ModalDePagamento({
                                 <dd className="font-semibold tabular-nums">− {kz(desconto)}</dd>
                             </div>
                         )}
+                        {imposto > 0 ? (
+                            <div className="flex justify-between text-blue-600">
+                                <dt>{rotuloDoImposto ?? t('IVA')}</dt>
+                                <dd className="font-semibold tabular-nums">+ {kz(imposto)}</dd>
+                            </div>
+                        ) : (
+                            <div className="flex justify-between text-slate-400">
+                                <dt>{t('IVA')}</dt>
+                                <dd className="font-semibold">{t('Isento')}</dd>
+                            </div>
+                        )}
                         <div className="flex items-baseline justify-between border-t border-slate-200 pt-2">
                             <dt className="font-bold text-slate-800">{t('A PAGAR')}</dt>
                             <dd className="text-3xl font-bold tabular-nums text-emerald-700">{kz(total)}</dd>
                         </div>
                     </dl>
                     <p className="mt-2 text-[11px] text-slate-400">
-                        {t('O imposto é somado pelo servidor, com a taxa que está na ficha de cada artigo.')}
+                        {t('O imposto é o da ficha de cada artigo; o servidor confirma-o ao emitir.')}
                     </p>
                 </div>
 

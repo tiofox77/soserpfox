@@ -51,6 +51,13 @@ export type LinhaDoCarrinho = {
     quantidade: number;
     /** Quanto há no armazém, para não se vender o que não existe. Nulo = sem limite. */
     stock: number | null;
+    /**
+     * A taxa do artigo, em percentagem — como o servidor a resolveu. Zero é
+     * isento. Opcional porque um carrinho guardado no browser ANTES desta
+     * correcção não a tem: nesse caso a linha conta como isenta até o artigo
+     * voltar a entrar, e nunca se inventa uma taxa que ninguém declarou.
+     */
+    taxa?: number;
 };
 
 /**
@@ -345,6 +352,10 @@ function Balcao({ o }: { o: Opcoes }) {
                     preco,
                     quantidade: 1,
                     stock: a.stock,
+                    // A taxa viaja COM a linha: o carrinho tem de saber o
+                    // imposto de cada artigo para o mostrar sem voltar ao
+                    // servidor a cada peça que entra.
+                    taxa: Number(a.taxa) || 0,
                 },
             ];
         });
@@ -444,6 +455,48 @@ function Balcao({ o }: { o: Opcoes }) {
     }, [desconto, descontoTipo, subtotal]);
 
     const base = Math.max(0, subtotal - descontoValor);
+
+    /**
+     * O IMPOSTO, LINHA A LINHA — e pela mesma conta que o servidor faz.
+     *
+     * O balcão em Livewire mostrava «IVA (taxa) +X Kz» e um «TOTAL A PAGAR»
+     * COM imposto. A migração para React (07/09/2026) perdeu a linha e deixou
+     * o rótulo «A pagar» em cima da BASE: o operador dizia 17.000 ao cliente,
+     * recebia 17.000, dava o troco sobre 17.000 — e a factura saía a 19.380,
+     * porque o imposto é somado POR CIMA do preço do artigo.
+     *
+     * A conta é a do `InvoiceCalculationHelper`: o desconto do documento
+     * reparte-se pelas linhas na proporção do que cada uma pesa, e a taxa
+     * incide sobre o que sobra. A taxa vem do servidor por artigo — o ecrã
+     * nunca a inventa, e uma linha sem taxa conta como ISENTA.
+     */
+    const imposto = useMemo(() => {
+        if (subtotal <= 0) return 0;
+
+        return linhas.reduce((soma, l) => {
+            const taxa = Number(l.taxa) || 0;
+
+            if (taxa <= 0) return soma;
+
+            const bruto = Math.round(l.preco * l.quantidade * 100) / 100;
+            const baseDaLinha = bruto - descontoValor * (bruto / subtotal);
+
+            return soma + Math.round(baseDaLinha * (taxa / 100) * 100) / 100;
+        }, 0);
+    }, [linhas, subtotal, descontoValor]);
+
+    const aPagar = Math.round((base + imposto) * 100) / 100;
+
+    /** As taxas que o carrinho tem, para o rótulo dizer «IVA (14%)» ou só «IVA». */
+    const taxasNoCarrinho = useMemo(
+        () => [...new Set(linhas.map((l) => Number(l.taxa) || 0).filter((t) => t > 0))],
+        [linhas],
+    );
+
+    const rotuloDoImposto =
+        taxasNoCarrinho.length === 1
+            ? t('IVA (:taxa%)', { taxa: String(taxasNoCarrinho[0]).replace('.', ',') })
+            : t('IVA');
 
     /* ─── Atalhos de teclado ──────────────────────────────────────────────
      *
@@ -597,6 +650,9 @@ function Balcao({ o }: { o: Opcoes }) {
                     porDescontoTipo={porDescontoTipo}
                     descontoValor={descontoValor}
                     base={base}
+                    imposto={imposto}
+                    rotuloDoImposto={rotuloDoImposto}
+                    aPagar={aPagar}
                     aoMudarQuantidade={mudarQuantidade}
                     aoTirar={tirar}
                     aoLimpar={limpar}
@@ -650,6 +706,9 @@ function Balcao({ o }: { o: Opcoes }) {
                                 porDescontoTipo={porDescontoTipo}
                                 descontoValor={descontoValor}
                                 base={base}
+                                imposto={imposto}
+                                rotuloDoImposto={rotuloDoImposto}
+                                aPagar={aPagar}
                                 aoMudarQuantidade={mudarQuantidade}
                                 aoTirar={tirar}
                                 aoLimpar={limpar}
@@ -731,9 +790,14 @@ function Balcao({ o }: { o: Opcoes }) {
             <ModalDePagamento
                 aberto={pagar}
                 aoFechar={() => porPagar(false)}
-                total={base}
+                // O QUE SE COBRA, com imposto. Ia a `base` — sem ele — e era esse
+                // o número que o operador dizia e recebia, enquanto a factura
+                // saía com o imposto somado por cima.
+                total={aPagar}
                 subtotal={subtotal}
                 desconto={descontoValor}
+                imposto={imposto}
+                rotuloDoImposto={rotuloDoImposto}
                 formas={o.formas_de_pagamento}
                 montantesRapidos={o.definicoes.montantes_rapidos}
                 aTrabalhar={vender.isPending}
@@ -1474,6 +1538,9 @@ function Carrinho({
     porDescontoTipo,
     descontoValor,
     base,
+    imposto,
+    rotuloDoImposto,
+    aPagar,
     aoMudarQuantidade,
     aoTirar,
     aoLimpar,
@@ -1490,6 +1557,9 @@ function Carrinho({
     porDescontoTipo: (v: 'percentagem' | 'valor') => void;
     descontoValor: number;
     base: number;
+    imposto: number;
+    rotuloDoImposto: string;
+    aPagar: number;
     aoMudarQuantidade: (id: number, delta: number) => void;
     aoTirar: (id: number) => void;
     aoLimpar: () => void;
@@ -1676,18 +1746,30 @@ function Carrinho({
                             <dd className="font-semibold tabular-nums">− {kz(descontoValor)}</dd>
                         </div>
                     )}
+                    {/* O IMPOSTO À VISTA, como no balcão de sempre. Quando não há
+                        nenhum diz-se ISENTO por extenso: calar-se deixava o
+                        operador sem saber se era isento ou se o ecrã falhou. */}
+                    {imposto > 0 ? (
+                        <div className="flex justify-between text-blue-600">
+                            <dt>{rotuloDoImposto}</dt>
+                            <dd className="font-semibold tabular-nums">+ {kz(imposto)}</dd>
+                        </div>
+                    ) : (
+                        linhas.length > 0 && (
+                            <div className="flex justify-between text-slate-400">
+                                <dt>{t('IVA')}</dt>
+                                <dd className="font-semibold">{t('Isento')}</dd>
+                            </div>
+                        )
+                    )}
                     <div className="flex items-baseline justify-between border-t border-slate-200 pt-2">
                         <dt className="font-bold text-slate-800">{t('A pagar')}</dt>
-                        <dd className="text-2xl font-bold tabular-nums text-indigo-700">{kz(base)}</dd>
+                        <dd className="text-2xl font-bold tabular-nums text-indigo-700">{kz(aPagar)}</dd>
                     </div>
                 </dl>
 
-                {/* O IMPOSTO É DO SERVIDOR. Este ecrã mostra a base; o total com
-                    imposto sai no modal de pagamento, calculado por quem manda. */}
                 <p className="mb-3 text-center text-[11px] text-slate-400 [@media(max-height:820px)]:hidden">
-                    {pecas > 0
-                        ? t(':n peças no carrinho · o imposto é somado ao pagar', { n: pecas })
-                        : t('o imposto é somado ao pagar')}
+                    {pecas > 0 ? t(':n peças no carrinho', { n: pecas }) : t('Carrinho vazio')}
                 </p>
 
                 <div className="flex gap-2">
