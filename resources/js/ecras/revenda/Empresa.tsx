@@ -238,7 +238,16 @@ function PedirPlano({ id, ficha, opcoes, aoFechar }: { id: number; ficha: FichaD
     });
     const erros = enviar.error instanceof ErroDaApi ? enviar.error.erros : {};
     const escolhido = opcoes.planos.find((p) => p.id === plano);
-    const valor = escolhido?.precos[ciclo as keyof typeof escolhido.precos] ?? 0;
+    const tabela = escolhido?.precos[ciclo as keyof typeof escolhido.precos] ?? 0;
+
+    /*
+     * O QUE O REVENDEDOR TRANSFERE: o preço de revendedor DESTA empresa, vindo
+     * do servidor. Sem ele (servidor antigo), fica a tabela — nunca se inventa
+     * um desconto no browser.
+     */
+    const precoDe = (planoId: number) => ficha.precos_revendedor?.[planoId]?.[ciclo];
+    const valor = (escolhido && precoDe(escolhido.id)) ?? tabela;
+    const desconto = Math.max(0, Math.round((tabela - valor) * 100) / 100);
 
     return (
         <Modal aberto aoFechar={aoFechar} titulo={t('Mudar ou renovar plano')} subtitulo={ficha.empresa.nome} icone="fa-arrows-rotate" cor="primaria" largura="lg"
@@ -257,7 +266,21 @@ function PedirPlano({ id, ficha, opcoes, aoFechar }: { id: number; ficha: FichaD
                                 <span className="block font-bold text-gray-900">{p.nome}{ficha.subscricao?.plano_id === p.id && <span className="ml-2 text-xs font-semibold text-emerald-700">{t('actual')}</span>}</span>
                                 <span className="block text-xs text-gray-500">{t(':n utilizadores', { n: p.utilizadores })}</span>
                             </span>
-                            <span className="text-right text-sm font-bold tabular-nums text-violet-700">{kwanzas(p.precos[ciclo as keyof typeof p.precos])}</span>
+                            <span className="text-right tabular-nums">
+                                {(() => {
+                                    const deTabela = p.precos[ciclo as keyof typeof p.precos];
+                                    const doRevendedor = precoDe(p.id) ?? deTabela;
+
+                                    return doRevendedor < deTabela ? (
+                                        <>
+                                            <span className="block text-xs text-gray-400 line-through">{kwanzas(deTabela)}</span>
+                                            <span className="block text-sm font-bold text-emerald-700">{kwanzas(doRevendedor)}</span>
+                                        </>
+                                    ) : (
+                                        <span className="text-sm font-bold text-violet-700">{kwanzas(deTabela)}</span>
+                                    );
+                                })()}
+                            </span>
                         </button>
                     ))}
                 </div>
@@ -272,6 +295,12 @@ function PedirPlano({ id, ficha, opcoes, aoFechar }: { id: number; ficha: FichaD
                     <div className={cls('flex flex-col justify-center bg-gradient-to-r from-violet-600 to-emerald-600 px-4 py-2 text-white', RAIO)}>
                         <span className="text-xs text-white/80">{t('A pagar')}</span>
                         <span className="text-2xl font-black tabular-nums">{kwanzas(valor)}</span>
+                        {/* O que ganhou já aqui: o desconto É a comissão dele. */}
+                        {desconto > 0 && (
+                            <span className="text-[11px] text-white/90">
+                                {t('Preço de tabela :tabela · a sua comissão :desconto já descontada', { tabela: kwanzas(tabela), desconto: kwanzas(desconto) })}
+                            </span>
+                        )}
                     </div>
                 </div>
 

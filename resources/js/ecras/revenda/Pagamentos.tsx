@@ -132,7 +132,7 @@ function Lista({ linhas, accao }: { linhas: PagamentoDoRevendedor[]; accao?: (p:
                     <li key={`${p.tipo}-${p.id}`} style={cascata(i)} className="entra space-y-2 px-4 py-4">
                         <div className="flex items-start justify-between gap-3">
                             <a href={`/revendedor/empresas/${p.empresa_id}`} className="font-semibold text-gray-900 hover:text-violet-700">{p.empresa ?? '—'}</a>
-                            <span className="whitespace-nowrap font-bold tabular-nums text-gray-900">{kwanzas(p.valor)}</span>
+                            <span className="whitespace-nowrap text-right"><Valor p={p} /></span>
                         </div>
                         <p className="text-sm text-gray-700"><OQue p={p} /></p>
                         {p.vence && (
@@ -167,7 +167,7 @@ function Lista({ linhas, accao }: { linhas: PagamentoDoRevendedor[]; accao?: (p:
                             </td>
                             <td className="px-4 py-3 text-gray-700"><OQue p={p} /></td>
                             <td className={cls('whitespace-nowrap px-4 py-3', p.estado === 'vencida' ? 'font-semibold text-red-700' : 'text-gray-700')}>{p.vence ? dataOuTraco(p.vence) : '—'}</td>
-                            <td className="whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums text-gray-900">{kwanzas(p.valor)}</td>
+                            <td className="whitespace-nowrap px-4 py-3 text-right"><Valor p={p} /></td>
                             <td className="px-4 py-3"><Estado p={p} /></td>
                             <td className="whitespace-nowrap px-4 py-3 text-right">{accao?.(p)}</td>
                         </tr>
@@ -175,6 +175,27 @@ function Lista({ linhas, accao }: { linhas: PagamentoDoRevendedor[]; accao?: (p:
                 </tbody>
             </table>
             </div>
+        </>
+    );
+}
+
+/**
+ * O QUE TRANSFERE, e de onde vem.
+ *
+ * Numa renovação, o valor já é o preço de revendedor: a factura (documento
+ * fiscal) fica ao preço de tabela, e a diferença é a comissão dele, ganha à
+ * cabeça. Mostra-se a tabela riscada por cima para se perceber porque é que
+ * o número não é o da factura.
+ */
+function Valor({ p }: { p: PagamentoDoRevendedor }) {
+    const desconto = p.desconto ?? 0;
+
+    return (
+        <>
+            {desconto > 0 && p.valor_tabela != null && (
+                <span className="block text-xs tabular-nums text-gray-400 line-through">{kwanzas(p.valor_tabela)}</span>
+            )}
+            <span className={cls("block font-bold tabular-nums", desconto > 0 ? "text-emerald-700" : "text-gray-900")}>{kwanzas(p.valor)}</span>
         </>
     );
 }

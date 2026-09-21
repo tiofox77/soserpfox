@@ -19,6 +19,7 @@ const ESTADOS = [
     { valor: 'por_pagar', rotulo: 'Por pagar' },
     { valor: 'paga', rotulo: 'Pagas' },
     { valor: 'anulada', rotulo: 'Anuladas' },
+    { valor: 'compensada', rotulo: 'Descontadas' },
 ];
 
 export default function Comissoes() {
@@ -41,7 +42,13 @@ export default function Comissoes() {
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
                 <Numero i={0} cor="ambar" rotulo={t('Por receber')} valor={<span className="text-2xl">{kwanzas(d.totais.por_pagar)}</span>} nota={t(':n comissões', { n: d.totais.por_pagar_n })} icone="fa-hourglass-half" />
-                <Numero i={1} cor="verde" rotulo={t('Recebido')} valor={<span className="text-2xl">{kwanzas(d.totais.pago)}</span>} nota={t('Em :n pagamentos', { n: d.pagamentos.length })} icone="fa-sack-dollar" />
+                {/* RECEBIDO SÃO AS DUAS FORMAS: o que a plataforma lhe transferiu e o
+                    que ganhou à cabeça, pagando pelo cliente ao preço de revendedor. */}
+                <Numero i={1} cor="verde" rotulo={t('Recebido')} valor={<span className="text-2xl">{kwanzas(d.totais.pago + (d.totais.descontado ?? 0))}</span>}
+                    nota={(d.totais.descontado ?? 0) > 0
+                        ? t(':pago transferido · :descontado descontado nos pagamentos', { pago: kwanzas(d.totais.pago), descontado: kwanzas(d.totais.descontado) })
+                        : t('Em :n pagamentos', { n: d.pagamentos.length })}
+                    icone="fa-sack-dollar" />
                 <Numero i={2} cor="roxo" rotulo={t('Este mês')} valor={<span className="text-2xl">{kwanzas(d.totais.do_mes)}</span>} nota={t('Comissões geradas')} icone="fa-calendar-check" />
             </div>
 

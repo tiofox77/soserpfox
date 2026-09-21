@@ -93,10 +93,11 @@ class PortalDoRevendedorApiController extends Controller
         return response()->json($this->empresas->ficha($this->eu($request), $id));
     }
 
-    public function opcoes(): JsonResponse
+    public function opcoes(Request $request): JsonResponse
     {
         return response()->json([
-            'planos' => EmpresasDoRevendedor::planos(),
+            // Com o preço de revendedor ao lado do de tabela — ver EmpresasDoRevendedor::planos.
+            'planos' => EmpresasDoRevendedor::planos($this->eu($request)),
             'ciclos' => EmpresasDoRevendedor::ciclos(),
             'regimes' => collect(Tenant::REGIMES)->map(fn ($r, $chave) => ['valor' => $chave, 'rotulo' => __($r['label']), 'descricao' => __($r['description'] ?? '')])->values(),
             'regime_padrao' => Tenant::REGIME_GERAL,

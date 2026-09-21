@@ -44,7 +44,8 @@ export function EstadoDaEmpresaEtiquetas({ e }: { e: EstadoDaEmpresa }) {
     );
 }
 
-const COR_DA_COMISSAO: Record<Comissao['estado'], 'aviso' | 'bom' | 'neutra'> = { por_pagar: 'aviso', paga: 'bom', anulada: 'neutra' };
+// A compensada é tão recebida como a paga — só que à cabeça, no desconto.
+const COR_DA_COMISSAO: Record<Comissao['estado'], 'aviso' | 'bom' | 'neutra'> = { por_pagar: 'aviso', paga: 'bom', anulada: 'neutra', compensada: 'bom' };
 
 export function EstadoDaComissao({ c }: { c: Comissao }) {
     return (

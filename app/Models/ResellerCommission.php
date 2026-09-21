@@ -16,6 +16,9 @@ class ResellerCommission extends Model
         'por_pagar' => 'Por pagar',
         'paga' => 'Paga',
         'anulada' => 'Anulada',
+        // O revendedor pagou pelo cliente ao preço de revendedor: a comissão
+        // ficou-lhe à cabeça, no desconto. Não entra no «por pagar».
+        'compensada' => 'Descontada no pagamento',
     ];
 
     public const ORIGENS = [

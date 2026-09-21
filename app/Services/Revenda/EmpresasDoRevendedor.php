@@ -176,7 +176,23 @@ class EmpresasDoRevendedor
         $dono = $t->users()->orderBy('tenant_user.id')->first();
         $sub = $t->activeSubscription;
 
+        /*
+         * O PREÇO DE REVENDEDOR DESTA EMPRESA, por plano e ciclo.
+         *
+         * O catálogo assume o primeiro pagamento de uma empresa nova. Aqui a
+         * empresa já existe: se já houve comissão e a regra é «só no primeiro»,
+         * ou se passou o prazo em meses, já não há desconto — e o ecrã tem de
+         * dizer o mesmo que o pedido vai cobrar, senão mostrava 20.000 e o
+         * pedido saía a 25.000.
+         */
+        $comissoes = app(ComissoesDoRevendedor::class);
+        $precosDoRevendedor = Plan::publico()->get()->reject(fn (Plan $p) => self::gratuito($p))
+            ->mapWithKeys(fn (Plan $p) => [$p->id => collect(self::CICLOS)->mapWithKeys(
+                fn ($c) => [$c => $comissoes->precoDoRevendedor($r, (float) ($p->getPrice($c) ?? 0), $p->id, $t)['preco']],
+            )->all()])->all();
+
         return [
+            'precos_revendedor' => $precosDoRevendedor,
             'empresa' => self::linha($t, $sinais, isset($porPagar[$t->id])) + [
                 'razao_social' => $t->company_name,
                 'morada' => $t->address,
@@ -241,17 +257,35 @@ class EmpresasDoRevendedor
     }
 
     /** Os planos que se podem escolher, com o preço de cada ciclo — sem os gratuitos. */
-    public static function planos(): array
+    /**
+     * Os planos que o revendedor pode vender — com o preço de tabela E o dele.
+     *
+     * `precos` é o que o cliente paga; `precos_revendedor` é o que o revendedor
+     * paga quando é ele a pagar pelo cliente: o de tabela menos a comissão que
+     * ganharia, pela regra dele. Sem revendedor (chamadas antigas) sai só a
+     * tabela, como sempre.
+     */
+    public static function planos(?Reseller $revendedor = null): array
     {
-        return Plan::publico()->orderBy('order')->get()->reject(fn (Plan $p) => self::gratuito($p))->values()->map(fn (Plan $p) => [
-            'id' => $p->id,
-            'nome' => $p->name,
-            'descricao' => $p->description,
-            'utilizadores' => (int) $p->max_users,
-            'dias_de_teste' => (int) $p->trial_days,
-            'destaque' => (bool) $p->is_featured,
-            'precos' => collect(self::CICLOS)->mapWithKeys(fn ($c) => [$c => (float) ($p->getPrice($c) ?? 0)])->all(),
-        ])->values()->all();
+        $comissoes = $revendedor ? app(ComissoesDoRevendedor::class) : null;
+
+        return Plan::publico()->orderBy('order')->get()->reject(fn (Plan $p) => self::gratuito($p))->values()->map(function (Plan $p) use ($revendedor, $comissoes) {
+            $precos = collect(self::CICLOS)->mapWithKeys(fn ($c) => [$c => (float) ($p->getPrice($c) ?? 0)])->all();
+
+            return [
+                'id' => $p->id,
+                'nome' => $p->name,
+                'descricao' => $p->description,
+                'utilizadores' => (int) $p->max_users,
+                'dias_de_teste' => (int) $p->trial_days,
+                'destaque' => (bool) $p->is_featured,
+                'precos' => $precos,
+            ] + ($revendedor ? [
+                'precos_revendedor' => collect($precos)
+                    ->map(fn ($preco) => $comissoes->precoDoRevendedor($revendedor, $preco, $p->id)['preco'])
+                    ->all(),
+            ] : []);
+        })->values()->all();
     }
 
     public static function ciclos(): array
@@ -312,11 +346,19 @@ class EmpresasDoRevendedor
             throw ValidationException::withMessages(['plan_id' => __('Esta empresa já tem um pedido à espera de confirmação. Anexe-lhe o comprovativo em vez de fazer outro.')]);
         }
 
-        $valor = (float) ($plano->getPrice($dados['ciclo']) ?? 0);
+        $tabela = (float) ($plano->getPrice($dados['ciclo']) ?? 0);
 
-        if ($valor <= 0) {
+        if ($tabela <= 0) {
             throw ValidationException::withMessages(['plan_id' => __('Este plano não tem preço neste ciclo.')]);
         }
+
+        /*
+         * O REVENDEDOR PAGA O PREÇO DE REVENDEDOR — o de tabela menos a
+         * comissão que ganharia com este pagamento (a mesma regra). É o valor
+         * que transfere e o que o pedido guarda; na aprovação, a diferença
+         * fica registada como comissão já compensada (ver ComissoesDoRevendedor).
+         */
+        $valor = app(ComissoesDoRevendedor::class)->precoDoRevendedor($r, $tabela, $plano->id, $t)['preco'];
 
         return DB::transaction(function () use ($t, $dono, $plano, $valor, $dados, $comprovativo, $r) {
             $pedido = new Order([
@@ -440,8 +482,21 @@ class EmpresasDoRevendedor
         $ids = Tenant::where('reseller_id', $r->id)->pluck('id');
 
         $pedidos = Order::with(['tenant', 'plan'])->whereIn('tenant_id', $ids)->where('status', 'pending')->latest()->get()->map(fn ($o) => self::linhaDoPedido($o));
-        $facturas = Invoice::with('tenant')->whereIn('tenant_id', $ids)->whereNotNull('subscription_id')
-            ->whereIn('status', ['pending', 'overdue'])->orderBy('due_date')->get()->map(fn ($i) => self::linhaDaFactura($i));
+
+        /*
+         * A RENOVAÇÃO COM O PREÇO DE REVENDEDOR. A factura continua ao preço de
+         * tabela — é documento fiscal — mas o que ele transfere, se for ele a
+         * pagar, é o total menos a comissão que ela daria. O `valor` passa a ser
+         * esse, e a tabela vai ao lado para se ver de onde vem.
+         */
+        $comissoes = app(ComissoesDoRevendedor::class);
+        $facturas = Invoice::with(['tenant', 'subscription'])->whereIn('tenant_id', $ids)->whereNotNull('subscription_id')
+            ->whereIn('status', ['pending', 'overdue'])->orderBy('due_date')->get()->map(function ($i) use ($r, $comissoes) {
+                $conta = $comissoes->aPagarPeloRevendedor($r, $i);
+
+                return ['valor' => $conta['preco'], 'valor_tabela' => $conta['tabela'], 'desconto' => $conta['desconto']]
+                    + self::linhaDaFactura($i);
+            });
         $abertos = $pedidos->concat($facturas);
 
         $historico = Order::with(['tenant', 'plan'])->where('reseller_id', $r->id)->whereIn('status', ['approved', 'rejected'])->latest('updated_at')->limit(20)->get()

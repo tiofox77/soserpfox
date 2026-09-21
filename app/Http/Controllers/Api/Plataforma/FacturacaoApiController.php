@@ -99,6 +99,15 @@ class FacturacaoApiController extends Controller
                     'referencia' => $i->payment_reference,
                     'comprovativo' => $i->payment_proof ? Storage::url($i->payment_proof) : null,
                     'revendedor' => $i->revendedorQuePagou ? ['nome' => $i->revendedorQuePagou->nomeVisivel(), 'codigo' => $i->revendedorQuePagou->code] : null,
+                    /*
+                     * O QUE DEVE ENTRAR NA CONTA quando foi o revendedor a pagar:
+                     * o preço de revendedor, não o total da factura. Sem isto, a
+                     * transferência dele parecia um pagamento a menos. A diferença
+                     * é a comissão dele, que fica compensada ao confirmar.
+                     */
+                    'esperado' => $i->revendedorQuePagou
+                        ? app(\App\Services\Revenda\ComissoesDoRevendedor::class)->aPagarPeloRevendedor($i->revendedorQuePagou, $i)['preco']
+                        : (float) $i->total,
                 ])->values(),
             'opcoes' => [
                 // AS EMPRESAS DESACTIVADAS CONTINUAM A PODER SER FACTURADAS: é

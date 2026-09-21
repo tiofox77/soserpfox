@@ -12940,5 +12940,11 @@
     "Já existe uma caixa com esse código.": "A register with that code already exists.",
     "IVA (:taxa%)": "VAT (:taxa%)",
     ":n peças no carrinho": ":n items in the cart",
-    "O imposto é o da ficha de cada artigo; o servidor confirma-o ao emitir.": "Tax comes from each item’s record; the server confirms it on issue."
+    "O imposto é o da ficha de cada artigo; o servidor confirma-o ao emitir.": "Tax comes from each item’s record; the server confirms it on issue.",
+    "Descontada no pagamento": "Deducted at payment",
+    "Descontadas": "Deducted",
+    ":pago transferido · :descontado descontado nos pagamentos": ":pago transferred · :descontado deducted at payment",
+    "Preço de tabela :tabela · a sua comissão :desconto já descontada": "List price :tabela · your commission :desconto already deducted",
+    "A receber": "To receive",
+    "factura :total": "invoice :total"
 }

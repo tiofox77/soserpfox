@@ -56,14 +56,14 @@ export type Comissao = {
     base: number;
     valor: number;
     regra: string;
-    estado: 'por_pagar' | 'paga' | 'anulada';
+    estado: 'por_pagar' | 'paga' | 'anulada' | 'compensada';
     estado_rotulo: string;
     motivo: string | null;
     pagamento: { id: number; data: string | null; referencia: string | null } | null;
     criada_em: string | null;
 };
 
-export type TotaisDeComissoes = { por_pagar: number; por_pagar_n: number; pago: number; anulado: number; do_mes: number };
+export type TotaisDeComissoes = { por_pagar: number; por_pagar_n: number; pago: number; descontado: number; anulado: number; do_mes: number };
 
 export type Contagens = Record<'todas' | 'por_pagar' | 'a_vencer' | EstadoDaEmpresa['chave'], number>;
 
@@ -75,6 +75,11 @@ export type PlanoParaEscolher = {
     dias_de_teste: number;
     destaque: boolean;
     precos: Record<'monthly' | 'quarterly' | 'semiannual' | 'yearly', number>;
+    /**
+     * O PREÇO DE REVENDEDOR: o de tabela menos a comissão que ganharia, pela
+     * regra dele. É o que transfere quando é ele a pagar pelo cliente.
+     */
+    precos_revendedor?: Record<'monthly' | 'quarterly' | 'semiannual' | 'yearly', number>;
 };
 
 export type OpcoesDoPortal = {
@@ -86,6 +91,12 @@ export type OpcoesDoPortal = {
 };
 
 export type FichaDaEmpresa = {
+    /**
+     * O preço de revendedor DESTA empresa, por plano (id) e ciclo. Não é o do
+     * catálogo: aqui conta se já houve comissão e há quanto tempo a empresa é
+     * dele — é o que o pedido vai cobrar.
+     */
+    precos_revendedor?: Record<number, Record<string, number>>;
     empresa: EmpresaDoRevendedor & {
         razao_social: string | null;
         morada: string | null;
@@ -122,7 +133,11 @@ export type PagamentoDoRevendedor = {
     empresa_id: number;
     empresa: string | null;
     descricao: string;
+    /** O que transfere. Numa renovação, já com o desconto de revendedor. */
     valor: number;
+    /** O total da factura (documento fiscal, fica ao preço de tabela). */
+    valor_tabela?: number;
+    desconto?: number;
     referencia: string | null;
     comprovativo: string | null;
     estado: 'por_pagar' | 'vencida' | 'por_confirmar' | 'confirmado' | 'recusado';

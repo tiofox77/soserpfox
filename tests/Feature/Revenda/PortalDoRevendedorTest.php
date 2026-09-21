@@ -195,36 +195,70 @@ class PortalDoRevendedorTest extends TenantTestCase
         $this->postJson("/revendedor/api/empresas/{$empresa->id}/pedidos", ['plan_id' => $this->pago->id, 'ciclo' => 'yearly'])->assertStatus(422);
     }
 
-    public function test_pedir_o_plano_pela_empresa_e_a_aprovacao_da_a_comissao_que_o_super_admin_paga(): void
+    /**
+     * O REVENDEDOR PEDE O PLANO E PAGA O PREÇO DE REVENDEDOR (21/09/2026).
+     *
+     * Era «a aprovação dá a comissão que o super admin paga». Mudou por decisão
+     * do utilizador: quando é o revendedor a pagar, paga já com o desconto, e a
+     * comissão fica COMPENSADA — não se paga segunda vez.
+     */
+    public function test_o_pedido_do_revendedor_sai_com_desconto_e_a_comissao_fica_compensada(): void
     {
         $r = $this->revendedor();
-        LigacaoAoRevendedor::ligar($this->tenant, $r, 'codigo');
+        LigacaoAoRevendedor::ligar($this->tenant, $r, "codigo");
 
-        $this->actingAs($r, 'revendedor');
-        $this->postJson("/revendedor/api/empresas/{$this->tenant->id}/pedidos", ['plan_id' => $this->pago->id, 'ciclo' => 'yearly', 'referencia' => 'TRF-ANO'])->assertCreated();
+        $this->actingAs($r, "revendedor");
+        $this->postJson("/revendedor/api/empresas/{$this->tenant->id}/pedidos", ["plan_id" => $this->pago->id, "ciclo" => "yearly", "referencia" => "TRF-ANO"])->assertCreated();
 
-        $pedido = Order::where('tenant_id', $this->tenant->id)->where('status', 'pending')->latest('id')->firstOrFail();
-        $this->assertSame([150000.0, 'yearly'], [(float) $pedido->amount, $pedido->billing_cycle]);
+        $pedido = Order::where("tenant_id", $this->tenant->id)->where("status", "pending")->latest("id")->firstOrFail();
+        // 150.000 de tabela, menos os 10% da regra: transfere 135.000.
+        $this->assertSame([135000.0, "yearly"], [(float) $pedido->amount, $pedido->billing_cycle]);
         $this->assertStringContainsString($r->code, (string) $pedido->notes);
 
-        // O super admin aprova no ecrã da facturação: nasce a comissão (10%).
         $admin = $this->dono();
         $this->actingAs($admin);
         $this->postJson("/api/v1/plataforma/react/facturacao/pedidos/{$pedido->id}/aprovar")->assertOk();
-        $c = ResellerCommission::where('origin_type', 'order')->where('origin_id', $pedido->id)->firstOrFail();
+        $c = ResellerCommission::where("origin_type", "order")->where("origin_id", $pedido->id)->firstOrFail();
+        $this->assertEquals(15000, $c->amount, "o desconto que teve fica registado");
+        $this->assertSame("compensada", $c->status);
+
+        // Uma comissão compensada NÃO se paga: já a recebeu à cabeça.
+        $this->postJson("/api/v1/plataforma/react/revendedores/{$r->id}/pagamentos", [
+            "comissoes" => [$c->id], "method" => "transferencia", "reference" => "PAG-X", "paid_at" => now()->toDateString(),
+        ])->assertStatus(422);
+        $this->assertSame("compensada", $c->fresh()->status);
+    }
+
+    /** O CLIENTE PAGA: comissão por pagar, anulada só com motivo, paga e avisada. */
+    public function test_o_cliente_a_pagar_da_a_comissao_que_o_super_admin_paga(): void
+    {
+        $r = $this->revendedor();
+        LigacaoAoRevendedor::ligar($this->tenant, $r, "codigo");
+
+        // O cliente pediu ele próprio, ao preço de tabela.
+        $pedido = Order::create([
+            "tenant_id" => $this->tenant->id, "user_id" => $this->user->id, "plan_id" => $this->pago->id,
+            "amount" => 150000, "billing_cycle" => "yearly", "status" => "pending", "payment_method" => "bank_transfer",
+        ]);
+
+        $admin = $this->dono();
+        $this->actingAs($admin);
+        $this->postJson("/api/v1/plataforma/react/facturacao/pedidos/{$pedido->id}/aprovar")->assertOk();
+        $c = ResellerCommission::where("origin_type", "order")->where("origin_id", $pedido->id)->firstOrFail();
         $this->assertEquals(15000, $c->amount);
+        $this->assertSame("por_pagar", $c->status);
 
         // Anular pede motivo; pagar soma as escolhidas e avisa.
         $this->postJson("/api/v1/plataforma/react/revendedores/{$r->id}/comissoes/{$c->id}/anular", [])->assertStatus(422);
         $this->postJson("/api/v1/plataforma/react/revendedores/{$r->id}/pagamentos", [
-            'comissoes' => [$c->id], 'method' => 'transferencia', 'reference' => 'PAG-1', 'paid_at' => now()->toDateString(),
+            "comissoes" => [$c->id], "method" => "transferencia", "reference" => "PAG-1", "paid_at" => now()->toDateString(),
         ])->assertCreated();
-        $this->assertSame('paga', $c->fresh()->status);
-        Mail::assertSent(AvisoDaRevenda::class, fn ($m) => $m->hasTo($r->email) && $m->assunto === 'Pagamento de comissões');
+        $this->assertSame("paga", $c->fresh()->status);
+        Mail::assertSent(AvisoDaRevenda::class, fn ($m) => $m->hasTo($r->email) && $m->assunto === "Pagamento de comissões");
 
         // O revendedor vê a comissão paga e o pagamento.
-        $this->actingAs($r, 'revendedor');
-        $comissoes = $this->getJson('/revendedor/api/comissoes')->assertOk();
-        $this->assertSame(['paga', 15000.0], [$comissoes->json('comissoes.0.estado'), (float) $comissoes->json('pagamentos.0.valor')]);
+        $this->actingAs($r, "revendedor");
+        $comissoes = $this->getJson("/revendedor/api/comissoes")->assertOk();
+        $this->assertSame(["paga", 15000.0], [$comissoes->json("comissoes.0.estado"), (float) $comissoes->json("pagamentos.0.valor")]);
     }
 }

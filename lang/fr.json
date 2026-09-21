@@ -12940,5 +12940,11 @@
     "Já existe uma caixa com esse código.": "Une caisse avec ce code existe déjà.",
     "IVA (:taxa%)": "TVA (:taxa%)",
     ":n peças no carrinho": ":n articles dans le panier",
-    "O imposto é o da ficha de cada artigo; o servidor confirma-o ao emitir.": "La taxe vient de la fiche de chaque article; le serveur la confirme à l’émission."
+    "O imposto é o da ficha de cada artigo; o servidor confirma-o ao emitir.": "La taxe vient de la fiche de chaque article; le serveur la confirme à l’émission.",
+    "Descontada no pagamento": "Déduite au paiement",
+    "Descontadas": "Déduites",
+    ":pago transferido · :descontado descontado nos pagamentos": ":pago virés · :descontado déduits aux paiements",
+    "Preço de tabela :tabela · a sua comissão :desconto já descontada": "Prix catalogue :tabela · votre commission :desconto déjà déduite",
+    "A receber": "À recevoir",
+    "factura :total": "facture :total"
 }

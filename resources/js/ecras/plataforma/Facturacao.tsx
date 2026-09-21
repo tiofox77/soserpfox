@@ -316,7 +316,13 @@ function PagamentosPorConfirmar({ pagamentos, aoFazer }: { pagamentos: Pagamento
                                 </div>
                             </div>
                             <dl className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
-                                <Dado rotulo={t('Valor')} valor={`${kz(p.total)} Kz`} />
+                                {/* Pago pelo revendedor, entra o preço dele — não o total. Sem
+                                    isto a transferência parecia um pagamento a menos. */}
+                                {p.revendedor && p.esperado != null && p.esperado < p.total ? (
+                                    <Dado rotulo={t('A receber')} valor={`${kz(p.esperado)} Kz · ${t('factura :total', { total: kz(p.total) })}`} />
+                                ) : (
+                                    <Dado rotulo={t('Valor')} valor={`${kz(p.total)} Kz`} />
+                                )}
                                 <Dado rotulo={t('Vence')} valor={p.vence ?? '—'} />
                                 <Dado rotulo={t('Enviado')} valor={p.enviado ?? '—'} />
                                 <Dado rotulo={t('Referência')} valor={p.referencia ?? '—'} />

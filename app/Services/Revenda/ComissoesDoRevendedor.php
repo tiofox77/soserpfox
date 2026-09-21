@@ -33,10 +33,33 @@ use Illuminate\Validation\ValidationException;
  */
 class ComissoesDoRevendedor
 {
+    /**
+     * O ESTADO DE UMA COMISSÃO QUE O REVENDEDOR JÁ GANHOU À CABEÇA.
+     *
+     * Quando é ELE a pagar pelo cliente, paga o PREÇO DE REVENDEDOR — o de
+     * tabela menos a comissão que ganharia. A comissão fica registada (as
+     * contas da plataforma têm de bater: factura de 25.000 = 20.000 recebidos
+     * + 5.000 de comissão), mas COMPENSADA: não entra no «por pagar», e o
+     * revendedor não a recebe segunda vez.
+     */
+    public const COMPENSADA = 'compensada';
+
     public function doPedido(Order $pedido, bool $confirmadoPelaPlataforma): ?ResellerCommission
     {
         if ($pedido->status !== 'approved' || ! $confirmadoPelaPlataforma || (float) $pedido->amount <= 0) {
             return null;
+        }
+
+        /*
+         * PEDIDO FEITO PELO REVENDEDOR: já pagou o preço de revendedor.
+         *
+         * O `amount` do pedido é o que ele transferiu, já sem a comissão. O
+         * que se regista é o desconto que ele efectivamente teve — o preço de
+         * tabela menos o que pagou — e fica compensado. Sem isto nascia uma
+         * comissão por pagar SOBRE o valor já descontado: ganhava duas vezes.
+         */
+        if ($pedido->reseller_id) {
+            return $this->seguro(fn () => $this->compensarPedido($pedido));
         }
 
         // O pedido não separa o IVA: o valor é o mesmo nas duas bases.
@@ -52,10 +75,102 @@ class ComissoesDoRevendedor
             return null;
         }
 
+        /*
+         * RENOVAÇÃO PAGA PELO REVENDEDOR: a factura é documento fiscal e fica
+         * ao preço de tabela, mas ele transferiu o preço de revendedor. A
+         * comissão é a mesma de sempre — só que já foi recebida à cabeça.
+         */
+        $estado = $factura->payment_submitted_by_reseller_id ? self::COMPENSADA : 'por_pagar';
+
         return $this->seguro(fn () => $this->gerar(
             $factura->tenant_id, 'invoice', $factura->id, $factura->subscription?->plan_id,
-            (float) $factura->subtotal, (float) $factura->total, $factura->paid_at ?? now(),
+            (float) $factura->subtotal, (float) $factura->total, $factura->paid_at ?? now(), $estado,
         ));
+    }
+
+    /**
+     * O PREÇO DE REVENDEDOR — o de tabela menos a comissão que ganharia.
+     *
+     * A MESMA regra que gera a comissão, e é essa a garantia: o revendedor ganha
+     * exactamente o mesmo, pague ele pelo cliente (desconto à cabeça) ou pague
+     * o cliente (comissão depois). Percentagem ou valor fixo, com ou sem IVA,
+     * excepções por plano, «só no primeiro pagamento» — tudo o que o super
+     * admin configurou vale aqui sem nada escrito duas vezes.
+     *
+     * Sem empresa (o catálogo), assume-se o primeiro pagamento de uma empresa
+     * nova — é o que o revendedor está a pensar vender.
+     *
+     * @return array{preco: float, desconto: float, tabela: float}
+     */
+    public function precoDoRevendedor(Reseller $revendedor, float $preco, ?int $planId, ?Tenant $empresa = null): array
+    {
+        $tabela = round(max(0.0, $preco), 2);
+        $conta = $this->contaDaRegra($revendedor, $empresa, $planId, $tabela, $tabela, now());
+        $desconto = min($tabela, (float) ($conta['valor'] ?? 0));
+
+        return ['preco' => round($tabela - $desconto, 2), 'desconto' => round($desconto, 2), 'tabela' => $tabela];
+    }
+
+    /**
+     * O que o revendedor transfere por uma FACTURA DE RENOVAÇÃO.
+     *
+     * A factura é documento fiscal e fica ao preço de tabela; ele transfere o
+     * total menos a comissão que ela daria — calculada com as DUAS bases da
+     * factura (sem e com IVA), como no `daFactura`. Passar o total como as duas
+     * bases dava-lhe, numa regra «sobre o valor sem IVA», um desconto maior do
+     * que a comissão que ganharia.
+     *
+     * @return array{preco: float, desconto: float, tabela: float}
+     */
+    public function aPagarPeloRevendedor(Reseller $revendedor, Invoice $factura): array
+    {
+        $tabela = round((float) $factura->total, 2);
+        $empresa = $factura->tenant_id ? Tenant::find($factura->tenant_id) : null;
+
+        $conta = ($empresa && (int) $empresa->reseller_id === (int) $revendedor->id)
+            ? $this->contaDaRegra($revendedor, $empresa, $factura->subscription?->plan_id, (float) $factura->subtotal, $tabela, now())
+            : null;
+
+        $desconto = min($tabela, (float) ($conta['valor'] ?? 0));
+
+        return ['preco' => round($tabela - $desconto, 2), 'desconto' => round($desconto, 2), 'tabela' => $tabela];
+    }
+
+    /** Pedido do revendedor aprovado: o desconto que ele teve, já compensado. */
+    private function compensarPedido(Order $pedido): ?ResellerCommission
+    {
+        if (ResellerCommission::where('origin_type', 'order')->where('origin_id', $pedido->id)->exists()) {
+            return null;
+        }
+
+        $tabela = (float) ($pedido->plan?->getPrice($pedido->billing_cycle) ?? 0);
+        $desconto = round($tabela - (float) $pedido->amount, 2);
+
+        if ($desconto <= 0) {
+            return null;
+        }
+
+        $empresa = $pedido->tenant_id ? Tenant::find($pedido->tenant_id) : null;
+        $revendedor = Reseller::find($pedido->reseller_id);
+
+        if (! $empresa || ! $revendedor || (int) $empresa->reseller_id !== (int) $revendedor->id) {
+            return null;
+        }
+
+        return ResellerCommission::create([
+            'reseller_id' => $revendedor->id,
+            'tenant_id' => $empresa->id,
+            'origin_type' => 'order',
+            'origin_id' => $pedido->id,
+            'plan_id' => $pedido->plan_id,
+            'base_amount' => round($tabela, 2),
+            'amount' => $desconto,
+            'rule' => $revendedor->regra()->paraGuardar() + [
+                'aplicado' => ['tipo' => 'desconto', 'taxa' => $tabela > 0 ? round($desconto / $tabela * 100, 2) : 0],
+                'compensada' => true,
+            ],
+            'status' => self::COMPENSADA,
+        ]);
     }
 
     private function seguro(\Closure $trabalho): ?ResellerCommission
@@ -69,7 +184,7 @@ class ComissoesDoRevendedor
         }
     }
 
-    private function gerar(?int $tenantId, string $origem, int $origemId, ?int $planId, float $semIva, float $comIva, Carbon|string $quando): ?ResellerCommission
+    private function gerar(?int $tenantId, string $origem, int $origemId, ?int $planId, float $semIva, float $comIva, Carbon|string $quando, string $estado = 'por_pagar'): ?ResellerCommission
     {
         $empresa = $tenantId ? Tenant::find($tenantId) : null;
         $revendedor = $empresa?->reseller_id ? Reseller::find($empresa->reseller_id) : null;
@@ -90,18 +205,9 @@ class ComissoesDoRevendedor
             return null;
         }
 
-        $regra = $revendedor->regra();
-        $jaHouve = ResellerCommission::where('reseller_id', $revendedor->id)->where('tenant_id', $empresa->id)
-            ->where('status', '<>', 'anulada')->exists();
-        $meses = $ligadaEm ? (int) $ligadaEm->diffInMonths($quando) : 0;
+        $conta = $this->contaDaRegra($revendedor, $empresa, $planId, $semIva, $comIva, $quando);
 
-        if (! $regra->aplicaSe($jaHouve, $meses)) {
-            return null;
-        }
-
-        $conta = $regra->calcular($semIva, $comIva, $planId);
-
-        if ($conta['valor'] <= 0) {
+        if (! $conta || $conta['valor'] <= 0) {
             return null;
         }
 
@@ -113,9 +219,44 @@ class ComissoesDoRevendedor
             'plan_id' => $planId,
             'base_amount' => $conta['base'],
             'amount' => $conta['valor'],
-            'rule' => $regra->paraGuardar() + ['aplicado' => ['tipo' => $conta['tipo'], 'taxa' => $conta['taxa']]],
-            'status' => 'por_pagar',
+            'rule' => $revendedor->regra()->paraGuardar() + [
+                'aplicado' => ['tipo' => $conta['tipo'], 'taxa' => $conta['taxa']],
+            ] + ($estado === self::COMPENSADA ? ['compensada' => true] : []),
+            'status' => $estado,
         ]);
+    }
+
+    /**
+     * A CONTA DA REGRA para um pagamento — o que o revendedor ganharia com ele.
+     * Null quando a regra não se aplica (só no primeiro pagamento e já houve
+     * um, ou passou o prazo em meses).
+     *
+     * É a peça que a comissão e o preço de revendedor partilham: se um dia a
+     * regra mudar, mudam os dois ao mesmo tempo.
+     *
+     * @return array{base: float, valor: float, tipo: string, taxa: float}|null
+     */
+    private function contaDaRegra(Reseller $revendedor, ?Tenant $empresa, ?int $planId, float $semIva, float $comIva, Carbon|string $quando): ?array
+    {
+        $regra = $revendedor->regra();
+        $quando = Carbon::parse($quando);
+
+        if ($empresa) {
+            $ligadaEm = $empresa->reseller_linked_at ?? $empresa->created_at;
+            $jaHouve = ResellerCommission::where('reseller_id', $revendedor->id)->where('tenant_id', $empresa->id)
+                ->where('status', '<>', 'anulada')->exists();
+            $meses = $ligadaEm ? (int) $ligadaEm->diffInMonths($quando) : 0;
+        } else {
+            // Sem empresa ainda: o primeiro pagamento de uma empresa acabada de ligar.
+            $jaHouve = false;
+            $meses = 0;
+        }
+
+        if (! $regra->aplicaSe($jaHouve, $meses)) {
+            return null;
+        }
+
+        return $regra->calcular($semIva, $comIva, $planId);
     }
 
     /** Anular com motivo — nunca apagar. Uma já paga não se anula. */
@@ -177,6 +318,8 @@ class ComissoesDoRevendedor
             'por_pagar' => round((float) ($por['por_pagar']->valor ?? 0), 2),
             'por_pagar_n' => (int) ($por['por_pagar']->n ?? 0),
             'pago' => round((float) ($por['paga']->valor ?? 0), 2),
+            // O que ganhou à cabeça, pagando pelo cliente ao preço de revendedor.
+            'descontado' => round((float) ($por[self::COMPENSADA]->valor ?? 0), 2),
             'anulado' => round((float) ($por['anulada']->valor ?? 0), 2),
             'do_mes' => round($doMes, 2),
         ];

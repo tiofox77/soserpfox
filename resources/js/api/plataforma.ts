@@ -348,6 +348,12 @@ export type PagamentoPorConfirmar = {
     id: number; numero: string; empresa: string | null; descricao: string | null; total: number;
     vence: string | null; enviado: string | null; referencia: string | null; comprovativo: string | null;
     revendedor: { nome: string; codigo: string | null } | null;
+    /**
+     * O que deve entrar na conta. Pago por um revendedor, é o PREÇO DE
+     * REVENDEDOR — menos do que o total, e é assim que deve ser: a diferença é
+     * a comissão dele, que fica compensada ao confirmar.
+     */
+    esperado?: number;
 };
 
 export type FacturacaoDaPlataforma = {
