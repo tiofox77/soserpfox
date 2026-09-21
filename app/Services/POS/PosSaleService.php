@@ -555,7 +555,12 @@ class PosSaleService
             ->first();
     }
 
-    protected function createTreasuryTransaction(
+    /**
+     * PÚBLICO de propósito: o `DraftController` emite a FR do «Novo Documento»
+     * do PWA e precisa de lançar o dinheiro exactamente como o balcão o lança.
+     * Duas implementações do mesmo lançamento davam dois resultados.
+     */
+    public function createTreasuryTransaction(
         SalesInvoice $invoice,
         Client $client,
         string $paymentMethod,
@@ -594,12 +599,27 @@ class PosSaleService
             'cash_register_id'   => $destination['cash_register_id'],
             'payment_method_id'  => $treasuryPaymentMethod?->id,
             'invoice_id'         => $invoice->id,
+            // A ORIGEM DO DINHEIRO, por extenso. `invoice_id` também é usado
+            // por recibos e notas: sem isto não havia como saber que documento
+            // gerou o movimento quando se cruza a tesouraria com a facturação.
+            'related_type'       => SalesInvoice::class,
+            'related_id'         => $invoice->id,
             'transaction_number' => 'TRX-' . strtoupper(uniqid()),
             'type'               => 'income',
             'category'           => $category,
             'amount'             => $amount,
             'currency'           => 'AOA',
-            'transaction_date'   => now(),
+            /*
+             * O DIA EM QUE FOI COBRADO, não o dia em que a fila subiu.
+             *
+             * Estava `now()`: uma loja três dias sem rede emitia as facturas
+             * nos dias 15, 16 e 17 e punha todo o dinheiro na tesouraria no
+             * dia 18. O mapa de caixa de cada dia não batia com as facturas
+             * desse dia, e o dia da descarga aparecia com o triplo do que
+             * vendeu. A factura já guarda a data do aparelho — o movimento
+             * passa a usar a mesma.
+             */
+            'transaction_date'   => $invoice->invoice_date ?: now(),
             'reference'          => $invoice->invoice_number,
             'description'        => 'Venda POS Offline - Fatura: ' . $invoice->invoice_number . ' - Cliente: ' . $client->name,
             'notes'              => $notes,
@@ -611,8 +631,10 @@ class PosSaleService
 
     /**
      * Liga a venda ao turno aberto do operador, se existir (best-effort).
+     *
+     * Público pela mesma razão que o lançamento de tesouraria — ver acima.
      */
-    protected function linkToOpenShift(
+    public function linkToOpenShift(
         SalesInvoice $invoice,
         Client $client,
         string $paymentMethod,

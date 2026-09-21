@@ -12927,5 +12927,15 @@
     "Reimprimir último fecho": "Réimprimer la dernière clôture",
     "Reimprimir o fecho do turno :numero": "Réimprimer la clôture du poste :numero",
     "Reimprimir o fecho — turno :numero": "Réimprimer la clôture — poste :numero",
-    "Fechado em :quando": "Clôturé le :quando"
+    "Fechado em :quando": "Clôturé le :quando",
+    "Aberta": "Ouverte",
+    "Fechada": "Fermée",
+    "Fundo de maneio": "Fonds de caisse",
+    "Observações de abertura": "Notes d'ouverture",
+    "Quem responde por esta caixa.": "Qui répond de cette caisse.",
+    "Só uma caixa aberta recebe o dinheiro das vendas.": "Seule une caisse ouverte reçoit l'argent des ventes.",
+    "As caixas do balcão e quem as opera": "Les caisses du comptoir et qui les tient",
+    "Nova Caixa": "Nouvelle Caisse",
+    "A caixa está aberta. Feche o turno primeiro.": "La caisse est ouverte. Fermez d'abord le poste.",
+    "Já existe uma caixa com esse código.": "Une caisse avec ce code existe déjà."
 }

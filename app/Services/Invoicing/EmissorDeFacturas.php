@@ -497,12 +497,18 @@ class EmissorDeFacturas
             'cash_register_id' => $destino['cash_register_id'],
             'payment_method_id' => $metodo->id,
             'invoice_id' => $factura->id,
+            // A origem do dinheiro, por extenso — `invoice_id` também é usado
+            // por recibos e notas. Ver a mesma nota no `PosSaleService`.
+            'related_type' => SalesInvoice::class,
+            'related_id' => $factura->id,
             'transaction_number' => 'TRX-' . strtoupper(uniqid()),
             'type' => 'income',
             'category' => $categoria,
             'amount' => $factura->total,
             'currency' => 'AOA',
-            'transaction_date' => now(),
+            // O DIA DO DOCUMENTO. Uma FR passada com data de ontem punha o
+            // dinheiro na tesouraria hoje, e os dois mapas não batiam.
+            'transaction_date' => $factura->invoice_date ?: now(),
             'reference' => $factura->invoice_number,
             'description' => 'Fatura-Recibo: ' . $factura->invoice_number
                 . ($factura->client ? ' - Cliente: ' . $factura->client->name : ''),

@@ -12927,5 +12927,15 @@
     "Reimprimir último fecho": "Reprint last closing",
     "Reimprimir o fecho do turno :numero": "Reprint the closing of shift :numero",
     "Reimprimir o fecho — turno :numero": "Reprint the closing — shift :numero",
-    "Fechado em :quando": "Closed on :quando"
+    "Fechado em :quando": "Closed on :quando",
+    "Aberta": "Open",
+    "Fechada": "Closed",
+    "Fundo de maneio": "Float",
+    "Observações de abertura": "Opening notes",
+    "Quem responde por esta caixa.": "Who answers for this register.",
+    "Só uma caixa aberta recebe o dinheiro das vendas.": "Only an open register receives the money from sales.",
+    "As caixas do balcão e quem as opera": "The counter registers and who operates them",
+    "Nova Caixa": "New Register",
+    "A caixa está aberta. Feche o turno primeiro.": "The register is open. Close the shift first.",
+    "Já existe uma caixa com esse código.": "A register with that code already exists."
 }

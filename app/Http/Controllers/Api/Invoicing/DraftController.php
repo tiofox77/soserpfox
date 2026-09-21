@@ -70,6 +70,11 @@ class DraftController extends Controller
             'is_service'            => 'nullable|boolean',
             'withholding_percentage' => 'nullable|numeric|min:0|max:100',
             'local_uuid' => 'nullable|string|max:80',
+            // A FORMA DE PAGAMENTO DA FATURA-RECIBO. O aparelho ainda não a
+            // pergunta e o balcão é dinheiro — mas quando perguntar, o
+            // servidor já a respeita, e é por ela que o valor escolhe entre a
+            // gaveta e a conta bancária.
+            'payment_method' => 'nullable|string|max:30',
             'operator_id' => 'nullable|integer',
             'operator_email' => 'nullable|string|max:191',
         ]);
@@ -171,6 +176,9 @@ class DraftController extends Controller
 
         // Uma Fatura-Recibo é paga no acto; uma Fatura fica a aguardar.
         $invoice->status = $docType === 'FR' ? 'paid' : 'pending';
+        $invoice->payment_method = $docType === 'FR'
+            ? ($data['payment_method'] ?? 'cash')
+            : null;
         $invoice->invoice_status = 'F';
         $invoice->invoice_status_date = now();
         $invoice->source_id = $operatorId;
@@ -197,6 +205,15 @@ class DraftController extends Controller
         $invoice->tax_payable = $totals['tax'];
         $invoice->total = $totals['total'];
         $invoice->gross_total = $totals['total'];
+        /*
+         * UMA FR JÁ ESTÁ PAGA — e tem de o dizer no saldo.
+         *
+         * Punha-se `status = 'paid'` e deixava-se o `paid_amount` a zero. Só
+         * que o «por receber» desta casa conta-se pelo SALDO e não pelo nome
+         * do estado (ver o ecrã dos Recibos): toda a fatura-recibo emitida no
+         * PWA ficava na dívida do cliente, com o valor inteiro, para sempre.
+         */
+        $invoice->paid_amount = $docType === 'FR' ? $totals['total'] : 0;
         $invoice->discount_commercial = $totals['comercial'] ?? 0;
         $invoice->discount_financial = $totals['financeiro'] ?? 0;
         $invoice->discount_amount = ($totals['comercial'] ?? 0) + ($totals['financeiro'] ?? 0);
@@ -299,6 +316,34 @@ class DraftController extends Controller
         app(\App\Services\Invoicing\EmissorFiscal::class)->selar($invoice, $tenantId);
 
         $invoice->refresh();
+
+        /*
+         * O DINHEIRO DA FATURA-RECIBO.
+         *
+         * Uma FR emitida aqui era cobrada ao balcão e não chegava a lado
+         * nenhum do dinheiro: nem à tesouraria, nem à gaveta, nem ao turno. O
+         * documento aparecia na facturação e o valor não aparecia em mapa
+         * nenhum — era o «não cruza com a tesouraria» do PWA.
+         *
+         * Pela MESMA porta que a venda do balcão usa: um só lançamento, com a
+         * data do documento e o destino decidido pela forma de pagamento. Uma
+         * FT não lança nada — é dinheiro que ainda não entrou.
+         */
+        if ($docType === 'FR') {
+            $balcao = app(\App\Services\POS\PosSaleService::class);
+            $forma = (string) ($data['payment_method'] ?? 'cash');
+            $valor = (float) $invoice->total;
+
+            $balcao->createTreasuryTransaction(
+                $invoice, $clienteResolvido, $forma, $valor,
+                $invoice->notes, $tenantId, $operatorId,
+            );
+
+            $balcao->linkToOpenShift(
+                $invoice, $clienteResolvido, $forma, $valor,
+                $tenantId, $operatorId, $data['items'], $valor,
+            );
+        }
 
         return response()->json([
             'id' => $invoice->id,

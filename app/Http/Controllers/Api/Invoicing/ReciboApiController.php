@@ -190,22 +190,33 @@ class ReciboApiController extends Controller
             }
         }
 
-        $recibo = DB::transaction(fn () => Receipt::create([
-            'tenant_id' => activeTenantId(),
-            'type' => $dados['type'],
-            'client_id' => $venda ? ($dados['client_id'] ?? null) : null,
-            'supplier_id' => $venda ? null : ($dados['supplier_id'] ?? null),
-            // Cada tipo na SUA coluna — ver a nota no topo da classe.
-            'invoice_id' => $venda ? ($dados['invoice_id'] ?? null) : null,
-            'purchase_invoice_id' => $venda ? null : ($dados['invoice_id'] ?? null),
-            'payment_date' => $dados['payment_date'],
-            'payment_method' => $dados['payment_method'],
-            'amount_paid' => $dados['amount_paid'],
-            'reference' => $dados['reference'] ?? null,
-            'notes' => $dados['notes'] ?? null,
-            'status' => 'issued',
-            'created_by' => auth()->id(),
-        ]));
+        $recibo = DB::transaction(function () use ($dados, $venda) {
+            $recibo = Receipt::create([
+                'tenant_id' => activeTenantId(),
+                'type' => $dados['type'],
+                'client_id' => $venda ? ($dados['client_id'] ?? null) : null,
+                'supplier_id' => $venda ? null : ($dados['supplier_id'] ?? null),
+                // Cada tipo na SUA coluna — ver a nota no topo da classe.
+                'invoice_id' => $venda ? ($dados['invoice_id'] ?? null) : null,
+                'purchase_invoice_id' => $venda ? null : ($dados['invoice_id'] ?? null),
+                'payment_date' => $dados['payment_date'],
+                'payment_method' => $dados['payment_method'],
+                'amount_paid' => $dados['amount_paid'],
+                'reference' => $dados['reference'] ?? null,
+                'notes' => $dados['notes'] ?? null,
+                'status' => 'issued',
+                'created_by' => auth()->id(),
+            ]);
+
+            /*
+             * O DINHEIRO TEM DE APARECER. O recibo sozinho só baixava a dívida
+             * da factura: não entrava na tesouraria nem no turno, e o fecho de
+             * caixa ignorava-o. É a mesma porta que o modal de pagamento usa.
+             */
+            app(\App\Services\Invoicing\LancamentoDoRecibo::class)->lancar($recibo, [], auth()->id());
+
+            return $recibo;
+        });
 
         // DEPOIS DO COMMIT. O recibo já existe e uma falha da AGT não o desfaz.
         $agt = AutoSubmissao::submeter($recibo);

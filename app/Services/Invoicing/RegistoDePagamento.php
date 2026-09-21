@@ -8,10 +8,7 @@ use App\Models\Invoicing\Receipt;
 use App\Models\Invoicing\SalesInvoice;
 use App\Models\Treasury\Account;
 use App\Models\Treasury\CashRegister;
-use App\Models\Treasury\PaymentMethod;
-use App\Models\Treasury\Transaction;
 use App\Services\AGT\AutoSubmissao;
-use App\Services\Treasury\TreasuryMovementService;
 use DomainException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -45,11 +42,20 @@ use Illuminate\Support\Facades\DB;
  */
 class RegistoDePagamento
 {
-    /** Forma de pagamento do ecrã → método de tesouraria: [código, nome, tipo]. */
+    /**
+     * Forma de pagamento do ecrã → método de tesouraria: [código, nome, tipo].
+     *
+     * TODAS AS FORMAS QUE OS ECRÃS OFERECEM TÊM DE ESTAR AQUI. Faltava o
+     * `card`, que o ecrã dos Recibos oferece como «Cartão»: sem entrada no
+     * mapa caía no `cash` por omissão, e um recibo pago com cartão entrava na
+     * GAVETA em vez da conta — o numerário do fecho de caixa vinha inflado com
+     * dinheiro que nunca lá esteve.
+     */
     public const MAPA_METODOS = [
         'cash' => ['CASH', 'Dinheiro', 'cash'],
         'transfer' => ['TRANSFER', 'Transferência Bancária', 'bank_transfer'],
         'multicaixa' => ['MULTICAIXA', 'Multicaixa', 'card'],
+        'card' => ['CARD', 'Cartão', 'card'],
         'tpa' => ['TPA', 'TPA', 'card'],
         'check' => ['CHECK', 'Cheque', 'check'],
         'mbway' => ['MBWAY', 'MB Way', 'digital_wallet'],
@@ -138,7 +144,13 @@ class RegistoDePagamento
                     'created_by' => $userId,
                 ]);
 
-                $this->lancarNaTesouraria($tipo, $factura, $recibo, $d, $valor, $tenantId, $userId);
+                // A TESOURARIA E O TURNO por uma porta só — a mesma que o ecrã
+                // dos Recibos usa. Antes era aqui, e por isso o recibo emitido
+                // fora deste modal não chegava à tesouraria.
+                app(LancamentoDoRecibo::class)->lancar($recibo, [
+                    'account_id' => $d['account_id'] ?? null,
+                    'cash_register_id' => $d['cash_register_id'] ?? null,
+                ], $userId);
             }
 
             if ($adiantamentoId && $doAdiantamento > 0) {
@@ -200,59 +212,5 @@ class RegistoDePagamento
         return $tipo === 'sale'
             ? SalesInvoice::with('client')->where('tenant_id', $tenantId)->findOrFail($id)
             : PurchaseInvoice::with('supplier')->where('tenant_id', $tenantId)->findOrFail($id);
-    }
-
-    private function lancarNaTesouraria(string $tipo, Model $factura, Receipt $recibo, array $d, float $valor, int $tenantId, ?int $userId): void
-    {
-        $metodo = $this->metodoDeTesouraria($d['payment_method'] ?? 'cash', $tenantId);
-
-        $destino = app(TreasuryMovementService::class)->destination(
-            $metodo,
-            $tenantId,
-            ! empty($d['account_id']) ? (int) $d['account_id'] : null,
-            ! empty($d['cash_register_id']) ? (int) $d['cash_register_id'] : null,
-            $userId,
-        );
-
-        app(TreasuryMovementService::class)->post([
-            'tenant_id' => $tenantId,
-            'user_id' => $userId,
-            'transaction_number' => Transaction::gerarNumero($tenantId),
-            'type' => $tipo === 'sale' ? 'income' : 'expense',
-            'category' => $tipo === 'sale' ? 'customer_payment' : 'supplier_payment',
-            'amount' => $valor,
-            'currency' => 'AOA',
-            'transaction_date' => now(),
-            'payment_method_id' => $metodo->id,
-            'account_id' => $destino['account_id'],
-            'cash_register_id' => $destino['cash_register_id'],
-            'invoice_id' => $tipo === 'sale' ? $factura->id : null,
-            'purchase_id' => $tipo === 'purchase' ? $factura->id : null,
-            'reference' => ($d['reference'] ?? null) ?: "Recibo #{$recibo->id}",
-            'description' => 'Pagamento de ' . ($tipo === 'sale' ? 'fatura de venda' : 'fatura de compra') . " #{$factura->invoice_number}",
-            'notes' => $d['notes'] ?? null,
-            'status' => 'completed',
-            'is_reconciled' => false,
-        ]);
-    }
-
-    /**
-     * Procura pelo CÓDIGO (o índice único real): procurar pelo nome rebentava
-     * com "Duplicate entry" assim que o cliente renomeasse o método.
-     */
-    private function metodoDeTesouraria(string $forma, int $tenantId): PaymentMethod
-    {
-        [$codigo, $nome, $tipo] = self::MAPA_METODOS[$forma] ?? self::MAPA_METODOS['cash'];
-
-        return PaymentMethod::where('tenant_id', $tenantId)
-            ->where(fn ($q) => $q->where('code', $codigo)->orWhere('name', $nome))
-            ->first()
-            ?? PaymentMethod::create([
-                'tenant_id' => $tenantId,
-                'code' => $codigo,
-                'name' => $nome,
-                'type' => $tipo,
-                'is_active' => true,
-            ]);
     }
 }

@@ -14,15 +14,50 @@ class TreasuryMovementService
     public function destination(PaymentMethod $method, int $tenantId, ?int $accountId = null, ?int $cashId = null, ?int $userId = null): array
     {
         if ($method->type === 'cash') {
-            $cashId = $cashId ?: $method->default_cash_register_id;
-            if (!$cashId && $userId) {
-                $cashId = CashRegister::withoutGlobalScopes()->where('tenant_id', $tenantId)
+            /*
+             * A ORDEM IMPORTA (19/09/2026). Primeiro a caixa ESCOLHIDA à mão
+             * (o modal deixa escolher); depois a caixa DO OPERADOR — cada um
+             * responde pela sua gaveta, que é o que o fecho por turno exige —;
+             * e só então a caixa por omissão do método.
+             *
+             * Estava ao contrário: o `default_cash_register_id` do método vinha
+             * primeiro e o numerário de TODOS os operadores caía na mesma
+             * caixa, nunca na de quem vendeu.
+             */
+            $doOperador = $userId
+                ? CashRegister::withoutGlobalScopes()->where('tenant_id', $tenantId)
                     ->where('user_id', $userId)->where('is_active', true)->where('status', 'open')
-                    ->orderByDesc('is_default')->value('id');
+                    ->orderByDesc('is_default')->value('id')
+                : null;
+
+            foreach ([$cashId, $doOperador, $method->default_cash_register_id] as $candidata) {
+                if (!$candidata) {
+                    continue;
+                }
+                $cash = CashRegister::withoutGlobalScopes()->where('tenant_id', $tenantId)
+                    ->where('is_active', true)->where('status', 'open')
+                    ->whereKey($candidata)->first();
+
+                if ($cash) {
+                    return ['account_id' => null, 'cash_register_id' => $cash->id];
+                }
             }
+
+            /*
+             * Nenhuma das indicadas está ABERTA. Antes devolvia-se null e o
+             * movimento ficava sem caixa — dinheiro que entrava na tesouraria e
+             * desaparecia do fecho de caixa. Agora cai na caixa aberta da casa.
+             *
+             * E se NENHUMA estiver aberta, vai para a caixa activa da casa
+             * mesmo fechada: uma empresa que criou as caixas antes de o
+             * formulário as saber abrir tem-nas todas fechadas, e todo o
+             * numerário dela ficava sem gaveta — invisível no painel, no fecho
+             * e nos relatórios. Numa caixa fechada o valor está mal arrumado;
+             * em nenhuma, está perdido.
+             */
             $cash = CashRegister::withoutGlobalScopes()->where('tenant_id', $tenantId)
-                ->where('is_active', true)->where('status', 'open')
-                ->when($cashId, fn ($q) => $q->whereKey($cashId))
+                ->where('is_active', true)
+                ->orderByRaw("CASE WHEN status = 'open' THEN 0 ELSE 1 END")
                 ->orderByDesc('is_default')->first();
 
             if (!$cash) {

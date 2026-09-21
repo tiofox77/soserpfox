@@ -987,7 +987,10 @@ final class Catalogos
                 ['chave' => 'code', 'rotulo' => 'Código', 'formato' => 'texto'],
                 ['chave' => 'user_id', 'rotulo' => 'Operador', 'formato' => 'escolha'],
                 ['chave' => 'current_balance', 'rotulo' => 'Saldo', 'formato' => 'dinheiro', 'alinhar' => 'direita'],
-                ['chave' => 'status', 'rotulo' => 'Estado', 'formato' => 'escolha'],
+                ['chave' => 'status', 'rotulo' => 'Estado', 'formato' => 'escolha', 'opcoes' => [
+                    ['valor' => 'open', 'rotulo' => 'Aberta', 'cor' => 'verde'],
+                    ['valor' => 'closed', 'rotulo' => 'Fechada', 'cor' => 'cinza'],
+                ]],
                 ['chave' => 'is_active', 'rotulo' => 'Activa', 'formato' => 'booleano'],
             ],
             'filtros' => [
@@ -999,7 +1002,27 @@ final class Catalogos
             'campos' => [
                 self::campo('name', 'Nome', 'texto', obrigatorio: true),
                 self::campo('code', 'Código', 'texto', obrigatorio: true),
-                self::campo('user_id', 'Operador', 'referencia', referencia: 'utilizadores', ajuda: 'Quem responde por esta caixa.'),
+                /*
+                 * O OPERADOR É OBRIGATÓRIO — a coluna não aceita nulos.
+                 *
+                 * Aparecia como opcional: quem criava uma caixa sem escolher
+                 * ninguém levava um erro de servidor em vez de um aviso no
+                 * campo. Toda a caixa tem dono, e é por ele que o numerário
+                 * da venda encontra a gaveta certa.
+                 */
+                self::campo('user_id', 'Operador', 'referencia', obrigatorio: true, referencia: 'utilizadores', ajuda: 'Quem responde por esta caixa.'),
+                /*
+                 * A ABERTURA E O FECHO DA GAVETA.
+                 *
+                 * A coluna nasce `closed` por omissão do esquema e o formulário
+                 * não tinha onde a abrir: a caixa recém-criada ficava fechada
+                 * para sempre e o `destination()` — que prefere caixas abertas —
+                 * nunca lá punha o numerário.
+                 */
+                self::campo('status', 'Estado', 'escolha', obrigatorio: true, omissao: 'open', opcoes: [
+                    ['valor' => 'open', 'rotulo' => __('Aberta'), 'cor' => 'verde'],
+                    ['valor' => 'closed', 'rotulo' => __('Fechada'), 'cor' => 'cinza'],
+                ], ajuda: 'Só uma caixa aberta recebe o dinheiro das vendas.'),
                 self::campo('opening_balance', 'Fundo de maneio', 'numero', omissao: 0, passo: 0.01, min: 0),
                 self::campo('opening_notes', 'Observações de abertura', 'textarea', largura: 'inteira'),
                 self::campo('is_active', 'Activa', 'booleano', omissao: true),
@@ -1007,7 +1030,8 @@ final class Catalogos
             'regras' => [
                 'name' => 'required|max:100',
                 'code' => 'required|max:30',
-                'user_id' => 'nullable|integer',
+                'user_id' => 'required|integer',
+                'status' => 'nullable|in:open,closed',
                 'opening_balance' => 'nullable|numeric|min:0',
                 'opening_notes' => 'nullable|string',
                 'is_active' => 'boolean',
@@ -1047,7 +1071,50 @@ final class Catalogos
                     return $daCasa ? [] : ['user_id' => __('Esse utilizador não pertence a esta empresa.')];
                 },
             ]),
-            'preparar' => fn (array $d) => array_merge($d, ['user_id' => ($d['user_id'] ?? null) ?: null]),
+            /*
+             * ABRIR E FECHAR A GAVETA, com as horas e o dinheiro certos.
+             *
+             * Três coisas que faltavam, e que davam «o numerário não aparece»:
+             *
+             *  · a caixa NOVA nasce aberta, com a hora da abertura, e o FUNDO
+             *    DE MANEIO conta como dinheiro que já está na gaveta — antes
+             *    escrevia-se em `opening_balance` e o saldo ficava a zero;
+             *  · FECHAR marca a hora do fecho; REABRIR marca a da abertura e
+             *    limpa a do fecho;
+             *  · nem um nem outro MEXEM NO SALDO de uma caixa que já existe. O
+             *    dinheiro sai da gaveta por movimento de tesouraria (um
+             *    depósito, uma transferência), nunca por uma mudança de estado
+             *    num formulário.
+             */
+            'preparar' => function (array $d, ?Model $m) {
+                $estado = in_array($d['status'] ?? null, ['open', 'closed'], true)
+                    ? $d['status']
+                    : ($m?->status ?? 'open');
+
+                $d['status'] = $estado;
+                $fundo = round((float) ($d['opening_balance'] ?? 0), 2);
+
+                if (! $m) {
+                    return array_merge($d, [
+                        'opened_at' => $estado === 'open' ? now() : null,
+                        'closed_at' => $estado === 'closed' ? now() : null,
+                        'current_balance' => $fundo,
+                        'expected_balance' => $fundo,
+                    ]);
+                }
+
+                if ($estado === 'open' && $m->status !== 'open') {
+                    $d['opened_at'] = now();
+                    $d['closed_at'] = null;
+                }
+
+                if ($estado === 'closed' && $m->status !== 'closed') {
+                    $d['closed_at'] = now();
+                }
+
+                return $d;
+            },
+            'extras' => ['status', 'opened_at', 'closed_at', 'current_balance', 'expected_balance'],
             // Uma caixa ABERTA tem dinheiro contado e um turno por fechar.
             'pode_apagar' => fn (Model $m) => $m->status !== 'open',
             'porque_nao_apaga' => 'A caixa está aberta. Feche o turno primeiro.',
