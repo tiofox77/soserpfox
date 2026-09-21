@@ -339,6 +339,10 @@ export default function DadosDaEmpresa() {
                 </div>
             </Seccao>
 
+            {/* ─── O revendedor ─────────────────────────────────────── */}
+
+            <SuporteDoRevendedor />
+
             {/* ─── As acções ─────────────────────────────────────────── */}
 
             <div className="flex flex-wrap items-center gap-3 pb-2">
@@ -589,5 +593,97 @@ function Morada({ dados, erros, geografia, podeEditar, aoMudar }: {
                 </>
             )}
         </>
+    );
+}
+
+/**
+ * O SEU REVENDEDOR PODE ENTRAR? (21/09/2026)
+ *
+ * O revendedor pode entrar na empresa como o dono, para dar suporte — mas só
+ * se quem a gere o autorizar aqui. Desligado por omissão. O revendedor é de
+ * fora da plataforma: ver facturas, clientes e salários é uma porta que só a
+ * empresa abre.
+ *
+ * Mostra também cada vez que ele entrou e quanto tempo esteve — a empresa sabe
+ * sempre quem esteve cá. Sem revendedor, a secção não aparece.
+ */
+function SuporteDoRevendedor() {
+    const cache = useQueryClient();
+    const [, porRecado] = useRecadoNoCanto('');
+    const q = useQuery({ queryKey: ['empresa', 'suporte-do-revendedor'], queryFn: api.suporteDoRevendedor });
+
+    const mudar = useMutation({
+        mutationFn: (permitido: boolean) => api.definirSuporteDoRevendedor(permitido),
+        onSuccess: (r) => {
+            porRecado(r.message);
+            void cache.invalidateQueries({ queryKey: ['empresa', 'suporte-do-revendedor'] });
+        },
+    });
+
+    if (q.isPending || q.isError || !q.data.revendedor) return null;
+
+    const d = q.data;
+    const r = d.revendedor!;
+
+    return (
+        <Seccao titulo={t('O seu revendedor')} icone="fa-handshake" tom="roxo" aviso={d.permitido ? t('Pode entrar') : undefined}>
+            <div className="space-y-4">
+                <p className="text-sm text-slate-700">
+                    {t('Esta empresa está ligada ao revendedor :nome (:codigo).', { nome: r.nome, codigo: r.codigo ?? '—' })}
+                </p>
+
+                <label className={cls('flex items-start gap-3 border p-4', RAIO, d.permitido ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-white')}>
+                    <input
+                        id="suporte-do-revendedor"
+                        type="checkbox"
+                        className="mt-1 h-4 w-4 accent-emerald-600"
+                        checked={d.permitido}
+                        disabled={!d.pode_mudar || mudar.isPending}
+                        onChange={(e) => mudar.mutate(e.target.checked)}
+                    />
+                    <span className="text-sm">
+                        <b className="block text-slate-900">{t('Permitir que o meu revendedor entre para dar suporte')}</b>
+                        <span className="text-slate-600">
+                            {t('Entra como o dono da empresa e vê o que ele vê, no máximo 2 horas de cada vez. Não pode criar contas, mudar senhas, PINs nem papéis. Pode retirar a autorização a qualquer momento — se ele estiver dentro, sai no clique seguinte.')}
+                        </span>
+                    </span>
+                </label>
+
+                {!d.pode_mudar && (
+                    <p className="text-xs text-slate-500">{t('Está a ver. Mudar esta autorização é de quem gere a empresa.')}</p>
+                )}
+
+                {/* A EMPRESA VÊ QUEM ESTEVE CÁ — da trilha de auditoria, que ninguém apaga. */}
+                <div>
+                    <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">{t('Quando entrou')}</h3>
+                    {d.entradas.length === 0 ? (
+                        <p className="text-sm text-slate-500">{t('O revendedor ainda não entrou nesta empresa.')}</p>
+                    ) : (
+                        <ul className="divide-y divide-slate-100 text-sm">
+                            {d.entradas.map((x, i) => (
+                                <li key={i} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                                    <span className="text-slate-700">
+                                        <i className={cls('fas mr-2', x.evento.endsWith('entrou') ? 'fa-right-to-bracket text-emerald-600' : 'fa-right-from-bracket text-slate-400')} aria-hidden="true" />
+                                        {x.evento.endsWith('entrou')
+                                            ? t('Entrou como :pessoa', { pessoa: x.pessoa ?? '—' })
+                                            : x.evento.endsWith('expirou')
+                                                ? t('Saiu: passaram as 2 horas')
+                                                : x.motivo === 'autorizacao_retirada'
+                                                    ? t('Saiu: a autorização foi retirada')
+                                                    : t('Saiu')}
+                                        {x.duracao_em_segundos != null && (
+                                            <span className="ml-1 text-slate-400">· {t(':n min', { n: Math.max(1, Math.round(x.duracao_em_segundos / 60)) })}</span>
+                                        )}
+                                    </span>
+                                    <span className="tabular-nums text-xs text-slate-500">
+                                        {x.quando ? new Date(x.quando).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+            </div>
+        </Seccao>
     );
 }

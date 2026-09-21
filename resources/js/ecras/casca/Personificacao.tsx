@@ -105,7 +105,11 @@ export default function Personificacao({ estado: inicial }: { estado: EstadoDaPe
 
                     <span className="min-w-0">
                         <span className="block text-[10px] font-extrabold uppercase tracking-widest text-white/80">
-                            {t('Personificação')}
+                            {/* Quem está cá dentro tem de se saber sempre: o revendedor é
+                                de fora da plataforma, e a empresa autorizou-o a ELE. */}
+                            {estado.revendedor
+                                ? t('Suporte do revendedor :nome', { nome: estado.revendedor.nome })
+                                : t('Personificação')}
                         </span>
                         <span className="block leading-snug">
                             {tPartes('Está na empresa :empresa como :pessoa', {
@@ -139,7 +143,7 @@ export default function Personificacao({ estado: inicial }: { estado: EstadoDaPe
                         )}
                     >
                         <i className={cls('fas', aSair ? 'fa-circle-notch fa-spin' : 'fa-arrow-right-from-bracket')} aria-hidden="true" />
-                        {aSair ? t('A voltar…') : t('Voltar à plataforma')}
+                        {aSair ? t('A voltar…') : estado.revendedor ? t('Voltar ao meu portal') : t('Voltar à plataforma')}
                     </button>
                 </div>
             </div>

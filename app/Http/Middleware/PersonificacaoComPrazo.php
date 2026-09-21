@@ -88,6 +88,35 @@ class PersonificacaoComPrazo
     ];
 
     /**
+     * O QUE O REVENDEDOR NÃO FAZ, além de tudo o que o admin também não faz
+     * (21/09/2026).
+     *
+     * O revendedor é de fora da plataforma, e a autorização da empresa é o que
+     * o deixa entrar. Estas portas abririam-lhe um acesso que sobrevive a essa
+     * autorização: criar ou convidar uma conta com o email dele, mudar o email
+     * de um colega para o dele, reactivar uma conta antiga, subir-se de papel.
+     * Depois bastava entrar pela porta da frente — fora das duas horas, e
+     * mesmo depois de a empresa desligar a autorização.
+     *
+     * E não abre a porta a si próprio: o interruptor da autorização fica com
+     * quem gere a empresa.
+     *
+     * @var array<string, string>
+     */
+    private const PROIBIDAS_AO_REVENDEDOR = [
+        'api.invoicing.react.utilizadores.criar' => 'O revendedor não cria contas na empresa. Peça a quem a gere.',
+        'api.invoicing.react.utilizadores.convidar' => 'O revendedor não convida pessoas para a empresa. Peça a quem a gere.',
+        'api.invoicing.react.utilizadores.reenviar' => 'O revendedor não convida pessoas para a empresa. Peça a quem a gere.',
+        'api.invoicing.react.utilizadores.guardar' => 'O revendedor não muda os dados de acesso das pessoas da empresa.',
+        'api.invoicing.react.utilizadores.estado' => 'O revendedor não activa nem desactiva contas da empresa.',
+        'api.invoicing.react.utilizadores.pin' => 'O revendedor não muda PINs de turno.',
+        'api.invoicing.react.papeis.criar' => 'O revendedor não mexe nos papéis e permissões da empresa.',
+        'api.invoicing.react.papeis.guardar' => 'O revendedor não mexe nos papéis e permissões da empresa.',
+        'api.invoicing.react.papeis.atribuir' => 'O revendedor não mexe nos papéis e permissões da empresa.',
+        'api.invoicing.react.empresa.suporte-do-revendedor.definir' => 'A autorização do revendedor é decidida por quem gere a empresa.',
+    ];
+
+    /**
      * Sair do sistema, durante a personificação, é voltar à plataforma: o
      * «Sair» do menu não pode fechar a sessão do ADMIN sem registar a saída.
      */
@@ -95,24 +124,42 @@ class PersonificacaoComPrazo
 
     public function handle(Request $request, Closure $next): Response
     {
-        if (! $request->hasSession() || ! $request->session()->has(Personificacao::CHAVE_DO_ADMIN)) {
+        if (! $request->hasSession()) {
             return $next($request);
         }
 
+        // O super admin OU um revendedor. Olhar só para a chave do admin deixava
+        // o revendedor sem prazo e sem a lista do que é proibido.
         $personificacao = app(Personificacao::class);
+
+        if (! $personificacao->activa()) {
+            return $next($request);
+        }
+
+        // Tem de se saber ANTES de terminar: o terminar apaga as chaves.
+        $doRevendedor = $personificacao->doRevendedor();
+        $voltouA = $doRevendedor ? __('Voltou ao seu portal de revendedor.') : __('Voltou à sua conta.');
 
         if ($personificacao->expirou()) {
             $personificacao->terminar($request, 'personificacao.expirou', [
                 'minutos' => Personificacao::DURACAO_EM_MINUTOS,
             ]);
 
-            return $this->acabou($request, $personificacao, __('A personificação terminou: passaram as 2 horas. Voltou à sua conta.'));
+            return $this->acabou($request, $personificacao, __('A personificação terminou: passaram as 2 horas.') . ' ' . $voltouA);
         }
 
         if (! $personificacao->pessoaAindaServe()) {
             $personificacao->terminar($request, 'personificacao.saiu', ['motivo' => 'pessoa_indisponivel']);
 
-            return $this->acabou($request, $personificacao, __('A personificação terminou: a pessoa foi desactivada ou saiu da empresa. Voltou à sua conta.'));
+            return $this->acabou($request, $personificacao, __('A personificação terminou: a pessoa foi desactivada ou saiu da empresa.') . ' ' . $voltouA);
+        }
+
+        // A empresa desligou a autorização a meio, ou deixou de ser dele: sai
+        // já, e não às duas horas por já lá estar dentro.
+        if (! $personificacao->empresaAindaPermite()) {
+            $personificacao->terminar($request, 'personificacao.saiu', ['motivo' => 'autorizacao_retirada']);
+
+            return $this->acabou($request, $personificacao, __('A empresa retirou a autorização do revendedor.') . ' ' . $voltouA);
         }
 
         $rota = $request->route()?->getName();
@@ -120,7 +167,11 @@ class PersonificacaoComPrazo
         if ($rota !== null && in_array($rota, self::SAIDAS, true)) {
             $personificacao->sair($request, 'sair_do_menu');
 
-            return $this->acabou($request, $personificacao, __('Voltou à plataforma.'), 200);
+            return $this->acabou($request, $personificacao, $doRevendedor ? $voltouA : __('Voltou à plataforma.'), 200);
+        }
+
+        if ($doRevendedor && $rota !== null && isset(self::PROIBIDAS_AO_REVENDEDOR[$rota])) {
+            return response()->json(['message' => __(self::PROIBIDAS_AO_REVENDEDOR[$rota])], 403);
         }
 
         if ($recusa = $this->recusa($request, $rota, $personificacao)) {

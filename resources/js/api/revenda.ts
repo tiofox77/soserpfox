@@ -44,6 +44,8 @@ export type EmpresaDoRevendedor = {
     via_rotulo: string | null;
     ligada_em: string | null;
     criada_em: string | null;
+    /** A empresa autorizou-o a entrar para dar suporte (é ela que decide). */
+    pode_entrar?: boolean;
 };
 
 export type Comissao = {
@@ -106,7 +108,7 @@ export type FichaDaEmpresa = {
     subscricao: { plano_id: number; plano: string | null; ciclo: string; ciclo_rotulo: string; valor: number; inicio: string | null; fim: string | null } | null;
     pedidos: Array<{ id: number; plano: string | null; ciclo: string | null; valor: number; estado: 'pending' | 'approved' | 'rejected'; estado_rotulo: string; referencia: string | null; comprovativo: string | null; motivo: string | null; data: string | null }>;
     facturas: Array<{
-        id: number; numero: string; descricao: string | null; data: string | null; vencimento: string | null; total: number; estado: string; estado_rotulo: string; referencia: string | null;
+        id: number; numero: string; descricao: string | null; data: string | null; vencimento: string | null; total: number; a_pagar_revendedor?: number; estado: string; estado_rotulo: string; referencia: string | null;
         /** O revendedor já enviou o pagamento e espera a confirmação. */
         pagamento_enviado: boolean; comprovativo: string | null; motivo_recusa: string | null; pode_pagar: boolean;
     }>;
@@ -203,6 +205,8 @@ export const revenda = {
         totais: { por_pagar: number; por_pagar_n: number; por_confirmar: number; por_confirmar_n: number };
         conta: OpcoesDoPortal['conta'];
     }>('/pagamentos'),
+    /** Entrar na empresa para dar suporte — só nas que o autorizaram. */
+    entrarNaEmpresa: (empresa: number) => doPortal.criar<Recado & { seguir_para: string }>(`/empresas/${empresa}/entrar`, {}),
     pagarFactura: (empresa: number, factura: number, ficheiro: File, referencia: string) =>
         doPortal.enviar<Recado>(`/empresas/${empresa}/facturas/${factura}/pagamento`, formulario({ referencia }, { comprovativo: ficheiro })),
     comissoes: (f: { estado?: string; pagina?: number }) => doPortal.ler<{

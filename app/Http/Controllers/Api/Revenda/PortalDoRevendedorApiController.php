@@ -190,6 +190,34 @@ class PortalDoRevendedorApiController extends Controller
         return response()->json(['message' => __('Comprovativo anexado. Aguarda a confirmação do pagamento.')]);
     }
 
+    /**
+     * ENTRAR NA EMPRESA PARA DAR SUPORTE (21/09/2026).
+     *
+     * As regras estão todas no `Personificacao::entrarComoRevendedor` — é a
+     * fonte única, a mesma da entrada do super admin. Aqui só se resolve a
+     * empresa pela porta do revendedor (404 para as de outro) e se diz ao
+     * browser para onde ir.
+     */
+    public function entrar(Request $request, int $id): JsonResponse
+    {
+        $r = $this->eu($request);
+        $empresa = $this->empresas->empresa($r, $id);
+
+        $dados = $request->validate(['utilizador_id' => ['nullable', 'integer']]);
+
+        try {
+            $pessoa = app(\App\Services\Plataforma\Personificacao::class)
+                ->entrarComoRevendedor($request, $r, $empresa, $dados['utilizador_id'] ?? null);
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            return response()->json(['message' => $e->getMessage()], 403);
+        }
+
+        return response()->json([
+            'message' => __('Entrou em :empresa como :pessoa.', ['empresa' => $empresa->name, 'pessoa' => $pessoa->name]),
+            'seguir_para' => '/home',
+        ]);
+    }
+
     /** O que as empresas têm por pagar, o que foi enviado e o histórico. */
     public function pagamentos(Request $request): JsonResponse
     {

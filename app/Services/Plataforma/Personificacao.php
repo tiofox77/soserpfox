@@ -3,9 +3,11 @@
 namespace App\Services\Plataforma;
 
 use App\Http\Middleware\SessaoSoDeLeitura;
+use App\Models\Reseller;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\Audit\AuditRecorder;
+use App\Services\Revenda\SuporteDoRevendedor;
 use Carbon\Carbon;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Request;
@@ -52,6 +54,14 @@ class Personificacao
      */
     public const CHAVE_DO_ADMIN = 'impersonator_id';
 
+    /**
+     * O REVENDEDOR QUE ENTROU (21/09/2026). Chave PRÓPRIA, e não a do admin, de
+     * propósito: o `impersonator_id` é o id de um UTILIZADOR — é assim que o
+     * AuditRecorder o lê. Pôr lá o id de um revendedor atribuía os actos dele
+     * ao utilizador com o mesmo número. O revendedor vive noutra tabela.
+     */
+    public const CHAVE_DO_REVENDEDOR = 'impersonator_reseller_id';
+
     /** O resto do estado: empresa, pessoa, desde quando e para onde voltar. */
     public const CHAVE = 'personificacao';
 
@@ -60,9 +70,123 @@ class Personificacao
 
     public function __construct(private AuditRecorder $auditoria) {}
 
+    /**
+     * Há alguém a personificar — o super admin OU um revendedor. É por aqui
+     * que o middleware das duas horas acorda: se só olhasse para a chave do
+     * admin, o revendedor ficava sem prazo e sem a lista do que é proibido.
+     */
     public function activa(): bool
     {
-        return session()->has(self::CHAVE_DO_ADMIN);
+        return session()->has(self::CHAVE_DO_ADMIN) || session()->has(self::CHAVE_DO_REVENDEDOR);
+    }
+
+    /** Quem está a personificar é um revendedor (e não o super admin). */
+    public function doRevendedor(): bool
+    {
+        return session()->has(self::CHAVE_DO_REVENDEDOR);
+    }
+
+    /**
+     * O REVENDEDOR ENTRA NUMA EMPRESA QUE TROUXE, para dar suporte.
+     *
+     * As mesmas travas do super admin — duas horas, sem mexer em senhas nem
+     * PIN, faixa à vista, tudo na trilha — e mais três, que são o que o torna
+     * seguro para alguém de fora da plataforma:
+     *
+     *  · só nas empresas LIGADAS A ELE (nunca nas de outro revendedor);
+     *  · só nas que o AUTORIZARAM (ver SuporteDoRevendedor — desligado por
+     *    omissão, é a empresa que decide);
+     *  · só com o revendedor APROVADO.
+     *
+     * Entra como o dono da empresa por omissão, como o super admin.
+     */
+    public function entrarComoRevendedor(Request $request, Reseller $revendedor, Tenant $empresa, ?int $utilizadorId = null): User
+    {
+        if (! $revendedor->aprovado()) {
+            throw new AuthorizationException(__('A sua conta de revendedor não está aprovada.'));
+        }
+
+        // Nunca nas empresas de outro revendedor. A mensagem não confirma que a
+        // empresa existe — é a mesma de uma que não há.
+        if ((int) $empresa->reseller_id !== (int) $revendedor->id) {
+            throw new AuthorizationException(__('Esta empresa não é sua.'));
+        }
+
+        if (! SuporteDoRevendedor::permitido($empresa)) {
+            throw ValidationException::withMessages([
+                'personificacao' => [__('Esta empresa não autorizou o acesso do revendedor. Peça-lhe que o ligue em Dados da empresa.')],
+            ]);
+        }
+
+        if ($this->activa()) {
+            throw ValidationException::withMessages([
+                'personificacao' => [__('Já está dentro de uma empresa. Saia antes de entrar noutra.')],
+            ]);
+        }
+
+        $alvo = $this->escolherAlvo($empresa, null, $utilizadorId);
+
+        $sessao = $request->session();
+
+        // Sessão nova, e a velha APAGADA — como na entrada do admin. A sessão
+        // do revendedor (a guarda `revendedor`) vai com ela: é a mesma sessão,
+        // e é para ela que se volta à saída.
+        $sessao->regenerate(true);
+
+        $sessao->put(self::CHAVE_DO_REVENDEDOR, $revendedor->id);
+        $sessao->put(self::CHAVE, [
+            'empresa_id' => $empresa->id,
+            'utilizador_id' => $alvo->id,
+            'desde' => now()->getTimestamp(),
+            'voltar_a' => '/revendedor/empresas/' . $empresa->id,
+            'revendedor' => ['id' => $revendedor->id, 'nome' => $revendedor->nomeVisivel(), 'codigo' => $revendedor->code],
+        ]);
+
+        $this->autenticarSemEvento($request, $alvo);
+
+        $sessao->put('active_tenant_id', $empresa->id);
+        setPermissionsTeamId($empresa->id);
+        $alvo->unsetRelation('roles')->unsetRelation('permissions');
+
+        // Depois de a sessão já ser a do alvo, como na do admin: a linha sai com
+        // o utilizador e o revendedor marcado (ver AuditRecorder).
+        $this->auditoria->acto('personificacao.revendedor.entrou', $empresa->id, [
+            'revendedor' => ['id' => $revendedor->id, 'nome' => $revendedor->nomeVisivel(), 'codigo' => $revendedor->code],
+            'utilizador' => ['id' => $alvo->id, 'nome' => $alvo->name, 'email' => $alvo->email],
+            'empresa' => $empresa->name,
+            'ip' => $request->ip(),
+            'termina_em' => now()->addMinutes(self::DURACAO_EM_MINUTOS)->toIso8601String(),
+        ], $empresa);
+
+        $this->gravarSessaoMesmoNumaLeitura($request);
+
+        return $alvo;
+    }
+
+    /**
+     * A empresa continua a deixar o revendedor estar cá?
+     *
+     * Se a empresa desligar a autorização A MEIO, ou deixar de ser dele, a
+     * personificação acaba no pedido seguinte — não fica aberta até às duas
+     * horas por o revendedor já lá estar dentro.
+     */
+    public function empresaAindaPermite(): bool
+    {
+        if (! $this->doRevendedor()) {
+            return true;
+        }
+
+        $empresa = $this->empresaId() !== null ? Tenant::find($this->empresaId()) : null;
+        $revendedor = Reseller::find(session(self::CHAVE_DO_REVENDEDOR));
+
+        // E ele continua com sessão de revendedor. Se saiu do portal dele a
+        // meio, a conta da empresa não fica aberta sem ninguém por trás.
+        $aindaEntrado = (int) Auth::guard('revendedor')->id() === (int) session(self::CHAVE_DO_REVENDEDOR);
+
+        return $empresa && $revendedor && $aindaEntrado
+            && $revendedor->aprovado()
+            && (int) $empresa->reseller_id === (int) $revendedor->id
+            && SuporteDoRevendedor::permitido($empresa);
     }
 
     /* ─── Entrar ──────────────────────────────────────────────────────── */
@@ -141,7 +265,7 @@ class Personificacao
      * empresa, as duas) — porque é quem vê tudo o que a empresa tem. Sem dono
      * activo, a primeira pessoa activa que sirva.
      */
-    private function escolherAlvo(Tenant $empresa, User $admin, ?int $utilizadorId): User
+    private function escolherAlvo(Tenant $empresa, ?User $admin, ?int $utilizadorId): User
     {
         if ($utilizadorId !== null) {
             $alvo = $empresa->users()->where('users.id', $utilizadorId)->first();
@@ -181,9 +305,11 @@ class Personificacao
      *
      * @param  User  $pessoa  carregada pela relação da empresa (traz o pivot)
      */
-    public function porQueNaoServe(User $pessoa, User $admin): ?string
+    public function porQueNaoServe(User $pessoa, ?User $admin): ?string
     {
-        if ($pessoa->id === $admin->id) {
+        // Sem admin é um revendedor a entrar: não tem conta de utilizador, e
+        // por isso não há «a sua própria conta» a recusar.
+        if ($admin && $pessoa->id === $admin->id) {
             return __('É a sua própria conta.');
         }
 
@@ -302,6 +428,10 @@ class Personificacao
      */
     public function terminar(Request $request, string $evento, array $extra = []): ?User
     {
+        if ($this->doRevendedor()) {
+            return $this->terminarDoRevendedor($request, $evento, $extra);
+        }
+
         $sessao = $request->session();
         $dados = (array) $sessao->get(self::CHAVE, []);
         $adminId = $sessao->get(self::CHAVE_DO_ADMIN);
@@ -346,10 +476,62 @@ class Personificacao
         return $admin;
     }
 
+    /**
+     * A SAÍDA DO REVENDEDOR — diferente da do admin num ponto só, e é o que
+     * importa: o admin VOLTA À CONTA DELE; o revendedor não tem conta de
+     * utilizador. Sai-se da conta da pessoa e fica a sessão de revendedor, que
+     * esteve sempre lá (a guarda `revendedor` vive na mesma sessão).
+     *
+     * Não se invalida a sessão inteira — isso punha o revendedor fora do
+     * portal dele também. Tira-se a conta da pessoa, as chaves da
+     * personificação e a empresa, e renova-se o id da sessão.
+     */
+    private function terminarDoRevendedor(Request $request, string $evento, array $extra): ?User
+    {
+        $sessao = $request->session();
+        $dados = (array) $sessao->get(self::CHAVE, []);
+        $desde = isset($dados['desde']) ? (int) $dados['desde'] : null;
+        $pessoa = isset($dados['utilizador_id']) ? User::find((int) $dados['utilizador_id']) : null;
+
+        // A trilha ANTES de trocar de conta, como na do admin: a linha sai com
+        // a pessoa e o revendedor marcado. O evento é o do revendedor
+        // («personificacao.revendedor.saiu»), para a empresa o encontrar.
+        $this->auditoria->acto(
+            str_replace('personificacao.', 'personificacao.revendedor.', $evento),
+            isset($dados['empresa_id']) ? (int) $dados['empresa_id'] : null,
+            array_merge([
+                'revendedor' => $dados['revendedor'] ?? ['id' => (int) $sessao->get(self::CHAVE_DO_REVENDEDOR)],
+                'utilizador' => ['id' => $pessoa?->id, 'nome' => $pessoa?->name],
+                'duracao_em_segundos' => $desde !== null ? max(0, now()->getTimestamp() - $desde) : null,
+                'ip' => $request->ip(),
+            ], $extra),
+        );
+
+        $voltarA = $dados['voltar_a'] ?? null;
+        $this->destino = is_string($voltarA) && str_starts_with($voltarA, '/revendedor/') && ! str_contains($voltarA, '//')
+            ? $voltarA
+            : '/revendedor/empresas';
+
+        // Sair da conta da pessoa SEM o evento de logout: a trilha escreveria
+        // que a pessoa saiu — ela, que nem sabe que alguém entrou por ela.
+        $guarda = Auth::guard('web');
+        $sessao->forget($guarda->getName());
+        $guarda->forgetUser();
+
+        $sessao->forget([self::CHAVE_DO_REVENDEDOR, self::CHAVE, 'active_tenant_id', 'impersonate_tenant_id']);
+        setPermissionsTeamId(null);
+
+        // A sessão da personificação não fica para trás.
+        $sessao->regenerate(true);
+        $this->gravarSessaoMesmoNumaLeitura($request);
+
+        return null;
+    }
+
     /** Para onde mandar o browser depois da última saída. */
     public function destino(): string
     {
-        return $this->destino ?? route('superadmin.dashboard');
+        return $this->destino ?? ($this->doRevendedor() ? '/revendedor/empresas' : route('superadmin.dashboard'));
     }
 
     /* ─── O que se sabe durante ───────────────────────────────────────── */
@@ -370,6 +552,8 @@ class Personificacao
         return [
             'activa' => true,
             'admin' => $admin ? ['id' => $admin->id, 'nome' => $admin->name] : null,
+            // Quando é o revendedor: a faixa diz-o, e diz para onde se volta.
+            'revendedor' => $this->doRevendedor() ? ($dados['revendedor'] ?? null) : null,
             'empresa' => $empresa ? ['id' => $empresa->id, 'nome' => $empresa->name, 'activa' => (bool) $empresa->is_active] : null,
             'utilizador' => $pessoa ? ['id' => $pessoa->id, 'nome' => $pessoa->name, 'email' => $pessoa->email] : null,
             'desde' => $desde->toIso8601String(),

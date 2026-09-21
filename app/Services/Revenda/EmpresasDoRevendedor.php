@@ -113,6 +113,9 @@ class EmpresasDoRevendedor
             'via_rotulo' => $t->reseller_via ? __(LigacaoAoRevendedor::VIAS[$t->reseller_via] ?? $t->reseller_via) : null,
             'ligada_em' => $t->reseller_linked_at?->toIso8601String(),
             'criada_em' => $t->created_at?->toIso8601String(),
+            // A empresa deixa-o entrar para dar suporte? É ela que decide — o
+            // botão «Entrar» só aparece quando sim (ver SuporteDoRevendedor).
+            'pode_entrar' => SuporteDoRevendedor::permitido($t),
         ];
     }
 
@@ -220,13 +223,18 @@ class EmpresasDoRevendedor
                 'motivo' => $o->rejection_reason,
                 'data' => $o->created_at?->toIso8601String(),
             ])->values(),
-            'facturas' => Invoice::where('tenant_id', $t->id)->whereNotNull('subscription_id')->latest('invoice_date')->limit(10)->get()->map(fn (Invoice $i) => [
+            'facturas' => Invoice::with('subscription')->where('tenant_id', $t->id)->whereNotNull('subscription_id')->latest('invoice_date')->limit(10)->get()->map(fn (Invoice $i) => [
                 'id' => $i->id,
                 'numero' => $i->invoice_number,
                 'descricao' => $i->description,
                 'data' => $i->invoice_date?->toDateString(),
                 'vencimento' => $i->due_date?->toDateString(),
                 'total' => (float) $i->total,
+                // O QUE O REVENDEDOR TRANSFERE se for ele a pagar — o total menos
+                // a comissão que a factura daria. Pagar pela ficha usava o
+                // `total`: transferia tudo E, ao confirmar, a comissão ficava
+                // compensada — pagava por inteiro e perdia a comissão.
+                'a_pagar_revendedor' => $comissoes->aPagarPeloRevendedor($r, $i)['preco'],
                 'estado' => $i->status,
                 'estado_rotulo' => __(['pending' => 'Por pagar', 'paid' => 'Paga', 'overdue' => 'Vencida', 'cancelled' => 'Anulada'][$i->status] ?? $i->status),
                 'referencia' => $i->payment_reference,

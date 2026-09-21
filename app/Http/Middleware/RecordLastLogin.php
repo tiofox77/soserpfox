@@ -15,9 +15,10 @@ class RecordLastLogin
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Durante a personificação quem navega é o admin: gravar a entrada na
-        // pessoa dizia na lista de empresas que ela esteve cá — e não esteve.
-        if (auth()->check() && ! session()->has(\App\Services\Plataforma\Personificacao::CHAVE_DO_ADMIN)) {
+        // Durante a personificação quem navega é o admin OU o revendedor: gravar
+        // a entrada na pessoa dizia na lista de empresas que ela esteve cá — e
+        // não esteve. Só a chave do admin deixava o revendedor contar como uso.
+        if (auth()->check() && ! app(\App\Services\Plataforma\Personificacao::class)->activa()) {
             $user = auth()->user();
 
             /*

@@ -86,4 +86,26 @@ export const empresa = {
         return api.enviar<Recado & { logo: string }>(`${R}/logotipo`, corpo);
     },
     apagarLogotipo: () => api.apagar<Recado>(`${R}/logotipo`),
+
+    /** O revendedor da empresa e se o deixa entrar para dar suporte (21/09/2026). */
+    suporteDoRevendedor: () => api.ler<SuporteDoRevendedor>(`${R}/suporte-do-revendedor`),
+    definirSuporteDoRevendedor: (permitido: boolean) =>
+        api.guardar<Recado & { permitido: boolean }>(`${R}/suporte-do-revendedor`, { permitido }),
+};
+
+/**
+ * O REVENDEDOR PODE ENTRAR NA EMPRESA? É a empresa que decide — desligado por
+ * omissão. E vê cada vez que ele entrou, e quanto tempo esteve.
+ */
+export type SuporteDoRevendedor = {
+    revendedor: { nome: string; codigo: string | null; email: string } | null;
+    permitido: boolean;
+    entradas: Array<{
+        evento: 'personificacao.revendedor.entrou' | 'personificacao.revendedor.saiu' | 'personificacao.revendedor.expirou';
+        quando: string | null;
+        pessoa: string | null;
+        duracao_em_segundos: number | null;
+        motivo: string | null;
+    }>;
+    pode_mudar: boolean;
 };

@@ -72,12 +72,18 @@ class CascaApiController extends Controller
      */
     public function sairDaPersonificacao(Request $request): JsonResponse
     {
+        // Tem de se saber ANTES de sair: o sair apaga as chaves. E o revendedor
+        // não tem conta de admin a que voltar — o `null` dele é a saída normal,
+        // não a conta que já não pode voltar.
+        $doRevendedor = $this->personificacao->doRevendedor();
         $admin = $this->personificacao->sair($request);
 
         return response()->json([
-            'message' => $admin
-                ? __('Voltou à plataforma.')
-                : __('A sua conta já não pode voltar à plataforma. Inicie sessão de novo.'),
+            'message' => match (true) {
+                $doRevendedor => __('Voltou ao seu portal de revendedor.'),
+                $admin !== null => __('Voltou à plataforma.'),
+                default => __('A sua conta já não pode voltar à plataforma. Inicie sessão de novo.'),
+            },
             'seguir_para' => $this->personificacao->destino(),
         ]);
     }

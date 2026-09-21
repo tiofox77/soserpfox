@@ -30,6 +30,7 @@ export default function Empresa({ id }: { id: number }) {
     const opcoes = useQuery({ queryKey: ['revenda', 'opcoes'], queryFn: revenda.opcoes, staleTime: 5 * 60_000 });
     const [aPedir, porAPedir] = useState(false);
     const [aPagar, porAPagar] = useState<AlvoDoPagamento | null>(null);
+    const [aEntrar, porAEntrar] = useState(false);
 
     if (q.isPending) return <Carregando linhas={8} />;
     if (q.isError) {
@@ -48,7 +49,9 @@ export default function Empresa({ id }: { id: number }) {
         tipo: 'pedido', id: p.id, empresaId: e.id, empresa: e.nome, descricao: [p.plano, p.ciclo].filter(Boolean).join(' · '), valor: p.valor, referencia: p.referencia,
     });
     const pagarFactura = (fa: FichaDaEmpresa['facturas'][number]) => porAPagar({
-        tipo: 'factura', id: fa.id, empresaId: e.id, empresa: e.nome, descricao: fa.numero, valor: fa.total, referencia: fa.referencia,
+        // O preço de revendedor, não o total: com o total transferia tudo E a
+        // comissão ficava compensada — pagava por inteiro e perdia-a.
+        tipo: 'factura', id: fa.id, empresaId: e.id, empresa: e.nome, descricao: fa.numero, valor: fa.a_pagar_revendedor ?? fa.total, referencia: fa.referencia,
     });
 
     return (
@@ -63,8 +66,23 @@ export default function Empresa({ id }: { id: number }) {
                             <i className="fas fa-arrows-rotate transition-transform duration-500 group-hover:rotate-180" aria-hidden="true" />{t('Mudar ou renovar plano')}
                         </button>
                     )}
+                    {/* ENTRAR PARA DAR SUPORTE — só se a empresa o autorizou. É ela
+                        que decide, em Dados da empresa; o botão só aparece então. */}
+                    {e.pode_entrar && e.estado.chave !== 'suspensa' && (
+                        <button type="button" onClick={() => porAEntrar(true)} className={cls('group inline-flex items-center gap-2 bg-emerald-500 px-4 py-2.5 text-sm font-bold text-white shadow hover:-translate-y-0.5 hover:bg-emerald-600 hover:shadow-lg', RAIO, TRANSICAO, FOCO)}>
+                            <i className="fas fa-headset" aria-hidden="true" />{t('Entrar para dar suporte')}
+                        </button>
+                    )}
                 </div>
+                {!e.pode_entrar && (
+                    <p className="mt-3 text-xs text-white/80">
+                        <i className="fas fa-lock mr-1.5" aria-hidden="true" />
+                        {t('Para entrar e dar suporte, a empresa tem de o autorizar em Dados da empresa.')}
+                    </p>
+                )}
             </Cabecalho>
+
+            {aEntrar && <EntrarNaEmpresa empresa={e} aoFechar={() => porAEntrar(false)} />}
 
             {pedidoPendente && (
                 <div className={cls('entra flex flex-wrap items-center gap-3 border border-amber-200 bg-amber-50 p-4', RAIO)}>
@@ -316,6 +334,40 @@ function PedirPlano({ id, ficha, opcoes, aoFechar }: { id: number; ficha: FichaD
                     </Campo>
                 </div>
                 <p className="text-xs text-gray-500">{t('Sem comprovativo, o pedido fica à espera: pode anexá-lo depois. O plano muda quando confirmarmos o pagamento.')}</p>
+            </div>
+        </Modal>
+    );
+}
+
+/**
+ * ENTRAR NA EMPRESA PARA DAR SUPORTE — a confirmação.
+ *
+ * Diz o que acontece antes de acontecer: entra-se COMO o dono, vê-se tudo o
+ * que ele vê, dura no máximo duas horas, e a empresa vê no registo que se
+ * entrou. Entrar em nome de alguém não é um clique distraído.
+ */
+function EntrarNaEmpresa({ empresa, aoFechar }: { empresa: FichaDaEmpresa['empresa']; aoFechar: () => void }) {
+    const entrar = useMutation({
+        mutationFn: () => revenda.entrarNaEmpresa(empresa.id),
+        onSuccess: (r) => window.location.assign(r.seguir_para),
+    });
+
+    return (
+        <Modal aberto aoFechar={aoFechar} titulo={t('Entrar para dar suporte')} subtitulo={empresa.nome} icone="fa-headset" cor="primaria"
+            rodape={<>
+                <Botao onClick={aoFechar}>{t('Cancelar')}</Botao>
+                <Botao cor="primaria" tom="solida" icone="fa-right-to-bracket" aTrabalhar={entrar.isPending} onClick={() => entrar.mutate()}>
+                    {t('Entrar')}
+                </Botao>
+            </>}>
+            <div className="space-y-3 text-sm text-gray-700">
+                {entrar.error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-red-800">{(entrar.error as Error).message}</p>}
+                <p>{t('Vai entrar na empresa como :dono, e ver o que essa pessoa vê.', { dono: empresa.dono?.nome ?? t('o dono') })}</p>
+                <ul className="space-y-1.5">
+                    <li><i className="fas fa-clock mr-2 text-violet-500" aria-hidden="true" />{t('Dura no máximo 2 horas; depois volta sozinho ao seu portal.')}</li>
+                    <li><i className="fas fa-eye mr-2 text-violet-500" aria-hidden="true" />{t('A empresa vê no registo quando entrou e quanto tempo esteve.')}</li>
+                    <li><i className="fas fa-lock mr-2 text-violet-500" aria-hidden="true" />{t('Não pode criar contas, mudar senhas, PINs nem papéis.')}</li>
+                </ul>
             </div>
         </Modal>
     );

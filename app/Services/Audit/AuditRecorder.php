@@ -317,6 +317,68 @@ class AuditRecorder
         // atribuído a quem não o praticou.
         $personificador = session('impersonator_id');
 
+        /*
+         * UM REVENDEDOR EM NOME DE ALGUÉM (21/09/2026).
+         *
+         * O revendedor não é um utilizador: vive noutra tabela, e o
+         * `impersonator_id` é uma chave para `users` — pôr lá o id dele
+         * atribuía o acto ao utilizador com esse número. Fica então marcado
+         * onde não há ambiguidade: o TIPO diz «revendedor» e o NOME diz quem.
+         * Sem migração, e a trilha continua a dizer a verdade.
+         */
+        // Não se exige «fora da consola»: o ramo de sempre também não o faz, e
+        // é assim que os ensaios (que correm em consola) veem o mesmo que a web.
+        // Um comando de consola não tem sessão, por isso nunca cai aqui.
+        //
+        // O ACTO É DA PESSOA DA EMPRESA (a guarda `web`), e não de quem está na
+        // guarda por omissão. A entrada corre no portal do revendedor, onde a
+        // guarda por omissão é a dele: `auth()->user()` dava o revendedor, e o
+        // id dele ia parar ao `user_id` — a mesma confusão de tabelas, por
+        // outra porta.
+        $pessoa = session()->has(\App\Services\Plataforma\Personificacao::CHAVE_DO_REVENDEDOR)
+            ? \Illuminate\Support\Facades\Auth::guard('web')->user()
+            : null;
+
+        $revendedor = $pessoa
+            ? (array) session(\App\Services\Plataforma\Personificacao::CHAVE . '.revendedor', [])
+            : null;
+
+        if ($revendedor !== null) {
+            $quem = trim(($revendedor['nome'] ?? '?') . (!empty($revendedor['codigo']) ? ' (' . $revendedor['codigo'] . ')' : ''));
+
+            return [
+                'user_id'         => $pessoa->getKey(),
+                'actor_name'      => Str::limit($pessoa->name . ' · revendedor ' . $quem, 250, ''),
+                'actor_type'      => 'revendedor',
+                'channel'         => $this->canal($consola),
+                'impersonator_id' => null,
+                'ip_address'      => $consola ? null : request()->ip(),
+                'user_agent'      => $consola ? null : Str::limit((string) request()->userAgent(), 500, ''),
+                'route'           => Str::limit($this->caminho($consola), 250, ''),
+            ];
+        }
+
+        /*
+         * UM REVENDEDOR NO PORTAL DELE — sem personificar ninguém.
+         *
+         * Já acontecia antes da personificação: um pedido de plano ou uma
+         * empresa criada a partir do portal eram gravados com o id do
+         * revendedor no `user_id`, como se fosse um utilizador. O revendedor
+         * vive noutra tabela; o acto fica sem `user_id` e diz quem foi no nome.
+         */
+        if ($utilizador instanceof \App\Models\Reseller) {
+            return [
+                'user_id'         => null,
+                'actor_name'      => Str::limit('revendedor ' . $utilizador->nomeVisivel() . ($utilizador->code ? ' (' . $utilizador->code . ')' : ''), 250, ''),
+                'actor_type'      => 'revendedor',
+                'channel'         => $this->canal($consola),
+                'impersonator_id' => null,
+                'ip_address'      => $consola ? null : request()->ip(),
+                'user_agent'      => $consola ? null : Str::limit((string) request()->userAgent(), 500, ''),
+                'route'           => Str::limit($this->caminho($consola), 250, ''),
+            ];
+        }
+
         return [
             'user_id'         => $utilizador?->getKey(),
             'actor_name'      => $utilizador?->name ?? ($consola ? 'consola' : null),

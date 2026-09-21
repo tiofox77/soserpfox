@@ -188,6 +188,9 @@ Route::prefix('revendedor')->name('revendedor.')->group(function () {
             Route::get('/comissoes', [$c, 'comissoes'])->name('comissoes');
             Route::get('/pagamentos', [$c, 'pagamentos'])->name('pagamentos');
             Route::post('/empresas/{id}/facturas/{factura}/pagamento', [$c, 'pagarFactura'])->whereNumber('id')->whereNumber('factura')->middleware('throttle:10,1')->name('empresas.pagar-factura');
+            // Entrar na empresa para dar suporte — só nas que o autorizaram
+            // (ver Personificacao::entrarComoRevendedor). Mesmo limite que o do admin.
+            Route::post('/empresas/{id}/entrar', [$c, 'entrar'])->whereNumber('id')->middleware('throttle:10,1')->name('empresas.entrar');
             Route::get('/perfil', [$c, 'perfil'])->name('perfil');
             Route::put('/perfil', [$c, 'guardarPerfil'])->name('perfil.guardar');
             Route::put('/senha', [$c, 'senha'])->middleware('throttle:5,10')->name('senha');
@@ -2003,6 +2006,12 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::put('/', [$c, 'guardar'])->name('guardar');
             Route::post('/logotipo', [$c, 'logotipo'])->name('logotipo');
             Route::delete('/logotipo', [$c, 'apagarLogotipo'])->name('apagar-logotipo');
+
+            // O revendedor só entra se a empresa o autorizar (21/09/2026).
+            // Ver SuporteDoRevendedor; o PUT está na lista do que não se faz
+            // durante a personificação — o revendedor não abre a porta a si próprio.
+            Route::get('/suporte-do-revendedor', [$c, 'suporteDoRevendedor'])->name('suporte-do-revendedor');
+            Route::put('/suporte-do-revendedor', [$c, 'definirSuporteDoRevendedor'])->name('suporte-do-revendedor.definir');
         });
 
         /*

@@ -356,6 +356,57 @@ class EmpresaApiController extends Controller
         return response()->json(['message' => __('Logótipo removido.')]);
     }
 
+    /**
+     * O REVENDEDOR DA EMPRESA, e se o deixa entrar — com as vezes que entrou.
+     *
+     * Ver `SuporteDoRevendedor`. Uma empresa sem revendedor responde que não
+     * tem, e o ecrã não mostra a secção.
+     */
+    public function suporteDoRevendedor(Request $request): JsonResponse
+    {
+        $this->exigir($request, 'settings.view');
+        $t = $this->empresa();
+
+        return response()->json([
+            'revendedor' => \App\Services\Revenda\SuporteDoRevendedor::revendedor($t),
+            'permitido' => \App\Services\Revenda\SuporteDoRevendedor::permitido($t),
+            'entradas' => $t->reseller_id ? \App\Services\Revenda\SuporteDoRevendedor::entradas($t) : [],
+            'pode_mudar' => (bool) $request->user()?->can('settings.edit'),
+        ]);
+    }
+
+    /**
+     * Ligar ou desligar. É de quem gere a empresa (`settings.edit`) e nunca do
+     * próprio revendedor: durante a personificação dele, esta porta está
+     * fechada no PersonificacaoComPrazo.
+     */
+    public function definirSuporteDoRevendedor(Request $request): JsonResponse
+    {
+        $this->exigir($request, 'settings.edit');
+        $t = $this->empresa();
+
+        $dados = $request->validate(['permitido' => ['required', 'boolean']]);
+
+        abort_unless($t->reseller_id, 422, __('Esta empresa não tem revendedor.'));
+
+        \App\Services\Revenda\SuporteDoRevendedor::definir($t, (bool) $dados['permitido']);
+
+        // Fica na trilha quem abriu ou fechou a porta, e quando.
+        app(\App\Services\Audit\AuditRecorder::class)->acto(
+            $dados['permitido'] ? 'revendedor.suporte.autorizado' : 'revendedor.suporte.retirado',
+            $t->id,
+            ['revendedor' => \App\Services\Revenda\SuporteDoRevendedor::revendedor($t)],
+            $t,
+        );
+
+        return response()->json([
+            'permitido' => \App\Services\Revenda\SuporteDoRevendedor::permitido($t),
+            'message' => $dados['permitido']
+                ? __('O seu revendedor pode entrar na empresa para dar suporte.')
+                : __('O acesso do revendedor foi retirado. Se estava dentro, sai no próximo clique.'),
+        ]);
+    }
+
     /* ─── A geografia ─────────────────────────────────────────────────── */
 
     /** @return array<string,list<string>> província => municípios */

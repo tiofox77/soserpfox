@@ -114,6 +114,11 @@ export type TopoDaCasca = {
 export type EstadoDaPersonificacao = {
     activa: true;
     admin: { id: number; nome: string } | null;
+    /**
+     * Quando quem está dentro é um REVENDEDOR (e não o super admin). A faixa
+     * di-lo, e o botão volta ao portal dele em vez da plataforma.
+     */
+    revendedor?: { id: number; nome: string; codigo: string | null } | null;
     empresa: { id: number; nome: string; activa: boolean } | null;
     utilizador: { id: number; nome: string; email: string } | null;
     desde: string;
