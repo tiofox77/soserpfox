@@ -73,3 +73,7 @@ Thumbs.db
 /public/js/react
 /public/react
 /public/pwa-app
+
+# Pacotes de recuperacao (git bundle). Ficam no disco, nunca no repositorio:
+# contem a historia inteira, credenciais incluidas.
+/recovery/
