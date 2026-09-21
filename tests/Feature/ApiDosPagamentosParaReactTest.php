@@ -71,6 +71,64 @@ class ApiDosPagamentosParaReactTest extends TenantTestCase
         return SalesInvoice::find($id);
     }
 
+    private function pessoa(string $nome): \App\Models\User
+    {
+        return \App\Models\User::create([
+            'name' => $nome, 'email' => strtolower($nome) . uniqid() . '@exemplo.ao',
+            'password' => bcrypt('x'), 'tenant_id' => $this->tenant->id, 'is_active' => true,
+        ]);
+    }
+
+    private function caixa(string $nome, int $operador, string $estado = 'open', bool $daCasa = false): \App\Models\Treasury\CashRegister
+    {
+        return \App\Models\Treasury\CashRegister::create([
+            'tenant_id' => $this->tenant->id, 'user_id' => $operador,
+            'name' => $nome, 'code' => 'CX' . random_int(1000, 9999),
+            'opening_balance' => 0, 'current_balance' => 0,
+            'status' => $estado, 'is_active' => true, 'is_default' => $daCasa,
+        ]);
+    }
+
+    /**
+     * UMA CAIXA POR OPERADOR (21/09/2026). O modal propunha a caixa por
+     * omissão da EMPRESA, e a proposta vai como escolha à mão — que passa à
+     * frente da caixa do operador. O numerário recebido pelas listas ia todo
+     * para a mesma gaveta, e cada operador deixava de responder pela sua.
+     *
+     * @test
+     */
+    public function o_modal_propoe_a_caixa_de_quem_recebe_e_o_dinheiro_vai_para_la(): void
+    {
+        $f = $this->factura();
+        $this->comPermissoes('invoicing.receipts.create');
+
+        $daCasa = $this->caixa('Caixa do Gerente', $this->pessoa('Gerente')->id, daCasa: true);
+        $minha = $this->caixa('Caixa do Cleiton', $this->user->id);
+
+        $ctx = $this->getJson(self::RAIZ . '/sale/' . $f->id)->assertOk();
+        $this->assertSame($minha->id, $ctx->json('caixa_padrao'), 'propõe a caixa de quem recebe, não a da casa');
+
+        // O que o ecrã faz: manda a caixa proposta como escolhida.
+        $this->postJson(self::RAIZ . '/sale/' . $f->id, [
+            'amount' => 1140, 'payment_method' => 'cash', 'cash_register_id' => $ctx->json('caixa_padrao'),
+        ])->assertCreated();
+
+        $this->assertEqualsWithDelta(1140, (float) $minha->fresh()->current_balance, 0.01);
+        $this->assertEqualsWithDelta(0, (float) $daCasa->fresh()->current_balance, 0.01);
+    }
+
+    /** Sem caixa ABERTA, não propõe nenhuma — decide a tesouraria. @test */
+    public function sem_caixa_aberta_o_modal_nao_propoe_caixa(): void
+    {
+        $f = $this->factura();
+        $this->comPermissoes('invoicing.receipts.create');
+
+        $this->caixa('Caixa do Gerente', $this->pessoa('Gerente')->id, daCasa: true);
+        $this->caixa('Caixa do Cleiton (fechada)', $this->user->id, 'closed');
+
+        $this->getJson(self::RAIZ . '/sale/' . $f->id)->assertOk()->assertJsonPath('caixa_padrao', null);
+    }
+
     /** @test */
     public function a_permissao_e_a_de_criar_recibos(): void
     {

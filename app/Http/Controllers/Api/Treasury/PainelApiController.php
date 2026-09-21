@@ -10,6 +10,7 @@ use App\Models\Treasury\CashRegister;
 use App\Models\Treasury\PaymentMethod;
 use App\Models\Treasury\Transaction;
 use App\Services\Invoicing\SomasDasFacturas;
+use App\Services\Treasury\TreasuryMovementService;
 use App\Support\CategoriasDeTesouraria;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -169,10 +170,17 @@ class PainelApiController extends Controller
                 ->where('status', 'completed')
                 ->whereNull('account_id')->whereNull('cash_register_id')->count(),
 
+            // O «Dinheiro» sem caixa por omissão só conta quando a empresa não
+            // tem caixa NENHUMA. Com uma caixa por operador, deixá-lo vazio é a
+            // configuração certa (o numerário vai para a caixa de quem vendeu)
+            // e o painel dizia que faltava configurar — ver
+            // TreasuryMovementService::haCaixaActiva.
             'formas_sem_destino' => PaymentMethod::where('tenant_id', $tenantId)->where('is_active', true)
-                ->where(function ($q) {
-                    $q->where(fn ($caixa) => $caixa->where('type', 'cash')->whereNull('default_cash_register_id'))
-                        ->orWhere(fn ($banco) => $banco->where('type', '!=', 'cash')->whereNull('default_account_id'));
+                ->where(function ($q) use ($tenantId) {
+                    $q->when(
+                        ! TreasuryMovementService::haCaixaActiva($tenantId),
+                        fn ($q) => $q->orWhere(fn ($caixa) => $caixa->where('type', 'cash')->whereNull('default_cash_register_id')),
+                    )->orWhere(fn ($banco) => $banco->where('type', '!=', 'cash')->whereNull('default_account_id'));
                 })->count(),
         ];
     }

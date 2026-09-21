@@ -178,6 +178,38 @@ class ApiDoPainelEDosRelatoriosDaTesourariaTest extends TenantTestCase
         $this->assertGreaterThanOrEqual(1, $r->json('por_consertar.formas_sem_destino'));
     }
 
+    /**
+     * UMA CAIXA POR OPERADOR: o «Dinheiro» fica sem caixa por omissão de
+     * propósito (vai para a caixa de quem vendeu). Com caixas na casa não tem
+     * nada por configurar — o painel dizia que tinha. O banco sem conta
+     * continua a contar.
+     *
+     * @test
+     */
+    public function dinheiro_sem_caixa_por_omissao_nao_e_aviso_quando_ha_caixas(): void
+    {
+        $this->comPermissoes('treasury.transactions.view');
+        $this->caixa();
+
+        $antes = $this->getJson(self::PAINEL)->assertOk()->json('por_consertar.formas_sem_destino');
+
+        PaymentMethod::create([
+            'tenant_id' => $this->tenant->id, 'name' => 'Numerário por operador',
+            'code' => 'NO' . random_int(100, 999), 'type' => 'cash',
+            'default_cash_register_id' => null, 'is_active' => true,
+        ]);
+
+        $this->assertSame($antes, $this->getJson(self::PAINEL)->json('por_consertar.formas_sem_destino'));
+
+        PaymentMethod::create([
+            'tenant_id' => $this->tenant->id, 'name' => 'Transferência solta',
+            'code' => 'TS' . random_int(100, 999), 'type' => 'bank_transfer',
+            'default_account_id' => null, 'is_active' => true,
+        ]);
+
+        $this->assertSame($antes + 1, $this->getJson(self::PAINEL)->json('por_consertar.formas_sem_destino'));
+    }
+
     /** Facturar não é receber, e o painel mostra os dois. @test */
     public function o_painel_separa_o_facturado_do_cobrado(): void
     {

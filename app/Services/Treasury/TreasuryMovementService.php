@@ -24,11 +24,7 @@ class TreasuryMovementService
              * primeiro e o numerário de TODOS os operadores caía na mesma
              * caixa, nunca na de quem vendeu.
              */
-            $doOperador = $userId
-                ? CashRegister::withoutGlobalScopes()->where('tenant_id', $tenantId)
-                    ->where('user_id', $userId)->where('is_active', true)->where('status', 'open')
-                    ->orderByDesc('is_default')->value('id')
-                : null;
+            $doOperador = $this->caixaDoOperador($tenantId, $userId);
 
             foreach ([$cashId, $doOperador, $method->default_cash_register_id] as $candidata) {
                 if (!$candidata) {
@@ -79,6 +75,36 @@ class TreasuryMovementService
             return ['account_id' => null, 'cash_register_id' => null];
         }
         return ['account_id' => $account->id, 'cash_register_id' => null];
+    }
+
+    /**
+     * A CAIXA DE QUEM RECEBE: aquela em que a pessoa é o operador e que está
+     * ABERTA (abre com o turno do POS). É a segunda da ordem do numerário, e
+     * a que o modal de pagamento propõe — os dois leem daqui para nunca
+     * dizerem coisas diferentes.
+     */
+    public function caixaDoOperador(int $tenantId, ?int $userId): ?int
+    {
+        if (!$userId) {
+            return null;
+        }
+
+        return CashRegister::withoutGlobalScopes()->where('tenant_id', $tenantId)
+            ->where('user_id', $userId)->where('is_active', true)->where('status', 'open')
+            ->orderByDesc('is_default')->value('id');
+    }
+
+    /**
+     * O numerário tem SEMPRE para onde ir se a empresa tiver uma caixa activa:
+     * a última escolha do `destination()` é qualquer caixa da casa. Uma forma
+     * «Dinheiro» sem caixa por omissão só fica sem destino quando não há caixa
+     * nenhuma — e é essa a configuração pedida por quem tem uma caixa por
+     * operador (a da pessoa vem antes da do método).
+     */
+    public static function haCaixaActiva(int $tenantId): bool
+    {
+        return CashRegister::withoutGlobalScopes()->where('tenant_id', $tenantId)
+            ->where('is_active', true)->exists();
     }
 
     public function post(array $data): Transaction

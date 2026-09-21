@@ -73,7 +73,7 @@ class RegistoDePagamento
      *
      * @return array{factura: Model, por_pagar: float, adiantamentos: \Illuminate\Support\Collection, contas: \Illuminate\Support\Collection, caixas: \Illuminate\Support\Collection, conta_padrao: ?int, caixa_padrao: ?int}
      */
-    public function contexto(string $tipo, int $facturaId, int $tenantId): array
+    public function contexto(string $tipo, int $facturaId, int $tenantId, ?int $userId = null): array
     {
         $factura = $this->factura($tipo, $facturaId, $tenantId);
 
@@ -98,7 +98,14 @@ class RegistoDePagamento
             'contas' => $contas,
             'caixas' => $caixas,
             'conta_padrao' => $contas->firstWhere('is_default', true)?->id,
-            'caixa_padrao' => $caixas->firstWhere('is_default', true)?->id,
+            /*
+             * A CAIXA DE QUEM RECEBE (21/09/2026), e não a caixa por omissão da
+             * empresa. O que o modal propõe vai como escolha à mão, e a escolha
+             * à mão passa à frente da caixa do operador: propor a da empresa
+             * mandava o numerário de todos os operadores para a mesma gaveta.
+             * Sem caixa aberta, fica vazio — «a que a tesouraria decidir».
+             */
+            'caixa_padrao' => app(\App\Services\Treasury\TreasuryMovementService::class)->caixaDoOperador($tenantId, $userId),
         ];
     }
 
@@ -111,7 +118,7 @@ class RegistoDePagamento
      */
     public function registar(string $tipo, int $facturaId, array $d, int $tenantId, ?int $userId): array
     {
-        $ctx = $this->contexto($tipo, $facturaId, $tenantId);
+        $ctx = $this->contexto($tipo, $facturaId, $tenantId, $userId);
         $factura = $ctx['factura'];
         $porPagar = $ctx['por_pagar'];
 

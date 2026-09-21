@@ -22,7 +22,7 @@ class PagamentoApiController extends Controller
     {
         $this->exigir($request);
 
-        $ctx = $registo->contexto($tipo, $factura, activeTenantId());
+        $ctx = $registo->contexto($tipo, $factura, activeTenantId(), $request->user()?->id);
         $f = $ctx['factura'];
 
         return response()->json([
