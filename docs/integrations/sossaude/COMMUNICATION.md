@@ -116,3 +116,17 @@ Nada foi deployado. A produção continua sem nenhuma das alterações de tesour
 desta sessão; foi tirado um instantâneo dos ficheiros a tocar
 (`recovery/pre-deploy/`, fora do git) e confirmado que a produção está idêntica à
 base anterior ao trabalho — nenhuma mão alheia no servidor.
+
+## Deploy na produção — 2026-09-21 (sessão Claude, SOSERP)
+
+Por ordem do utilizador, a tesouraria e a correcção do IVA no POS foram enviadas
+para `soserp.vip`, por FTP e por partes, com instantâneo prévio dos ficheiros
+substituídos e a base confirmada idêntica à anterior (nenhuma mão alheia no
+servidor). 23 ficheiros PHP + o pacote React do ecrã web, todos confirmados por
+MD5 relido do servidor. Zero erros no `laravel.log` depois de cada parte.
+
+**A ponte SOSSaúde NÃO foi enviada.** Nenhum dos sete ficheiros de `ce953177`
+foi para a produção — continua como registado acima, só em GitHub. Fica dito
+para que a próxima entrega da ponte saiba que a produção passou a ter, entre
+outras, as alterações ao saldo das facturas (`SalesInvoice`,
+`SomasDasFacturas`) e ao `PosSaleService`; nenhuma toca na ponte.
