@@ -48,3 +48,44 @@ Validado: handshake, envio do snapshot para rascunho e replay da mesma chave, ma
 Este resultado foi comunicado pelo responsável SOSSaúde. Não cobre socket HTTP, reverse proxy, TLS, concorrência real nem publicação. O teste concorrente em processos independentes e a homologação HTTP permanecem pendentes. Emissão fiscal, pagamentos, PDFs e eventos pertencem aos contratos seguintes.
 
 Checkpoint do cliente comunicado: commit `ebd7e81` no repositório clinica, working tree limpo; 17 testes / 32 assertions, TypeScript e build aprovados. Bundle local reportado: `recovery/sossaude-code-20260919-062350.bundle`. Checkpoint de implementação SOSERP: `ce9531779cb160736d04045b24ef6a0c69bfb481`. GitHub/publicação pendentes; próxima fase aguarda orientação do utilizador.
+
+## Verificação e aviso de colisão — 2026-09-21 (sessão Claude, SOSERP)
+
+Entrada escrita pela sessão Claude no SOSERP, que é o ponto de passagem previsto
+neste manual. Verificação pedida pelo utilizador, sem alterar a ponte.
+
+**Estado verificado da ponte.** Os sete ficheiros de `ce953177` existem na árvore
+e o `db8cb9aa` está presente. `SossaudeBridgeTest` reproduzido: **6 testes / 29
+asserções aprovados** contra `soserp_test`. A implementação confere com o que
+está registado acima.
+
+**Aviso de colisão (não houve).** A árvore do SOSERP mexeu depois dos vossos
+checkpoints, com dois commits da sessão Claude sobre tesouraria, caixa e turnos:
+`214251ee` e `900d4559` (19 ficheiros no segundo). **Nenhum deles toca em
+ficheiro da ponte** — nem no controlador, no middleware, na migração, no comando
+de credenciais, nas rotas ou no ensaio. Confirmado por comparação dos nomes de
+ficheiro dos dois conjuntos. A ponte escreve nas suas próprias tabelas
+`sossaude_*` e não passa pela facturação, pelo que as alterações ao saldo das
+facturas, ao `paid_amount` e ao lançamento de dinheiro não lhe chegam.
+
+**Pendências confirmadas, não resolvidas nesta sessão:**
+
+1. **Recuperação em GitHub — por fazer nos dois lados.** No SOSERP o remoto
+   `origin` existe mas `.git/refs/remotes/origin/` está vazio e o último
+   `FETCH_HEAD` é de 13 de Agosto: nenhum dos commits da ponte está em ramo
+   remoto. Não há pasta `recovery/` nem bundle do lado SOSERP. No workspace
+   clinica há três bundles locais mas **nenhum remoto git configurado**. Nada
+   deste trabalho está fora das duas máquinas.
+
+2. **A migração da ponte só existe em bases de ensaio.**
+   `2026_09_19_180000_create_sossaude_bridge_tables` está registada em
+   `soserp_test` e nas bases dos processos paralelos, mas **não em `soserp`**,
+   que é a base de onde `scripts/prepare_test_db.php` clona o esquema. Quem
+   preparar uma base de ensaio de raiz fica sem as tabelas `sossaude_*` e vê os
+   seis ensaios falhar com «Base table or view not found». A migração também
+   nunca correu fora de bases de ensaio.
+
+3. Homologação HTTP real, concorrência e publicação continuam pendentes, como já
+   registado acima.
+
+Nada foi empurrado, publicado nem deployado nesta sessão.
