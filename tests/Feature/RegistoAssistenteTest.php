@@ -463,6 +463,24 @@ class RegistoAssistenteTest extends TestCase
             ->assertJsonValidationErrors('company_nif');
     }
 
+    /**
+     * O CÓDIGO QUE O COOKIE LÁ PÔS SOZINHO NÃO VOLTA (22/09/2026). Um progresso
+     * guardado antes da mudança (sem a marca `reseller_code_escrito`) trazia o
+     * código do link; o escrito pela pessoa depois da mudança volta.
+     */
+    public function test_so_o_codigo_de_revendedor_escrito_volta_do_progresso(): void
+    {
+        $this->planoGratuito();
+
+        $pagina = fn (array $progresso) => html_entity_decode(
+            $this->withSession(['wizard_progress' => ['currentStep' => 2, 'name' => 'Ana', 'email' => 'ana@exemplo.ao'] + $progresso])
+                ->get('/register')->assertOk()->getContent()
+        );
+
+        $this->assertStringNotContainsString('CELES1219', $pagina(['reseller_code' => 'CELES1219']));
+        $this->assertStringContainsString('CELES1219', $pagina(['reseller_code' => 'CELES1219', 'reseller_code_escrito' => true]));
+    }
+
     private function passo1(): array
     {
         return ['passo' => 1, 'name' => 'Ana Silva', 'email' => 'ana'.uniqid().'@exemplo.ao', 'password' => 'segredo-forte-123', 'password_confirmation' => 'segredo-forte-123'];

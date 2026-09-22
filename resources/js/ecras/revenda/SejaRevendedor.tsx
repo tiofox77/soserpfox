@@ -32,7 +32,7 @@ const VANTAGENS = [
 const PASSOS = [
     { icone: 'fa-paper-plane', titulo: 'Faça o pedido', texto: 'Preencha o formulário desta página. Leva dois minutos.' },
     { icone: 'fa-user-check', titulo: 'Aprovamos', texto: 'Analisamos o pedido e enviamos por email o seu código, o link e a comissão.' },
-    { icone: 'fa-share-nodes', titulo: 'Partilhe e acompanhe', texto: 'Quem se regista pelo seu link ou com o seu código fica ligado a si.' },
+    { icone: 'fa-share-nodes', titulo: 'Partilhe e acompanhe', texto: 'Quem escreve o seu código no registo fica ligado a si.' },
 ];
 
 export default function SejaRevendedor({ logo = null, nome = 'SOSERP' }: { logo?: string | null; nome?: string }) {

@@ -507,7 +507,8 @@ function Seccao({ titulo, nota, largo = false, children }: { titulo: string; not
 /**
  * O CÓDIGO DO REVENDEDOR (programa de revendedores, 16/09/2026) — opcional.
  *
- * Quem veio pelo link já o tem escrito. Confirma-se o nome do revendedor
+ * Nasce sempre vazio: quem o escreve é o cliente (22/09/2026 — o link já não o
+ * preenche, ver AssistenteDeRegisto::abrir). Confirma-se o nome do revendedor
  * enquanto se escreve, para ninguém criar a conta ligada a um código errado;
  * o servidor volta a verificá-lo no «Próximo».
  */

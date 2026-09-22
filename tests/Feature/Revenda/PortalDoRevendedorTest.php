@@ -135,9 +135,11 @@ class PortalDoRevendedorTest extends TenantTestCase
         $this->postJson('/register/revendedor', ['codigo' => $r->code])->assertOk()->assertJsonPath('nome', 'Maria Revende');
         $this->postJson('/register/revendedor', ['codigo' => 'XPTO99'])->assertNotFound();
 
-        // O registo completo com o cookie do link: a página abre com o código, e a empresa fica ligada «por link».
+        // O CAMPO NASCE VAZIO mesmo com o cookie do link (22/09/2026): quem o
+        // escreve é o cliente. Escrito o mesmo código do link, a empresa fica
+        // ligada «por link».
         $props = $this->withCookie(LigacaoAoRevendedor::COOKIE, $r->code)->get('/register')->assertOk()->getContent();
-        $this->assertStringContainsString($r->code, html_entity_decode($props));
+        $this->assertStringNotContainsString($r->code, html_entity_decode($props), 'o revendedor não aparece já marcado');
 
         $gratis = Plan::create(['name' => 'Amigo ' . uniqid(), 'slug' => 'rv-gratis-' . uniqid(), 'description' => 'x', 'price_monthly' => 0, 'price_yearly' => 0, 'trial_days' => 30, 'max_users' => 2, 'max_companies' => 1, 'is_active' => true, 'auto_activate' => true, 'order' => 51]);
         $email = 'dona' . uniqid() . '@exemplo.ao';
@@ -151,6 +153,19 @@ class PortalDoRevendedorTest extends TenantTestCase
 
         $empresa = User::where('email', $email)->firstOrFail()->tenants()->first();
         $this->assertSame([$r->id, 'link'], [$empresa->reseller_id, $empresa->reseller_via]);
+
+        // Com o cookie do link mas SEM escrever o código, a empresa não fica
+        // ligada a ninguém — o link sozinho já não liga.
+        $email2 = 'dona' . uniqid() . '@exemplo.ao';
+        auth()->logout();
+        $this->flushSession();
+        $this->withSession(['registo_aberto_em' => time() - 60])->withCredentials()->withCookie(LigacaoAoRevendedor::COOKIE, $r->code)->postJson('/register', [
+            'name' => 'Dona Luísa Mendes', 'email' => $email2, 'password' => 'Senha-forte-7', 'password_confirmation' => 'Senha-forte-7',
+            'company_name' => 'Mercearia Sem Código', 'company_nif' => $this->nif(), 'company_regime' => Tenant::REGIME_GERAL,
+            'selected_plan_id' => $gratis->id, 'payment_method' => 'transfer', 'aceito_termos' => true,
+            'reseller_code' => '', 'passo' => 4,
+        ])->assertOk();
+        $this->assertNull(User::where('email', $email2)->firstOrFail()->tenants()->first()->reseller_id);
 
         // Um código inventado não passa do passo da empresa.
         $this->postJson('/register/seguinte', ['passo' => 2, 'company_name' => 'Talho Bom Corte', 'company_nif' => $this->nif(), 'company_regime' => Tenant::REGIME_GERAL, 'reseller_code' => 'XPTO99'])

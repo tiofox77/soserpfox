@@ -23,6 +23,10 @@ class RevendaPublicaController extends Controller
      * Guarda o código durante 60 dias e leva ao site. Um código que não é de um
      * revendedor aprovado leva ao site na mesma, sem guardar nada: o visitante
      * não tem culpa de um link velho.
+     *
+     * Desde 22/09/2026 o cookie NÃO preenche o registo: é o cliente que escreve
+     * o código. Serve só para a ligação ficar marcada «por link» quando o
+     * código escrito é o mesmo do link.
      */
     public function link(Request $request, string $codigo): RedirectResponse
     {

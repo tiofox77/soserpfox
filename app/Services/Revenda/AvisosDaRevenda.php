@@ -82,7 +82,7 @@ class AvisosDaRevenda
             __('Olá, :nome', ['nome' => $r->name]),
             [
                 __('Bem-vindo ao Programa de Revendedores do :plataforma!', ['plataforma' => app_name()]),
-                __('Partilhe o seu link: quem se registar por ele fica ligado a si. Quem se registar sem o link pode escrever o seu código no registo. No portal vê as suas empresas, cria empresas pelos seus clientes, trata das subscrições e acompanha as comissões.'),
+                __('Dê o seu código a cada cliente: quem o escrever no registo fica ligado a si. O link e o QR levam ao site, mas é o código escrito que faz a ligação. No portal vê as suas empresas, cria empresas pelos seus clientes, trata das subscrições e acompanha as comissões.'),
             ],
             [
                 __('Código') => (string) $r->code,
@@ -112,7 +112,7 @@ class AvisosDaRevenda
                 __('Em Empresas acompanha cada cliente e, em Nova empresa, cria a conta de um cliente por ele.'),
                 __('Em Pagamentos paga pelo cliente: transfere o valor para a conta da plataforma, envia o comprovativo e nós confirmamos.'),
                 __('Em Comissões vê o que já ganhou e o que está por pagar.'),
-                __('Partilhe o seu link: quem se registar por ele fica ligado a si. Quem se registar sem o link pode escrever o seu código no registo. Os planos gratuitos não passam pelo revendedor: o cliente activa-os sozinho no registo.'),
+                __('Dê o seu código a cada cliente: quem o escrever no registo fica ligado a si. O link e o QR levam ao site, mas é o código escrito que faz a ligação. Os planos gratuitos não passam pelo revendedor: o cliente activa-os sozinho no registo.'),
             ],
             [
                 __('Portal') => route('revendedor.login'),

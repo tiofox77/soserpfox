@@ -64,7 +64,7 @@ class AssistenteDeRegisto
     public ?UploadedFile $payment_proof = null;
     public bool $aceito_termos = false;
 
-    /** O código do revendedor: escrito à mão, ou deixado pelo link de afiliado. */
+    /** O código do revendedor, escrito pelo cliente (nunca preenchido sozinho). */
     public string $reseller_code = '';
 
     /** O código veio do link (o cookie) — a ligação fica «por link», não «por código». */
@@ -117,13 +117,13 @@ class AssistenteDeRegisto
 
         $a->verificarDepoisDeRecarregar();
 
-        // O LINK DO REVENDEDOR deixou o código no browser: o campo já nasce
-        // preenchido (e só com um revendedor aprovado).
-        $doLink = \App\Services\Revenda\LigacaoAoRevendedor::doCookie($request);
-        if ($a->reseller_code === '' && $doLink && \App\Services\Revenda\LigacaoAoRevendedor::porCodigo($doLink)) {
-            $a->reseller_code = $doLink;
-            $a->revendedorVeioDoLink = true;
-        }
+        // O CÓDIGO DO REVENDEDOR NASCE SEMPRE VAZIO (22/09/2026, decisão do
+        // dono da plataforma). Vinha preenchido pelo cookie do link, que dura
+        // 60 dias: quem tinha aberto o link de um revendedor — o próprio dono,
+        // um computador partilhado — via-o já marcado em todos os registos
+        // seguintes. Quem escreve o código é o cliente, se tiver revendedor.
+        // O cookie serve só para dizer «por link» quando o código escrito é o
+        // mesmo (ver `doPedido`).
 
         // Sem plano do link nem do progresso, usa-se o MÓDULO por onde a pessoa
         // entrou (guardado na sessão na aterragem — ver CapturarCampanha). É a
@@ -237,8 +237,15 @@ class AssistenteDeRegisto
             $this->email = (string) ($p['email'] ?? $this->email);
         }
 
-        foreach (['company_name', 'company_nif', 'company_regime', 'company_address', 'company_phone', 'company_email', 'payment_method', 'payment_reference', 'reseller_code'] as $campo) {
+        foreach (['company_name', 'company_nif', 'company_regime', 'company_address', 'company_phone', 'company_email', 'payment_method', 'payment_reference'] as $campo) {
             $this->{$campo} = (string) ($p[$campo] ?? $this->{$campo});
+        }
+
+        // Só o código ESCRITO pela pessoa volta. Um progresso guardado antes de
+        // 22/09/2026 pode trazer o que o cookie do link lá pôs sozinho — e é
+        // exactamente isso que já não se mostra.
+        if (! empty($p['reseller_code_escrito'])) {
+            $this->reseller_code = (string) ($p['reseller_code'] ?? '');
         }
 
         $this->selected_plan_id = isset($p['selected_plan_id']) && $p['selected_plan_id'] !== null ? (int) $p['selected_plan_id'] : $this->selected_plan_id;
@@ -265,6 +272,7 @@ class AssistenteDeRegisto
             'payment_method' => $this->payment_method,
             'payment_reference' => $this->payment_reference,
             'reseller_code' => $this->reseller_code,
+            'reseller_code_escrito' => true,
             'saved_at' => now()->toDateTimeString(),
         ]]);
     }

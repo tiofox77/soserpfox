@@ -86,7 +86,9 @@ export function LinkDeAfiliado({ link, codigo, regra, compacto = false }: { link
 
     if (!link || !codigo) return null;
 
-    const mensagem = t('Conheça o SOSERP, o sistema de gestão feito para Angola: facturação certificada pela AGT, stock, POS e muito mais. Registe a sua empresa por aqui: :link', { link });
+    // O código vai na mensagem: é o cliente que o escreve no registo, e só
+    // assim fica ligado (o campo já não se preenche sozinho pelo link).
+    const mensagem = t('Conheça o SOSERP, o sistema de gestão feito para Angola: facturação certificada pela AGT, stock, POS e muito mais. Registe a sua empresa por aqui: :link — no registo, escreva o meu código :codigo.', { link, codigo });
 
     return (
         <section className={cls('entra relative overflow-hidden bg-gradient-to-br p-6 text-white shadow-xl', GRADIENTE_DO_PORTAL, RAIO_GRANDE)}>
@@ -120,7 +122,7 @@ export function LinkDeAfiliado({ link, codigo, regra, compacto = false }: { link
             {verQr && !compacto && (
                 <div className="animate-fade-in relative mt-5 flex flex-wrap items-center gap-4 rounded-xl bg-white p-4 text-gray-700">
                     <img src="/revendedor/api/qr" alt={t('QR do link de revendedor')} className="h-40 w-40" />
-                    <p className="max-w-sm text-sm">{t('Mostre este QR ao cliente: ao lê-lo com a câmara do telemóvel, abre o site já ligado a si. Pode também imprimi-lo com o botão direito do rato.')}</p>
+                    <p className="max-w-sm text-sm">{t('Mostre este QR ao cliente: ao lê-lo com a câmara do telemóvel, abre o site. No registo, ele escreve o seu código :codigo para ficar ligado a si. Pode também imprimir o QR com o botão direito do rato.', { codigo })}</p>
                 </div>
             )}
         </section>
