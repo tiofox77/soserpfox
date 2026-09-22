@@ -242,9 +242,9 @@ export default function Assistente({ estado: inicial, regimes, conta, site, entr
                                     <Entrada icone="fa-building" cor="text-purple-500" rotulo={t('Nome da Empresa')} obrigatorio erro={erros.company_name}>
                                         <input className={cls(CAMPO, 'focus:border-purple-500 focus:ring-purple-500', erros.company_name && 'border-red-500')} autoComplete="organization" placeholder="Minha Empresa Lda" value={campos.company_name} onChange={muda('company_name')} />
                                     </Entrada>
-                                    {/* O exemplo começa por 5: diz a regra do NIF de empresa sem ser preciso lê-la. */}
+                                    {/* O exemplo começa por 5: diz a regra do NIF de empresa sem ser preciso lê-la. Os de dez dígitos começados por 0 (alvarás de empresários em nome individual) também passam. */}
                                     <Entrada icone="fa-id-card" cor="text-purple-500" rotulo={t('NIF da empresa')} obrigatorio erro={erros.company_nif}
-                                        ajuda={t('Nove ou dez dígitos, começados por 5. Não é o número do bilhete de identidade.')}>
+                                        ajuda={t('Nove ou dez dígitos, começados por 5 (ou dez começados por 0). Não é o número do bilhete de identidade.')}>
                                         <input className={cls(CAMPO, 'focus:border-purple-500 focus:ring-purple-500', erros.company_nif && 'border-red-500')} inputMode="numeric" maxLength={14} placeholder="5417289442" value={campos.company_nif} onChange={muda('company_nif')} />
                                     </Entrada>
 

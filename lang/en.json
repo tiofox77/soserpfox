@@ -12987,5 +12987,7 @@
     "Saiu: passaram as 2 horas": "Left: the 2 hours were up",
     "Saiu: a autorização foi retirada": "Left: the authorisation was withdrawn",
     "O sistema está com muitos pedidos neste momento. Tente de novo dentro de alguns segundos.": "The system is handling a lot of requests right now. Please try again in a few seconds.",
-    "Tentar de novo": "Try again"
+    "Tentar de novo": "Try again",
+    "Nove ou dez dígitos, começados por 5 (ou dez começados por 0). Não é o número do bilhete de identidade.": "Nine or ten digits, starting with 5 (or ten starting with 0). It is not the identity card number.",
+    "O NIF de uma empresa angolana começa por 5, ou tem dez dígitos começados por 0.": "An Angolan company NIF starts with 5, or has ten digits starting with 0."
 }

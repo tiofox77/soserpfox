@@ -54,10 +54,38 @@ class NifDeEmpresaTest extends TenantTestCase
     /** Um NIF de pessoa singular so por digitos tambem nao serve. */
     public function test_um_nif_que_nao_comeca_por_cinco_e_recusado(): void
     {
-        foreach (['2417289442', '0417289442', '3417289442'] as $nif) {
+        foreach (['2417289442', '3417289442', '1417289442', '9417289442'] as $nif) {
             $erro = $this->erro($nif);
             $this->assertNotNull($erro, "{$nif} devia ser recusado");
             $this->assertStringContainsString('começa por 5', $erro);
+        }
+    }
+
+    /**
+     * O NIF DO ALVARÁ COM ZEROS À ESQUERDA (22/09/2026). Um empresário em
+     * nome individual tinha no alvará comercial o NIF 0000083092 e não se
+     * conseguia registar. Dez dígitos começados por 0 passam.
+     */
+    public function test_dez_digitos_comecados_por_zero_passam(): void
+    {
+        $this->assertNull($this->erro('0000083092'));
+        $this->assertNull($this->erro('0000 083 092'));
+        $this->assertNull($this->erro('0417289442'));
+    }
+
+    /** Nove começados por 0 são os algarismos do BI sem as letras. */
+    public function test_nove_digitos_comecados_por_zero_nao(): void
+    {
+        $this->assertNotNull($this->erro('004512345'));
+        $this->assertNotNull($this->erro('000083092'));
+    }
+
+    public function test_a_classificacao_do_agente_e_a_lista_da_plataforma_dizem_o_mesmo(): void
+    {
+        foreach (['0000083092' => true, '5417289442' => true, '541728944' => true, '000083092' => false, '2417289442' => false] as $nif => $empresa) {
+            $this->assertSame($empresa, \App\Support\NifAngolano::formatoDeEmpresa($nif), $nif);
+            $this->assertSame($empresa ? 'valido' : 'invalido', \App\Support\NifAngolano::classificar($nif)['estado'], $nif);
+            $this->assertSame($empresa, $this->erro($nif) === null, $nif);
         }
     }
 

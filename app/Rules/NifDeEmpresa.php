@@ -19,6 +19,11 @@ use Illuminate\Contracts\Validation\ValidationRule;
  * quando as facturas começam a ser recusadas — altura em que já há documentos
  * emitidos com o número errado e a correcção deixou de ser só mudar um campo.
  *
+ * Desde 22/09/2026 aceita também DEZ dígitos começados por 0: há alvarás
+ * comerciais com NIF assim (0000083092, de um empresário em nome individual),
+ * e recusá-lo deixava um contribuinte real sem se poder registar. Nove
+ * começados por 0 continuam fora — são os algarismos do BI sem as letras.
+ *
  * A regra ValidateNIF, que já existia, aceita 2, 3 e 5, e está certa onde é
  * usada: nos CLIENTES, que tanto podem ser empresas como pessoas. Esta é para
  * quem se regista como empresa.
@@ -54,7 +59,9 @@ class NifDeEmpresa implements ValidationRule
             return;
         }
 
-        if (!str_starts_with($limpo, '5')) {
+        // Começado por 5, ou dez dígitos começados por 0 — a regra única está
+        // em NifAngolano::formatoDeEmpresa, que diz porquê.
+        if (!\App\Support\NifAngolano::formatoDeEmpresa($limpo)) {
             // ->translate() e não um segundo argumento do $fail(): o $fail
             // recebe só a mensagem, e as substituições fazem-se no que ele
             // devolve. Passadas como argumento, o ":inicio" chegava ao ecrã tal

@@ -257,7 +257,7 @@ export type FiltrosDasEmpresas = {
 export type EmpresaDaLista = {
     id: number; nome: string; slug: string; email: string | null; telefone: string | null;
     razao_social: string | null; nif: string | null;
-    /** Nulo quando não há NIF; falso quando não começa por 5. */
+    /** Nulo quando não há NIF; falso quando não tem o feitio de empresa (5…, ou dez dígitos começados por 0). */
     nif_de_empresa: boolean | null;
     logo: string | null; activa: boolean; criada_em: string | null;
     plano: string | null; ciclo: string | null;

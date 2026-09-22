@@ -109,7 +109,7 @@ export function Formulario({ id, paises, aoFechar, aoGuardar }: {
                         <Campo etiqueta={t('Razão social')} erro={erros.company_name}>
                             <input className={entrada} value={f.company_name ?? ''} onChange={(e) => mexer('company_name', e.target.value)} />
                         </Campo>
-                        <Campo etiqueta={t('NIF')} erro={erros.nif} ajuda={t('O NIF de uma empresa angolana começa por 5.')}>
+                        <Campo etiqueta={t('NIF')} erro={erros.nif} ajuda={t('O NIF de uma empresa angolana começa por 5, ou tem dez dígitos começados por 0.')}>
                             <input className={cls(entrada, 'font-mono')} value={f.nif ?? ''} onChange={(e) => mexer('nif', e.target.value)} />
                         </Campo>
                     </fieldset>

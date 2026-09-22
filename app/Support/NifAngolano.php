@@ -7,8 +7,9 @@ namespace App\Support;
  *
  * As regras são as mesmas que a plataforma já aplica no registo
  * (App\Rules\NifDeEmpresa): o NIF de pessoa colectiva tem nove ou dez
- * dígitos e começa por 5; letras denunciam o número do BI; um número
- * começado por 2 é de pessoa singular e por 3 de estrangeiro.
+ * dígitos e começa por 5 — ou dez começados por 0 (ver `formatoDeEmpresa`);
+ * letras denunciam o número do BI; um número começado por 2 é de pessoa
+ * singular e por 3 de estrangeiro.
  *
  * Aqui NÃO se faz falhar validação nenhuma — classifica-se, para o agente
  * poder assinalar a um humano os NIF que merecem revisão, e devolve-se
@@ -58,7 +59,11 @@ class NifAngolano
 
         // O que distingue empresa de pessoa é o primeiro dígito.
         $inicio = $limpo[0];
-        if ($inicio !== '5') {
+        if (!self::formatoDeEmpresa($limpo)) {
+            if ($inicio === '0') {
+                return ['estado' => self::INVALIDO, 'motivo' => 'começa por 0 com nove dígitos; os NIF começados por 0 têm dez', 'nif' => $limpo, 'mascarado' => $mascarado];
+            }
+
             $quem = match ($inicio) {
                 '2'     => 'pessoa singular',
                 '3'     => 'estrangeiro',
@@ -68,6 +73,24 @@ class NifAngolano
         }
 
         return ['estado' => self::VALIDO, 'motivo' => null, 'nif' => $limpo, 'mascarado' => $mascarado];
+    }
+
+    /**
+     * O NÚMERO TEM O FEITIO DE UM NIF DE EMPRESA? A regra única — a do registo
+     * (App\Rules\NifDeEmpresa), a desta classe e a da lista da plataforma.
+     *
+     *  · nove ou dez dígitos começados por 5 — o NIF de pessoa colectiva;
+     *  · dez dígitos começados por 0 (22/09/2026) — há alvarás comerciais
+     *    emitidos com NIF assim, com zeros à esquerda (0000083092, de um
+     *    empresário em nome individual). Recusá-lo impedia um contribuinte
+     *    real de se registar. Só com DEZ dígitos: nove começados por 0 são,
+     *    quase sempre, os algarismos do BI sem as letras (004512345…).
+     *
+     * `$limpo` já sem espaços, pontos nem traços.
+     */
+    public static function formatoDeEmpresa(string $limpo): bool
+    {
+        return (bool) preg_match('/^(5\d{8,9}|0\d{9})$/', $limpo);
     }
 
     /** 54******23 — dois dígitos de cada ponta, o meio tapado. */

@@ -12987,5 +12987,7 @@
     "Saiu: passaram as 2 horas": "Sorti : les 2 heures étaient écoulées",
     "Saiu: a autorização foi retirada": "Sorti : l’autorisation a été retirée",
     "O sistema está com muitos pedidos neste momento. Tente de novo dentro de alguns segundos.": "Le système reçoit beaucoup de demandes en ce moment. Réessayez dans quelques secondes.",
-    "Tentar de novo": "Réessayer"
+    "Tentar de novo": "Réessayer",
+    "Nove ou dez dígitos, começados por 5 (ou dez começados por 0). Não é o número do bilhete de identidade.": "Neuf ou dix chiffres, commençant par 5 (ou dix commençant par 0). Ce n’est pas le numéro de la carte d’identité.",
+    "O NIF de uma empresa angolana começa por 5, ou tem dez dígitos começados por 0.": "Le NIF d’une entreprise angolaise commence par 5, ou compte dix chiffres commençant par 0."
 }

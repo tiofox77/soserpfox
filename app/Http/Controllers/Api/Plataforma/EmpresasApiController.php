@@ -420,9 +420,9 @@ class EmpresasApiController extends Controller
             'telefone' => $t->phone,
             'razao_social' => $t->company_name,
             'nif' => $t->nif,
-            // UM NIF QUE NÃO COMEÇA POR 5 NÃO É DE EMPRESA — e é ele que vai
-            // nos documentos comunicados à AGT.
-            'nif_de_empresa' => $nif === '' ? null : (bool) preg_match('/^5\d{8,9}$/', $nif),
+            // UM NIF QUE NÃO TEM O FEITIO DE EMPRESA — começado por 5, ou dez
+            // dígitos começados por 0 — e é ele que vai nos documentos à AGT.
+            'nif_de_empresa' => $nif === '' ? null : \App\Support\NifAngolano::formatoDeEmpresa($nif),
             // Sem o anfitrião: o APP_URL à frente fazia o browser recusar a imagem
             // quando o sistema se abre por outro nome.
             'logo' => $t->logo ? (string) parse_url(\Illuminate\Support\Facades\Storage::url($t->logo), PHP_URL_PATH) : null,

@@ -446,6 +446,23 @@ class RegistoAssistenteTest extends TestCase
             ->assertJsonValidationErrors('company_regime');
     }
 
+    /**
+     * O NIF DO ALVARÁ COM ZEROS À ESQUERDA (22/09/2026): um empresário em nome
+     * individual com NIF 0000083092 não passava do passo da empresa.
+     */
+    public function test_o_nif_de_dez_digitos_comecado_por_zero_passa_no_passo_da_empresa(): void
+    {
+        $this->planoGratuito();
+
+        $this->postJson('/register/seguinte', ['passo' => 2, 'company_name' => 'Mamadou Comércio', 'company_nif' => '0000083092'])
+            ->assertOk()
+            ->assertJsonMissingValidationErrors('company_nif');
+
+        $this->postJson('/register/seguinte', ['passo' => 2, 'company_name' => 'Mamadou Comércio', 'company_nif' => '004512345'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('company_nif');
+    }
+
     private function passo1(): array
     {
         return ['passo' => 1, 'name' => 'Ana Silva', 'email' => 'ana'.uniqid().'@exemplo.ao', 'password' => 'segredo-forte-123', 'password_confirmation' => 'segredo-forte-123'];

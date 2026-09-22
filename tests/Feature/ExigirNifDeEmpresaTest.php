@@ -51,6 +51,14 @@ class ExigirNifDeEmpresaTest extends TenantTestCase
         $this->get('/home')->assertOk();
     }
 
+    /** O NIF do alvará com zeros à esquerda (0000083092) é de empresa: não se manda corrigir. */
+    public function test_com_nif_de_dez_digitos_comecado_por_zero_passa(): void
+    {
+        $this->comNif('0000083092');
+
+        $this->get('/home')->assertOk();
+    }
+
     /** O ecra onde se corrige tem de estar sempre acessivel, senao e um beco. */
     public function test_o_ecra_da_empresa_nunca_e_bloqueado(): void
     {
