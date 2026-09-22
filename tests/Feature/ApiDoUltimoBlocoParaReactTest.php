@@ -81,6 +81,28 @@ class ApiDoUltimoBlocoParaReactTest extends TenantTestCase
         $this->getJson(self::RAIZ . '/turnos/' . $alheio->id)->assertOk()->assertJsonPath('turno.id', $alheio->id);
     }
 
+    /**
+     * UM OPERADOR CONVIDADO APARECE NO FILTRO (22/09/2026). O filtro lia
+     * `users.tenant_id` — a empresa onde a pessoa se registou — e quem veio
+     * de outra empresa por convite ficava de fora da lista.
+     */
+    /** @test */
+    public function o_filtro_do_historico_tem_os_operadores_convidados(): void
+    {
+        $this->comPermissoes('invoicing.pos.reports.all');
+
+        $outra = \App\Models\Tenant::create([
+            'name' => 'Outra Empresa', 'slug' => 'outra-' . uniqid(),
+            'nif' => (string) random_int(500000000, 599999999), 'email' => 'outra' . uniqid() . '@exemplo.ao', 'is_active' => true,
+        ]);
+        $convidado = User::factory()->create(['tenant_id' => $outra->id, 'name' => 'Cleison Convidado']);
+        $convidado->tenants()->attach($this->tenant->id, ['is_active' => true, 'joined_at' => now()]);
+
+        $nomes = array_column($this->getJson(self::RAIZ . '/turnos/historico')->assertOk()->json('utilizadores'), 'nome');
+
+        $this->assertContains('Cleison Convidado', $nomes);
+    }
+
     /* ─── Cópia offline ───────────────────────────────────────────────── */
 
     /** @test */

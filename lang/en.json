@@ -12994,5 +12994,19 @@
     "Dê o seu código a cada cliente: quem o escrever no registo fica ligado a si. O link e o QR levam ao site, mas é o código escrito que faz a ligação. Os planos gratuitos não passam pelo revendedor: o cliente activa-os sozinho no registo.": "Give your code to each client: whoever enters it when registering is linked to you. The link and the QR take them to the site, but it is the code they enter that creates the link. Free plans do not go through the reseller: the client activates them on their own when registering.",
     "Quem escreve o seu código no registo fica ligado a si.": "Whoever enters your code when registering is linked to you.",
     "Conheça o SOSERP, o sistema de gestão feito para Angola: facturação certificada pela AGT, stock, POS e muito mais. Registe a sua empresa por aqui: :link — no registo, escreva o meu código :codigo.": "Discover SOSERP, the management system made for Angola: AGT-certified invoicing, stock, POS and much more. Register your company here: :link — when registering, enter my code :codigo.",
-    "Mostre este QR ao cliente: ao lê-lo com a câmara do telemóvel, abre o site. No registo, ele escreve o seu código :codigo para ficar ligado a si. Pode também imprimir o QR com o botão direito do rato.": "Show this QR to the client: scanning it with the phone camera opens the site. When registering, they enter your code :codigo to be linked to you. You can also print the QR with the right mouse button."
+    "Mostre este QR ao cliente: ao lê-lo com a câmara do telemóvel, abre o site. No registo, ele escreve o seu código :codigo para ficar ligado a si. Pode também imprimir o QR com o botão direito do rato.": "Show this QR to the client: scanning it with the phone camera opens the site. When registering, they enter your code :codigo to be linked to you. You can also print the QR with the right mouse button.",
+    "Stock em Falta e Abaixo do Mínimo": "Out-of-Stock and Below-Minimum Items",
+    "O que falta e o que está abaixo do mínimo, com o consumo dos últimos 30 dias, os dias que ainda aguenta e quanto encomendar.": "What is out of stock and what is below the minimum, with the last 30 days of consumption, how many days it still lasts and how much to order.",
+    "O que repor, quanto encomendar e quantos dias ainda aguenta": "What to restock, how much to order and how many days it still lasts",
+    "Em falta e abaixo do mínimo": "Out of stock and below minimum",
+    "Só em falta": "Out of stock only",
+    "Sem mínimo definido": "No minimum set",
+    "Com stock": "In stock",
+    "Valor a repor": "Restock value",
+    "Valor a repor (Kz)": "Restock value (Kz)",
+    "Situação": "Status",
+    "Saídas (30 dias)": "Outflows (30 days)",
+    "Aguenta": "Lasts",
+    "A encomendar": "To order",
+    "Nenhum artigo nesta situação.": "No items in this situation."
 }

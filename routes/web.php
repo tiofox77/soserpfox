@@ -2794,6 +2794,11 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
             : [];
     }))->middleware('permission:invoicing.reports.view|invoicing.stock.view')->name('expiry-report');
     
+    // Stock em falta e abaixo do mínimo (22/09/2026): fora do grupo porque, como
+    // o das validades, também o abre quem gere stock sem ver os outros mapas.
+    Route::get('/reports/stock-levels', \App\Support\EcraReact::pagina('facturacao/relatorio', 'Stock em Falta e Abaixo do Mínimo', ['slug' => 'stock-levels',]))
+        ->middleware('permission:invoicing.reports.view|invoicing.stock.view')->name('reports.stock-levels');
+
     Route::prefix('reports')->name('reports.')->middleware('permission:invoicing.reports.view')->group(function () {
         Route::get('/', \App\Support\EcraReact::pagina('facturacao/relatorios-hub', 'Relatórios - Faturação'))->name('hub');
 

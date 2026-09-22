@@ -33,6 +33,7 @@ final class Catalogo
         'services' => Servicos::class,
         'expiry-report' => Validades::class,
         'stock-adjustments' => AjustesDeStock::class,
+        'stock-levels' => StockEmFalta::class,
     ];
 
     public static function existe(string $slug): bool
@@ -53,10 +54,10 @@ final class Catalogo
         return $slug === 'expiry-report' ? '/invoicing/expiry-report' : "/invoicing/reports/{$slug}";
     }
 
-    /** A permissão que abre cada mapa: o das validades também serve quem gere stock. */
+    /** A permissão que abre cada mapa: o das validades e o do stock em falta também servem quem gere stock. */
     public static function permissao(string $slug): string
     {
-        return $slug === 'expiry-report' ? 'invoicing.reports.view|invoicing.stock.view' : 'invoicing.reports.view';
+        return in_array($slug, ['expiry-report', 'stock-levels'], true) ? 'invoicing.reports.view|invoicing.stock.view' : 'invoicing.reports.view';
     }
 
     /** As mesmas secções, na forma que a vista Blade de sempre lê (nomes de rota). */
@@ -114,6 +115,7 @@ final class Catalogo
                 ['slug' => 'expiry-report', 'nome' => 'Validade de Produtos', 'desc' => 'Produtos próximos da validade', 'icone' => 'fa-calendar-check'],
             ]],
             ['titulo' => 'Stock & Controlo', 'icone' => 'fa-boxes-stacked', 'cor' => 'amber', 'relatorios' => [
+                ['slug' => 'stock-levels', 'nome' => 'Stock em Falta e Abaixo do Mínimo', 'desc' => 'O que repor, quanto encomendar e quantos dias ainda aguenta', 'icone' => 'fa-triangle-exclamation'],
                 ['slug' => 'stock-adjustments', 'nome' => 'Ajustes de Stock', 'desc' => 'Seguimento do que foi mexido à mão, por operador', 'icone' => 'fa-sliders'],
             ]],
         ];

@@ -12994,5 +12994,19 @@
     "Dê o seu código a cada cliente: quem o escrever no registo fica ligado a si. O link e o QR levam ao site, mas é o código escrito que faz a ligação. Os planos gratuitos não passam pelo revendedor: o cliente activa-os sozinho no registo.": "Donnez votre code à chaque client : qui le saisit à l’inscription vous est rattaché. Le lien et le QR mènent au site, mais c’est le code saisi qui crée le rattachement. Les formules gratuites ne passent pas par le revendeur : le client les active lui-même à l’inscription.",
     "Quem escreve o seu código no registo fica ligado a si.": "Qui saisit votre code à l’inscription vous est rattaché.",
     "Conheça o SOSERP, o sistema de gestão feito para Angola: facturação certificada pela AGT, stock, POS e muito mais. Registe a sua empresa por aqui: :link — no registo, escreva o meu código :codigo.": "Découvrez SOSERP, le système de gestion conçu pour l’Angola : facturation certifiée par l’AGT, stock, caisse et bien plus. Inscrivez votre entreprise ici : :link — à l’inscription, saisissez mon code :codigo.",
-    "Mostre este QR ao cliente: ao lê-lo com a câmara do telemóvel, abre o site. No registo, ele escreve o seu código :codigo para ficar ligado a si. Pode também imprimir o QR com o botão direito do rato.": "Montrez ce QR au client : en le scannant avec l’appareil photo du téléphone, il ouvre le site. À l’inscription, il saisit votre code :codigo pour vous être rattaché. Vous pouvez aussi imprimer le QR avec le bouton droit de la souris."
+    "Mostre este QR ao cliente: ao lê-lo com a câmara do telemóvel, abre o site. No registo, ele escreve o seu código :codigo para ficar ligado a si. Pode também imprimir o QR com o botão direito do rato.": "Montrez ce QR au client : en le scannant avec l’appareil photo du téléphone, il ouvre le site. À l’inscription, il saisit votre code :codigo pour vous être rattaché. Vous pouvez aussi imprimer le QR avec le bouton droit de la souris.",
+    "Stock em Falta e Abaixo do Mínimo": "Stock en rupture et sous le minimum",
+    "O que falta e o que está abaixo do mínimo, com o consumo dos últimos 30 dias, os dias que ainda aguenta e quanto encomendar.": "Ce qui est en rupture et ce qui est sous le minimum, avec la consommation des 30 derniers jours, le nombre de jours qu’il reste et la quantité à commander.",
+    "O que repor, quanto encomendar e quantos dias ainda aguenta": "Quoi réapprovisionner, combien commander et combien de jours il reste",
+    "Em falta e abaixo do mínimo": "En rupture et sous le minimum",
+    "Só em falta": "En rupture uniquement",
+    "Sem mínimo definido": "Sans minimum défini",
+    "Com stock": "En stock",
+    "Valor a repor": "Valeur à réapprovisionner",
+    "Valor a repor (Kz)": "Valeur à réapprovisionner (Kz)",
+    "Situação": "Situation",
+    "Saídas (30 dias)": "Sorties (30 jours)",
+    "Aguenta": "Tient",
+    "A encomendar": "À commander",
+    "Nenhum artigo nesta situação.": "Aucun article dans cette situation."
 }

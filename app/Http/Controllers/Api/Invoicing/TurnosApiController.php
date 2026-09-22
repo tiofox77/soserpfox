@@ -72,8 +72,14 @@ class TurnosApiController extends Controller
             'meta' => ['current_page' => $pagina->currentPage(), 'last_page' => $pagina->lastPage(), 'per_page' => $pagina->perPage(), 'total' => $pagina->total()],
             // A lista de nomes é ela própria informação: quem só vê os seus
             // turnos não precisa da lista de colegas nem do filtro.
+            //
+            // AS PESSOAS DA EMPRESA pela `tenant_user`, e não por `users.tenant_id`
+            // (22/09/2026): esse é o da empresa onde a pessoa se registou, e um
+            // operador convidado de outra empresa não aparecia no filtro. Com
+            // quem já saiu incluído — os turnos dele continuam no histórico.
             'utilizadores' => $veTodos
-                ? User::where('tenant_id', activeTenantId())->orderBy('name')->get(['id', 'name'])->map(fn ($u) => ['id' => $u->id, 'nome' => $u->name])->values()
+                ? User::whereIn('id', \Illuminate\Support\Facades\DB::table('tenant_user')->where('tenant_id', activeTenantId())->select('user_id'))
+                    ->orderBy('name')->get(['id', 'name'])->map(fn ($u) => ['id' => $u->id, 'nome' => $u->name])->values()
                 : [],
             'pode_ver_todos' => $veTodos,
         ]);
