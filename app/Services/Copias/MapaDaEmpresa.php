@@ -2,6 +2,7 @@
 
 namespace App\Services\Copias;
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -44,6 +45,12 @@ class MapaDaEmpresa
     private static ?array $memoria = null;
 
     /**
+     * O esquema lido, guardado enquanto as migrações não mudarem: um dia de
+     * cada vez, no máximo. Ver `esquema()`.
+     */
+    private const VALIDADE_SEGUNDOS = 86400;
+
+    /**
      * @return array{directas: list<string>, filhas: array<string, array{coluna: string, pai: string}>}
      */
     public static function tabelas(): array
@@ -52,20 +59,22 @@ class MapaDaEmpresa
             return self::$memoria;
         }
 
-        $directas = collect(DB::select(
-            'SELECT TABLE_NAME AS t FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND COLUMN_NAME = ?',
-            ['tenant_id']
-        ))->pluck('t')->reject(fn ($t) => $t === 'tenants' || in_array($t, self::FORA, true))->values()->all();
+        $esquema = self::esquema();
+
+        $directas = collect($esquema)
+            ->filter(fn ($t) => isset($t['colunas']['tenant_id']))
+            ->keys()
+            ->reject(fn ($t) => $t === 'tenants' || in_array($t, self::FORA, true))->values()->all();
 
         // As chaves estrangeiras, com o que interessa para escolher a do dono:
         // se a coluna aceita nulo e em que posição está.
-        $chaves = collect(DB::select(
-            'SELECT k.TABLE_NAME AS t, k.COLUMN_NAME AS c, k.REFERENCED_TABLE_NAME AS p, c.IS_NULLABLE AS nulo, c.ORDINAL_POSITION AS pos
-               FROM information_schema.KEY_COLUMN_USAGE k
-               JOIN information_schema.COLUMNS c
-                 ON c.TABLE_SCHEMA = k.TABLE_SCHEMA AND c.TABLE_NAME = k.TABLE_NAME AND c.COLUMN_NAME = k.COLUMN_NAME
-              WHERE k.TABLE_SCHEMA = DATABASE() AND k.REFERENCED_TABLE_NAME IS NOT NULL'
-        ));
+        $chaves = collect($esquema)->flatMap(fn ($t, $tabela) => collect($t['chaves'])->map(fn ($k) => (object) [
+            't' => $tabela,
+            'c' => $k[0],
+            'p' => $k[1],
+            'nulo' => $t['colunas'][$k[0]]['nulo'] ?? 'YES',
+            'pos' => $t['colunas'][$k[0]]['pos'] ?? 999,
+        ]));
 
         // Filhas e netas: duas passagens. Das chaves possíveis escolhe-se a que
         // NÃO aceita nulo (a das linhas da factura é obrigatória; a da factura
@@ -91,6 +100,104 @@ class MapaDaEmpresa
     public static function esquecer(): void
     {
         self::$memoria = null;
+
+        try {
+            Cache::forget(self::chave());
+        } catch (\Throwable) {
+            // Sem cache não há nada a esquecer.
+        }
+    }
+
+    /**
+     * O ESQUEMA DA BASE, TABELA A TABELA — e guardado (22/09/2026).
+     *
+     * Lia-se do `information_schema` com duas consultas à base INTEIRA em cada
+     * cópia (uma a cada cinco minutos, o dia todo). Num MySQL partilhado essas
+     * consultas abrem todas as tabelas de uma vez: a das chaves estrangeiras
+     * esbarrou duas vezes no `max_statement_time` no dia 22 — uma delas a meio
+     * da rajada em que os pedidos esgotaram as 30 ligações do alojamento.
+     *
+     * Agora: `SHOW FULL TABLES` e, por tabela, `SHOW COLUMNS` e `SHOW CREATE
+     * TABLE` — cada um abre só aquela tabela. E o resultado fica na cache,
+     * chaveado pela última migração: só se volta a ler quando o esquema muda,
+     * ou ao fim de um dia.
+     *
+     * @return array<string, array{colunas: array<string, array{tipo: string, extra: string, nulo: string, pos: int}>, chaves: list<array{0: string, 1: string}>}>
+     */
+    private static function esquema(): array
+    {
+        try {
+            return Cache::remember(self::chave(), self::VALIDADE_SEGUNDOS, fn () => self::lerEsquema());
+        } catch (\Throwable) {
+            // Uma cache que não responde não pode impedir a cópia.
+            return self::lerEsquema();
+        }
+    }
+
+    private static function chave(): string
+    {
+        try {
+            $versao = (int) DB::table('migrations')->max('id');
+        } catch (\Throwable) {
+            $versao = 0;
+        }
+
+        return 'copias:esquema:' . md5(DB::getDatabaseName() . '|' . $versao);
+    }
+
+    private static function lerEsquema(): array
+    {
+        $esquema = [];
+
+        foreach (DB::select("SHOW FULL TABLES WHERE Table_type = 'BASE TABLE'") as $linha) {
+            $tabela = (string) array_values((array) $linha)[0];
+            $esquema[$tabela] = [
+                'colunas' => self::lerEsquemaDe($tabela),
+                'chaves' => self::lerChavesDe($tabela),
+            ];
+        }
+
+        return $esquema;
+    }
+
+    /** As colunas de UMA tabela — `SHOW COLUMNS` abre só essa. */
+    private static function lerEsquemaDe(string $tabela): array
+    {
+        $colunas = [];
+
+        foreach (DB::select('SHOW COLUMNS FROM `' . str_replace('`', '``', $tabela) . '`') as $pos => $c) {
+            $colunas[$c->Field] = [
+                // O DATA_TYPE do information_schema: «bigint(20) unsigned» →
+                // «bigint», «enum('a','b')» → «enum».
+                'tipo' => strtolower((string) strtok((string) $c->Type, '( ')),
+                'extra' => (string) $c->Extra,
+                'nulo' => $c->Null === 'YES' ? 'YES' : 'NO',
+                'pos' => $pos + 1,
+            ];
+        }
+
+        return $colunas;
+    }
+
+    /**
+     * As chaves estrangeiras de UMA tabela, do seu CREATE TABLE: uma linha
+     * «CONSTRAINT `x` FOREIGN KEY (`a`, `b`) REFERENCES `pai` (…)» por chave.
+     *
+     * @return list<array{0: string, 1: string}> [coluna, tabela-pai]
+     */
+    private static function lerChavesDe(string $tabela): array
+    {
+        $criar = (array) (DB::select('SHOW CREATE TABLE `' . str_replace('`', '``', $tabela) . '`')[0] ?? []);
+        $chaves = [];
+
+        preg_match_all('/FOREIGN KEY \(([^)]+)\) REFERENCES `([^`]+)`/', (string) ($criar['Create Table'] ?? ''), $fks, PREG_SET_ORDER);
+        foreach ($fks as $fk) {
+            foreach (explode(',', $fk[1]) as $coluna) {
+                $chaves[] = [trim($coluna, ' `'), $fk[2]];
+            }
+        }
+
+        return $chaves;
     }
 
     /** Todas as tabelas do âmbito, directas primeiro (a ordem da exportação). */
@@ -111,13 +218,16 @@ class MapaDaEmpresa
      */
     public static function colunas(string $tabela): array
     {
-        return collect(DB::select(
-            'SELECT COLUMN_NAME AS c, DATA_TYPE AS d, EXTRA AS e FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION',
-            [$tabela]
-        // Só VIRTUAL/STORED GENERATED: um `DEFAULT CURRENT_TIMESTAMP` aparece
-        // como «DEFAULT_GENERATED» e é uma coluna normal, que tem de ir.
-        ))->reject(fn ($l) => (bool) preg_match('/\b(VIRTUAL|STORED) GENERATED\b/i', (string) $l->e))
-            ->mapWithKeys(fn ($l) => [$l->c => $l->d])->all();
+        // Do esquema guardado (ver `esquema()`); uma tabela que ainda lá não
+        // esteja lê-se à parte — só ela.
+        $colunas = self::esquema()[$tabela]['colunas'] ?? self::lerEsquemaDe($tabela);
+
+        // Só VIRTUAL/STORED GENERATED (o MariaDB diz PERSISTENT): um
+        // `DEFAULT CURRENT_TIMESTAMP` aparece como «DEFAULT_GENERATED» e é uma
+        // coluna normal, que tem de ir.
+        return collect($colunas)
+            ->reject(fn ($c) => (bool) preg_match('/\b(VIRTUAL|STORED|PERSISTENT) GENERATED\b/i', $c['extra']))
+            ->map(fn ($c) => $c['tipo'])->all();
     }
 
     /** A consulta das linhas de uma tabela que são desta empresa. */

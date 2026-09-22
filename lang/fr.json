@@ -12985,5 +12985,7 @@
     "O revendedor ainda não entrou nesta empresa.": "Le revendeur n’est pas encore entré dans cette entreprise.",
     "Entrou como :pessoa": "Entré en tant que :pessoa",
     "Saiu: passaram as 2 horas": "Sorti : les 2 heures étaient écoulées",
-    "Saiu: a autorização foi retirada": "Sorti : l’autorisation a été retirée"
+    "Saiu: a autorização foi retirada": "Sorti : l’autorisation a été retirée",
+    "O sistema está com muitos pedidos neste momento. Tente de novo dentro de alguns segundos.": "Le système reçoit beaucoup de demandes en ce moment. Réessayez dans quelques secondes.",
+    "Tentar de novo": "Réessayer"
 }

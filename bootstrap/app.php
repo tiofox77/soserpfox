@@ -249,4 +249,60 @@ return Application::configure(basePath: dirname(__DIR__))
             );
         });
 
+        // SEM LIGAÇÕES LIVRES, UMA LINHA NO REGISTO — não um rasto inteiro.
+        // Em 22/09/2026 foram 654 ocorrências em duas horas, ~20 KB cada: 14 MB
+        // de laravel.log a escrever no disco do alojamento no pior momento. O
+        // rasto não ensina nada (é sempre o arranque da ligação); o que importa
+        // é quando e em que pedido. Fica como aviso: o registo de problemas
+        // (CapturarErros) grava na base — que é precisamente o que está cheio.
+        $exceptions->report(function (\Throwable $e) {
+            $causa = $e instanceof \Illuminate\Database\QueryException ? ($e->getPrevious() ?? $e) : $e;
+
+            if (! ($e instanceof \Illuminate\Database\QueryException || $e instanceof \PDOException)
+                || ! \App\Support\ConectorMysqlComFolego::tectoCheio($causa)) {
+                return null;
+            }
+
+            $pedido = app()->runningInConsole() && ! app()->runningUnitTests() ? 'consola' : request()->method() . ' /' . ltrim(request()->path(), '/');
+            \Illuminate\Support\Facades\Log::warning(
+                'Base de dados sem ligações livres [' . (preg_match('/\[(1226|1040)\]/', $causa->getMessage(), $m) ? $m[1] : '?') . ']: ' . $pedido
+            );
+
+            return false;
+        });
+
+        // A BASE DE DADOS SEM LIGAÇÕES LIVRES (22/09/2026). Mesmo depois das
+        // novas tentativas do ConectorMysqlComFolego, o tecto pode continuar
+        // cheio. O cliente via um 500 com o SQL e o código do servidor; passa a
+        // ver um «ocupado, tente daqui a pouco» — 503 com Retry-After, que é o
+        // que o erro é. A página não toca na base, na sessão nem no Blade: é
+        // precisamente o que está em falta.
+        $exceptions->render(function (\Throwable $e, \Illuminate\Http\Request $request) {
+            $causa = $e instanceof \Illuminate\Database\QueryException ? ($e->getPrevious() ?? $e) : $e;
+
+            if (! ($e instanceof \Illuminate\Database\QueryException || $e instanceof \PDOException)
+                || ! \App\Support\ConectorMysqlComFolego::tectoCheio($causa)) {
+                return null;
+            }
+
+            $mensagem = __('O sistema está com muitos pedidos neste momento. Tente de novo dentro de alguns segundos.');
+
+            if ($request->ajax() || $request->expectsJson()) {
+                return response()->json(['message' => $mensagem], 503, ['Retry-After' => '10']);
+            }
+
+            return response(
+                '<!doctype html><html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+                // Recarregar sozinha só num GET: nunca reenviar um formulário.
+                . ($request->isMethod('GET') ? '<meta http-equiv="refresh" content="15">' : '') . '<title>SOS ERP</title>'
+                . '<style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f8fafc;color:#0f172a;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;padding:16px}'
+                . 'main{max-width:420px;text-align:center}h1{font-size:20px;margin:0 0 8px}p{margin:0 0 20px;color:#475569;line-height:1.5}'
+                . 'a{display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:600}</style></head>'
+                . '<body><main><h1>' . e(__('Um momento…')) . '</h1><p>' . e($mensagem) . '</p>'
+                . '<a href="' . e($request->fullUrl()) . '">' . e(__('Tentar de novo')) . '</a></main></body></html>',
+                503,
+                ['Retry-After' => '15', 'Content-Type' => 'text/html; charset=UTF-8', 'Cache-Control' => 'no-store'],
+            );
+        });
+
     })->create();

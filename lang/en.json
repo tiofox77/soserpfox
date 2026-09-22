@@ -12985,5 +12985,7 @@
     "O revendedor ainda não entrou nesta empresa.": "The reseller has not entered this company yet.",
     "Entrou como :pessoa": "Entered as :pessoa",
     "Saiu: passaram as 2 horas": "Left: the 2 hours were up",
-    "Saiu: a autorização foi retirada": "Left: the authorisation was withdrawn"
+    "Saiu: a autorização foi retirada": "Left: the authorisation was withdrawn",
+    "O sistema está com muitos pedidos neste momento. Tente de novo dentro de alguns segundos.": "The system is handling a lot of requests right now. Please try again in a few seconds.",
+    "Tentar de novo": "Try again"
 }

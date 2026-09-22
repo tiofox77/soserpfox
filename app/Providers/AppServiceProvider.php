@@ -52,6 +52,10 @@ class AppServiceProvider extends ServiceProvider
         // venda ao pedido que as gerou.
         $this->app->singleton(\App\Services\Audit\AuditRecorder::class);
 
+        // Com o tecto de ligações do alojamento cheio, esperar um pouco e
+        // voltar a tentar, em vez de um 500 à primeira (ver a classe).
+        $this->app->bind('db.connector.mysql', \App\Support\ConectorMysqlComFolego::class);
+
         // Licenciamento offline: uma porta única, cacheada por processo. É
         // inofensivo na cloud — só o middleware age, e só com LICENSE_ENFORCE.
         $this->app->singleton(\App\Services\Licensing\LicenseManager::class, function () {
