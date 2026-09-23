@@ -1083,7 +1083,7 @@ class PosApiController extends Controller
                 'subtipo' => $d->doc_subtipo,
                 'id' => (int) $d->doc_id,
                 'numero' => $d->numero,
-                'numero_interno' => $d->numero_interno ?? $d->numero,
+                'numero_interno' => PosSalesReportQuery::numeroInterno($d),
                 'data' => (string) $d->data,
                 'cliente' => $d->cliente_nome ?: __('Consumidor Final'),
                 'cliente_nif' => $d->cliente_nif,

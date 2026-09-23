@@ -132,4 +132,54 @@ class RelatorioPosNumeracaoTest extends TenantTestCase
             'a nota de crédito tem de sobreviver às colunas novas');
         $this->assertNotNull($linhas->firstWhere('numero', 'FR SOSFR3/000001'));
     }
+
+    /**
+     * O QUE O ECRÃ RECEBE, e não só a consulta.
+     *
+     * A consulta trazia os pedaços desde agosto, mas a API lia um
+     * `numero_interno` que não existia e mandava o número da AGT nos dois
+     * campos: o mapa continuava a mostrar só FR FR4226S61319N/… (23/09).
+     */
+    public function test_a_api_do_relatorio_manda_a_interna_e_a_da_agt(): void
+    {
+        $this->comModulo('invoicing')->comPermissoes('invoicing.pos.reports');
+        $serie = $this->serie(['agt_series_id' => 'FR4226S61319N']);
+        $this->factura($serie, 'FR FR4226S61319N/003256');
+
+        $r = $this->getJson('/api/v1/invoicing/react/pos/relatorio?' . http_build_query([
+            'start_date' => now()->subDay()->toDateString(), 'end_date' => now()->addDay()->toDateString(),
+        ]))->assertOk();
+
+        $linha = collect($r->json('data'))->firstWhere('numero', 'FR FR4226S61319N/003256');
+        $this->assertNotNull($linha);
+        $this->assertSame('FR SOSFR/003256', $linha['numero_interno']);
+
+        // E procura-se pela numeração da casa.
+        $achadas = $this->getJson('/api/v1/invoicing/react/pos/relatorio?' . http_build_query([
+            'start_date' => now()->subDay()->toDateString(), 'end_date' => now()->addDay()->toDateString(), 'search' => 'SOSFR',
+        ]))->assertOk()->json('data');
+        $this->assertContains('FR SOSFR/003256', array_column($achadas, 'numero_interno'));
+    }
+
+    /** As vendas do turno: a interna em `numero`, a fiscal em `numero_agt`. */
+    public function test_as_vendas_do_turno_mostram_as_duas(): void
+    {
+        $serie = $this->serie(['agt_series_id' => 'FR4226S61319N']);
+        $factura = $this->factura($serie, 'FR FR4226S61319N/003257');
+
+        $turno = \App\Models\Invoicing\PosShift::createSafely([
+            'tenant_id' => $this->tenant->id, 'user_id' => $this->user->id,
+            'status' => 'open', 'opened_at' => now(), 'opening_balance' => 0,
+        ], $this->tenant->id);
+        $turno->addTransaction([
+            'type' => 'invoice', 'reference_type' => SalesInvoice::class, 'reference_id' => $factura->id,
+            'reference_number' => $factura->invoice_number, 'payment_method' => 'cash', 'amount' => 1000,
+            'description' => 'Venda POS',
+        ]);
+
+        $doc = \App\Services\POS\ProdutosDoTurno::de($turno->fresh())['documentos'][0];
+
+        $this->assertSame('FR SOSFR/003257', $doc['numero']);
+        $this->assertSame('FR FR4226S61319N/003257', $doc['numero_agt']);
+    }
 }

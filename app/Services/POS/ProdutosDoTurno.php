@@ -47,13 +47,13 @@ class ProdutosDoTurno
         $facturas = $idsFacturas->isEmpty() ? collect() : SalesInvoice::withoutGlobalScope('tenant')
             ->where('tenant_id', $turno->tenant_id)
             ->whereIn('id', $idsFacturas)
-            ->with(['items.product:id,code,name', 'client:id,name'])
+            ->with(['items.product:id,code,name', 'client:id,name', 'series:id,prefix,series_code,agt_series_id'])
             ->get();
 
         $notas = $idsNotas->isEmpty() ? collect() : CreditNote::withoutGlobalScope('tenant')
             ->where('tenant_id', $turno->tenant_id)
             ->whereIn('id', $idsNotas)
-            ->with(['items.product:id,code,name', 'client:id,name'])
+            ->with(['items.product:id,code,name', 'client:id,name', 'series:id,prefix,series_code,agt_series_id'])
             ->get();
 
         $produtos = [];
@@ -96,7 +96,9 @@ class ProdutosDoTurno
 
             $documentos[] = [
                 'tipo' => 'factura',
-                'numero' => (string) $f->invoice_number,
+                // A série INTERNA em cima e a da AGT por baixo, como nas listas.
+                'numero' => $f->numeroInterno(),
+                'numero_agt' => $f->numeroInterno() !== (string) $f->invoice_number ? (string) $f->invoice_number : null,
                 'hora' => optional($f->created_at)->format('H:i'),
                 'quando' => $f->created_at?->toIso8601String(),
                 'cliente' => $f->client?->name,
@@ -126,7 +128,8 @@ class ProdutosDoTurno
 
             $documentos[] = [
                 'tipo' => 'nota',
-                'numero' => (string) $n->credit_note_number,
+                'numero' => $n->numeroInterno(),
+                'numero_agt' => $n->numeroInterno() !== (string) $n->credit_note_number ? (string) $n->credit_note_number : null,
                 'hora' => optional($n->created_at)->format('H:i'),
                 'quando' => $n->created_at?->toIso8601String(),
                 'cliente' => $n->client?->name,

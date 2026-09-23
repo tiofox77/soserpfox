@@ -53,7 +53,7 @@
             <td>{{ $d['numero'] }}@if($d['anulada']) <span class="b">(ANULADA)</span>@endif</td>
             <td class="right" style="white-space:nowrap">{{ number_format($d['total'], 2) }}</td>
         </tr>
-        <tr><td></td><td colspan="2" style="font-size:9px">{{ $d['meio'] }}@if($d['cliente']) · {{ $d['cliente'] }}@endif · {{ $d['artigos'] }} art.</td></tr>
+        <tr><td></td><td colspan="2" style="font-size:9px">@if(!empty($d['numero_agt'])){{ $d['numero_agt'] }} · @endif{{ $d['meio'] }}@if($d['cliente']) · {{ $d['cliente'] }}@endif · {{ $d['artigos'] }} art.</td></tr>
     @endforeach
 </table>
 @endif

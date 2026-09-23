@@ -202,7 +202,9 @@
             @foreach($produtos['documentos'] as $d)
             <tr @if($d['anulada']) style="color:#9ca3af;text-decoration:line-through" @endif>
                 <td>{{ $d['hora'] }}</td>
-                <td>{{ $d['numero'] }}@if($d['anulada']) (anulada)@endif</td>
+                <td>{{ $d['numero'] }}@if($d['anulada']) (anulada)@endif
+                    @if(!empty($d['numero_agt']))<div style="font-size:8px;color:#666;">{{ $d['numero_agt'] }}</div>@endif
+                </td>
                 <td>{{ $d['cliente'] ?? '—' }}</td>
                 <td>{{ $d['meio'] }}</td>
                 <td class="text-right">{{ $d['artigos'] }}</td>

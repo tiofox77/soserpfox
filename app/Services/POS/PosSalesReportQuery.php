@@ -38,6 +38,24 @@ class PosSalesReportQuery
         return $this->filtros[$chave] ?? $omissao;
     }
 
+    /**
+     * O número na SÉRIE INTERNA de uma linha da listagem (FR SOSFR/003256).
+     *
+     * A consulta traz só os pedaços (`serie_prefixo`, `serie_interna`). O ecrã
+     * lia um `numero_interno` que nenhuma consulta devolvia e caía sempre no
+     * número da AGT (FR FR4226S61319N/003256): a numeração que a casa conhece
+     * não aparecia no mapa. Uma nota de crédito não tem série interna e fica
+     * com o número dela.
+     */
+    public static function numeroInterno(object $linha): string
+    {
+        return \App\Models\Invoicing\SalesInvoice::comporNumeroInterno(
+            $linha->serie_prefixo ?? null,
+            $linha->serie_interna ?? null,
+            $linha->numero ?? null
+        );
+    }
+
     /** A listagem unida, já ordenada da mais recente para a mais antiga. */
     public function listagem()
     {
@@ -208,6 +226,8 @@ class PosSalesReportQuery
         if ($termo = trim((string) $this->filtro('search'))) {
             $q->where(function ($q) use ($termo) {
                 $q->where('i.invoice_number', 'like', "%{$termo}%")
+                  // Quem procura pela numeração da casa (SOSFR) também acha.
+                  ->orWhere('s.series_code', 'like', "%{$termo}%")
                   ->orWhereExists(fn ($s) => $s->select(DB::raw(1))
                       ->from('invoicing_clients as cc')
                       ->whereColumn('cc.id', 'i.client_id')

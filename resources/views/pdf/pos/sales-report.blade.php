@@ -77,13 +77,19 @@
         </thead>
         <tbody>
             @forelse($invoices as $doc)
-            @php $ehNota = $doc->doc_tipo === 'NC'; @endphp
+            @php
+                $ehNota = $doc->doc_tipo === 'NC';
+                $interno = \App\Services\POS\PosSalesReportQuery::numeroInterno($doc);
+            @endphp
             {{-- As notas de credito saem com sinal NEGATIVO: na base os valores
                  sao positivos e, sem sinal, uma devolucao lia-se como venda. --}}
             <tr @if($ehNota) style="color:#b91c1c;" @endif>
                 <td>{{ $doc->doc_tipo }}</td>
                 <td>
-                    {{ $doc->numero }}
+                    {{ $interno }}
+                    @if($interno !== $doc->numero)
+                        <div style="font-size:8px;color:#666;">{{ $doc->numero }}</div>
+                    @endif
                     @if($ehNota && $doc->factura_origem)
                         <div style="font-size:8px;color:#666;">sobre {{ $doc->factura_origem }}</div>
                     @endif

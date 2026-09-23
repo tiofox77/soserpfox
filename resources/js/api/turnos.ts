@@ -34,7 +34,8 @@ export type ProdutoDoTurno = {
 };
 
 export type DocumentoDoTurno = {
-    tipo: 'factura' | 'nota'; numero: string; hora: string | null; cliente: string | null;
+    /** `numero` é o da série interna; `numero_agt` o fiscal, quando é outro. */
+    tipo: 'factura' | 'nota'; numero: string; numero_agt?: string | null; hora: string | null; cliente: string | null;
     meio: string; artigos: number; total: number; anulada: boolean;
 };
 
