@@ -14,6 +14,7 @@ import { SemNada, cascata } from '@/ui/SemNada';
 import { FOCO, RAIO, cls, kz } from '@/ui/tokens';
 
 import { EstadoNaFaixa, Faixa } from '../facturacao/faixa';
+import { ArrumarMovimentos } from './ArrumarMovimentos';
 import { EtiquetaDeEstado, EtiquetaDeTipo } from './FichaDoMovimento';
 
 /**
@@ -41,6 +42,7 @@ const PERIODOS: Array<{ valor: PeriodoDoPainel; rotulo: string }> = [
 
 export default function Painel() {
     const [periodo, porPeriodo] = useState<PeriodoDoPainel>('today');
+    const [aArrumar, porAArrumar] = useState(false);
 
     const painel = useQuery({
         queryKey: ['tesouraria', 'painel', periodo],
@@ -136,9 +138,12 @@ export default function Painel() {
                                     <strong className="tabular-nums">{p.por_consertar.movimentos_sem_destino}</strong>{' '}
                                     {t('movimento(s) não caíram em conta nem caixa nenhum — o dinheiro está registado e não mexeu saldo.')}
                                 </span>
-                                <a href="/treasury/transactions" className={cls('font-semibold underline underline-offset-2', FOCO)}>
-                                    {t('Ver os movimentos')}
-                                </a>
+                                {/* ARRUMAR DE UMA VEZ (23/09/2026): a ligação levava à lista inteira de
+                                    movimentos, sem filtro — eram arrumados um a um. */}
+                                <button type="button" onClick={() => porAArrumar(true)} className={cls('bg-amber-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-700', RAIO, FOCO)} data-arrumar>
+                                    <i className="fas fa-wand-magic-sparkles mr-1.5" aria-hidden="true" />
+                                    {t('Arrumar agora')}
+                                </button>
                             </li>
                         )}
                         {p.por_consertar.formas_sem_destino > 0 && (
@@ -274,6 +279,7 @@ export default function Painel() {
                     </div>
                 )}
             </Cartao>
+            <ArrumarMovimentos aberto={aArrumar} aoFechar={() => porAArrumar(false)} />
         </div>
     );
 }

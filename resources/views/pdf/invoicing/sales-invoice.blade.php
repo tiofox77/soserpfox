@@ -843,7 +843,7 @@
                         </div>
                         <div class="summary-row">
                             <span>Recebido</span>
-                            <span>{{ number_format($invoice->paid_amount ?? $invoice->total, 2, ',', '.') }}</span>
+                            <span>{{ number_format($invoice->amount_received ?? $invoice->paid_amount ?? $invoice->total, 2, ',', '.') }}</span>
                         </div>
                         @endif
                         

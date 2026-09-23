@@ -210,7 +210,12 @@ class PosSaleService
                 'discount_amount'     => $calc['desconto_comercial_total'],
                 'discount_commercial' => $discountCommercial,
                 'total'               => $calc['total'],
-                'paid_amount'         => $amountReceived,
+                // O PAGO É O TOTAL — as formas de pagamento somam sempre o total,
+                // e é isso que entra na tesouraria e no turno. O que o cliente
+                // ENTREGOU (troco incluído) vai para a coluna própria, de onde o
+                // talão tira o «Recebido» e o «Troco» (23/09/2026).
+                'paid_amount'         => $calc['total'],
+                'amount_received'     => $amountReceived,
                 'invoice_status'      => 'F',
                 'invoice_status_date' => now(),
                 'source_id'           => $userId,

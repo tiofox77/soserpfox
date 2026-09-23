@@ -2435,6 +2435,9 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
          */
         Route::get('/tesouraria/movimentos/opcoes', [\App\Http\Controllers\Api\Treasury\MovimentosApiController::class, 'opcoes'])->name('tesouraria.movimentos.opcoes');
         Route::get('/tesouraria/movimentos', [\App\Http\Controllers\Api\Treasury\MovimentosApiController::class, 'index'])->name('tesouraria.movimentos.index');
+        // Arrumar de uma vez os movimentos sem conta nem caixa (23/09/2026).
+        Route::get('/tesouraria/movimentos/por-arrumar', [\App\Http\Controllers\Api\Treasury\MovimentosApiController::class, 'porArrumar'])->name('tesouraria.movimentos.por-arrumar');
+        Route::post('/tesouraria/movimentos/arrumar', [\App\Http\Controllers\Api\Treasury\MovimentosApiController::class, 'arrumar'])->name('tesouraria.movimentos.arrumar');
         Route::post('/tesouraria/movimentos', [\App\Http\Controllers\Api\Treasury\MovimentosApiController::class, 'criar'])->name('tesouraria.movimentos.criar');
         Route::get('/tesouraria/movimentos/{id}', [\App\Http\Controllers\Api\Treasury\MovimentosApiController::class, 'mostrar'])->whereNumber('id')->name('tesouraria.movimentos.mostrar');
         Route::put('/tesouraria/movimentos/{id}', [\App\Http\Controllers\Api\Treasury\MovimentosApiController::class, 'actualizar'])->whereNumber('id')->name('tesouraria.movimentos.actualizar');

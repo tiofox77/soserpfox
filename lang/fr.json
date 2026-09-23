@@ -13020,5 +13020,20 @@
     "Sobra de caixa no fecho do turno :turno (:caixa): esperado :lancado, contado :contado": "Excédent de caisse à la clôture du poste :turno (:caixa) : attendu :lancado, compté :contado",
     "Acerto de caixa (quebras e sobras)": "Ajustement de caisse (manques et excédents)",
     "Do adiantamento só se pode usar o que falta pagar: :falta.": "Seul le montant restant dû peut être pris sur l’avance : :falta.",
-    "Não se paga ao fornecedor mais do que falta: :falta.": "On ne paie pas au fournisseur plus que ce qui reste dû : :falta."
+    "Não se paga ao fornecedor mais do que falta: :falta.": "On ne paie pas au fournisseur plus que ce qui reste dû : :falta.",
+    "Escolha uma caixa ou conta activa desta empresa para cada grupo.": "Choisissez une caisse ou un compte actif de cette entreprise pour chaque groupe.",
+    ":n movimento arrumado e saldo actualizado.|:n movimentos arrumados e saldos actualizados.": ":n mouvement affecté et solde mis à jour.|:n mouvements affectés et soldes mis à jour.",
+    "Arrumar agora": "Corriger maintenant",
+    "Arrumar movimentos": "Affecter les mouvements",
+    "Dinheiro registado que não caiu em conta nem caixa nenhum": "Argent enregistré qui n’est tombé dans aucun compte ni aucune caisse",
+    "Arrumar :n movimentos": "Affecter :n mouvements",
+    "Não há nada por arrumar.": "Il n’y a rien à affecter.",
+    "Cada grupo já vem com um destino sugerido: o numerário vai para a caixa de quem o registou, o resto para a conta da forma de pagamento. Confirme ou troque e carregue em «Arrumar». O saldo da caixa ou conta escolhida passa a contar com este dinheiro.": "Chaque groupe arrive avec une destination suggérée : les espèces vont à la caisse de celui qui les a enregistrées, le reste au compte du mode de paiement. Confirmez ou changez puis appuyez sur « Affecter ». Le solde de la caisse ou du compte choisi inclura alors cet argent.",
+    ":n movimento(s)": ":n mouvement(s)",
+    "entradas": "entrées",
+    "saídas": "sorties",
+    "Destino de :forma": "Destination pour :forma",
+    "— Escolha a caixa ou conta —": "— Choisissez la caisse ou le compte —",
+    "Falta escolher o destino de :n grupo(s).": "Destination encore à choisir pour :n groupe(s).",
+    "Não foi possível arrumar os movimentos.": "Impossible d’affecter les mouvements."
 }

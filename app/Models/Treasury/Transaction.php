@@ -12,6 +12,22 @@ class Transaction extends Model
     use BelongsToTenant;
 
     protected $table = 'treasury_transactions';
+
+    /**
+     * O DINHEIRO QUE SÓ MUDA DE SÍTIO dentro da empresa — de uma caixa ou
+     * conta para outra (23/09/2026). Uma transferência lança uma saída e uma
+     * entrada iguais: nos totais aparecia como dinheiro que entrou E saiu, e
+     * uma recolha de 5.500 para a caixa do gerente pintava «Saídas 5.500» no
+     * fluxo de caixa de uma empresa que não gastou nada. A taxa da
+     * transferência (`transfer_fee`) essa sim é gasto, e fica.
+     */
+    public const INTERNAS = ['transfer'];
+
+    /** Só o que entra na empresa ou sai dela — sem as transferências internas. */
+    public function scopeForaDasInternas($query)
+    {
+        return $query->where(fn ($q) => $q->whereNull('category')->orWhereNotIn('category', self::INTERNAS));
+    }
     
     protected $fillable = [
         'tenant_id',

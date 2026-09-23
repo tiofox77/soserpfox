@@ -136,6 +136,27 @@ export const movimentos = {
      */
     creditar: (id: number) =>
         api.criar<{ id: number; numero: string; message: string }>(`${RAIZ}/${id}/creditar`, {}),
+
+    /** Os movimentos sem conta nem caixa, em grupos com o destino sugerido (23/09/2026). */
+    porArrumar: () => api.ler<PorArrumar>(`${RAIZ}/por-arrumar`),
+
+    arrumar: (atribuicoes: Array<{ ids: number[]; destino: string }>) =>
+        api.criar<{ arrumados: number; message: string }>(`${RAIZ}/arrumar`, { atribuicoes }),
+};
+
+/**
+ * OS MOVIMENTOS POR ARRUMAR — dinheiro registado que não caiu em conta nem
+ * caixa. Um grupo por forma de pagamento e destino sugerido; `sugestao` é
+ * `cash:ID`, `account:ID` ou nulo (sem onde propor).
+ */
+export type PorArrumar = {
+    grupos: Array<{
+        chave: string; forma: string; numerario: boolean; movimentos: number;
+        entradas: number; saidas: number; de: string | null; ate: string | null;
+        sugestao: string | null; ids: number[];
+    }>;
+    destinos: Array<{ valor: string; rotulo: string; tipo: 'caixa' | 'conta' }>;
+    total: { movimentos: number; valor: number };
 };
 
 /* ─── Transferências entre contas e caixas ────────────────────────────── */

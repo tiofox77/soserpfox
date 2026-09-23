@@ -57,6 +57,7 @@ class PainelApiController extends Controller
         // O QUE ENTROU E SAIU no período — as duas somas numa consulta só.
         $movimento = Transaction::where('tenant_id', $tenantId)
             ->where('status', 'completed')
+            ->foraDasInternas()
             ->whereBetween('transaction_date', [$de, $ate])
             ->selectRaw("COALESCE(SUM(CASE WHEN type = 'income' THEN amount END), 0) as entradas")
             ->selectRaw("COALESCE(SUM(CASE WHEN type = 'expense' THEN amount END), 0) as saidas")
@@ -203,6 +204,7 @@ class PainelApiController extends Controller
         $linhas = Transaction::where('tenant_id', $tenantId)
             ->where('status', 'completed')
             ->whereIn('type', ['income', 'expense'])
+            ->foraDasInternas()
             ->where('transaction_date', '>=', $desde)
             ->groupBy('dia', 'type')
             ->selectRaw('DATE(transaction_date) as dia, type, SUM(amount) as total')
@@ -231,6 +233,7 @@ class PainelApiController extends Controller
         return Transaction::where('tenant_id', $tenantId)
             ->where('type', $tipo)
             ->where('status', 'completed')
+            ->foraDasInternas()
             ->whereBetween('transaction_date', [$de, $ate])
             ->select('category', DB::raw('SUM(amount) as total'))
             ->groupBy('category')

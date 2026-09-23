@@ -226,14 +226,19 @@
                         <span class="font-bold uppercase">{{ $formas->first()->payment_method ?? ($invoice->payment_method ?? 'Dinheiro') }}</span>
                     </div>
                 @endif
+                {{-- O entregue tem coluna própria desde 23/09/2026; nas vendas de
+                     antes (e no molde do PWA) é o pago. --}}
+                @php
+                    $recebido = $invoice->amount_received ?? $invoice->paid_amount;
+                @endphp
                 <div class="flex justify-between">
                     <span>Valor Recebido:</span>
-                    <span>{{ number_format($invoice->paid_amount, 2) }} Kz</span>
+                    <span>{{ number_format($recebido, 2) }} Kz</span>
                 </div>
-                @if($invoice->paid_amount - $invoice->total > 0)
+                @if($recebido - $invoice->total > 0)
                 <div class="flex justify-between font-bold">
                     <span>Troco:</span>
-                    <span>{{ number_format($invoice->paid_amount - $invoice->total, 2) }} Kz</span>
+                    <span>{{ number_format($recebido - $invoice->total, 2) }} Kz</span>
                 </div>
                 @endif
             </div>

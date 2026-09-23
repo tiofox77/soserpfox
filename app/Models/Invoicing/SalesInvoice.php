@@ -59,6 +59,8 @@ class SalesInvoice extends Model
         'total',
         'gross_total',
         'paid_amount',
+        // O que o cliente entregou ao balcão, troco incluído (só no POS).
+        'amount_received',
         'currency',
         'exchange_rate',
         'notes',
@@ -98,6 +100,7 @@ class SalesInvoice extends Model
         'total' => 'decimal:2',
         'gross_total' => 'decimal:2',
         'paid_amount' => 'decimal:2',
+        'amount_received' => 'decimal:2',
         'exchange_rate' => 'decimal:4',
     ];
 

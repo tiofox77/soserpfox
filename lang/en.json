@@ -13020,5 +13020,20 @@
     "Sobra de caixa no fecho do turno :turno (:caixa): esperado :lancado, contado :contado": "Cash surplus when closing shift :turno (:caixa): expected :lancado, counted :contado",
     "Acerto de caixa (quebras e sobras)": "Cash adjustment (shortages and surpluses)",
     "Do adiantamento só se pode usar o que falta pagar: :falta.": "Only the amount still due can be taken from the advance: :falta.",
-    "Não se paga ao fornecedor mais do que falta: :falta.": "The supplier cannot be paid more than what is still due: :falta."
+    "Não se paga ao fornecedor mais do que falta: :falta.": "The supplier cannot be paid more than what is still due: :falta.",
+    "Escolha uma caixa ou conta activa desta empresa para cada grupo.": "Choose an active cash register or account of this company for each group.",
+    ":n movimento arrumado e saldo actualizado.|:n movimentos arrumados e saldos actualizados.": ":n movement assigned and balance updated.|:n movements assigned and balances updated.",
+    "Arrumar agora": "Fix now",
+    "Arrumar movimentos": "Assign movements",
+    "Dinheiro registado que não caiu em conta nem caixa nenhum": "Recorded money that did not land in any account or cash register",
+    "Arrumar :n movimentos": "Assign :n movements",
+    "Não há nada por arrumar.": "There is nothing to assign.",
+    "Cada grupo já vem com um destino sugerido: o numerário vai para a caixa de quem o registou, o resto para a conta da forma de pagamento. Confirme ou troque e carregue em «Arrumar». O saldo da caixa ou conta escolhida passa a contar com este dinheiro.": "Each group comes with a suggested destination: cash goes to the register of whoever recorded it, the rest to the payment method’s account. Confirm or change it and press «Assign». The chosen register or account balance will then include this money.",
+    ":n movimento(s)": ":n movement(s)",
+    "entradas": "inflows",
+    "saídas": "outflows",
+    "Destino de :forma": "Destination for :forma",
+    "— Escolha a caixa ou conta —": "— Choose the register or account —",
+    "Falta escolher o destino de :n grupo(s).": "Destination still to choose for :n group(s).",
+    "Não foi possível arrumar os movimentos.": "The movements could not be assigned."
 }

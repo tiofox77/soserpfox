@@ -367,6 +367,44 @@ class MovimentosApiController extends Controller
         return response()->json(['message' => __('Transação eliminada com sucesso!')]);
     }
 
+    /* ─── Arrumar os que não caíram em lado nenhum ────────────────────── */
+
+    /**
+     * Os movimentos sem conta nem caixa, em grupos com o destino sugerido —
+     * ver App\Services\Treasury\ArrumarMovimentos (23/09/2026).
+     */
+    public function porArrumar(Request $request): JsonResponse
+    {
+        $this->exigir($request, 'treasury.transactions.edit');
+
+        return response()->json((new \App\Services\Treasury\ArrumarMovimentos((int) activeTenantId()))->grupos());
+    }
+
+    public function arrumar(Request $request): JsonResponse
+    {
+        $this->exigir($request, 'treasury.transactions.edit');
+
+        $d = $request->validate([
+            'atribuicoes' => ['required', 'array', 'min:1'],
+            'atribuicoes.*.ids' => ['required', 'array', 'min:1'],
+            'atribuicoes.*.ids.*' => ['integer'],
+            'atribuicoes.*.destino' => ['required', 'string', 'regex:/^(account|cash):[0-9]+$/'],
+        ], [
+            'atribuicoes.*.destino.required' => __('Escolha uma caixa ou conta activa desta empresa para cada grupo.'),
+        ]);
+
+        try {
+            $feito = (new \App\Services\Treasury\ArrumarMovimentos((int) activeTenantId()))->arrumar($d['atribuicoes']);
+        } catch (\DomainException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json([
+            'arrumados' => $feito['arrumados'],
+            'message' => trans_choice(':n movimento arrumado e saldo actualizado.|:n movimentos arrumados e saldos actualizados.', $feito['arrumados'], ['n' => $feito['arrumados']]),
+        ]);
+    }
+
     /* ─── Estornar ────────────────────────────────────────────────────── */
 
     /**
