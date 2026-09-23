@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { t } from '@/i18n';
+import { AProcessar } from '@/ui/AProcessar';
 
 import { usePwa } from '../contexto';
 import { dinheiro, useAccao, useBaseViva, useEstadoDoMotor } from '../ganchos';
@@ -436,6 +437,8 @@ export function NovoDocumento() {
                                  aoImprimir={() => void imprimir()} aoPartilhar={() => void partilhar()}
                                  rotaDocumentos={rotas.documentos} rotaNovoDocumento={rotas.novoDocumento} />
             )}
+
+            <AProcessar activo={aEmitir} titulo={t('A emitir o documento…')} />
         </div>
     );
 }

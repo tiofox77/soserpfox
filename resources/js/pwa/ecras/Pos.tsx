@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 
 import { t } from '@/i18n';
+import { AProcessar } from '@/ui/AProcessar';
 
 import { kz } from '../ganchos';
 import { FolhasDoTurno } from '../turno/Turno';
@@ -154,6 +155,9 @@ function CarrinhoNoTelemovel({ pos }: { pos: ControloDoPos }) {
                     </button>
                 </div>
             )}
+
+            {/* A gravar a venda, nada mais se toca: nem o carrinho, nem o menu. Uma vez só (o carrinho desenha-se em dois sítios). */}
+            <AProcessar activo={pos.aGuardar} />
         </Camada>
     );
 }

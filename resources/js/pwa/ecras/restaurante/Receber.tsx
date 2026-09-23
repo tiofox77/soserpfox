@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { t } from '@/i18n';
+import { AProcessar } from '@/ui/AProcessar';
 
 import { dinheiro, useAccao, useBaseViva, useEstadoDoMotor } from '../../ganchos';
 import { lerMeta, type Cliente, type Registo } from '../../motor/base';
@@ -189,6 +190,8 @@ export function FolhaReceber({ comanda, aoFechar, aoFechada }: {
                         : t('Sem rede: a conta fica fechada aqui e o número fiscal é atribuído quando sincronizar.')}
                 </p>
             </div>
+
+            <AProcessar activo={aReceber} titulo={t('A registar o pagamento…')} />
         </Folha>
     );
 }

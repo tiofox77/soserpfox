@@ -108,6 +108,29 @@ describe('o POS sem turno aberto', () => {
 
         await waitFor(() => expect(screen.getByRole('button', { name: /Finalizar Venda/ })).toBeEnabled());
     });
+
+    it('dois toques no Finalizar são uma venda só, e o ecrã «A registar a venda…» trava tudo a meio', async () => {
+        await db.meta.put({ key: 'shift', value: { open: true, number: 'T-1', opened_at: new Date().toISOString(), opening_balance: 0, cash_sales: 0 } });
+        vi.spyOn(window, 'print').mockImplementation(() => undefined);
+
+        desenhar(<Pos />);
+
+        const artigo = await screen.findByRole('button', { name: /Água 1,5L/ });
+        await act(async () => { fireEvent.click(artigo); });
+
+        const finalizar = await screen.findByRole('button', { name: /Finalizar Venda/ });
+        await waitFor(() => expect(finalizar).toBeEnabled());
+
+        // O mesmo instante: o dedo que bate duas vezes.
+        fireEvent.click(finalizar);
+        fireEvent.click(finalizar);
+
+        // Enquanto grava, o ecrã que trava tudo está aberto.
+        expect(document.querySelector('[data-a-processar]')).not.toBeNull();
+
+        await waitFor(() => expect(document.querySelector('[data-a-processar]')).toBeNull());
+        expect(await db.pos_sales.count()).toBe(1);
+    });
 });
 
 describe('o novo documento', () => {

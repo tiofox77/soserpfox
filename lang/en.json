@@ -13062,5 +13062,10 @@
     "Limpar formatação": "Clear formatting",
     "Formatação": "Formatting",
     "Linha :n": "Line :n",
-    "Escrever a descrição…": "Write the description…"
+    "Escrever a descrição…": "Write the description…",
+    "A registar a venda…": "Recording the sale…",
+    "Aguarde. Não feche nem recarregue esta página.": "Please wait. Do not close or reload this page.",
+    "A ligação está lenta. A venda está a ser gravada e não se repete — espere pela resposta.": "The connection is slow. The sale is being saved and will not be duplicated — wait for the response.",
+    "A emitir o documento…": "Issuing the document…",
+    "A registar o pagamento…": "Recording the payment…"
 }

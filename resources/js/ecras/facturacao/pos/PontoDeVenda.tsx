@@ -8,6 +8,7 @@ import { Botao } from '@/ui/Botao';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
+import { AProcessar } from '@/ui/AProcessar';
 import { FOCO, RAIO, cls, kz } from '@/ui/tokens';
 import { duracaoPara, useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { avisar } from '@/casca/avisos';
@@ -603,6 +604,8 @@ function Balcao({ o }: { o: Opcoes }) {
      */
     const idDaVenda = useRef<string | null>(null);
     const aVender = useRef(false);
+    /** O ecrã «A registar a venda…», que trava tudo até a resposta chegar. */
+    const [aProcessar, porAProcessar] = useState(false);
 
     useEffect(() => {
         idDaVenda.current = null;
@@ -612,6 +615,7 @@ function Balcao({ o }: { o: Opcoes }) {
         mutationFn: (corpo: Record<string, unknown>) => pos.vender(corpo),
         onSettled: () => {
             aVender.current = false;
+            porAProcessar(false);
         },
         onSuccess: (v) => {
             idDaVenda.current = null;
@@ -814,7 +818,10 @@ function Balcao({ o }: { o: Opcoes }) {
 
             <ModalDePagamento
                 aberto={pagar}
-                aoFechar={() => porPagar(false)}
+                // A gravar, a janela não fecha: nem o «Fechar», nem o Escape, nem o clique fora.
+                aoFechar={() => {
+                    if (!aVender.current) porPagar(false);
+                }}
                 // O QUE SE COBRA, com imposto. Ia a `base` — sem ele — e era esse
                 // o número que o operador dizia e recebia, enquanto a factura
                 // saía com o imposto somado por cima.
@@ -830,6 +837,8 @@ function Balcao({ o }: { o: Opcoes }) {
                     // Um segundo disparo antes de o ecrã se redesenhar não é outra venda.
                     if (aVender.current) return;
                     aVender.current = true;
+                    // No próprio clique, e não no redesenho: nada mais se toca até gravar.
+                    porAProcessar(true);
                     idDaVenda.current ??= identificadorDaVenda();
 
                     vender.mutate({
@@ -856,6 +865,8 @@ function Balcao({ o }: { o: Opcoes }) {
                     });
                 }}
             />
+
+            <AProcessar activo={aProcessar} />
 
             <ModalDoTalao venda={vendida} aoFechar={() => porVendida(null)} />
 

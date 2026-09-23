@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import PontoDeVenda from './PontoDeVenda';
@@ -104,6 +104,42 @@ describe('fechar a venda no balcão', () => {
         await waitFor(() => expect(vendas.length).toBeGreaterThan(0));
         await new Promise((r) => setTimeout(r, 50));
         expect(vendas).toHaveLength(1);
+    });
+
+    it('com a rede lenta, tudo fica travado em «A registar a venda…» até a resposta chegar', async () => {
+        let responder: (r: Response) => void = () => undefined;
+        const vendas: string[] = [];
+
+        vi.stubGlobal('fetch', vi.fn((url: string) => {
+            if (url.includes('/pos/vender')) {
+                vendas.push(url);
+
+                return new Promise<Response>((r) => { responder = r; });
+            }
+            const corpo = url.includes('/pos/opcoes') ? OPCOES : { data: [], meta: { pagina: 1, por_pagina: 60, mais: false } };
+
+            return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(corpo) } as Response);
+        }));
+        mostrar();
+
+        fireEvent.click(await abrirOPagamento());
+
+        // Logo no clique: o ecrã que trava tudo.
+        expect(await screen.findByRole('alertdialog', { name: 'A registar a venda…' })).toBeInTheDocument();
+        expect(document.querySelector('[data-a-processar]')).not.toBeNull();
+
+        // A janela do pagamento não fecha a meio: nem «Cancelar», nem Escape.
+        const pagamento = screen.getByRole('button', { name: /A registar…/, hidden: true }).closest('dialog')!;
+        fireEvent.click(within(pagamento).getByRole('button', { name: /^Cancelar$/, hidden: true }));
+        pagamento.dispatchEvent(new Event('cancel', { cancelable: true }));
+        expect(screen.getByRole('button', { name: /A registar…/, hidden: true })).toBeInTheDocument();
+        expect(vendas).toHaveLength(1);
+
+        // A resposta chega: o ecrã sai e aparece o talão.
+        await act(async () => {
+            responder({ ok: true, status: 200, json: () => Promise.resolve(VENDA) } as Response);
+        });
+        await waitFor(() => expect(document.querySelector('[data-a-processar]')).toBeNull());
     });
 
     it('tentar outra vez depois de um erro leva o MESMO identificador', async () => {
