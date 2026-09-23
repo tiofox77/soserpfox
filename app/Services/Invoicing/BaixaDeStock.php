@@ -36,10 +36,18 @@ class BaixaDeStock
             return null;
         }
 
+        /*
+         * LIDA SOB BLOQUEIO. Duas vendas do mesmo artigo ao mesmo segundo liam
+         * as duas 11 e gravavam as duas 10: o stock descia uma vez por duas
+         * vendas (Luk Simões, FR 003253/003254, 23/09/2026). Dentro de uma
+         * transacção, um SELECT simples lê a fotografia tirada no início dela;
+         * o FOR UPDATE lê o que está gravado e faz a segunda esperar.
+         */
         $linha = $warehouseId
             ? Stock::where('tenant_id', $tenantId)
                 ->where('warehouse_id', $warehouseId)
                 ->where('product_id', $produto->id)
+                ->lockForUpdate()
                 ->first()
             : null;
 

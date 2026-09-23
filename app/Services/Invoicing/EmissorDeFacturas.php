@@ -444,10 +444,11 @@ class EmissorDeFacturas
     /** O hash SAFT-AO, encadeado na factura anterior com hash. */
     private function assinar(SalesInvoice $factura, int $tenantId): void
     {
-        $anterior = SalesInvoice::where('tenant_id', $tenantId)
+        // O anterior lido SOB BLOQUEIO: ver ElosDaCadeia.
+        $anterior = ElosDaCadeia::trancar(SalesInvoice::where('tenant_id', $tenantId)
             ->where('id', '<', $factura->id)
             ->whereNotNull('saft_hash')
-            ->orderByDesc('id')
+            ->orderByDesc('id'))
             ->first();
 
         $hash = SAFTHelper::generateHash(

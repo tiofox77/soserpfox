@@ -36,7 +36,7 @@ class PosSaleService
      * @param int   $userId   Operador (created_by / source_id)
      * @return SalesInvoice
      */
-    public function createFromPayload(array $payload, int $tenantId, int $userId): SalesInvoice
+    public function createFromPayload(array $payload, int $tenantId, int $userId, ?float $chegada = null): SalesInvoice
     {
         $localUuid = $payload['local_uuid'] ?? null;
 
@@ -56,7 +56,16 @@ class PosSaleService
         // índice único (tenant_id, local_uuid) fecha a janela e a colisão é
         // apanhada abaixo como "já sincronizada".
         try {
-            return $this->gravarVenda($payload, $tenantId, $userId, $localUuid);
+            return $this->gravarVenda($payload, $tenantId, $userId, $localUuid, $chegada);
+        } catch (VendaRepetida $e) {
+            Log::info('PosSaleService: o mesmo gesto duas vezes; devolve-se a venda já gravada', [
+                'invoice'    => $e->factura->invoice_number,
+                'local_uuid' => $localUuid,
+                'tenant_id'  => $tenantId,
+                'user_id'    => $userId,
+            ]);
+
+            return $e->factura;
         } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
             $jaGravada = $localUuid
                 ? SalesInvoice::where('tenant_id', $tenantId)->where('local_uuid', $localUuid)->first()
@@ -77,7 +86,7 @@ class PosSaleService
     }
 
     /** Gravação propriamente dita (ver createFromPayload). */
-    private function gravarVenda(array $payload, int $tenantId, int $userId, ?string $localUuid): SalesInvoice
+    private function gravarVenda(array $payload, int $tenantId, int $userId, ?string $localUuid, ?float $chegada = null): SalesInvoice
     {
 
         $items = $payload['items'] ?? [];
@@ -107,7 +116,7 @@ class PosSaleService
 
         return DB::transaction(function () use (
             $payload, $items, $tenantId, $userId, $localUuid,
-            $paymentMethod, $discountCommercial, $notes
+            $paymentMethod, $discountCommercial, $notes, $chegada
         ) {
             // ---- Cliente (consumidor final por omissão) ----
             $client = $this->resolveClient($payload, $tenantId);
@@ -179,6 +188,12 @@ class PosSaleService
             $numeracao = app(\App\Services\Invoicing\EmissorFiscal::class)->numerar($tenantId, 'pos');
             $series = $numeracao['serie'];
             $invoiceNumber = $numeracao['numero'];
+
+            // Aqui, e não antes: é o bloqueio da série que põe a segunda
+            // venda à espera de a primeira estar gravada.
+            if ($chegada !== null && ($repetida = $this->vendaRepetida($items, $tenantId, $userId, $client->id, $paymentMethod, $discountCommercial, $chegada))) {
+                throw new VendaRepetida($repetida);
+            }
 
             $amountReceived = (float) ($payload['amount_received'] ?? $calc['total']);
 
@@ -369,6 +384,89 @@ class PosSaleService
     /**
      * Resolve o cliente do payload. Se não houver, devolve o Consumidor Final.
      */
+    /** Quantos segundos antes de o pedido chegar ainda conta como o mesmo gesto. */
+    private const JANELA_DA_REPETIDA = 2;
+
+    /**
+     * A MESMA VENDA, CHEGADA DUAS VEZES — sem depender do ecrã.
+     *
+     * A Luk Simões recebeu a FR 003253 e a FR 003254 do mesmo browser, com um
+     * segundo de diferença (23/09/2026). A operadora carregou uma vez, mas o
+     * browser recebeu dois cliques: um rato gasto ou um computador lento
+     * juntam-nos antes de o botão se desligar. O ecrã novo trava o segundo
+     * clique e repete o identificador, mas um balcão aberto com o pacote
+     * antigo, ou outro cliente da API, não o faz.
+     *
+     * Só vale para o balcão ONLINE, que é quem passa `$chegada`. No PWA, as
+     * vendas feitas sem rede sobem seguidas na sincronização, e duas iguais do
+     * mesmo operador são duas vendas verdadeiras.
+     *
+     * A mesma venda: o mesmo operador, o mesmo cliente, a mesma forma de
+     * pagamento, o mesmo desconto e as mesmas linhas, gravada depois de este
+     * pedido chegar ou até JANELA_DA_REPETIDA segundos antes. Uma venda
+     * seguinte igual, ao mesmo cliente, leva mais do que isso: fecha-se o
+     * talão, lê-se o artigo e confirma-se outra vez.
+     *
+     * As leituras vão TRANCADAS. Sem isso, dentro da transacção lia-se a
+     * fotografia antiga e a primeira venda não aparecia (ver ElosDaCadeia).
+     */
+    private function vendaRepetida(
+        array $items,
+        int $tenantId,
+        int $userId,
+        int $clienteId,
+        string $formaDePagamento,
+        float $desconto,
+        float $chegada
+    ): ?SalesInvoice {
+        $desde = now()
+            ->subMilliseconds((int) max(0, (microtime(true) - $chegada) * 1000))
+            ->subSeconds(self::JANELA_DA_REPETIDA);
+
+        $candidatas = SalesInvoice::where('tenant_id', $tenantId)
+            ->where('created_by', $userId)
+            ->where('source_billing', 'P')
+            ->where('client_id', $clienteId)
+            ->where('created_at', '>=', $desde)
+            ->orderByDesc('id')
+            ->lockForUpdate()
+            ->get();
+
+        if ($candidatas->isEmpty()) {
+            return null;
+        }
+
+        $assinatura = fn (iterable $linhas) => collect($linhas)
+            ->map(fn ($l) => implode('|', [
+                (int) data_get($l, 'product_id'),
+                trim((string) data_get($l, 'product_name')),
+                number_format((float) data_get($l, 'quantity'), 4, '.', ''),
+                number_format((float) data_get($l, 'unit_price'), 2, '.', ''),
+            ]))
+            ->sort()
+            ->values()
+            ->all();
+
+        $estas = $assinatura($items);
+
+        foreach ($candidatas as $c) {
+            if ((string) $c->payment_method !== $formaDePagamento
+                || abs((float) $c->discount_commercial - $desconto) > 0.005) {
+                continue;
+            }
+
+            $linhas = SalesInvoiceItem::where('sales_invoice_id', $c->id)
+                ->sharedLock()
+                ->get(['product_id', 'product_name', 'quantity', 'unit_price']);
+
+            if ($assinatura($linhas) === $estas) {
+                return $c;
+            }
+        }
+
+        return null;
+    }
+
     /**
      * Dá baixa nos lotes do artigo vendido e regista de onde saiu.
      *

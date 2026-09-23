@@ -1,5 +1,9 @@
 /**
- * UM IDENTIFICADOR ÚNICO PARA CADA TENTATIVA DE VENDA.
+ * UM IDENTIFICADOR ÚNICO PARA CADA VENDA.
+ *
+ * Gera-se uma vez por venda e repete-se nas novas tentativas (ver o
+ * `idDaVenda` do PontoDeVenda). Gerado a cada clique, como esteve até
+ * 23/09/2026, dois cliques eram duas facturas.
  *
  * É o que torna a venda idempotente: se a rede tossir e o operador carregar
  * outra vez em «Finalizar», o servidor reconhece o mesmo identificador e

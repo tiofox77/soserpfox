@@ -256,10 +256,11 @@ class ModuleInvoiceService
 
             // Hash SAFT-AO encadeado (depois dos totais fechados: o hash cobre o
             // total do documento).
-            $anterior = SalesInvoice::where('tenant_id', $tenantId)
+            // O anterior lido SOB BLOQUEIO: ver ElosDaCadeia.
+            $anterior = ElosDaCadeia::trancar(SalesInvoice::where('tenant_id', $tenantId)
                 ->where('id', '<', $invoice->id)
                 ->whereNotNull('saft_hash')
-                ->orderBy('id', 'desc')
+                ->orderBy('id', 'desc'))
                 ->first();
 
             $hash = \App\Helpers\SAFTHelper::generateHash(

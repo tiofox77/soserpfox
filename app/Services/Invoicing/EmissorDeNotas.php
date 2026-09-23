@@ -565,10 +565,11 @@ class EmissorDeNotas
      */
     private function assinar($nota, string $classe, string $colunaDoNumero, int $tenantId): void
     {
-        $anterior = $classe::where('tenant_id', $tenantId)
+        // O anterior lido SOB BLOQUEIO: ver ElosDaCadeia.
+        $anterior = ElosDaCadeia::trancar($classe::where('tenant_id', $tenantId)
             ->where('id', '<', $nota->id)
             ->whereNotNull('saft_hash')
-            ->orderByDesc('id')
+            ->orderByDesc('id'))
             ->first();
 
         $hash = SAFTHelper::generateHash(

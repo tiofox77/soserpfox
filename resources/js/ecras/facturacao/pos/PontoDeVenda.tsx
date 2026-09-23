@@ -587,9 +587,34 @@ function Balcao({ o }: { o: Opcoes }) {
 
     /* ─── Fechar a venda ──────────────────────────────────────────────── */
 
+    /*
+     * UMA VENDA, UM IDENTIFICADOR — e um disparo de cada vez.
+     *
+     * O identificador nascia a cada «Confirmar». Dois disparos seguidos (duplo
+     * clique, o Enter do leitor de códigos, o Enter repetido) levavam dois
+     * identificadores, e o servidor, que só reconhece o mesmo, gravava DUAS
+     * facturas: foi a FR 003253/003254 da Luk Simões, com um segundo de
+     * diferença (23/09/2026). O `aTrabalhar` não chegava para travar, porque só
+     * muda quando o ecrã se redesenha.
+     *
+     * Agora o identificador é da VENDA: fica o mesmo numa nova tentativa depois
+     * de um erro (se a primeira chegou a gravar, o servidor devolve essa), e só
+     * muda quando o carrinho muda ou a venda fecha.
+     */
+    const idDaVenda = useRef<string | null>(null);
+    const aVender = useRef(false);
+
+    useEffect(() => {
+        idDaVenda.current = null;
+    }, [linhas, cliente, desconto, descontoTipo]);
+
     const vender = useMutation({
         mutationFn: (corpo: Record<string, unknown>) => pos.vender(corpo),
+        onSettled: () => {
+            aVender.current = false;
+        },
         onSuccess: (v) => {
+            idDaVenda.current = null;
             somDoBalcao('venda');
             porPagar(false);
             porVendida(v);
@@ -801,10 +826,15 @@ function Balcao({ o }: { o: Opcoes }) {
                 formas={o.formas_de_pagamento}
                 montantesRapidos={o.definicoes.montantes_rapidos}
                 aTrabalhar={vender.isPending}
-                aoConfirmar={(p) =>
+                aoConfirmar={(p) => {
+                    // Um segundo disparo antes de o ecrã se redesenhar não é outra venda.
+                    if (aVender.current) return;
+                    aVender.current = true;
+                    idDaVenda.current ??= identificadorDaVenda();
+
                     vender.mutate({
-                        // Um por tentativa: é o que torna a venda idempotente.
-                        local_uuid: identificadorDaVenda(),
+                        // Um por VENDA: é o que torna a venda idempotente.
+                        local_uuid: idDaVenda.current,
                         modulo: o.modulo,
                         client_id: cliente?.id ?? null,
                         payment_method: p.payment_method,
@@ -823,8 +853,8 @@ function Balcao({ o }: { o: Opcoes }) {
                             is_service: l.servico,
                             unit: l.unidade,
                         })),
-                    })
-                }
+                    });
+                }}
             />
 
             <ModalDoTalao venda={vendida} aoFechar={() => porVendida(null)} />

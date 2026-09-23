@@ -403,6 +403,17 @@ class PosShift extends Model
         ?int $closedBy = null
     ): void
     {
+        /*
+         * OS TOTAIS DE NOVO, a partir dos movimentos, antes de os comparar.
+         *
+         * Cada venda recalcula-os, mas dentro da sua transacção, com a
+         * fotografia que tirou ao começar: duas vendas ao mesmo segundo e a
+         * segunda gravava o total sem a primeira. A venda seguinte corrigia;
+         * se o par era o último antes do fecho, a gaveta dava uma sobra que
+         * não existia. O fecho corre depois de tudo gravado.
+         */
+        $this->recalculateTotals();
+
         $this->expected_cash = $this->dinheiroEsperado();
         $this->actual_cash = $actualCash;
         $this->cash_difference = $actualCash - $this->expected_cash;

@@ -524,11 +524,13 @@ class SalesInvoice extends Model
     // Métodos SAFT-AO
     public function generateHash()
     {
-        $previousHash = self::where('tenant_id', $this->tenant_id)
-            ->where('id', '<', $this->id)
-            ->whereNotNull('saft_hash')
-            ->orderBy('id', 'desc')
-            ->value('saft_hash') ?? '';
+        // O anterior lido SOB BLOQUEIO: ver ElosDaCadeia.
+        $previousHash = \App\Services\Invoicing\ElosDaCadeia::trancar(
+            self::where('tenant_id', $this->tenant_id)
+                ->where('id', '<', $this->id)
+                ->whereNotNull('saft_hash')
+                ->orderBy('id', 'desc')
+        )->value('saft_hash') ?? '';
         
         // Usar SAFTHelper com assinatura RSA-SHA256 (conforme SAFT-AO)
         $hash = \App\Helpers\SAFTHelper::generateHash(

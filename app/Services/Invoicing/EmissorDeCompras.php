@@ -144,10 +144,11 @@ class EmissorDeCompras
             $factura->system_entry_date = $factura->system_entry_date ?? now();
             $factura->save();
 
-            $anterior = PurchaseInvoice::where('tenant_id', $tenantId)
+            // O anterior lido SOB BLOQUEIO: ver ElosDaCadeia.
+            $anterior = ElosDaCadeia::trancar(PurchaseInvoice::where('tenant_id', $tenantId)
                 ->where('id', '<', $factura->id)
                 ->whereNotNull('saft_hash')
-                ->orderByDesc('id')
+                ->orderByDesc('id'))
                 ->first();
 
             $hash = SAFTHelper::generateHash(

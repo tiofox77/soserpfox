@@ -30,8 +30,11 @@ class BatchAllocationService
             ->where('quantity_available', '>', 0)
             ->orderBy('expiry_date', 'asc') // FIFO: mais antigo primeiro
             ->orderBy('created_at', 'asc')
+            // Sob bloqueio, como o stock (ver BaixaDeStock): duas vendas ao
+            // mesmo segundo tiravam as duas do mesmo saldo do lote.
+            ->lockForUpdate()
             ->get();
-        
+
         if ($batches->isEmpty()) {
             return [
                 'success' => false,

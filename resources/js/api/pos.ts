@@ -150,10 +150,11 @@ export const pos = {
     /**
      * FECHAR A VENDA.
      *
-     * O `local_uuid` é gerado no ecrã, um por tentativa. Não é burocracia do
-     * offline: é o que torna a venda idempotente. Se a rede tossir e o
-     * operador carregar outra vez, o servidor devolve a factura que já gravou
-     * em vez de gravar uma segunda com o mesmo dinheiro e o mesmo stock.
+     * O `local_uuid` é gerado no ecrã, um por VENDA (e não por clique). Não é
+     * burocracia do offline: é o que torna a venda idempotente. Se a rede
+     * tossir e o operador carregar outra vez, vai o mesmo identificador e o
+     * servidor devolve a factura que já gravou, em vez de gravar uma segunda
+     * com o mesmo dinheiro e o mesmo stock.
      */
     vender: (corpo: Record<string, unknown>) => api.criar<VendaFechada>('/pos/vender', corpo),
 };

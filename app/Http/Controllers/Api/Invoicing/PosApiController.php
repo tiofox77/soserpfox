@@ -913,7 +913,14 @@ class PosApiController extends Controller
         }
 
         try {
-            $factura = $servico->createFromPayload($dados, $tenantId, (int) auth()->id());
+            // A hora de chegada liga a trava da venda repetida: o mesmo gesto
+            // duas vezes devolve a venda já gravada (ver PosSaleService::vendaRepetida).
+            $factura = $servico->createFromPayload(
+                $dados,
+                $tenantId,
+                (int) auth()->id(),
+                defined('LARAVEL_START') ? (float) LARAVEL_START : microtime(true)
+            );
         } catch (\App\Services\POS\ClientePorSincronizar $e) {
             // Só acontece no offline (cliente criado no aparelho). Aqui o
             // cliente vem sempre com id, mas a porta é a mesma e a excepção
