@@ -17,6 +17,7 @@ import { useImprimirAoGravar } from './imprimirAoGravar';
 import {
     ApagarLinha,
     CABECALHO_DA_TABELA,
+    CAMPO_DE_PRECO,
     CELULA_DO_CABECALHO,
     CartaoDeTotais,
     FaixaDeDuplicado,
@@ -336,10 +337,11 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
               * vista: preenchia-se o documento às cegas e só no fim se via o
               * total. Aqui fica colado ao topo e acompanha a página.
               */}
-            <div className="grid gap-4 lg:grid-cols-3">
+            {/* O resumo numa coluna estreita e fixa: os totais cabem em 20rem, e as linhas precisam da largura. */}
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
 
             {/* Um fieldset desligado fecha tudo o que está dentro. */}
-            <fieldset disabled={soLeitura} className="min-w-0 space-y-4 border-0 p-0 lg:col-span-2">
+            <fieldset disabled={soLeitura} className="min-w-0 space-y-4 border-0 p-0">
             <Cartao titulo={t('Informações Gerais')} icone="fa-circle-info">
                 <div className="grid gap-4 sm:grid-cols-2">
                     {/* O cliente escolhe-se com procura, e cria-se aqui mesmo
@@ -555,7 +557,7 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
                                 <th className={CELULA_DO_CABECALHO}>{t('Artigo')}</th>
                                 <th className={CELULA_DO_CABECALHO}>{t('Descrição')}</th>
                                 <th className={cls('w-24 text-right', CELULA_DO_CABECALHO)}>{t('Qtd.')}</th>
-                                <th className={cls('w-32 text-right', CELULA_DO_CABECALHO)}>{t('Preço')}</th>
+                                <th className={cls('w-40 text-right', CELULA_DO_CABECALHO)}>{t('Preço')}</th>
                                 <th className={cls('w-24 text-right', CELULA_DO_CABECALHO)}>{t('Desc. %')}</th>
                                 {/* A COLUNA DO IMPOSTO, que tinha desaparecido.
                                     O ecrã de sempre mostrava aqui a taxa de IVA
@@ -608,7 +610,7 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
                                     </td>
                                     <td className="px-4 py-2"><input value={l.description} onChange={(e) => mudarLinha(i, 'description', e.target.value)} aria-label={t('Descrição da linha :n', { n: i + 1 })} className={entrada} /></td>
                                     <td className="px-4 py-2"><input type="number" min="0" step="0.001" value={l.quantity} onChange={(e) => mudarLinha(i, 'quantity', e.target.value)} aria-label={t('Quantidade da linha :n', { n: i + 1 })} className={cls(entrada, 'text-right tabular-nums')} /></td>
-                                    <td className="px-4 py-2"><input type="number" min="0" step="0.01" value={l.price} onChange={(e) => mudarLinha(i, 'price', e.target.value)} aria-label={t('Preço da linha :n', { n: i + 1 })} className={cls(entrada, 'text-right tabular-nums')} /></td>
+                                    <td className="px-4 py-2"><input type="number" min="0" step="0.01" value={l.price} onChange={(e) => mudarLinha(i, 'price', e.target.value)} aria-label={t('Preço da linha :n', { n: i + 1 })} className={cls(entrada, CAMPO_DE_PRECO)} /></td>
                                     <td className="px-4 py-2"><input type="number" min="0" max="100" step="0.01" value={l.discount_percent} onChange={(e) => mudarLinha(i, 'discount_percent', e.target.value)} aria-label={t('Desconto da linha :n', { n: i + 1 })} className={cls(entrada, 'text-right tabular-nums')} /></td>
 
                                     {/* O IMPOSTO DA LINHA.

@@ -460,7 +460,7 @@ export function CampoDoArtigo({
                 data-artigo-escolhido={artigo?.id ?? ''}
                 title={artigo?.name}
                 className={cls(
-                    'group flex w-full min-w-[13rem] items-center gap-2 border bg-white px-3 py-2 text-left text-sm shadow-sm',
+                    'group flex w-full min-w-[10rem] max-w-[18rem] items-center gap-2 border bg-white px-2.5 py-1.5 text-left text-sm shadow-sm',
                     TRANSICAO,
                     FOCO,
                     RAIO,

@@ -17,6 +17,7 @@ import { eRica, textoDaDescricao } from './descricaoRica';
 import {
     ApagarLinha,
     CABECALHO_DA_TABELA,
+    CAMPO_DE_PRECO,
     CELULA_DO_CABECALHO,
     CartaoDeTotais,
     FaixaDeDuplicado,
@@ -388,9 +389,10 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
               * dar isto?» — e em coluna única ficava lá em baixo, fora de
               * vista. Aqui fica colado ao topo e acompanha a página.
               */}
-            <div className="grid gap-4 lg:grid-cols-3">
+            {/* O resumo numa coluna estreita e fixa: os totais cabem em 20rem, e as linhas precisam da largura. */}
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
 
-            <fieldset disabled={soLeitura} className="min-w-0 space-y-4 border-0 p-0 lg:col-span-2">
+            <fieldset disabled={soLeitura} className="min-w-0 space-y-4 border-0 p-0">
             <Cartao titulo={t('Dados do documento')} icone="fa-circle-info">
                 <div className="grid gap-4 sm:grid-cols-2">
                     {/* A outra parte escolhe-se com procura, e cria-se aqui
@@ -535,7 +537,7 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
                                 <th className={CELULA_DO_CABECALHO}>{t('Artigo')}</th>
                                 <th className={CELULA_DO_CABECALHO}>{t('Descrição')}</th>
                                 <th className={cls('w-24 text-right', CELULA_DO_CABECALHO)}>{t('Qtd.')}</th>
-                                <th className={cls('w-32 text-right', CELULA_DO_CABECALHO)}>{t('Preço')}</th>
+                                <th className={cls('w-40 text-right', CELULA_DO_CABECALHO)}>{t('Preço')}</th>
                                 <th className={cls('w-24 text-right', CELULA_DO_CABECALHO)}>{t('Desc. %')}</th>
                                 {/* O TOTAL DA LINHA. Sem ele, conferir uma
                                     proposta de vinte linhas obriga a fazer a
@@ -620,7 +622,7 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
                                             value={l.price}
                                             onChange={(e) => mudarLinha(i, 'price', e.target.value)}
                                             aria-label={t('Preço da linha :n', { n: i + 1 })}
-                                            className={cls(entrada, 'text-right tabular-nums')}
+                                            className={cls(entrada, CAMPO_DE_PRECO)}
                                         />
                                     </td>
                                     <td className="px-4 py-2 align-top">

@@ -328,6 +328,15 @@ export function Aviso({ icone = 'fa-triangle-exclamation', children }: { icone?:
  */
 export const CABECALHO_DA_TABELA = 'bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-600';
 
+/**
+ * O CAMPO DO PREÇO DE UMA LINHA: mostra o número inteiro.
+ *
+ * A coluna tinha 8rem e as setas do campo numérico comiam o resto: um preço de
+ * 1 200 000 lia-se «120(» (pedido de 23/09/2026). Largura para onze algarismos,
+ * e sem as setas, que num preço não servem para nada.
+ */
+export const CAMPO_DE_PRECO = 'min-w-[8.5rem] text-right tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none';
+
 /** Uma célula do cabeçalho. */
 export const CELULA_DO_CABECALHO = 'px-4 py-3 font-bold';
 

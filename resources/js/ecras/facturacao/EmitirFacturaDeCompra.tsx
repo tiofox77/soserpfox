@@ -17,6 +17,7 @@ import { useImprimirAoGravar } from './imprimirAoGravar';
 import {
     ApagarLinha,
     CABECALHO_DA_TABELA,
+    CAMPO_DE_PRECO,
     CELULA_DO_CABECALHO,
     CartaoDeTotais,
     FaixaDeDuplicado,
@@ -267,9 +268,10 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
               * de vista, o que numa compra é conferir às cegas o que o
               * fornecedor cobrou.
               */}
-            <div className="grid gap-4 lg:grid-cols-3">
+            {/* O resumo numa coluna estreita e fixa: os totais cabem em 20rem, e as linhas precisam da largura. */}
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
 
-            <fieldset disabled={soLeitura} className="min-w-0 space-y-4 border-0 p-0 lg:col-span-2">
+            <fieldset disabled={soLeitura} className="min-w-0 space-y-4 border-0 p-0">
             <Cartao titulo={t('Documento do fornecedor')} icone="fa-circle-info">
                 <div className="grid gap-4 sm:grid-cols-2">
                     {/* O fornecedor escolhe-se com procura, e cria-se aqui
@@ -358,7 +360,7 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
                             <tr className="border-b border-slate-200">
                                 <th className={CELULA_DO_CABECALHO}>{t('Artigo')}</th>
                                 <th className={cls('w-20 text-right', CELULA_DO_CABECALHO)}>{t('Qtd.')}</th>
-                                <th className={cls('w-28 text-right', CELULA_DO_CABECALHO)}>{t('Preço de compra')}</th>
+                                <th className={cls('w-40 text-right', CELULA_DO_CABECALHO)}>{t('Preço de compra')}</th>
                                 <th className={cls('w-20 text-right', CELULA_DO_CABECALHO)}>{t('Desc. %')}</th>
                                 {/* LOTE, FABRICO, VALIDADE e DIAS DE ALERTA numa
                                     coluna só, como no ecrã de sempre: são quatro
@@ -415,7 +417,7 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
                                         )}
                                     </td>
                                     <td className="px-4 py-2 align-top"><input type="number" min="0" step="0.001" value={l.quantity} onChange={(e) => mudarLinha(i, 'quantity', e.target.value)} aria-label={t('Quantidade da linha :n', { n: i + 1 })} className={cls(entrada, 'text-right tabular-nums')} /></td>
-                                    <td className="px-4 py-2 align-top"><input type="number" min="0" step="0.01" value={l.price} onChange={(e) => mudarLinha(i, 'price', e.target.value)} aria-label={t('Preço da linha :n', { n: i + 1 })} className={cls(entrada, 'text-right tabular-nums')} /></td>
+                                    <td className="px-4 py-2 align-top"><input type="number" min="0" step="0.01" value={l.price} onChange={(e) => mudarLinha(i, 'price', e.target.value)} aria-label={t('Preço da linha :n', { n: i + 1 })} className={cls(entrada, CAMPO_DE_PRECO)} /></td>
                                     <td className="px-4 py-2 align-top"><input type="number" min="0" max="100" step="0.01" value={l.discount_percent} onChange={(e) => mudarLinha(i, 'discount_percent', e.target.value)} aria-label={t('Desconto da linha :n', { n: i + 1 })} className={cls(entrada, 'text-right tabular-nums')} /></td>
                                     {/* O LOTE INTEIRO NUMA CÉLULA: o número em
                                         cima, as duas datas lado a lado e os dias
