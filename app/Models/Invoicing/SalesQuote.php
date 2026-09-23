@@ -179,7 +179,8 @@ class SalesQuote extends Model
                 'sales_invoice_id' => $invoice->id,
                 'product_id' => $item->product_id,
                 'product_name' => $item->product_name,
-                'description' => $item->description,
+                // A factura leva texto: a linha vai à AGT e ao SAF-T, que não aceitam o HTML do editor.
+                'description' => \App\Services\Invoicing\DescricaoRica::emTexto($item->description),
                 'quantity' => $item->quantity,
                 'unit' => $item->unit,
                 'unit_price' => $item->unit_price,

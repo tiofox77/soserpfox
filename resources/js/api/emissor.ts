@@ -71,6 +71,8 @@ export type OpcoesDoEmissor = {
     permissoes: { pode_criar: boolean };
     /** «Imprimir automaticamente ao gravar», das definições da empresa. */
     imprimir_ao_gravar: boolean;
+    /** A descrição da linha abre o editor formatado (proformas de venda e orçamentos). */
+    descricao_rica?: boolean;
 };
 
 /** O CONTEÚDO COMERCIAL de uma proposta: o que se aproveita ao duplicar. */

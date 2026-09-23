@@ -240,7 +240,9 @@ class RenderizadorDeProposta
             $fundo = $i % 2 ? '#f9fafb' : '#ffffff';
             $desc = '';
             if ($comDescricao && !empty($item->description)) {
-                $desc = '<div style="font-size:10px;color:#6b7280;margin-top:3px">' . nl2br(e($item->description)) . '</div>';
+                // Formatada (editor das propostas) ou o texto de sempre: ver DescricaoRica.
+                $desc = '<div class="descricao-rica" style="font-size:10px;color:#6b7280;margin-top:3px">'
+                    . \App\Services\Invoicing\DescricaoRica::paraImprimir($item->description) . '</div>';
             }
 
             $tr .= '<tr style="background:' . $fundo . '">'
@@ -383,6 +385,7 @@ class RenderizadorDeProposta
             . 'table{border-collapse:collapse}'
             . '.proposal-page{position:relative;width:794px;height:1123px;overflow:hidden;page-break-after:always;background:#fff}'
             . '.proposal-page:last-child{page-break-after:auto}.proposal-element{position:absolute;overflow:hidden;box-sizing:border-box}'
+            . \App\Services\Invoicing\DescricaoRica::estilo()
             . '</style></head><body>'
             . $rodape
             . $corpo

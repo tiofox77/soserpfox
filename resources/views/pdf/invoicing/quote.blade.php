@@ -418,6 +418,7 @@
         }
     </style>
     @include("pdf.invoicing.partials.estilo-dompdf")
+    <style>{!! \App\Services\Invoicing\DescricaoRica::estilo() !!}</style>
 </head>
 <body>
     <div class="page-wrapper">
@@ -503,7 +504,7 @@
                         <td class="discriminacao">
                             <span class="item-nome">{{ $item->product_name }}</span>
                             @if($item->description)
-                                <span class="item-descricao">{{ $item->description }}</span>
+                                @include('pdf.invoicing.partials.descricao-da-linha', ['descricao' => $item->description])
                             @endif
                         </td>
                         <td>{{ number_format($item->quantity, 0, ',', '.') }}</td>

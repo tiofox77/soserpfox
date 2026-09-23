@@ -260,7 +260,8 @@ class DocumentosApiController extends Controller
 
         $linhas = $temLinhas
             ? $d->items()->get()->map(fn ($l) => [
-                'descricao' => $l->description ?: $l->product_name,
+                // A descrição formatada de uma proposta vê-se aqui em texto (o PDF tem a formatação).
+                'descricao' => \App\Services\Invoicing\DescricaoRica::emTexto($l->description) ?: $l->product_name,
                 'unidade' => $l->unit,
                 'quantidade' => round((float) $l->quantity, 3),
                 'preco' => round((float) $l->unit_price, 2),

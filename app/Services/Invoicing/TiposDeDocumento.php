@@ -281,12 +281,15 @@ class TiposDeDocumento
                 'chave' => 'sales_proforma_id',
                 'parte_id' => 'client_id',
                 'numero_de' => 'proforma',
+                // A descrição da linha escreve-se num editor e sai formatada no PDF (ver DescricaoRica).
+                'descricao_rica' => true,
             ],
             'orcamentos' => [
                 'itens' => \App\Models\Invoicing\SalesQuoteItem::class,
                 'chave' => 'sales_quote_id',
                 'parte_id' => 'client_id',
                 'numero_de' => 'quote',
+                'descricao_rica' => true,
             ],
             'proformas-compra' => [
                 'itens' => \App\Models\Invoicing\PurchaseProformaItem::class,

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { emissor, type LinhaDoEditor, type Totais } from '@/api/emissor';
@@ -13,6 +13,7 @@ import { t } from '@/i18n';
 import { EscolhaDaParte } from './EscolhaDaParte';
 import { EscolhaDeArtigo, juntarArtigo } from './EscolhaDeArtigo';
 import { useImprimirAoGravar } from './imprimirAoGravar';
+import { eRica, textoDaDescricao } from './descricaoRica';
 import {
     ApagarLinha,
     CABECALHO_DA_TABELA,
@@ -49,6 +50,9 @@ import {
  * O que viaja e o que fica está no `DuplicaDocumento`, do lado do servidor.
  */
 
+/** O editor formatado pesa: só vem quando se abre a descrição de uma linha. */
+const EditorDeDescricao = lazy(() => import('./EditorDeDescricao'));
+
 const LINHA_NOVA: LinhaDoEditor = {
     product_id: null,
     description: '',
@@ -76,6 +80,8 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
     const [modeloId, porModeloId] = useState('');
     const [campos, porCampos] = useState<Record<string, string>>({});
     const [linhas, porLinhas] = useState<LinhaDoEditor[]>([{ ...LINHA_NOVA }]);
+    /** A linha cuja descrição está aberta no editor (proformas de venda e orçamentos). */
+    const [descricaoAberta, porDescricaoAberta] = useState<number | null>(null);
     const [erros, porErros] = useState<Record<string, string[]>>({});
     const [gravado, porGravado] = useState<{ numero: string; abrir: string; pdf: string; preview: string; mensagem: string } | null>(null);
 
@@ -329,7 +335,8 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
                         ...l,
                         product_id: valor ? Number(valor) : null,
                         price: artigo ? artigo.price : l.price,
-                        description: artigo ? artigo.name : l.description,
+                        // Uma descrição já escrita no editor não se perde por se trocar o artigo.
+                        description: artigo && !eRica(l.description) ? artigo.name : l.description,
                     };
                 }
 
@@ -572,12 +579,20 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
                                         )}
                                     </td>
                                     <td className="px-4 py-2 align-top">
-                                        <input
-                                            value={l.description}
-                                            onChange={(e) => mudarLinha(i, 'description', e.target.value)}
-                                            aria-label={t('Descrição da linha :n', { n: i + 1 })}
-                                            className={entrada}
-                                        />
+                                        {o.descricao_rica ? (
+                                            <DescricaoDaLinha
+                                                texto={l.description}
+                                                n={i + 1}
+                                                aoAbrir={() => porDescricaoAberta(i)}
+                                            />
+                                        ) : (
+                                            <input
+                                                value={l.description}
+                                                onChange={(e) => mudarLinha(i, 'description', e.target.value)}
+                                                aria-label={t('Descrição da linha :n', { n: i + 1 })}
+                                                className={entrada}
+                                            />
+                                        )}
                                     </td>
                                     <td className="px-4 py-2">
                                         <input
@@ -829,7 +844,49 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
             </div>
 
             </div>
+
+            {descricaoAberta !== null && linhas[descricaoAberta] && (
+                <Suspense fallback={null}>
+                    <EditorDeDescricao
+                        artigo={o.artigos.find((a) => a.id === linhas[descricaoAberta]!.product_id)?.name ?? t('Linha :n', { n: descricaoAberta + 1 })}
+                        valor={linhas[descricaoAberta]!.description}
+                        aoGuardar={(html) => {
+                            mudarLinha(descricaoAberta, 'description', html);
+                            porDescricaoAberta(null);
+                        }}
+                        aoFechar={() => porDescricaoAberta(null)}
+                    />
+                </Suspense>
+            )}
         </div>
+    );
+}
+
+/**
+ * A DESCRIÇÃO NA LINHA: o começo do texto e um clique para o editor. Nas
+ * proformas de venda e nos orçamentos a descrição é o texto da proposta, e
+ * não cabia numa caixa de uma linha cortada a meio.
+ */
+function DescricaoDaLinha({ texto, n, aoAbrir }: { texto: string; n: number; aoAbrir: () => void }) {
+    const simples = textoDaDescricao(texto);
+
+    return (
+        <button
+            type="button"
+            onClick={aoAbrir}
+            aria-label={t('Descrição da linha :n', { n })}
+            className={cls(
+                'group flex w-full min-w-[12rem] items-start gap-2 border border-dashed border-slate-300 bg-white px-3 py-2 text-left text-sm',
+                'transition-colors duration-200 hover:border-indigo-400 hover:bg-indigo-50/40 disabled:cursor-default disabled:hover:bg-white',
+                RAIO,
+                FOCO,
+            )}
+        >
+            <span className={cls('line-clamp-3 flex-1 whitespace-pre-line', simples ? 'text-slate-700' : 'text-slate-400')}>
+                {simples || t('Escrever a descrição…')}
+            </span>
+            <i className="fas fa-pen-to-square mt-0.5 text-indigo-500 opacity-70 group-hover:opacity-100" aria-hidden="true" />
+        </button>
     );
 }
 

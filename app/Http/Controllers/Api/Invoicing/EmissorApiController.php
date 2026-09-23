@@ -12,6 +12,7 @@ use App\Models\Supplier;
 use App\Services\Invoicing\CalculadoraDeDocumento;
 use App\Services\Invoicing\DuplicaDocumento;
 use App\Services\Invoicing\TaxResolver;
+use App\Services\Invoicing\DescricaoRica;
 use App\Services\Invoicing\TiposDeDocumento;
 use App\Support\Geografia;
 use App\Traits\DocumentosPorAutor;
@@ -59,7 +60,7 @@ class EmissorApiController extends Controller
         $dados = $request->validate([
             'linhas' => ['array'],
             'linhas.*.product_id' => ['nullable', 'integer'],
-            'linhas.*.description' => ['nullable', 'string', 'max:500'],
+            'linhas.*.description' => ['nullable', 'string', 'max:' . $this->tamanhoDaDescricao($tipo)],
             'linhas.*.quantity' => ['nullable', 'numeric', 'min:0'],
             'linhas.*.price' => ['nullable', 'numeric', 'min:0'],
             'linhas.*.discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
@@ -166,6 +167,9 @@ class EmissorApiController extends Controller
             'permissoes' => [
                 'pode_criar' => (bool) $request->user()?->can(str_replace('.view', '.create', $def['permissao'])),
             ],
+
+            // A descrição da linha abre o editor formatado (proformas de venda e orçamentos).
+            'descricao_rica' => ! empty($editor['descricao_rica']),
 
             /*
              * «IMPRIMIR AUTOMATICAMENTE AO GRAVAR», das definições da empresa.
@@ -362,7 +366,7 @@ class EmissorApiController extends Controller
              * artigo de outra passava no `exists` sem empresa.
              */
             'linhas.*.product_id' => ['required', 'integer', \Illuminate\Validation\Rule::exists('invoicing_products', 'id')->where('tenant_id', activeTenantId())],
-            'linhas.*.description' => ['nullable', 'string', 'max:500'],
+            'linhas.*.description' => ['nullable', 'string', 'max:' . $this->tamanhoDaDescricao($tipo)],
             'linhas.*.quantity' => ['required', 'numeric', 'min:0.001'],
             'linhas.*.price' => ['required', 'numeric', 'min:0'],
             'linhas.*.discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
@@ -488,7 +492,8 @@ class EmissorApiController extends Controller
                     $editor['chave'] => $d->id,
                     'product_id' => $l['product_id'],
                     'product_name' => $l['nome'],
-                    'description' => $l['description'],
+                    // Numa proposta com editor, o HTML vem do browser: grava-se limpo.
+                    'description' => ! empty($editor['descricao_rica']) ? DescricaoRica::limpar($l['description']) : $l['description'],
                     'quantity' => $l['quantity'],
                     'unit' => $l['unit'],
                     'unit_price' => $l['price'],
@@ -630,6 +635,12 @@ class EmissorApiController extends Controller
      * Um tipo que exista mas ainda NÃO seja editável dá 404 e não 403: não é
      * uma questão de permissão, é que o editor ainda não sabe emiti-lo.
      */
+    /** Uma proposta com editor leva o HTML da descrição; as outras, uma frase. */
+    private function tamanhoDaDescricao(string $tipo): int
+    {
+        return ! empty(TiposDeDocumento::editaveis()[$tipo]['descricao_rica'] ?? false) ? DescricaoRica::MAXIMO : 500;
+    }
+
     private function definicao(Request $request, string $tipo, string $verbo): array
     {
         abort_unless(TiposDeDocumento::eEditavel($tipo), 404, __('Este documento ainda não se emite por aqui.'));
