@@ -413,6 +413,7 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
                                                     {artigo.type === 'servico' ? t('Serviço') : t('Produto')}
                                                 </span>
                                                 {artigo.unit && <span className="text-slate-400">{artigo.unit}</span>}
+                                                {artigo.code && <span className="font-mono text-slate-400">{artigo.code}</span>}
                                             </p>
                                         )}
                                     </td>
@@ -444,10 +445,10 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
                                     {/* O TOTAL DA LINHA, sem imposto: é o que se
                                         confere contra a factura do fornecedor. */}
                                     <td className="px-4 py-2 text-right align-top">
-                                        <span className="font-bold tabular-nums text-slate-900">
+                                        <span className="flex h-10 items-center justify-end gap-1 whitespace-nowrap font-bold tabular-nums text-slate-900">
                                             {kz(Number(l.quantity || 0) * Number(l.price || 0) * (1 - Number(l.discount_percent || 0) / 100))}
-                                        </span>
-                                        <span className="block text-xs text-slate-400">Kz</span>
+                                            <span className="text-xs font-normal text-slate-400">Kz</span>
+                                            </span>
                                     </td>
 
                                     <td className="px-4 py-2 text-right align-top">

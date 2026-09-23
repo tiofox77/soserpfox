@@ -150,6 +150,8 @@ class ApiDoEmissorParaReactTest extends TenantTestCase
 
         $this->assertSame(0, (int) $r->json('linhas.0.imposto'));
         $this->assertEqualsWithDelta(1000, $r->json('totais.total'), 0.01);
+        // O ecrã mostra «Isento · M99» na coluna do IVA: o código viaja com a linha.
+        $this->assertSame('M99', $r->json('linhas.0.exemption_code'));
     }
 
     /** O desconto da linha baixa a base antes do imposto. @test */

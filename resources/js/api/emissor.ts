@@ -23,6 +23,8 @@ export type LinhaCalculada = {
     base: number;
     tax_rate: number;
     tax_code: string | null;
+    /** O código da isenção (M02, M04…) numa linha isenta. */
+    exemption_code?: string | null;
     exemption_reason: string | null;
     imposto: number;
     total: number;

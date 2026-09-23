@@ -146,6 +146,8 @@ class CalculadoraDeDocumento
             'base' => $base,
             'tax_rate' => (float) $a['tax_rate'],
             'tax_code' => $a['tax_code'],
+            // O código da isenção (M02, M04…): é o que a linha do ecrã mostra numa isenta.
+            'exemption_code' => $a['exemption_code'] ?? null,
             'exemption_reason' => $a['exemption_reason'],
             'imposto' => $imposto,
             'total' => round($base + $imposto, 2),

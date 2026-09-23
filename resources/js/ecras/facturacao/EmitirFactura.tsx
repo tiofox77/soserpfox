@@ -578,7 +578,7 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
 
                                 return (
                                 <tr key={i} className={LINHA_DA_TABELA} style={cascata(i)}>
-                                    <td className="px-4 py-2">
+                                    <td className="px-4 py-2 align-top">
                                         <CampoDoArtigo
                                             n={i + 1}
                                             artigo={conhecidos.um(l.product_id, l)}
@@ -605,13 +605,14 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
                                                     {artigo.type === 'servico' ? t('Serviço') : t('Produto')}
                                                 </span>
                                                 {artigo.unit && <span className="text-slate-400">{artigo.unit}</span>}
+                                                {artigo.code && <span className="font-mono text-slate-400">{artigo.code}</span>}
                                             </p>
                                         )}
                                     </td>
-                                    <td className="px-4 py-2"><input value={l.description} onChange={(e) => mudarLinha(i, 'description', e.target.value)} aria-label={t('Descrição da linha :n', { n: i + 1 })} className={entrada} /></td>
-                                    <td className="px-4 py-2"><input type="number" min="0" step="0.001" value={l.quantity} onChange={(e) => mudarLinha(i, 'quantity', e.target.value)} aria-label={t('Quantidade da linha :n', { n: i + 1 })} className={cls(entrada, 'text-right tabular-nums')} /></td>
-                                    <td className="px-4 py-2"><input type="number" min="0" step="0.01" value={l.price} onChange={(e) => mudarLinha(i, 'price', e.target.value)} aria-label={t('Preço da linha :n', { n: i + 1 })} className={cls(entrada, CAMPO_DE_PRECO)} /></td>
-                                    <td className="px-4 py-2"><input type="number" min="0" max="100" step="0.01" value={l.discount_percent} onChange={(e) => mudarLinha(i, 'discount_percent', e.target.value)} aria-label={t('Desconto da linha :n', { n: i + 1 })} className={cls(entrada, 'text-right tabular-nums')} /></td>
+                                    <td className="px-4 py-2 align-top"><input value={l.description} onChange={(e) => mudarLinha(i, 'description', e.target.value)} aria-label={t('Descrição da linha :n', { n: i + 1 })} className={entrada} /></td>
+                                    <td className="px-4 py-2 align-top"><input type="number" min="0" step="0.001" value={l.quantity} onChange={(e) => mudarLinha(i, 'quantity', e.target.value)} aria-label={t('Quantidade da linha :n', { n: i + 1 })} className={cls(entrada, 'text-right tabular-nums')} /></td>
+                                    <td className="px-4 py-2 align-top"><input type="number" min="0" step="0.01" value={l.price} onChange={(e) => mudarLinha(i, 'price', e.target.value)} aria-label={t('Preço da linha :n', { n: i + 1 })} className={cls(entrada, CAMPO_DE_PRECO)} /></td>
+                                    <td className="px-4 py-2 align-top"><input type="number" min="0" max="100" step="0.01" value={l.discount_percent} onChange={(e) => mudarLinha(i, 'discount_percent', e.target.value)} aria-label={t('Desconto da linha :n', { n: i + 1 })} className={cls(entrada, 'text-right tabular-nums')} /></td>
 
                                     {/* O IMPOSTO DA LINHA.
                                         O IVA vem do artigo e não se escolhe aqui
@@ -655,10 +656,10 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
                                         factura de vinte linhas obriga a fazer a
                                         conta de cabeça vinte vezes. */}
                                     <td className="px-4 py-2 text-right align-top">
-                                        <span className="font-bold tabular-nums text-slate-900">
+                                        <span className="flex h-10 items-center justify-end gap-1 whitespace-nowrap font-bold tabular-nums text-slate-900">
                                             {kz(Number(l.quantity || 0) * Number(l.price || 0) * (1 - Number(l.discount_percent || 0) / 100))}
-                                        </span>
-                                        <span className="block text-xs text-slate-400">Kz</span>
+                                            <span className="text-xs font-normal text-slate-400">Kz</span>
+                                            </span>
                                     </td>
 
                                     <td className="px-4 py-2 text-right align-top">

@@ -72,7 +72,8 @@ describe('o campo do artigo da linha', () => {
         mostrar(vi.fn(), CATALOGO[0]!);
 
         expect(campo()).toHaveTextContent('Cimento 50kg');
-        expect(campo()).toHaveTextContent('CIM-50');
+        // Uma linha só: o código vai na linha do crachá, e o nome inteiro no título.
+        expect(campo()).toHaveAttribute('title', 'Cimento 50kg');
         expect(campo()).toHaveAttribute('data-artigo-escolhido', '1');
     });
 

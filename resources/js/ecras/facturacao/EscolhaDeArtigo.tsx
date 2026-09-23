@@ -460,7 +460,7 @@ export function CampoDoArtigo({
                 data-artigo-escolhido={artigo?.id ?? ''}
                 title={artigo?.name}
                 className={cls(
-                    'group flex w-full min-w-[10rem] max-w-[18rem] items-center gap-2 border bg-white px-2.5 py-1.5 text-left text-sm shadow-sm',
+                    'group flex h-10 w-full min-w-[10rem] max-w-[18rem] items-center gap-2 border bg-white px-3 text-left text-sm shadow-sm',
                     TRANSICAO,
                     FOCO,
                     RAIO,
@@ -468,13 +468,10 @@ export function CampoDoArtigo({
                     invalido ? 'border-red-400 bg-red-50/60 ring-1 ring-red-300' : 'border-slate-300',
                 )}
             >
+                {/* Uma linha só, com a altura dos outros campos: o código vai na linha
+                    do crachá, por baixo, e o preço já tem a sua coluna. */}
                 {artigo ? (
-                    <span className="min-w-0 flex-1">
-                        <span className="block truncate font-medium text-slate-900">{artigo.name}</span>
-                        <span className="block truncate text-xs text-slate-500">
-                            {[artigo.code, `${kz(artigo.price)} Kz`].filter(Boolean).join(' · ')}
-                        </span>
-                    </span>
+                    <span className="min-w-0 flex-1 truncate font-medium text-slate-900">{artigo.name}</span>
                 ) : (
                     <span className="flex-1 truncate text-slate-400">{t('Escolher artigo…')}</span>
                 )}

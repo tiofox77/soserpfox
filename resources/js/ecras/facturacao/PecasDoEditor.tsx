@@ -366,7 +366,8 @@ export function ApagarLinha({ aoCarregar, rotulo }: { aoCarregar: () => void; ro
             aria-label={rotulo}
             title={rotulo}
             className={cls(
-                'p-2 text-slate-300 group-hover:text-red-400',
+                // Com a altura dos campos da linha (h-10): fica na mesma faixa que eles.
+                'inline-grid h-10 w-10 place-items-center text-slate-300 group-hover:text-red-400',
                 'hover:bg-red-50 hover:text-red-600 hover:scale-110',
                 TRANSICAO,
                 RAIO,

@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
-import { emissor, type LinhaDoEditor, type Totais } from '@/api/emissor';
+import { emissor, type LinhaCalculada, type LinhaDoEditor, type Totais } from '@/api/emissor';
 import { ErroDaApi } from '@/api/cliente';
 import { AvisoDeErro } from '@/ui/AvisoDeErro';
 import { Campo, entrada } from '@/ui/Campo';
@@ -142,6 +142,8 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
     }, [opcoes.data, id, duplicarDe]);
 
     const [totais, porTotais] = useState<Totais | null>(null);
+    /** As linhas como o servidor as contou: a taxa e o IVA de cada uma, pela ordem das enviadas. */
+    const [calculadas, porCalculadas] = useState<LinhaCalculada[]>([]);
     const [aContar, porAContar] = useState(false);
 
     /* Uma linha sem artigo, sem preço e sem descrição ainda não é uma linha. */
@@ -162,6 +164,7 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
 
         if (comLinhas.length === 0) {
             porTotais(null);
+            porCalculadas([]);
             return;
         }
 
@@ -180,10 +183,14 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
                     is_service: eServico,
                 })
                 .then((r) => {
-                    if (!cancelado) porTotais(r.totais);
+                    if (cancelado) return;
+                    porTotais(r.totais);
+                    porCalculadas(r.linhas);
                 })
                 .catch(() => {
-                    if (!cancelado) porTotais(null);
+                    if (cancelado) return;
+                    porTotais(null);
+                    porCalculadas([]);
                 })
                 .finally(() => {
                     if (!cancelado) porAContar(false);
@@ -539,10 +546,11 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
                                 <th className={cls('w-24 text-right', CELULA_DO_CABECALHO)}>{t('Qtd.')}</th>
                                 <th className={cls('w-40 text-right', CELULA_DO_CABECALHO)}>{t('Preço')}</th>
                                 <th className={cls('w-24 text-right', CELULA_DO_CABECALHO)}>{t('Desc. %')}</th>
+                                <th className={cls('w-32 text-right', CELULA_DO_CABECALHO)}>{t('IVA')}</th>
                                 {/* O TOTAL DA LINHA. Sem ele, conferir uma
                                     proposta de vinte linhas obriga a fazer a
                                     conta de cabeça vinte vezes. */}
-                                <th className={cls('w-32 text-right', CELULA_DO_CABECALHO)}>{t('Total')}</th>
+                                <th className={cls('w-32 text-right', CELULA_DO_CABECALHO)}>{t('Total s/ IVA')}</th>
                                 <th className={cls('w-12', CELULA_DO_CABECALHO)}></th>
                             </tr>
                         </thead>
@@ -584,6 +592,7 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
                                                     {artigo.type === 'servico' ? t('Serviço') : t('Produto')}
                                                 </span>
                                                 {artigo.unit && <span className="text-slate-400">{artigo.unit}</span>}
+                                                {artigo.code && <span className="font-mono text-slate-400">{artigo.code}</span>}
                                             </p>
                                         )}
                                     </td>
@@ -603,7 +612,7 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
                                             />
                                         )}
                                     </td>
-                                    <td className="px-4 py-2">
+                                    <td className="px-4 py-2 align-top">
                                         <input
                                             type="number"
                                             min="0"
@@ -614,7 +623,7 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
                                             className={cls(entrada, 'text-right tabular-nums')}
                                         />
                                     </td>
-                                    <td className="px-4 py-2">
+                                    <td className="px-4 py-2 align-top">
                                         <input
                                             type="number"
                                             min="0"
@@ -638,13 +647,18 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
                                         />
                                     </td>
 
+                                    {/* O IVA DA LINHA, como o servidor o contou: o valor e a taxa, ou o motivo da isenção. */}
+                                    <td className="px-4 py-2 text-right align-top">
+                                        <IvaDaLinha calculada={enviadas.indexOf(i) >= 0 ? calculadas[enviadas.indexOf(i)] : undefined} aContar={aContar} />
+                                    </td>
+
                                     {/* O TOTAL DA LINHA, sem imposto: é o que se
                                         confere contra a lista de preços. */}
                                     <td className="px-4 py-2 text-right align-top">
-                                        <span className="font-bold tabular-nums text-slate-900">
+                                        <span className="flex h-10 items-center justify-end gap-1 whitespace-nowrap font-bold tabular-nums text-slate-900">
                                             {kz(Number(l.quantity || 0) * Number(l.price || 0) * (1 - Number(l.discount_percent || 0) / 100))}
-                                        </span>
-                                        <span className="block text-xs text-slate-400">Kz</span>
+                                            <span className="text-xs font-normal text-slate-400">Kz</span>
+                                            </span>
                                     </td>
 
                                     <td className="px-4 py-2 text-right align-top">
@@ -872,6 +886,33 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
 }
 
 /**
+ * O IVA DE UMA LINHA: o valor, e por baixo a taxa — ou «Isento» com o código
+ * da isenção (o motivo inteiro no título). Vem do `/calcular`, a mesma conta
+ * que vai para o documento; enquanto o servidor conta, fica esbatido.
+ */
+function IvaDaLinha({ calculada, aContar }: { calculada: LinhaCalculada | undefined; aContar: boolean }) {
+    if (!calculada) {
+        return <span className="flex h-10 items-center justify-end text-slate-300">—</span>;
+    }
+
+    const isento = calculada.tax_rate <= 0;
+
+    return (
+        <span
+            className={cls('flex h-10 flex-col items-end justify-center leading-tight transition-opacity', aContar && 'opacity-50')}
+            title={isento ? (calculada.exemption_reason ?? undefined) : undefined}
+        >
+            <span className="font-semibold tabular-nums text-slate-800">{kz(calculada.imposto)}</span>
+            <span className={cls('mt-0.5 rounded-full px-1.5 text-[10px] font-semibold', isento ? 'bg-amber-100 text-amber-800' : 'bg-indigo-50 text-indigo-700')}>
+                {isento
+                    ? `${t('Isento')}${calculada.exemption_code ? ` · ${calculada.exemption_code}` : ''}`
+                    : `${t('IVA')} ${String(calculada.tax_rate).replace('.', ',')}%`}
+            </span>
+        </span>
+    );
+}
+
+/**
  * A DESCRIÇÃO NA LINHA: o começo do texto e um clique para o editor. Nas
  * proformas de venda e nos orçamentos a descrição é o texto da proposta, e
  * não cabia numa caixa de uma linha cortada a meio.
@@ -885,13 +926,13 @@ function DescricaoDaLinha({ texto, n, aoAbrir }: { texto: string; n: number; aoA
             onClick={aoAbrir}
             aria-label={t('Descrição da linha :n', { n })}
             className={cls(
-                'group flex w-full min-w-[12rem] items-start gap-2 border border-dashed border-slate-300 bg-white px-3 py-2 text-left text-sm',
+                'group flex min-h-10 w-full min-w-[12rem] items-start gap-2 border border-dashed border-slate-300 bg-white px-3 py-2 text-left text-sm',
                 'transition-colors duration-200 hover:border-indigo-400 hover:bg-indigo-50/40 disabled:cursor-default disabled:hover:bg-white',
                 RAIO,
                 FOCO,
             )}
         >
-            <span className={cls('line-clamp-3 flex-1 whitespace-pre-line', simples ? 'text-slate-700' : 'text-slate-400')}>
+            <span className={cls('line-clamp-2 flex-1 whitespace-pre-line', simples ? 'text-slate-700' : 'text-slate-400')}>
                 {simples || t('Escrever a descrição…')}
             </span>
             <i className="fas fa-pen-to-square mt-0.5 text-indigo-500 opacity-70 group-hover:opacity-100" aria-hidden="true" />

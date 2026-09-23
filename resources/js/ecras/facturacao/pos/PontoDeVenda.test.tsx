@@ -86,9 +86,10 @@ afterEach(() => {
 });
 
 async function abrirOPagamento() {
-    fireEvent.click(await screen.findByRole('button', { name: /Finalizar Venda/ }));
+    // Esperas largas: com a bateria inteira a correr, o balcão demora mais a montar.
+    fireEvent.click(await screen.findByRole('button', { name: /Finalizar Venda/ }, { timeout: 5000 }));
 
-    return screen.findByRole('button', { name: /Confirmar Venda/ });
+    return screen.findByRole('button', { name: /Confirmar Venda/ }, { timeout: 5000 });
 }
 
 describe('fechar a venda no balcão', () => {
@@ -101,7 +102,7 @@ describe('fechar a venda no balcão', () => {
         fireEvent.click(confirmar);
         fireEvent.click(confirmar);
 
-        await waitFor(() => expect(vendas.length).toBeGreaterThan(0));
+        await waitFor(() => expect(vendas.length).toBeGreaterThan(0), { timeout: 5000 });
         await new Promise((r) => setTimeout(r, 50));
         expect(vendas).toHaveLength(1);
     });
