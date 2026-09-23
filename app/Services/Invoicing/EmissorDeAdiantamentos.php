@@ -49,7 +49,12 @@ class EmissorDeAdiantamentos
         ];
     }
 
-    public function criar(array $d, int $tenantId, ?int $autorId): Advance
+    /**
+     * @param  array{account_id?: ?int, cash_register_id?: ?int}  $destino  para onde vai o dinheiro,
+     *         quando quem chama já o escolheu (o excedente de um pagamento vai para a
+     *         mesma gaveta do recibo). Vazio: a regra de sempre (a caixa do operador).
+     */
+    public function criar(array $d, int $tenantId, ?int $autorId, array $destino = []): Advance
     {
         $adiantamento = Advance::create([
             'tenant_id' => $tenantId,
@@ -64,7 +69,7 @@ class EmissorDeAdiantamentos
             'created_by' => $autorId,
         ]);
 
-        $this->lancarNaTesouraria($adiantamento, $autorId);
+        $this->lancarNaTesouraria($adiantamento, $autorId, destino: $destino);
 
         return $adiantamento;
     }
@@ -89,8 +94,14 @@ class EmissorDeAdiantamentos
         // O VALOR MUDOU: o movimento antigo deixa de valer. Desfaz-se pelo
         // caminho certo — devolvendo o valor ao saldo da caixa — e lança-se o
         // novo. Só se chega aqui com o adiantamento por usar.
-        app(LancamentoDeDinheiro::class)->estornar($a);
-        $this->lancarNaTesouraria($a->fresh(), $a->created_by);
+        //
+        // O TURNO TAMBÉM (23/09/2026): a linha antiga sai do turno ainda aberto
+        // e entra a nova. Se o turno de então já fechou, fica como foi contado
+        // e a correcção não vai ao turno de hoje — o dinheiro não entrou hoje.
+        $dinheiro = app(LancamentoDeDinheiro::class);
+        $estavaNumTurnoAberto = $dinheiro->retirarDoTurno($a) > 0;
+        $dinheiro->estornar($a);
+        $this->lancarNaTesouraria($a->fresh(), $a->created_by, $estavaNumTurnoAberto);
 
         return $a;
     }
@@ -106,7 +117,7 @@ class EmissorDeAdiantamentos
      * Pela mesma porta que o recibo usa, e com a data do adiantamento — não a
      * de agora.
      */
-    private function lancarNaTesouraria(Advance $a, ?int $userId): void
+    private function lancarNaTesouraria(Advance $a, ?int $userId, bool $comTurno = true, array $destino = []): void
     {
         $numero = $a->advance_number ?: ('#' . $a->id);
 
@@ -120,8 +131,9 @@ class EmissorDeAdiantamentos
             'descricao' => __('Adiantamento :n', ['n' => $numero])
                 . ($a->purpose ? ' — ' . $a->purpose : ''),
             'notas' => $a->notes,
+            'destino' => $destino,
             // Entra ao balcão como qualquer recebimento: conta no fecho.
-            'turno' => ['type' => 'receipt', 'reference_number' => $a->advance_number],
+            'turno' => $comTurno ? ['type' => 'receipt', 'reference_number' => $a->advance_number] : null,
         ], $userId);
     }
 }

@@ -93,7 +93,12 @@ class RegistoDePagamento
 
         return [
             'factura' => $factura,
-            'por_pagar' => round((float) $factura->total - (float) ($factura->paid_amount ?? 0), 2),
+            // NUMA VENDA CONTA AS NOTAS (23/09/2026), como o travão do ecrã dos
+            // Recibos: uma factura de 10.000 creditada em 6.000 só tem 4.000 por
+            // receber — e o excesso virava pagamento a mais.
+            'por_pagar' => $tipo === 'sale'
+                ? max(0.0, round((float) $factura->balance, 2))
+                : round((float) $factura->total - (float) ($factura->paid_amount ?? 0), 2),
             'adiantamentos' => $adiantamentos,
             'contas' => $contas,
             'caixas' => $caixas,
@@ -134,12 +139,34 @@ class RegistoDePagamento
             throw new DomainException(__('Escolha o adiantamento a usar.'));
         }
 
+        /*
+         * O QUE CADA PARTE PAGA (23/09/2026).
+         *
+         * O adiantamento usa-se primeiro — já é dinheiro da empresa — e nunca
+         * mais do que falta. O dinheiro novo paga o resto; o que sobrar dele
+         * (numa venda) vira adiantamento do cliente, com o SEU documento.
+         *
+         * Antes o recibo levava o valor inteiro, excedente incluído: a factura
+         * ficava paga a mais e o excesso contava duas vezes no extracto do
+         * cliente — uma no recibo, outra no adiantamento que se criava.
+         */
+        if ($doAdiantamento > $porPagar + 0.01) {
+            throw new DomainException(__('Do adiantamento só se pode usar o que falta pagar: :falta.', ['falta' => number_format($porPagar, 2, ',', '.')]));
+        }
+
+        $aplicado = round(min($valor, max(0.0, $porPagar - $doAdiantamento)), 2);
+        $excedente = round($valor - $aplicado, 2);
+
+        if ($excedente > 0.009 && $tipo !== 'sale') {
+            throw new DomainException(__('Não se paga ao fornecedor mais do que falta: :falta.', ['falta' => number_format(max(0.0, $porPagar - $doAdiantamento), 2, ',', '.')]));
+        }
+
         $recibo = null;
         $novo = null;
-        $excedente = round(($valor + $doAdiantamento) - $porPagar, 2);
+        $destino = ['account_id' => $d['account_id'] ?? null, 'cash_register_id' => $d['cash_register_id'] ?? null];
 
-        DB::transaction(function () use ($tipo, $facturaId, $d, $tenantId, $userId, $factura, $porPagar, $valor, $doAdiantamento, $adiantamentoId, $excedente, &$recibo, &$novo) {
-            if ($valor > 0) {
+        DB::transaction(function () use ($tipo, $facturaId, $d, $tenantId, $userId, $factura, $porPagar, $valor, $aplicado, $doAdiantamento, $adiantamentoId, $excedente, $destino, &$recibo, &$novo) {
+            if ($aplicado > 0) {
                 $recibo = Receipt::create([
                     'tenant_id' => $tenantId,
                     'type' => $tipo,
@@ -149,7 +176,7 @@ class RegistoDePagamento
                     'purchase_invoice_id' => $tipo === 'purchase' ? $facturaId : null,
                     'payment_date' => now(),
                     'payment_method' => $d['payment_method'],
-                    'amount_paid' => $valor,
+                    'amount_paid' => $aplicado,
                     'reference' => $d['reference'] ?? null,
                     'notes' => $d['notes'] ?? null,
                     'status' => 'issued',
@@ -159,10 +186,7 @@ class RegistoDePagamento
                 // A TESOURARIA E O TURNO por uma porta só — a mesma que o ecrã
                 // dos Recibos usa. Antes era aqui, e por isso o recibo emitido
                 // fora deste modal não chegava à tesouraria.
-                app(LancamentoDoRecibo::class)->lancar($recibo, [
-                    'account_id' => $d['account_id'] ?? null,
-                    'cash_register_id' => $d['cash_register_id'] ?? null,
-                ], $userId);
+                app(LancamentoDoRecibo::class)->lancar($recibo, $destino, $userId);
             }
 
             if ($adiantamentoId && $doAdiantamento > 0) {
@@ -170,21 +194,18 @@ class RegistoDePagamento
                 $adiantamento->use($doAdiantamento, $facturaId);
             }
 
-            // O excedente de uma venda vira adiantamento do cliente.
-            if ($excedente > 0 && $tipo === 'sale') {
-                $novo = Advance::create([
-                    'tenant_id' => $tenantId,
+            // O excedente de uma venda vira adiantamento do cliente — pela porta
+            // dos adiantamentos: número, tesouraria (na MESMA gaveta do recibo)
+            // e turno. O dinheiro total que entra é o recibo mais este.
+            if ($excedente > 0.009 && $tipo === 'sale') {
+                $novo = app(EmissorDeAdiantamentos::class)->criar([
                     'client_id' => $factura->client_id,
-                    'payment_date' => now(),
-                    'payment_method' => $d['payment_method'],
+                    'payment_date' => now()->toDateString(),
                     'amount' => $excedente,
-                    'used_amount' => 0,
-                    'remaining_amount' => $excedente,
+                    'payment_method' => $d['payment_method'],
                     'purpose' => 'Excedente do pagamento da fatura ' . $factura->invoice_number,
                     'notes' => 'Adiantamento criado automaticamente - Pagamento de ' . number_format($valor + $doAdiantamento, 2) . ' AOA para fatura de ' . number_format($porPagar, 2) . ' AOA',
-                    'status' => 'available',
-                    'created_by' => $userId,
-                ]);
+                ], $tenantId, $userId, $destino);
             }
 
             // O adiantamento também é dinheiro recebido, e não passa por

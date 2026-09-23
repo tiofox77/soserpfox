@@ -212,15 +212,33 @@ class ContaCorrenteQuery
     {
         $colunaEntidade = $this->ehCliente() ? 'client_id' : 'supplier_id';
 
+        // Cada tipo de recibo na SUA coluna: o de compra grava a factura em
+        // `purchase_invoice_id`. Procurar em `invoice_id` não encontrava nenhum,
+        // e no extracto do fornecedor cada pagamento contava duas vezes (23/09/2026).
+        $colunaDoRecibo = $tabela === 'invoicing_purchase_invoices' ? 'purchase_invoice_id' : 'invoice_id';
+
         $porRecibo = "COALESCE((
             SELECT SUM(r.amount_paid) FROM invoicing_receipts r
-            WHERE r.invoice_id = t.id
+            WHERE r.{$colunaDoRecibo} = t.id
               AND r.tenant_id = t.tenant_id
               AND (r.status IS NULL OR r.status <> 'cancelled')
               AND r.deleted_at IS NULL
         ), 0)";
 
-        $valor = "(COALESCE(t.paid_amount, 0) - {$porRecibo})";
+        /*
+         * E O QUE SE PAGOU COM ADIANTAMENTO (23/09/2026). O adiantamento já está
+         * no extracto como documento seu (ADT, na data em que o dinheiro
+         * entrou); usá-lo numa factura sobe o `paid_amount` dela, e esta linha
+         * voltava a creditá-lo — o cliente aparecia com o crédito que já gastou.
+         */
+        $tipoDaFactura = $tabela === 'invoicing_purchase_invoices' ? 'PurchaseInvoice' : 'SalesInvoice';
+        $porAdiantamento = "COALESCE((
+            SELECT SUM(u.amount_used) FROM invoicing_advance_usages u
+            WHERE u.invoice_id = t.id
+              AND u.invoice_type = '{$tipoDaFactura}'
+        ), 0)";
+
+        $valor = "(COALESCE(t.paid_amount, 0) - {$porRecibo} - {$porAdiantamento})";
 
         $debito  = $lado === 'debito' ? $valor : '0';
         $credito = $lado === 'credito' ? $valor : '0';

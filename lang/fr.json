@@ -13018,5 +13018,7 @@
     "Sobra na abertura do turno :turno (:caixa): lançado :lancado, contado :contado": "Excédent à l’ouverture du poste :turno (:caixa) : enregistré :lancado, compté :contado",
     "Quebra de caixa no fecho do turno :turno (:caixa): esperado :lancado, contado :contado": "Manque de caisse à la clôture du poste :turno (:caixa) : attendu :lancado, compté :contado",
     "Sobra de caixa no fecho do turno :turno (:caixa): esperado :lancado, contado :contado": "Excédent de caisse à la clôture du poste :turno (:caixa) : attendu :lancado, compté :contado",
-    "Acerto de caixa (quebras e sobras)": "Ajustement de caisse (manques et excédents)"
+    "Acerto de caixa (quebras e sobras)": "Ajustement de caisse (manques et excédents)",
+    "Do adiantamento só se pode usar o que falta pagar: :falta.": "Seul le montant restant dû peut être pris sur l’avance : :falta.",
+    "Não se paga ao fornecedor mais do que falta: :falta.": "On ne paie pas au fournisseur plus que ce qui reste dû : :falta."
 }

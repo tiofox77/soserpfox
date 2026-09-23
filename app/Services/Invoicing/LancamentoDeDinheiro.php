@@ -146,7 +146,52 @@ class LancamentoDeDinheiro
             $m->delete();
         }
 
+        $this->retirarDoTurno($origem);
+
         return $movimentos->count();
+    }
+
+    /**
+     * TIRA DO TURNO o que este documento lá pôs (23/09/2026).
+     *
+     * O estorno desfazia a tesouraria e deixava a linha do turno: um recibo
+     * apagado, ou um adiantamento corrigido, continuavam no «esperado» — e o
+     * adiantamento corrigido entrava duas vezes, com o valor antigo e o novo.
+     *
+     * SÓ NUM TURNO AINDA ABERTO. Um turno fechado é o que foi contado e
+     * assinado; reescrevê-lo mudava o fecho de outra pessoa.
+     *
+     * @return int quantas linhas saíram de turnos abertos
+     */
+    public function retirarDoTurno(Model $origem): int
+    {
+        $tiradas = 0;
+
+        try {
+            $linhas = \App\Models\Invoicing\PosShiftTransaction::withoutGlobalScopes()
+                ->where('tenant_id', (int) $origem->tenant_id)
+                ->where('reference_type', $origem::class)
+                ->where('reference_id', $origem->getKey())
+                ->get();
+
+            foreach ($linhas as $linha) {
+                $turno = $linha->shift()->withoutGlobalScopes()->first();
+                if (! $turno || $turno->status !== 'open') {
+                    continue;
+                }
+
+                $linha->delete();
+                $turno->recalculateTotals();
+                $tiradas++;
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Lançamento: falha ao tirar do turno', [
+                'origem' => $origem::class . '#' . $origem->getKey(),
+                'erro' => $e->getMessage(),
+            ]);
+        }
+
+        return $tiradas;
     }
 
     /**

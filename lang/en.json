@@ -13018,5 +13018,7 @@
     "Sobra na abertura do turno :turno (:caixa): lançado :lancado, contado :contado": "Surplus when opening shift :turno (:caixa): recorded :lancado, counted :contado",
     "Quebra de caixa no fecho do turno :turno (:caixa): esperado :lancado, contado :contado": "Cash shortage when closing shift :turno (:caixa): expected :lancado, counted :contado",
     "Sobra de caixa no fecho do turno :turno (:caixa): esperado :lancado, contado :contado": "Cash surplus when closing shift :turno (:caixa): expected :lancado, counted :contado",
-    "Acerto de caixa (quebras e sobras)": "Cash adjustment (shortages and surpluses)"
+    "Acerto de caixa (quebras e sobras)": "Cash adjustment (shortages and surpluses)",
+    "Do adiantamento só se pode usar o que falta pagar: :falta.": "Only the amount still due can be taken from the advance: :falta.",
+    "Não se paga ao fornecedor mais do que falta: :falta.": "The supplier cannot be paid more than what is still due: :falta."
 }
