@@ -12,7 +12,7 @@ import { Carregando } from '@/ui/Carregando';
 import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
 import { t } from '@/i18n';
 import { EscolhaDaParte } from './EscolhaDaParte';
-import { EscolhaDeArtigo, juntarArtigo } from './EscolhaDeArtigo';
+import { CampoDoArtigo, EscolhaDeArtigo, juntarArtigo, trocarArtigo, useArtigosConhecidos, type ArtigoDaLinha } from './EscolhaDeArtigo';
 import { useImprimirAoGravar } from './imprimirAoGravar';
 import {
     ApagarLinha,
@@ -90,6 +90,8 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
     const opcoes = useQuery({ queryKey: ['factura', 'opcoes'], queryFn: factura.opcoes, staleTime: 5 * 60_000 });
     /* O PDF abre sozinho ao emitir, se a empresa o pediu — ver `imprimirAoGravar`. */
     const impressao = useImprimirAoGravar(opcoes.data?.imprimir_ao_gravar);
+    /** O catálogo carregado (até 500) e os artigos escolhidos pela procura: o que as linhas mostram. */
+    const conhecidos = useArtigosConhecidos(opcoes.data?.artigos);
     const aberta = useQuery({ queryKey: ['factura', 'abrir', id], queryFn: () => factura.abrir(id ?? 0), enabled: id !== undefined });
     const copia = useQuery({ queryKey: ['factura', 'duplicar', duplicarDe], queryFn: () => factura.duplicar(duplicarDe ?? 0), enabled: id === undefined && duplicarDe !== undefined });
 
@@ -276,7 +278,7 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
     const doc = aberta.data?.documento ?? null;
     const soLeitura = doc !== null && !doc.pode_editar;
     const seriesDoTipo = o.series.filter((s) => (tipo === 'FR' ? s.document_type === 'pos' : s.document_type === 'invoice'));
-    const temFisicos = linhas.some((l) => o.artigos.find((a) => a.id === l.product_id)?.type !== 'servico' && l.product_id !== null);
+    const temFisicos = linhas.some((l) => conhecidos.um(l.product_id)?.type !== 'servico' && l.product_id !== null);
 
     /*
      * A REGIÃO QUE VAI SER APLICADA.
@@ -532,7 +534,10 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
                                 quem trabalha por teclado. */}
                             <EscolhaDeArtigo
                                 catalogo={o.artigos}
-                                aoEscolher={(a) => porLinhas((ls) => juntarArtigo(ls, { ...LINHA_NOVA }, a))}
+                                aoEscolher={(a) => {
+                                    conhecidos.lembrar(a);
+                                    porLinhas((ls) => juntarArtigo(ls, { ...LINHA_NOVA }, a));
+                                }}
                             />
                             {/* A linha em branco fica discreta: quem factura
                                 escolhe do catálogo, e só descreve à mão o que
@@ -567,15 +572,20 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {linhas.map((l, i) => {
-                                const artigo = o.artigos.find((a) => a.id === l.product_id);
+                                const artigo = conhecidos.um(l.product_id);
 
                                 return (
                                 <tr key={i} className={LINHA_DA_TABELA} style={cascata(i)}>
                                     <td className="px-4 py-2">
-                                        <select value={l.product_id ?? ''} onChange={(e) => mudarLinha(i, 'product_id', e.target.value)} aria-label={t('Artigo da linha :n', { n: i + 1 })} className={entrada}>
-                                            <option value="">{t('Escolher…')}</option>
-                                            {o.artigos.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                                        </select>
+                                        <CampoDoArtigo
+                                            n={i + 1}
+                                            artigo={conhecidos.um(l.product_id, l)}
+                                            aoEscolher={(a) => {
+                                                conhecidos.lembrar(a);
+                                                porLinhas((ls) => trocarArtigo(ls, i, a));
+                                            }}
+                                            catalogo={o.artigos}
+                                        />
                                         {/* O QUE É E EM QUE SE VENDE. O ecrã de
                                             sempre punha aqui o crachá de
                                             produto/serviço e a unidade — é o que

@@ -137,7 +137,7 @@ test('duplicar leva o conteúdo da factura para um documento novo', async ({ pag
     // compara por pedaço e apanhava também a «Região fiscal», cuja opção
     // escolhida diz «Pela província do cliente».
     await expect(page.getByLabel(/^cliente\b/i)).not.toHaveValue('');
-    await expect(page.getByLabel('Artigo da linha 1')).not.toHaveValue('');
+    await expect(page.getByLabel('Artigo da linha 1')).not.toHaveAttribute('data-artigo-escolhido', '');
 
     // A data é a de hoje, e não a do original.
     const hoje = new Date();

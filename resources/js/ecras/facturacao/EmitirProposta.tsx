@@ -11,7 +11,7 @@ import { Carregando } from '@/ui/Carregando';
 import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
 import { t } from '@/i18n';
 import { EscolhaDaParte } from './EscolhaDaParte';
-import { EscolhaDeArtigo, juntarArtigo } from './EscolhaDeArtigo';
+import { CampoDoArtigo, EscolhaDeArtigo, juntarArtigo, trocarArtigo, useArtigosConhecidos, type ArtigoDaLinha } from './EscolhaDeArtigo';
 import { useImprimirAoGravar } from './imprimirAoGravar';
 import { eRica, textoDaDescricao } from './descricaoRica';
 import {
@@ -93,6 +93,8 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
 
     /* O PDF abre sozinho ao gravar, se a empresa o pediu — ver `imprimirAoGravar`. */
     const impressao = useImprimirAoGravar(opcoes.data?.imprimir_ao_gravar);
+    /** O catálogo carregado (até 500) e os artigos escolhidos pela procura: o que as linhas mostram. */
+    const conhecidos = useArtigosConhecidos(opcoes.data?.artigos);
 
     const aberta =useQuery({ queryKey: ['emissor', tipo, 'abrir', id], queryFn: () => emissor.abrir(tipo, id ?? 0), enabled: id !== undefined });
     const copia = useQuery({ queryKey: ['emissor', tipo, 'duplicar', duplicarDe], queryFn: () => emissor.duplicar(tipo, duplicarDe ?? 0), enabled: id === undefined && duplicarDe !== undefined });
@@ -241,7 +243,7 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
 
     /* Mercadoria no documento: é isso que torna o armazém obrigatório. Uma
        proposta marcada como prestação de serviço dispensa-o na mesma. */
-    const temFisicos = linhas.some((l) => l.product_id !== null && o.artigos.find((a) => a.id === l.product_id)?.type !== 'servico');
+    const temFisicos = linhas.some((l) => l.product_id !== null && conhecidos.um(l.product_id)?.type !== 'servico');
     const precisaDeArmazem = temFisicos && !eServico;
 
     /* O modelo escolhido, e os campos livres que ele pede a quem escreve. */
@@ -313,6 +315,14 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
         if (k < 0) return undefined;
 
         return erros[`linhas.${k}.product_id`] ?? erros[`linhas.${k}.quantity`] ?? erros[`linhas.${k}.price`];
+    };
+
+    /** Trocar o artigo de uma linha pela janela de procura. */
+    const escolherArtigo = (i: number, a: ArtigoDaLinha) => {
+        conhecidos.lembrar(a);
+        // Escolher o artigo resolve o que o servidor apontou nas linhas.
+        porErros((e) => Object.fromEntries(Object.entries(e).filter(([k]) => !k.startsWith('linhas.'))));
+        porLinhas((ls) => trocarArtigo(ls, i, a));
     };
 
     const mudarLinha = (i: number, campo: keyof LinhaDoEditor, valor: string) => {
@@ -505,7 +515,10 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
                             <EscolhaDeArtigo
                                 preco={o.preco}
                                 catalogo={o.artigos}
-                                aoEscolher={(a) => porLinhas((ls) => juntarArtigo(ls, { ...LINHA_NOVA }, a))}
+                                aoEscolher={(a) => {
+                                    conhecidos.lembrar(a);
+                                    porLinhas((ls) => juntarArtigo(ls, { ...LINHA_NOVA }, a));
+                                }}
                             />
                             <Botao altura="pequeno" icone="fa-plus" onClick={() => porLinhas((ls) => [...ls, { ...LINHA_NOVA }])}>
                                 {t('Nova linha')}
@@ -533,26 +546,20 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {linhas.map((l, i) => {
-                                const artigo = o.artigos.find((a) => a.id === l.product_id);
+                                const artigo = conhecidos.um(l.product_id);
                                 const erroAqui = erroDaLinha(i);
 
                                 return (
                                 <tr key={i} className={LINHA_DA_TABELA} style={cascata(i)}>
                                     <td className="px-4 py-2 align-top">
-                                        <select
-                                            value={l.product_id ?? ''}
-                                            onChange={(e) => mudarLinha(i, 'product_id', e.target.value)}
-                                            aria-label={t('Artigo da linha :n', { n: i + 1 })}
-                                            aria-invalid={erroAqui ? true : undefined}
-                                            className={cls(entrada, erroAqui && 'border-red-400 bg-red-50/60 ring-1 ring-red-300')}
-                                        >
-                                            <option value="">{t('Escolher…')}</option>
-                                            {o.artigos.map((a) => (
-                                                <option key={a.id} value={a.id}>
-                                                    {a.name}
-                                                </option>
-                                            ))}
-                                        </select>
+                                        <CampoDoArtigo
+                                            n={i + 1}
+                                            artigo={conhecidos.um(l.product_id, l)}
+                                            aoEscolher={(a) => escolherArtigo(i, a)}
+                                            preco={o.preco}
+                                            catalogo={o.artigos}
+                                            invalido={!!erroAqui}
+                                        />
                                         {/* O QUE É E EM QUE SE VENDE: o crachá de
                                             produto/serviço e a unidade — é o que
                                             faz reparar numa linha «serviço» com
@@ -848,7 +855,7 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
             {descricaoAberta !== null && linhas[descricaoAberta] && (
                 <Suspense fallback={null}>
                     <EditorDeDescricao
-                        artigo={o.artigos.find((a) => a.id === linhas[descricaoAberta]!.product_id)?.name ?? t('Linha :n', { n: descricaoAberta + 1 })}
+                        artigo={conhecidos.um(linhas[descricaoAberta]!.product_id)?.name ?? t('Linha :n', { n: descricaoAberta + 1 })}
                         valor={linhas[descricaoAberta]!.description}
                         aoGuardar={(html) => {
                             mudarLinha(descricaoAberta, 'description', html);

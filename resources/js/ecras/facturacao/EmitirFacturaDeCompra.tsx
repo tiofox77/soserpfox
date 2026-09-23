@@ -12,7 +12,7 @@ import { Carregando } from '@/ui/Carregando';
 import { CARTAO, RAIO, cls, kz } from '@/ui/tokens';
 import { t } from '@/i18n';
 import { EscolhaDaParte } from './EscolhaDaParte';
-import { EscolhaDeArtigo, juntarArtigo } from './EscolhaDeArtigo';
+import { CampoDoArtigo, EscolhaDeArtigo, juntarArtigo, trocarArtigo, useArtigosConhecidos, type ArtigoDaLinha } from './EscolhaDeArtigo';
 import { useImprimirAoGravar } from './imprimirAoGravar';
 import {
     ApagarLinha,
@@ -87,6 +87,8 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
     const opcoes = useQuery({ queryKey: ['compra', 'opcoes'], queryFn: compra.opcoes, staleTime: 5 * 60_000 });
     /* O PDF abre sozinho ao registar, se a empresa o pediu — ver `imprimirAoGravar`. */
     const impressao = useImprimirAoGravar(opcoes.data?.imprimir_ao_gravar);
+    /** O catálogo carregado (até 500), a custo, e os artigos escolhidos pela procura: o que as linhas mostram. */
+    const conhecidos = useArtigosConhecidos(opcoes.data?.artigos.map((a) => ({ ...a, price: a.cost })));
     const aberta = useQuery({ queryKey: ['compra', 'abrir', id], queryFn: () => compra.abrir(id ?? 0), enabled: id !== undefined });
     const copia = useQuery({ queryKey: ['compra', 'duplicar', duplicarDe], queryFn: () => compra.duplicar(duplicarDe ?? 0), enabled: id === undefined && duplicarDe !== undefined });
 
@@ -330,7 +332,10 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
                             <EscolhaDeArtigo
                                 preco="custo"
                                 catalogo={o.artigos.map((a) => ({ ...a, price: a.cost }))}
-                                aoEscolher={(a) => porLinhas((ls) => juntarArtigo(ls, { ...LINHA_NOVA }, a))}
+                                aoEscolher={(a) => {
+                                    conhecidos.lembrar(a);
+                                    porLinhas((ls) => juntarArtigo(ls, { ...LINHA_NOVA }, a));
+                                }}
                             />
                             <Botao altura="pequeno" icone="fa-plus" onClick={() => porLinhas((ls) => [...ls, { ...LINHA_NOVA }])}>{t('Nova linha')}</Botao>
                         </>
@@ -372,15 +377,21 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {linhas.map((l, i) => {
-                                const artigo = o.artigos.find((a) => a.id === l.product_id);
+                                const artigo = conhecidos.um(l.product_id);
 
                                 return (
                                 <tr key={i} className={LINHA_DA_TABELA} style={cascata(i)}>
                                     <td className="px-4 py-2 align-top">
-                                        <select value={l.product_id ?? ''} onChange={(e) => mudarLinha(i, 'product_id', e.target.value)} aria-label={t('Artigo da linha :n', { n: i + 1 })} className={entrada}>
-                                            <option value="">{t('Escolher…')}</option>
-                                            {o.artigos.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                                        </select>
+                                        <CampoDoArtigo
+                                            n={i + 1}
+                                            artigo={conhecidos.um(l.product_id, l)}
+                                            aoEscolher={(a) => {
+                                                conhecidos.lembrar(a);
+                                                porLinhas((ls) => trocarArtigo(ls, i, a));
+                                            }}
+                                            preco="custo"
+                                            catalogo={o.artigos.map((a) => ({ ...a, price: a.cost }))}
+                                        />
                                         {l.product_id === null && (
                                             <input value={l.description} onChange={(e) => mudarLinha(i, 'description', e.target.value)} placeholder={t('Ou descreva a linha…')} aria-label={t('Descrição da linha :n', { n: i + 1 })} className={cls(entrada, 'mt-1')} />
                                         )}

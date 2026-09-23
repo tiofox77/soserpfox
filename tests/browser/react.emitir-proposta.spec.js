@@ -38,7 +38,8 @@ test('os totais vem do servidor', async ({ page }) => {
         { timeout: 20_000 },
     );
 
-    await page.getByLabel('Artigo da linha 1').selectOption({ index: 1 });
+    await page.getByLabel('Artigo da linha 1').click();
+    await page.getByRole('dialog').locator('[data-artigo]').first().click();
     await page.getByLabel('Quantidade da linha 1').fill('2');
 
     const resposta = await pedido;
@@ -69,7 +70,8 @@ test('o armazem e as condicoes estao no ecra', async ({ page }) => {
  * outra vez.
  */
 test('marcar prestacao de servico volta a perguntar os totais ao servidor', async ({ page }) => {
-    await page.getByLabel('Artigo da linha 1').selectOption({ index: 1 });
+    await page.getByLabel('Artigo da linha 1').click();
+    await page.getByRole('dialog').locator('[data-artigo]').first().click();
     await page.getByLabel('Quantidade da linha 1').fill('1');
     await expect(page.getByText('Contado no servidor')).toBeVisible({ timeout: 20_000 });
 
@@ -96,7 +98,8 @@ test('acrescenta e apaga linhas', async ({ page }) => {
 
 test('grava e devolve o numero da serie', async ({ page }) => {
     await escolherParte(page);
-    await page.getByLabel('Artigo da linha 1').selectOption({ index: 1 });
+    await page.getByLabel('Artigo da linha 1').click();
+    await page.getByRole('dialog').locator('[data-artigo]').first().click();
     await page.getByLabel('Quantidade da linha 1').fill('3');
 
     await expect(page.getByText('Contado no servidor')).toBeVisible({ timeout: 20_000 });
@@ -116,7 +119,8 @@ test('grava e devolve o numero da serie', async ({ page }) => {
  */
 test('guardar e enviar deixa a proposta como enviada', async ({ page }) => {
     await escolherParte(page);
-    await page.getByLabel('Artigo da linha 1').selectOption({ index: 1 });
+    await page.getByLabel('Artigo da linha 1').click();
+    await page.getByRole('dialog').locator('[data-artigo]').first().click();
     await page.getByLabel('Quantidade da linha 1').fill('2');
 
     await expect(page.getByText('Contado no servidor')).toBeVisible({ timeout: 20_000 });
@@ -144,7 +148,8 @@ test('guardar e enviar deixa a proposta como enviada', async ({ page }) => {
  * preenchia-se às cegas.
  */
 test('o resumo e os botoes vivem na coluna da direita', async ({ page }) => {
-    await page.getByLabel('Artigo da linha 1').selectOption({ index: 1 });
+    await page.getByLabel('Artigo da linha 1').click();
+    await page.getByRole('dialog').locator('[data-artigo]').first().click();
     await expect(page.getByText('Contado no servidor')).toBeVisible({ timeout: 20_000 });
 
     const resumo = page.getByRole('heading', { name: 'Resumo' });
@@ -179,7 +184,8 @@ test('os tres descontos estao no ecra e contam no total', async ({ page }) => {
     await expect(page.getByLabel(/^Desconto \(legado\)/)).toBeVisible();
     await expect(page.getByLabel(/^Desconto financeiro/)).toBeVisible();
 
-    await page.getByLabel('Artigo da linha 1').selectOption({ index: 1 });
+    await page.getByLabel('Artigo da linha 1').click();
+    await page.getByRole('dialog').locator('[data-artigo]').first().click();
     await page.getByLabel('Quantidade da linha 1').fill('1');
     await expect(page.getByText('Contado no servidor')).toBeVisible({ timeout: 20_000 });
 
@@ -211,7 +217,8 @@ test('o armazem padrao ja vem escolhido', async ({ page }) => {
 
 /** Sem cliente, o servidor recusa e o ecrã diz onde. */
 test('o erro de validacao aparece no campo', async ({ page }) => {
-    await page.getByLabel('Artigo da linha 1').selectOption({ index: 1 });
+    await page.getByLabel('Artigo da linha 1').click();
+    await page.getByRole('dialog').locator('[data-artigo]').first().click();
     await page.getByLabel('Quantidade da linha 1').fill('1');
 
     await expect(page.getByText('Contado no servidor')).toBeVisible({ timeout: 20_000 });

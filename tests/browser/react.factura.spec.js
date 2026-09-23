@@ -90,7 +90,8 @@ test('o local de entrega e as condicoes estao no ecra', async ({ page }) => {
 test('os totais vem do servidor', async ({ page }) => {
     const pedido = page.waitForResponse((r) => r.url().includes('/factura/calcular') && r.request().method() === 'POST', { timeout: 20_000 });
 
-    await page.getByLabel('Artigo da linha 1').selectOption({ index: 1 });
+    await page.getByLabel('Artigo da linha 1').click();
+    await page.getByRole('dialog').locator('[data-artigo]').first().click();
     await page.getByLabel('Quantidade da linha 1').fill('2');
 
     expect((await pedido).ok()).toBe(true);
@@ -98,7 +99,8 @@ test('os totais vem do servidor', async ({ page }) => {
 });
 
 test('sem cliente o servidor recusa e o ecra diz onde', async ({ page }) => {
-    await page.getByLabel('Artigo da linha 1').selectOption({ index: 1 });
+    await page.getByLabel('Artigo da linha 1').click();
+    await page.getByRole('dialog').locator('[data-artigo]').first().click();
     await expect(page.getByText('Contado no servidor')).toBeVisible({ timeout: 20_000 });
 
     await page.getByRole('button', { name: /^Emitir factura$/ }).click();
@@ -246,7 +248,7 @@ test('a procura mostra os resultados e escolher preenche a caixa', async ({ page
  * pelo pedido a `/react/products` e não por um filtro do lado de cá.
  */
 test('o selector de artigos procura no servidor e junta a linha', async ({ page }) => {
-    await expect(page.getByLabel('Artigo da linha 1')).toHaveValue('');
+    await expect(page.getByLabel('Artigo da linha 1')).toHaveAttribute('data-artigo-escolhido', '');
 
     const catalogo = page.waitForResponse(
         (r) => r.url().includes('/react/products') && r.request().method() === 'GET',
@@ -292,6 +294,6 @@ test('o selector de artigos procura no servidor e junta a linha', async ({ page 
      * preencher — para se apagar à mão.
      */
     expect(await page.locator('tbody tr').count()).toBe(1);
-    await expect(page.getByLabel('Artigo da linha 1')).toHaveValue(id);
+    await expect(page.getByLabel('Artigo da linha 1')).toHaveAttribute('data-artigo-escolhido', id);
     await expect(page.getByLabel('Preço da linha 1')).toHaveValue(String(Number(preco)));
 });

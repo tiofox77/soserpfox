@@ -28,7 +28,8 @@ test('abre com uma linha, lote e validade, e sem totais', async ({ page }) => {
 test('os totais vem do servidor', async ({ page }) => {
     const pedido = page.waitForResponse((r) => r.url().includes('/compra/calcular') && r.request().method() === 'POST', { timeout: 20_000 });
 
-    await page.getByLabel('Artigo da linha 1').selectOption({ index: 1 });
+    await page.getByLabel('Artigo da linha 1').click();
+    await page.getByRole('dialog').locator('[data-artigo]').first().click();
     await page.getByLabel('Quantidade da linha 1').fill('3');
 
     expect((await pedido).ok()).toBe(true);
@@ -36,7 +37,8 @@ test('os totais vem do servidor', async ({ page }) => {
 });
 
 test('sem fornecedor o servidor recusa e o ecra diz onde', async ({ page }) => {
-    await page.getByLabel('Artigo da linha 1').selectOption({ index: 1 });
+    await page.getByLabel('Artigo da linha 1').click();
+    await page.getByRole('dialog').locator('[data-artigo]').first().click();
     await expect(page.getByText('Contado no servidor')).toBeVisible({ timeout: 20_000 });
 
     await page.getByRole('button', { name: /^Registar compra$/ }).click();
@@ -83,7 +85,7 @@ test('duplicar traz o conteudo da compra e nao regista nada', async ({ page }) =
     // O conteúdo veio. A caixa do fornecedor mostra o NOME de quem ficou
     // escolhido — é um combobox, não um `<select>`.
     await expect(page.getByRole('combobox', { name: /^Fornecedor/ })).not.toHaveValue('');
-    await expect(page.getByLabel('Artigo da linha 1')).not.toHaveValue('');
+    await expect(page.getByLabel('Artigo da linha 1')).not.toHaveAttribute('data-artigo-escolhido', '');
 
     // E o que se pode fazer é REGISTAR uma compra nova — não actualizar a velha.
     await expect(page.getByRole('button', { name: /^Registar compra$/ })).toBeVisible();
@@ -195,7 +197,8 @@ test('a procura mostra os resultados e escolher preenche a caixa', async ({ page
  * conferia-se às cegas o que o fornecedor cobrou.
  */
 test('o resumo e os botoes vivem na coluna da direita', async ({ page }) => {
-    await page.getByLabel('Artigo da linha 1').selectOption({ index: 1 });
+    await page.getByLabel('Artigo da linha 1').click();
+    await page.getByRole('dialog').locator('[data-artigo]').first().click();
     await expect(page.getByText('Contado no servidor')).toBeVisible({ timeout: 20_000 });
 
     const resumo = page.getByRole('heading', { name: 'Resumo' });

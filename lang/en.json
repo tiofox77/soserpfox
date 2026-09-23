@@ -13067,5 +13067,13 @@
     "Aguarde. Não feche nem recarregue esta página.": "Please wait. Do not close or reload this page.",
     "A ligação está lenta. A venda está a ser gravada e não se repete — espere pela resposta.": "The connection is slow. The sale is being saved and will not be duplicated — wait for the response.",
     "A emitir o documento…": "Issuing the document…",
-    "A registar o pagamento…": "Recording the payment…"
+    "A registar o pagamento…": "Recording the payment…",
+    "Escolher o artigo": "Choose the item",
+    "Escreva para procurar e carregue no artigo. Enter escolhe o primeiro.": "Type to search and click the item. Enter picks the first one.",
+    "Pesquisar por nome ou código…": "Search by name or code…",
+    "Tipo de artigo": "Item type",
+    "Todas as categorias": "All categories",
+    "Escolher artigo…": "Choose item…",
+    "Na linha": "On this line",
+    "Artigo #:id": "Item #:id"
 }
