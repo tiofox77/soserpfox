@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import type { EstadoDaAgt, ItemDeProntidao, ResultadoDaLigacao } from '@/api/agt';
+import type { EstadoDaAgt, ItemDeProntidao, OpcaoDoCae, ResultadoDaLigacao } from '@/api/agt';
 import { etiquetaIntl, t, tPartes } from '@/i18n';
 import { FOCO, RAIO, RAIO_GRANDE, TOQUE, TRANSICAO, cls } from '@/ui/tokens';
 
@@ -137,15 +137,25 @@ export function PainelDaLigacao({ r }: { r: ResultadoDaLigacao }) {
  * Um código que saiu da lista (ou de outro nível da classificação) deixava o
  * `<select>` a mostrar «— sem código —», e quem o via julgava a empresa sem
  * CAE e escolhia outro por cima de um que estava certo.
+ *
+ * As 575 subclasses vêm agrupadas pela divisão; escrever o código com a lista
+ * aberta salta para ele, porque cada opção começa pelo código.
  */
-export function OpcoesDoCae({ cae, gravado }: { cae: Array<{ codigo: string; descricao: string }>; gravado: string | null | undefined }) {
+export function OpcoesDoCae({ cae, gravado }: { cae: OpcaoDoCae[]; gravado: string | null | undefined }) {
     const foraDaLista = !!gravado && !cae.some((c) => c.codigo === gravado);
+    const grupos = new Map<string, OpcaoDoCae[]>();
+    for (const c of cae) {
+        grupos.set(c.divisao ?? '', [...(grupos.get(c.divisao ?? '') ?? []), c]);
+    }
+    const opcao = (c: OpcaoDoCae) => <option key={c.codigo} value={c.codigo}>{c.codigo} · {c.descricao}</option>;
 
     return (
         <>
             <option value="">{t('— sem código —')}</option>
             {foraDaLista && <option value={gravado}>{t('(código gravado: :codigo)', { codigo: gravado })}</option>}
-            {cae.map((c) => <option key={c.codigo} value={c.codigo}>{c.codigo} · {c.descricao}</option>)}
+            {[...grupos].map(([divisao, lista]) => (divisao
+                ? <optgroup key={divisao} label={divisao}>{lista.map(opcao)}</optgroup>
+                : lista.map(opcao)))}
         </>
     );
 }

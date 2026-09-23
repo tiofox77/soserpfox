@@ -32,7 +32,7 @@ class AgtApiController extends Controller
         return response()->json([
             'ambientes' => collect(GestaoAgt::AMBIENTES)->map(fn ($rotulo, $valor) => ['valor' => $valor, 'rotulo' => $rotulo])->values(),
             'operacoes' => collect(GestaoAgt::OPERACOES)->map(fn ($rotulo, $valor) => ['valor' => $valor, 'rotulo' => $rotulo])->values(),
-            'cae' => GestaoAgt::classesCae()->map(fn ($c) => ['codigo' => $c->code, 'descricao' => $c->description])->values(),
+            'cae' => GestaoAgt::classesCae()->map(fn ($c) => ['codigo' => $c->code, 'descricao' => $c->description, 'divisao' => $c->divisao])->values(),
             'empresas' => $superAdmin
                 ? Tenant::orderBy('name')->get(['id', 'name', 'nif'])->map(fn ($t) => ['id' => $t->id, 'nome' => $t->name, 'nif' => $t->nif])->values()
                 : [],

@@ -2,133 +2,87 @@
 
 namespace Database\Seeders;
 
-use App\Models\AGT\AGTCaeCode;
+use App\Services\AGT\GestaoAgt;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
  * DS.120 v1.1 — Anexo 9.5: CAE (Classificação das Actividades Económicas).
  *
- * Fonte: INE Angola — CAE Rev. 2 (lista oficial). Este seeder inclui:
- *   - Todas as 21 SECÇÕES (A..U)
- *   - Divisões mais comuns para PME angolanas
+ * A lista inteira da CAE-Rev.2 do INE Angola, em `data/cae_rev2.php`:
+ * secções, divisões, grupos, classes e as 575 subclasses de 5 dígitos, que
+ * são o que a AGT recebe em eacCode.
  *
- * A lista completa (~700 códigos) pode ser importada via CSV em
- * `database/seeders/data/cae_full.csv` quando disponibilizada pelo INE.
+ * Até 23/09/2026 este seeder tinha só as secções, umas 30 divisões e 8
+ * códigos de 5 dígitos, e 4 desses nem sequer são de Angola (47210, 62020,
+ * 96021, 96022, da CAE portuguesa). Um código que não é da lista oficial
+ * fica INACTIVO: não se apaga, porque uma empresa pode tê-lo gravado. O ecrã
+ * mostra-o como «código gravado» e obriga a escolher um da lista ao guardar.
+ *
+ * Pode correr as vezes que for preciso: actualiza pelo código.
  */
 class AGTCaeCodeSeeder extends Seeder
 {
     public function run(): void
     {
-        DB::transaction(function () {
-            // Secções (1ª letra)
-            foreach ($this->sections() as $row) {
-                AGTCaeCode::updateOrCreate(
-                    ['code' => $row['code']],
-                    $row + ['level' => 'section', 'is_active' => true]
-                );
+        $agora = now();
+        $linhas = array_map(fn (array $l) => [
+            'code' => $l[0],
+            'level' => $l[1],
+            'parent_code' => $l[2],
+            'description' => $l[3],
+            'is_active' => true,
+            'created_at' => $agora,
+            'updated_at' => $agora,
+        ], require __DIR__ . '/data/cae_rev2.php');
+
+        $oficiais = array_column($linhas, 'code');
+
+        $desactivados = DB::transaction(function () use ($linhas, $oficiais) {
+            foreach (array_chunk($linhas, 200) as $bloco) {
+                DB::table('agt_cae_codes')->upsert($bloco, ['code'], ['level', 'parent_code', 'description', 'is_active', 'updated_at']);
             }
-            // Divisões e classes principais
-            foreach ($this->divisions() as $row) {
-                AGTCaeCode::updateOrCreate(
-                    ['code' => $row['code']],
-                    $row + ['is_active' => true]
-                );
-            }
+
+            $fora = DB::table('agt_cae_codes')->whereNotIn('code', $oficiais)->where('is_active', true)->pluck('code')->all();
+            DB::table('agt_cae_codes')->whereIn('code', $fora)->update(['is_active' => false, 'updated_at' => now()]);
+
+            return $fora;
         });
+
+        Cache::forget(GestaoAgt::CHAVE_DO_CAE);
+        Cache::forget('agt_cae_classes'); // a chave de antes, com as classes de 4 e 5 dígitos misturadas
+
+        $this->command?->info(count($linhas) . ' códigos da CAE-Rev.2 ('
+            . count(array_filter($linhas, fn ($l) => $l['level'] === 'subclass')) . ' subclasses).');
+        $this->command?->info('Desactivados por não serem da lista oficial: ' . ($desactivados ? implode(', ', $desactivados) : 'nenhum') . '.');
+
+        $this->relatarEmpresasForaDaLista();
     }
 
-    /** As 21 Secções da CAE Rev. 2. */
-    private function sections(): array
+    /**
+     * Só diz: as empresas com um CAE que não é subclasse activa. Mudar o
+     * código de uma empresa é decisão dela (ou de quem a ajuda).
+     */
+    private function relatarEmpresasForaDaLista(): void
     {
-        return [
-            ['code' => 'A', 'parent_code' => null, 'description' => 'Agricultura, produção animal, caça, floresta e pesca'],
-            ['code' => 'B', 'parent_code' => null, 'description' => 'Indústrias extractivas'],
-            ['code' => 'C', 'parent_code' => null, 'description' => 'Indústrias transformadoras'],
-            ['code' => 'D', 'parent_code' => null, 'description' => 'Electricidade, gás, vapor, água quente e fria e ar frio'],
-            ['code' => 'E', 'parent_code' => null, 'description' => 'Captação, tratamento e distribuição de água; saneamento, gestão de resíduos e despoluição'],
-            ['code' => 'F', 'parent_code' => null, 'description' => 'Construção'],
-            ['code' => 'G', 'parent_code' => null, 'description' => 'Comércio por grosso e a retalho; reparação de veículos automóveis e motociclos'],
-            ['code' => 'H', 'parent_code' => null, 'description' => 'Transportes e armazenagem'],
-            ['code' => 'I', 'parent_code' => null, 'description' => 'Alojamento, restauração e similares'],
-            ['code' => 'J', 'parent_code' => null, 'description' => 'Actividades de informação e comunicação'],
-            ['code' => 'K', 'parent_code' => null, 'description' => 'Actividades financeiras e de seguros'],
-            ['code' => 'L', 'parent_code' => null, 'description' => 'Actividades imobiliárias'],
-            ['code' => 'M', 'parent_code' => null, 'description' => 'Actividades de consultoria, científicas, técnicas e similares'],
-            ['code' => 'N', 'parent_code' => null, 'description' => 'Actividades administrativas e dos serviços de apoio'],
-            ['code' => 'O', 'parent_code' => null, 'description' => 'Administração pública e defesa; segurança social obrigatória'],
-            ['code' => 'P', 'parent_code' => null, 'description' => 'Educação'],
-            ['code' => 'Q', 'parent_code' => null, 'description' => 'Actividades de saúde humana e apoio social'],
-            ['code' => 'R', 'parent_code' => null, 'description' => 'Actividades artísticas, de espectáculos, desportivas e recreativas'],
-            ['code' => 'S', 'parent_code' => null, 'description' => 'Outras actividades de serviços'],
-            ['code' => 'T', 'parent_code' => null, 'description' => 'Actividades das famílias empregadoras de pessoal doméstico'],
-            ['code' => 'U', 'parent_code' => null, 'description' => 'Actividades dos organismos internacionais e outras instituições extra-territoriais'],
-        ];
-    }
+        $validos = DB::table('agt_cae_codes')->where('level', 'subclass')->where('is_active', true)->pluck('code')->all();
 
-    /** Divisões e classes mais comuns. */
-    private function divisions(): array
-    {
-        return [
-            // C — Indústrias transformadoras
-            ['code' => '10', 'level' => 'division', 'parent_code' => 'C', 'description' => 'Indústrias alimentares'],
-            ['code' => '11', 'level' => 'division', 'parent_code' => 'C', 'description' => 'Indústria das bebidas'],
-            ['code' => '14', 'level' => 'division', 'parent_code' => 'C', 'description' => 'Indústria do vestuário'],
-            ['code' => '15', 'level' => 'division', 'parent_code' => 'C', 'description' => 'Indústria do couro e dos produtos do couro'],
-            ['code' => '16', 'level' => 'division', 'parent_code' => 'C', 'description' => 'Indústrias da madeira e da cortiça'],
-            ['code' => '25', 'level' => 'division', 'parent_code' => 'C', 'description' => 'Fabricação de produtos metálicos, excepto máquinas e equipamentos'],
+        $fora = DB::table('invoicing_settings')
+            ->whereNotNull('agt_eac_code')
+            ->where('agt_eac_code', '<>', '')
+            ->whereNotIn('agt_eac_code', $validos)
+            ->get(['tenant_id', 'agt_eac_code']);
 
-            // F — Construção
-            ['code' => '41', 'level' => 'division', 'parent_code' => 'F', 'description' => 'Promoção imobiliária; construção de edifícios'],
-            ['code' => '42', 'level' => 'division', 'parent_code' => 'F', 'description' => 'Engenharia civil'],
-            ['code' => '43', 'level' => 'division', 'parent_code' => 'F', 'description' => 'Actividades especializadas de construção'],
+        if ($fora->isEmpty()) {
+            $this->command?->info('Todas as empresas com CAE têm um código da lista oficial.');
 
-            // G — Comércio
-            ['code' => '45', 'level' => 'division', 'parent_code' => 'G', 'description' => 'Comércio, manutenção e reparação de veículos automóveis e motociclos'],
-            ['code' => '46', 'level' => 'division', 'parent_code' => 'G', 'description' => 'Comércio por grosso (excepto de veículos automóveis e motociclos)'],
-            ['code' => '47', 'level' => 'division', 'parent_code' => 'G', 'description' => 'Comércio a retalho (excepto de veículos automóveis e motociclos)'],
-            ['code' => '47190', 'level' => 'class',  'parent_code' => '47', 'description' => 'Comércio a retalho em outros estabelecimentos não especializados'],
-            ['code' => '47210', 'level' => 'class',  'parent_code' => '47', 'description' => 'Comércio a retalho de frutas e produtos hortícolas'],
-            ['code' => '47711', 'level' => 'class',  'parent_code' => '47', 'description' => 'Comércio a retalho de vestuário para adultos'],
+            return;
+        }
 
-            // H — Transportes
-            ['code' => '49', 'level' => 'division', 'parent_code' => 'H', 'description' => 'Transportes terrestres e transportes por oleodutos ou gasodutos'],
-            ['code' => '52', 'level' => 'division', 'parent_code' => 'H', 'description' => 'Armazenagem e actividades auxiliares dos transportes'],
-
-            // I — Alojamento e restauração
-            ['code' => '55', 'level' => 'division', 'parent_code' => 'I', 'description' => 'Alojamento'],
-            ['code' => '56', 'level' => 'division', 'parent_code' => 'I', 'description' => 'Restauração e similares'],
-            ['code' => '56101', 'level' => 'class', 'parent_code' => '56', 'description' => 'Restaurantes tipo tradicional'],
-
-            // J — Informação e comunicação
-            ['code' => '62', 'level' => 'division', 'parent_code' => 'J', 'description' => 'Consultoria e programação informática e actividades relacionadas'],
-            ['code' => '62010', 'level' => 'class', 'parent_code' => '62', 'description' => 'Actividades de programação informática'],
-            ['code' => '62020', 'level' => 'class', 'parent_code' => '62', 'description' => 'Actividades de consultoria em informática'],
-            ['code' => '63', 'level' => 'division', 'parent_code' => 'J', 'description' => 'Actividades dos serviços de informação'],
-
-            // K — Financeiras
-            ['code' => '64', 'level' => 'division', 'parent_code' => 'K', 'description' => 'Actividades de serviços financeiros, excepto seguros e fundos de pensões'],
-            ['code' => '65', 'level' => 'division', 'parent_code' => 'K', 'description' => 'Seguros, resseguros e fundos de pensões'],
-
-            // L — Imobiliárias
-            ['code' => '68', 'level' => 'division', 'parent_code' => 'L', 'description' => 'Actividades imobiliárias'],
-
-            // M — Consultoria
-            ['code' => '69', 'level' => 'division', 'parent_code' => 'M', 'description' => 'Actividades jurídicas e de contabilidade'],
-            ['code' => '70', 'level' => 'division', 'parent_code' => 'M', 'description' => 'Actividades das sedes sociais e de consultoria para a gestão'],
-            ['code' => '71', 'level' => 'division', 'parent_code' => 'M', 'description' => 'Actividades de arquitectura, de engenharia e técnicas afins'],
-
-            // P — Educação
-            ['code' => '85', 'level' => 'division', 'parent_code' => 'P', 'description' => 'Educação'],
-
-            // Q — Saúde
-            ['code' => '86', 'level' => 'division', 'parent_code' => 'Q', 'description' => 'Actividades de saúde humana'],
-
-            // S — Outros serviços
-            ['code' => '95', 'level' => 'division', 'parent_code' => 'S', 'description' => 'Reparação de computadores e de bens de uso pessoal e doméstico'],
-            ['code' => '96', 'level' => 'division', 'parent_code' => 'S', 'description' => 'Outras actividades de serviços pessoais'],
-            ['code' => '96021', 'level' => 'class', 'parent_code' => '96', 'description' => 'Salões de cabeleireiro'],
-            ['code' => '96022', 'level' => 'class', 'parent_code' => '96', 'description' => 'Institutos de beleza'],
-        ];
+        $this->command?->warn($fora->count() . ' empresa(s) com CAE fora da lista oficial:');
+        foreach ($fora->groupBy('agt_eac_code') as $codigo => $empresas) {
+            $this->command?->warn("  {$codigo}: empresas " . $empresas->pluck('tenant_id')->implode(', '));
+        }
     }
 }

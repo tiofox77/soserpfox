@@ -41,6 +41,9 @@ class GestaoAgt
 {
     public const AMBIENTES = ['sandbox' => 'Homologação', 'production' => 'Produção'];
 
+    /** Cache das subclasses CAE; o AGTCaeCodeSeeder esquece-a ao carregar a lista. */
+    public const CHAVE_DO_CAE = 'agt_cae_subclasses';
+
     /**
      * O ListarFacturas NÃO lista o que a empresa emitiu: devolve os documentos
      * em que ela é o ADQUIRENTE. Com o rótulo «Listar facturas» quem só emite
@@ -388,14 +391,28 @@ class GestaoAgt
         ];
     }
 
-    /** Classes CAE (5 dígitos) — é o nível que a AGT espera em eacCode. */
+    /**
+     * Subclasses CAE (5 dígitos) — é o nível que a AGT espera em eacCode.
+     *
+     * Cada uma leva a divisão (2 dígitos) em `divisao`, para o ecrã agrupar
+     * as 575 opções. Antes da lista oficial os códigos de 5 dígitos estavam
+     * gravados como `class`; o AGTCaeCodeSeeder passa-os a `subclass`.
+     */
     public static function classesCae(): Collection
     {
-        return Cache::remember('agt_cae_classes', 3600, fn () => DB::table('agt_cae_codes')
-            ->where('is_active', true)
-            ->where('level', 'class')
-            ->orderBy('code')
-            ->get(['code', 'description']));
+        return Cache::remember(self::CHAVE_DO_CAE, 3600, function () {
+            $divisoes = DB::table('agt_cae_codes')->where('level', 'division')->pluck('description', 'code');
+
+            return DB::table('agt_cae_codes')
+                ->where('is_active', true)
+                ->where('level', 'subclass')
+                ->orderBy('code')
+                ->get(['code', 'description'])
+                ->each(function ($c) use ($divisoes) {
+                    $divisao = substr($c->code, 0, 2);
+                    $c->divisao = isset($divisoes[$divisao]) ? "{$divisao} · {$divisoes[$divisao]}" : $divisao;
+                });
+        });
     }
 
     /** O que falta para falar com a AGT neste ambiente. */

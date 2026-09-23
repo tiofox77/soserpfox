@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Invoicing\InvoicingSeries;
+use App\Services\AGT\GestaoAgt;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -56,9 +57,9 @@ class AgtDefinicoesEContribuinteTest extends TenantTestCase
     public function test_o_cae_tem_de_existir_no_catalogo(): void
     {
         DB::table('agt_cae_codes')->insert([
-            ['code' => '47730', 'level' => 'class', 'description' => 'Comércio a retalho de produtos farmacêuticos', 'is_active' => true, 'created_at' => now(), 'updated_at' => now()],
+            ['code' => '47730', 'level' => 'subclass', 'description' => 'Comércio a retalho de produtos farmacêuticos', 'is_active' => true, 'created_at' => now(), 'updated_at' => now()],
         ]);
-        Cache::forget('agt_cae_classes');
+        Cache::forget(GestaoAgt::CHAVE_DO_CAE);
 
         $base = ['agt_auto_submit' => true, 'agt_require_validation' => true];
 
@@ -78,7 +79,7 @@ class AgtDefinicoesEContribuinteTest extends TenantTestCase
     public function test_sem_catalogo_carregado_exige_a_forma_de_uma_classe(): void
     {
         DB::table('agt_cae_codes')->delete();
-        Cache::forget('agt_cae_classes');
+        Cache::forget(GestaoAgt::CHAVE_DO_CAE);
 
         $base = ['agt_auto_submit' => true, 'agt_require_validation' => true];
 

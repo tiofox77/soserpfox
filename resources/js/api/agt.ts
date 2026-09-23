@@ -2,10 +2,13 @@ import { api } from './cliente';
 
 export type Ambiente = 'sandbox' | 'production';
 
+/** Subclasse CAE (5 dígitos); `divisao` é «56 · Restaurantes e similares», para agrupar. */
+export type OpcaoDoCae = { codigo: string; descricao: string; divisao?: string };
+
 export type OpcoesDaAgt = {
     ambientes: Array<{ valor: Ambiente; rotulo: string }>;
     operacoes: Array<{ valor: string; rotulo: string }>;
-    cae: Array<{ codigo: string; descricao: string }>;
+    cae: OpcaoDoCae[];
     empresas: Array<{ id: number; nome: string; nif: string | null }>;
     permissoes: { pode_editar: boolean; escolhe_empresa: boolean };
 };

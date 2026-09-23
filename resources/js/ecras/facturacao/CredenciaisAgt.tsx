@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { agt, lerLigacao, type Contribuinte, type EstadoDaAgt, type ResultadoDaLigacao } from '@/api/agt';
+import { agt, lerLigacao, type Contribuinte, type EstadoDaAgt, type OpcaoDoCae, type ResultadoDaLigacao } from '@/api/agt';
 import { ErroDaApi } from '@/api/cliente';
 import { AvisoDeErro } from '@/ui/AvisoDeErro';
 import { Botao } from '@/ui/Botao';
@@ -62,7 +62,7 @@ export default function CredenciaisAgt() {
     return <Ficha inicial={q.data.data} podeEditar={q.data.permissoes.pode_editar} cae={opcoes.data.cae} estado={estado.data} />;
 }
 
-function Ficha({ inicial, podeEditar, cae, estado }: { inicial: Contribuinte; podeEditar: boolean; cae: Array<{ codigo: string; descricao: string }>; estado?: EstadoDaAgt }) {
+function Ficha({ inicial, podeEditar, cae, estado }: { inicial: Contribuinte; podeEditar: boolean; cae: OpcaoDoCae[]; estado?: EstadoDaAgt }) {
     const cache = useQueryClient();
     const [forma, porForma] = useState({
         tax_registration_number: inicial.tax_registration_number,

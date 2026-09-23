@@ -5,6 +5,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 
 import Agt from './Agt';
 import CredenciaisAgt from './CredenciaisAgt';
+import { OpcoesDoCae } from './pecasDaAgt';
 import type { Contribuinte, EstadoDaAgt, OpcoesDaAgt } from '@/api/agt';
 
 /**
@@ -381,5 +382,23 @@ describe('a ficha do contribuinte', () => {
         expect(await screen.findByRole('option', { name: '(código gravado: 99999)' })).toBeInTheDocument();
         expect(screen.getByRole('combobox')).toHaveValue('99999');
         expect(document.querySelector('[data-sem-produtor]')).not.toBeNull();
+    });
+});
+
+describe('as opções do CAE', () => {
+    it('as subclasses vêm agrupadas pela divisão, e o código gravado fora da lista continua à vista', () => {
+        const cae = [
+            { codigo: '56101', descricao: 'Restaurantes tipo tradicional', divisao: '56 · Restaurantes e similares' },
+            { codigo: '56102', descricao: 'Restaurantes com lugares ao balcão (snack bares)', divisao: '56 · Restaurantes e similares' },
+            { codigo: '62010', descricao: 'Actividades de programação informática', divisao: '62 · Consultoria, programação informática e actividades relacionadas' },
+        ];
+
+        render(<select defaultValue="96021"><OpcoesDoCae cae={cae} gravado="96021" /></select>);
+
+        const grupos = [...document.querySelectorAll('optgroup')];
+        expect(grupos.map((g) => g.label)).toEqual(['56 · Restaurantes e similares', '62 · Consultoria, programação informática e actividades relacionadas']);
+        expect(within(grupos[0] as HTMLElement).getAllByRole('option')).toHaveLength(2);
+        expect(screen.getByRole('option', { name: '(código gravado: 96021)' })).toBeInTheDocument();
+        expect(screen.getByRole('combobox')).toHaveValue('96021');
     });
 });
