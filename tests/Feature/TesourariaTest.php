@@ -225,8 +225,13 @@ class TesourariaTest extends TenantTestCase
 
         $cash->refresh();
         $this->assertSame('open', $cash->status);
-        $this->assertEquals(500, (float) $cash->opening_balance);
+        // O fundo de maneio configurado não se reescreve (23/09/2026): o saldo
+        // chega aos 500 declarados por um movimento de acerto, que fica à vista.
+        $this->assertEquals(0, (float) $cash->opening_balance);
         $this->assertEquals(500, (float) $cash->current_balance);
+        $this->assertDatabaseHas('treasury_transactions', [
+            'cash_register_id' => $cash->id, 'category' => 'cash_adjustment', 'type' => 'income', 'amount' => 500,
+        ]);
 
         $this->actingAs($this->user)
             ->postJson('/api/v1/invoicing/react/turnos/fechar', [

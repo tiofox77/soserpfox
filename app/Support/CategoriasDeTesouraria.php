@@ -42,6 +42,9 @@ class CategoriasDeTesouraria
         'tax'              => 'Impostos',
         'transfer'         => 'Transferência interna',
         'credit_note'      => 'Nota de crédito',
+        // Escrita pelo turno do POS: a falta ou a sobra na abertura e no
+        // fecho, contra o que estava lançado na caixa (TurnosDoPos::acertar).
+        'cash_adjustment'  => 'Acerto de caixa (quebras e sobras)',
         'other'            => 'Outro',
     ];
 

@@ -247,7 +247,9 @@ function FecharTurno({ turno, aoFechar, feito }: { turno: Turno; aoFechar: () =>
                     </div>
                 )}
             </div>
-            <p className="mb-4 text-sm text-slate-600">{t('Esperado em caixa:')} <strong className="tabular-nums">{kz(turno.expected_cash)}</strong> {t('(saldo inicial :saldo + dinheiro :dinheiro). Conte a gaveta e escreva o que lá está.', { saldo: kz(turno.opening_balance), dinheiro: kz(turno.cash_sales) })}</p>
+            <p className="mb-4 text-sm text-slate-600">{t('Esperado em caixa:')} <strong className="tabular-nums">{kz(turno.expected_cash)}</strong> {turno.saidas_da_gaveta || turno.entradas_na_gaveta
+                ? t('(saldo inicial :saldo + dinheiro :dinheiro + entradas na gaveta :entradas − saídas da gaveta :saidas). Conte a gaveta e escreva o que lá está.', { saldo: kz(turno.opening_balance), dinheiro: kz(turno.cash_sales), entradas: kz(turno.entradas_na_gaveta), saidas: kz(turno.saidas_da_gaveta) })
+                : t('(saldo inicial :saldo + dinheiro :dinheiro). Conte a gaveta e escreva o que lá está.', { saldo: kz(turno.opening_balance), dinheiro: kz(turno.cash_sales) })}</p>
             <div className="grid gap-4">
                 <Campo etiqueta={t('Dinheiro contado (Kz)')} erro={erros.actual_cash} obrigatorio><input type="number" min="0" step="0.01" value={contado} onChange={(e) => porContado(e.target.value)} placeholder="0,00" className={cls(entrada, 'text-right tabular-nums')} /></Campo>
                 {diferenca !== null && <p className={cls('text-sm font-semibold tabular-nums', diferenca < 0 ? 'text-red-700' : diferenca > 0 ? 'text-amber-700' : 'text-emerald-700')} data-diferenca>{t('Diferença:')} {kz(diferenca)}</p>}

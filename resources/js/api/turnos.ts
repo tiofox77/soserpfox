@@ -12,6 +12,8 @@ export type Turno = {
     /** O que se devolveu (positivo) e o que ficou: bruto − devolvido. */
     credit_notes_amount: number; net_sales: number; total_credit_notes: number;
     total_invoices: number; total_receipts: number; expected_cash: number; actual_cash: number | null; cash_difference: number | null;
+    /** O que a tesouraria tirou ou pôs na gaveta durante o turno (recolhas, despesas, troco). Já contado no esperado. */
+    saidas_da_gaveta: number; entradas_na_gaveta: number;
     closing_notes: string | null; difference_reason: string | null;
     /** O papel resumido e o com produtos (`?detalhe=produtos`). */
     exportar: { pdf: string; talao: string; pdf_produtos: string; talao_produtos: string };

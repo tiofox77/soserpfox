@@ -42,7 +42,7 @@ class LancamentoDoRecibo
         $numero = $recibo->receipt_number ?: ('#' . $recibo->id);
         $factura = $recibo->invoice_id ?: $recibo->purchase_invoice_id;
 
-        return $this->dinheiro->lancar($recibo, [
+        $movimento = $this->dinheiro->lancar($recibo, [
             'valor' => (float) $recibo->amount_paid,
             'forma' => (string) $recibo->payment_method,
             'sentido' => $venda ? 'income' : 'expense',
@@ -55,8 +55,10 @@ class LancamentoDoRecibo
                 . ($factura ? ' (factura #' . $factura . ')' : ''),
             'notas' => $recibo->notes,
             'destino' => $destinoEscolhido,
-            // O TURNO só leva o que entra ao balcão: um recibo de compra é
-            // dinheiro que sai da empresa, não da gaveta de quem está a vender.
+            // O TURNO leva o que entra ao balcão como recibo. Um pagamento de
+            // compra NÃO é uma venda — mas, pago em numerário, sai de uma gaveta
+            // (a de quem paga, pela regra da caixa do operador), e vai ao turno
+            // dessa gaveta como SAÍDA, logo abaixo (23/09/2026).
             'turno' => $venda && $comTurno ? [
                 'type' => 'receipt',
                 'reference_number' => $recibo->receipt_number,
@@ -64,6 +66,12 @@ class LancamentoDoRecibo
                 'metadata' => ['invoice_id' => $recibo->invoice_id],
             ] : null,
         ], $userId);
+
+        if (! $venda && $comTurno && $movimento) {
+            \App\Services\POS\GavetaDoTurno::registar($movimento);
+        }
+
+        return $movimento;
     }
 
     /** O estorno de um recibo apagado — ver `LancamentoDeDinheiro::estornar`. */

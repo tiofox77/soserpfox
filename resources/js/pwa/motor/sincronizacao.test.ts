@@ -428,3 +428,24 @@ describe('o arranque', () => {
         expect((await db.products.toArray()).map((p) => p.id).sort()).toEqual([1, 2]);
     });
 });
+
+/**
+ * O ESPERADO NO FECHO OFFLINE conta o que a tesouraria tirou ou pôs na gaveta
+ * durante o turno (23/09/2026): a recolha do gerente, a despesa paga da
+ * gaveta, o reforço de troco. O servidor manda os dois números na
+ * sincronização; sem eles o operador via uma falta que não era dele.
+ */
+describe('o dinheiro esperado no fecho do turno', () => {
+    it('soma as entradas e tira as saídas da gaveta', async () => {
+        const { dinheiroEsperado } = await import('./turno');
+        const turno = { open: true, opened_at: new Date(Date.now() - 3600000).toISOString(), opening_balance: 20000, cash_sales: 100000, saidas_da_gaveta: 80000, entradas_na_gaveta: 2000 };
+
+        expect(dinheiroEsperado(turno, [])).toBe(42000);
+    });
+
+    it('sem os números da gaveta (servidor antigo) fica como era', async () => {
+        const { dinheiroEsperado } = await import('./turno');
+
+        expect(dinheiroEsperado({ open: true, opened_at: null, opening_balance: 20000, cash_sales: 100000 }, [])).toBe(120000);
+    });
+});

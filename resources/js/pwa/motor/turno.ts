@@ -18,6 +18,9 @@ export interface Turno extends Registo {
     opening_balance?: number;
     cash_sales?: number;
     total_sales?: number;
+    /** O que a tesouraria tirou ou pôs na gaveta durante o turno (recolhas, despesas, troco). */
+    saidas_da_gaveta?: number;
+    entradas_na_gaveta?: number;
     _local?: boolean;
 }
 
@@ -81,7 +84,9 @@ export function dinheiroLocalDesdeAAbertura(turno: Turno, vendas: Registo[]): nu
 }
 
 export function dinheiroEsperado(turno: Turno, vendas: Registo[]): number {
-    return numero(turno.opening_balance) + numero(turno.cash_sales) + dinheiroLocalDesdeAAbertura(turno, vendas);
+    return numero(turno.opening_balance) + numero(turno.cash_sales)
+        + numero(turno.entradas_na_gaveta) - numero(turno.saidas_da_gaveta)
+        + dinheiroLocalDesdeAAbertura(turno, vendas);
 }
 
 export function diferencaNoFecho(contado: unknown, esperado: number): number {

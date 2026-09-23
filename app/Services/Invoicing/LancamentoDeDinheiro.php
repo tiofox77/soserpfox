@@ -141,6 +141,8 @@ class LancamentoDeDinheiro
             if (($m->status ?? 'completed') === 'completed') {
                 $tesouraria->apply($m, -1);
             }
+            // A saída da gaveta que o pagamento de uma compra pôs no turno.
+            \App\Services\POS\GavetaDoTurno::desfazer($m);
             $m->delete();
         }
 

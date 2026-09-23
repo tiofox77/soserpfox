@@ -13008,5 +13008,15 @@
     "Saídas (30 dias)": "Sorties (30 jours)",
     "Aguenta": "Tient",
     "A encomendar": "À commander",
-    "Nenhum artigo nesta situação.": "Aucun article dans cette situation."
+    "Nenhum artigo nesta situação.": "Aucun article dans cette situation.",
+    "(saldo inicial :saldo + dinheiro :dinheiro + entradas na gaveta :entradas − saídas da gaveta :saidas). Conte a gaveta e escreva o que lá está.": "(fonds initial :saldo + espèces :dinheiro + entrées dans le tiroir :entradas − sorties du tiroir :saidas). Comptez le tiroir et saisissez ce qu’il contient.",
+    "Saídas da gaveta": "Sorties du tiroir",
+    "Entradas na gaveta": "Entrées dans le tiroir",
+    "Entrada na gaveta": "Entrée dans le tiroir",
+    "Saída da gaveta": "Sortie du tiroir",
+    "Falta na abertura do turno :turno (:caixa): lançado :lancado, contado :contado": "Manque à l’ouverture du poste :turno (:caixa) : enregistré :lancado, compté :contado",
+    "Sobra na abertura do turno :turno (:caixa): lançado :lancado, contado :contado": "Excédent à l’ouverture du poste :turno (:caixa) : enregistré :lancado, compté :contado",
+    "Quebra de caixa no fecho do turno :turno (:caixa): esperado :lancado, contado :contado": "Manque de caisse à la clôture du poste :turno (:caixa) : attendu :lancado, compté :contado",
+    "Sobra de caixa no fecho do turno :turno (:caixa): esperado :lancado, contado :contado": "Excédent de caisse à la clôture du poste :turno (:caixa) : attendu :lancado, compté :contado",
+    "Acerto de caixa (quebras e sobras)": "Ajustement de caisse (manques et excédents)"
 }

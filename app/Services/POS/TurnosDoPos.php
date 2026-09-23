@@ -85,22 +85,8 @@ class TurnosDoPos
             throw new DomainException(__('Você já tem um turno aberto!'));
         }
 
-        $caixaId = $this->caixaAtribuida()?->id;
-
-        return DB::transaction(function () use ($saldoInicial, $notas, $ip, $caixaId) {
-            $caixa = $caixaId ? CashRegister::where('tenant_id', $this->tenantId)->lockForUpdate()->find($caixaId) : null;
-
-            if ($caixa && $caixa->status !== 'open') {
-                $caixa->update([
-                    'status' => 'open', 'opened_at' => now(), 'closed_at' => null,
-                    'opening_balance' => $saldoInicial,
-                    'current_balance' => $saldoInicial,
-                    'expected_balance' => $saldoInicial,
-                    'opening_notes' => $notas,
-                ]);
-            }
-
-            return PosShift::createSafely([
+        return DB::transaction(function () use ($saldoInicial, $notas, $ip) {
+            $turno = PosShift::createSafely([
                 'tenant_id' => $this->tenantId,
                 'user_id' => $this->userId,
                 'status' => 'open',
@@ -109,7 +95,139 @@ class TurnosDoPos
                 'opening_notes' => $notas,
                 'opened_ip' => $ip,
             ], $this->tenantId);
+
+            $this->abrirACaixa($turno, $notas);
+
+            return $turno;
         });
+    }
+
+    /**
+     * A CAIXA DO OPERADOR ABRE COM O TURNO — e o saldo fica o que foi contado.
+     *
+     * Antes o saldo era ESCRITO por cima com o fundo declarado, sem movimento
+     * nenhum: o dinheiro que tinha ficado na caixa sem ser transferido
+     * desaparecia da tesouraria sem rasto. Agora a diferença fica lançada
+     * (ver `acertar`) e aparece nos movimentos e no fluxo de caixa.
+     *
+     * O `opening_balance` da CAIXA não se toca: é o fundo de maneio que se
+     * configurou, e é a base com que o `caixas:verificar` confere o saldo.
+     * Serve o balcão web e o PWA (PosShiftController) — uma porta só.
+     */
+    public function abrirACaixa(PosShift $turno, ?string $notas = null): void
+    {
+        $caixaId = $this->caixaAtribuida()?->id;
+        if (! $caixaId) {
+            return;
+        }
+
+        $caixa = CashRegister::where('tenant_id', $this->tenantId)->lockForUpdate()->find($caixaId);
+        if (! $caixa) {
+            return;
+        }
+
+        $this->acertar($caixa, (float) $turno->opening_balance, $turno, 'abertura');
+
+        if ($caixa->status !== 'open') {
+            $caixa->update([
+                'status' => 'open', 'opened_at' => now(), 'closed_at' => null,
+                'expected_balance' => $turno->opening_balance,
+                'opening_notes' => $notas,
+            ]);
+        }
+    }
+
+    /**
+     * A CAIXA FECHA COM O TURNO, e a falta ou a sobra fica lançada.
+     *
+     * Antes o saldo passava a ser o dinheiro contado, escrito por cima: a
+     * quebra de caixa nunca aparecia como movimento, e o fluxo de caixa
+     * deixava de bater com o saldo das caixas.
+     */
+    public function fecharACaixa(PosShift $turno): void
+    {
+        $caixaId = $this->caixaAtribuida()?->id;
+        if (! $caixaId) {
+            return;
+        }
+
+        $caixa = CashRegister::where('tenant_id', $this->tenantId)->lockForUpdate()->find($caixaId);
+        if (! $caixa) {
+            return;
+        }
+
+        $this->acertar($caixa, (float) $turno->actual_cash, $turno, 'fecho');
+
+        if ($caixa->status === 'open') {
+            $caixa->update([
+                'status' => 'closed', 'closed_at' => now(),
+                'expected_balance' => $turno->expected_cash,
+                'closing_notes' => $turno->closing_notes,
+            ]);
+        }
+    }
+
+    /**
+     * O SALDO DA CAIXA PASSA A SER O QUE FOI CONTADO — por movimento.
+     *
+     * A diferença entre o que está lançado na caixa e o que o operador contou
+     * vai para a tesouraria como «acerto de caixa»: saída quando falta
+     * dinheiro, entrada quando sobra. Ligado ao turno (`related_type`), uma vez
+     * por turno e por momento. Nunca rebenta: um acerto que falha não impede
+     * ninguém de abrir ou fechar o turno, e fica no registo para se ver.
+     */
+    private function acertar(CashRegister $caixa, float $contado, PosShift $turno, string $momento): void
+    {
+        try {
+            $referencia = 'TURNO-' . strtoupper($momento) . '-' . $turno->shift_number;
+
+            $jaLancado = \App\Models\Treasury\Transaction::withoutGlobalScopes()
+                ->where('tenant_id', $this->tenantId)
+                ->where('related_type', PosShift::class)
+                ->where('related_id', $turno->id)
+                ->where('reference', $referencia)
+                ->exists();
+
+            $saldo = round((float) CashRegister::where('tenant_id', $this->tenantId)->whereKey($caixa->id)->value('current_balance'), 2);
+            $diferenca = round($contado - $saldo, 2);
+
+            if ($jaLancado || abs($diferenca) < 0.01) {
+                return;
+            }
+
+            $valores = ['turno' => $turno->shift_number, 'caixa' => $caixa->name, 'lancado' => number_format($saldo, 2, ',', '.'), 'contado' => number_format($contado, 2, ',', '.')];
+
+            $descricao = match (true) {
+                $momento === 'abertura' && $diferenca < 0 => __('Falta na abertura do turno :turno (:caixa): lançado :lancado, contado :contado', $valores),
+                $momento === 'abertura' => __('Sobra na abertura do turno :turno (:caixa): lançado :lancado, contado :contado', $valores),
+                $diferenca < 0 => __('Quebra de caixa no fecho do turno :turno (:caixa): esperado :lancado, contado :contado', $valores),
+                default => __('Sobra de caixa no fecho do turno :turno (:caixa): esperado :lancado, contado :contado', $valores),
+            };
+
+            app(\App\Services\Treasury\TreasuryMovementService::class)->post([
+                'tenant_id' => $this->tenantId,
+                'user_id' => $this->userId,
+                'type' => $diferenca > 0 ? 'income' : 'expense',
+                'category' => 'cash_adjustment',
+                'amount' => abs($diferenca),
+                'currency' => 'AOA',
+                'transaction_date' => now(),
+                'payment_method_id' => app(\App\Services\Invoicing\LancamentoDeDinheiro::class)->metodoDeTesouraria('cash', $this->tenantId)->id,
+                'account_id' => null,
+                'cash_register_id' => $caixa->id,
+                'related_type' => PosShift::class,
+                'related_id' => $turno->id,
+                'reference' => $referencia,
+                'description' => $descricao,
+                'notes' => $momento === 'fecho' ? $turno->difference_reason : null,
+                'status' => 'completed',
+                'is_reconciled' => false,
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Turno: acerto da caixa falhou', [
+                'turno' => $turno->shift_number, 'caixa_id' => $caixa->id, 'momento' => $momento, 'erro' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**
@@ -124,22 +242,10 @@ class TurnosDoPos
             throw new DomainException(__('Não há turno aberto!'));
         }
 
-        $caixaId = $this->caixaAtribuida()?->id;
-
-        DB::transaction(function () use ($turno, $dinheiroContado, $notas, $motivoDaDiferenca, $caixaId) {
+        DB::transaction(function () use ($turno, $dinheiroContado, $notas, $motivoDaDiferenca) {
             $turno->close($dinheiroContado, $notas, $motivoDaDiferenca);
 
-            if ($caixaId) {
-                $caixa = CashRegister::where('tenant_id', $this->tenantId)->lockForUpdate()->find($caixaId);
-                if ($caixa && $caixa->status === 'open') {
-                    $caixa->update([
-                        'status' => 'closed', 'closed_at' => now(),
-                        'current_balance' => $dinheiroContado,
-                        'expected_balance' => $turno->expected_cash,
-                        'closing_notes' => $notas,
-                    ]);
-                }
-            }
+            $this->fecharACaixa($turno);
         });
 
         return $turno->fresh(['transactions']);

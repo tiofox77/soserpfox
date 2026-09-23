@@ -319,6 +319,16 @@ class PosShift extends Model
          * movimento nenhum e o esperado ficava alto — o operador acabava o
          * turno com uma falta que não era dele.
          */
+        /*
+         * AS ENTRADAS E SAÍDAS DA GAVETA NÃO SÃO VENDAS (23/09/2026).
+         *
+         * Uma recolha do gerente ou uma despesa paga da gaveta (ver
+         * App\Services\POS\GavetaDoTurno) mexem no dinheiro esperado, mas não
+         * no que se vendeu: ficam fora dos baldes e do total vendido, e contam
+         * à parte em `movimentosDaGaveta()`.
+         */
+        $transactions = $transactions->whereNotIn('type', self::TIPOS_DA_GAVETA);
+
         $byBucket = $transactions->groupBy(fn($t) => $bucket($t->payment_method));
 
         $this->cash_sales          = (float) ($byBucket->get('cash')?->sum('amount') ?? 0);
@@ -353,6 +363,36 @@ class PosShift extends Model
         return (float) $this->total_sales - (float) $this->credit_notes_amount;
     }
 
+    /** Os tipos que só mexem na gaveta (ver App\Services\POS\GavetaDoTurno). */
+    public const TIPOS_DA_GAVETA = ['withdrawal', 'deposit'];
+
+    /**
+     * O que saiu e entrou na gaveta fora das vendas, os dois em positivo.
+     *
+     * @return array{saidas: float, entradas: float}
+     */
+    public function movimentosDaGaveta(): array
+    {
+        $linhas = $this->transactions()->withoutGlobalScopes()->whereIn('type', self::TIPOS_DA_GAVETA)->get(['type', 'amount']);
+
+        return [
+            'saidas' => round(abs((float) $linhas->where('type', 'withdrawal')->sum('amount')), 2),
+            'entradas' => round((float) $linhas->where('type', 'deposit')->sum('amount'), 2),
+        ];
+    }
+
+    /**
+     * O DINHEIRO QUE DEVIA ESTAR NA GAVETA: o fundo, mais o que entrou em
+     * numerário pelas vendas (já sem as devoluções), mais as entradas e menos
+     * as saídas que a tesouraria fez na gaveta durante o turno.
+     */
+    public function dinheiroEsperado(): float
+    {
+        $g = $this->movimentosDaGaveta();
+
+        return round((float) $this->opening_balance + (float) $this->cash_sales + $g['entradas'] - $g['saidas'], 2);
+    }
+
     /**
      * Fechar turno
      */
@@ -363,7 +403,7 @@ class PosShift extends Model
         ?int $closedBy = null
     ): void
     {
-        $this->expected_cash = $this->opening_balance + $this->cash_sales;
+        $this->expected_cash = $this->dinheiroEsperado();
         $this->actual_cash = $actualCash;
         $this->cash_difference = $actualCash - $this->expected_cash;
         $this->closing_balance = $actualCash;

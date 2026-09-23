@@ -7,6 +7,7 @@ use App\Models\Treasury\Account;
 use App\Models\Treasury\CashRegister;
 use App\Models\Treasury\Transaction;
 use App\Models\Treasury\Transfer;
+use App\Services\POS\GavetaDoTurno;
 use App\Services\Treasury\TreasuryMovementService;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
@@ -167,7 +168,10 @@ class TransferenciasApiController extends Controller
 
             $servico = app(TreasuryMovementService::class);
 
-            $lancar = fn (array $alvo, string $tipo, float $quanto, string $texto, string $categoria) => $servico->post([
+            // Cada perna que sai ou entra na gaveta de um operador com turno
+            // aberto vai também ao turno dele: a recolha do gerente (Caixa
+            // Cleiton → Caixa Gerente) tira do esperado do Cleiton.
+            $lancar = fn (array $alvo, string $tipo, float $quanto, string $texto, string $categoria) => GavetaDoTurno::comRegisto($servico->post([
                 'tenant_id' => $tenantId,
                 'user_id' => auth()->id(),
                 'account_id' => $alvo['account_id'],
@@ -182,7 +186,7 @@ class TransferenciasApiController extends Controller
                 'related_id' => $t->id,
                 'description' => $texto,
                 'status' => 'completed',
-            ]);
+            ]));
 
             // Saída na origem, entrada no destino — e a taxa, que sai de
             // quem manda. É o serviço que move o saldo, sob bloqueio.
@@ -233,6 +237,8 @@ class TransferenciasApiController extends Controller
                 if ($m->status === 'completed') {
                     $servico->apply($m, -1);
                 }
+
+                GavetaDoTurno::desfazer($m);
 
                 $m->delete();
             }

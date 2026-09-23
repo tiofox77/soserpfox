@@ -99,6 +99,15 @@
     <table>
         <tr><th>Saldo Inicial (abertura)</th><td class="text-right">{{ number_format($shift->opening_balance, 2) }} Kz</td></tr>
         <tr><th>+ Vendas em Dinheiro</th><td class="text-right">{{ number_format($shift->cash_sales, 2) }} Kz</td></tr>
+        @php
+            $gaveta = $shift->movimentosDaGaveta();
+        @endphp
+        @if($gaveta['entradas'] > 0)
+        <tr><th>+ Entradas na Gaveta</th><td class="text-right">{{ number_format($gaveta['entradas'], 2) }} Kz</td></tr>
+        @endif
+        @if($gaveta['saidas'] > 0)
+        <tr><th>- Saídas da Gaveta (recolhas, despesas)</th><td class="text-right">{{ number_format($gaveta['saidas'], 2) }} Kz</td></tr>
+        @endif
         <tr><th>= Dinheiro Esperado</th><td class="text-right">{{ number_format($shift->expected_cash, 2) }} Kz</td></tr>
         <tr><th>Dinheiro Contado (real)</th><td class="text-right">{{ number_format($shift->actual_cash, 2) }} Kz</td></tr>
         <tr class="totals-row">

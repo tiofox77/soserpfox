@@ -13008,5 +13008,15 @@
     "Saídas (30 dias)": "Outflows (30 days)",
     "Aguenta": "Lasts",
     "A encomendar": "To order",
-    "Nenhum artigo nesta situação.": "No items in this situation."
+    "Nenhum artigo nesta situação.": "No items in this situation.",
+    "(saldo inicial :saldo + dinheiro :dinheiro + entradas na gaveta :entradas − saídas da gaveta :saidas). Conte a gaveta e escreva o que lá está.": "(opening balance :saldo + cash :dinheiro + drawer inflows :entradas − drawer outflows :saidas). Count the drawer and enter what is in it.",
+    "Saídas da gaveta": "Drawer outflows",
+    "Entradas na gaveta": "Drawer inflows",
+    "Entrada na gaveta": "Drawer inflow",
+    "Saída da gaveta": "Drawer outflow",
+    "Falta na abertura do turno :turno (:caixa): lançado :lancado, contado :contado": "Shortage when opening shift :turno (:caixa): recorded :lancado, counted :contado",
+    "Sobra na abertura do turno :turno (:caixa): lançado :lancado, contado :contado": "Surplus when opening shift :turno (:caixa): recorded :lancado, counted :contado",
+    "Quebra de caixa no fecho do turno :turno (:caixa): esperado :lancado, contado :contado": "Cash shortage when closing shift :turno (:caixa): expected :lancado, counted :contado",
+    "Sobra de caixa no fecho do turno :turno (:caixa): esperado :lancado, contado :contado": "Cash surplus when closing shift :turno (:caixa): expected :lancado, counted :contado",
+    "Acerto de caixa (quebras e sobras)": "Cash adjustment (shortages and surpluses)"
 }

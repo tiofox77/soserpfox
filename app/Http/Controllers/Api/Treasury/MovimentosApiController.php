@@ -9,6 +9,7 @@ use App\Models\Treasury\PaymentMethod;
 use App\Models\Treasury\Transaction;
 use App\Models\Treasury\TransactionCategory;
 use App\Models\Treasury\TransactionType;
+use App\Services\POS\GavetaDoTurno;
 use App\Services\Treasury\TreasuryMovementService;
 use App\Support\CategoriasDeTesouraria;
 use Illuminate\Http\JsonResponse;
@@ -287,10 +288,18 @@ class MovimentosApiController extends Controller
 
         $dados = $this->validado($request);
 
-        $movimento = DB::transaction(fn () => app(TreasuryMovementService::class)->post($dados + [
-            'tenant_id' => activeTenantId(),
-            'user_id' => auth()->id(),
-        ]));
+        $movimento = DB::transaction(function () use ($dados) {
+            $m = app(TreasuryMovementService::class)->post($dados + [
+                'tenant_id' => activeTenantId(),
+                'user_id' => auth()->id(),
+            ]);
+
+            // Na caixa de um operador com turno aberto, o turno fica a saber
+            // (uma despesa paga da gaveta, um reforço de troco).
+            GavetaDoTurno::registar($m);
+
+            return $m;
+        });
 
         return response()->json([
             'id' => $movimento->id,
@@ -322,10 +331,17 @@ class MovimentosApiController extends Controller
                 $servico->apply($m, -1);
             }
 
+            // O turno também se refaz: sai o que lá estava, entra o novo.
+            GavetaDoTurno::desfazer($m);
+
             $m->update($dados);
 
             if ($m->status === 'completed') {
                 $servico->apply($m, 1);
+            }
+
+            if (GavetaDoTurno::eDaGaveta($m)) {
+                GavetaDoTurno::registar($m->fresh());
             }
         });
 
@@ -342,6 +358,8 @@ class MovimentosApiController extends Controller
             if ($m->status === 'completed') {
                 app(TreasuryMovementService::class)->apply($m, -1);
             }
+
+            GavetaDoTurno::desfazer($m);
 
             $m->delete();
         });
@@ -383,7 +401,7 @@ class MovimentosApiController extends Controller
             ], 409);
         }
 
-        $estorno = DB::transaction(fn () => app(TreasuryMovementService::class)->post([
+        $estorno = DB::transaction(fn () => GavetaDoTurno::comRegisto(app(TreasuryMovementService::class)->post([
             'tenant_id' => $m->tenant_id,
             'user_id' => auth()->id(),
             'type' => 'expense',
@@ -398,7 +416,7 @@ class MovimentosApiController extends Controller
             'description' => __('Crédito/Estorno da transação :numero', ['numero' => $m->transaction_number]),
             'notes' => __('Creditado em :quando', ['quando' => now()->format('d/m/Y H:i')]),
             'status' => 'completed',
-        ]));
+        ])));
 
         return response()->json([
             'id' => $estorno->id,

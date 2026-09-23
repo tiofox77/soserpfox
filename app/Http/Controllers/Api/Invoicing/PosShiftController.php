@@ -75,6 +75,12 @@ class PosShiftController extends Controller
                 'opened_ip'       => $request->ip(),
             ], $tenantId);
 
+            // A caixa do operador abre com o turno, e o saldo fica o que foi
+            // declarado — a mesma porta do balcão web (TurnosDoPos). Sem isto o
+            // turno do PWA deixava a caixa fechada, e o numerário das vendas
+            // podia ir parar à gaveta de outra pessoa.
+            (new \App\Services\POS\TurnosDoPos((int) $tenantId, (int) $operatorId))->abrirACaixa($shift, $request->input('opening_notes'));
+
             return response()->json([
                 'success'      => true,
                 'already_open' => false,
@@ -144,6 +150,9 @@ class PosShiftController extends Controller
                 $operatorId
             );
 
+            // A caixa fecha com o turno e a quebra ou sobra fica lançada.
+            (new \App\Services\POS\TurnosDoPos((int) $tenantId, (int) $operatorId))->fecharACaixa($shift->fresh());
+
             // Preservar hora local do fecho offline, se enviada
             if ($fechoNoDispositivo = \App\Helpers\DateHelper::doDispositivo($request->input('closed_at_local'))) {
                 $shift->closed_at = $fechoNoDispositivo;
@@ -197,8 +206,11 @@ class PosShiftController extends Controller
             'closed_at'       => optional($s->closed_at)->toIso8601String(),
             'opening_balance' => (float) $s->opening_balance,
             'cash_sales'      => (float) $s->cash_sales,
+            'saidas_da_gaveta'   => ($gaveta = $s->movimentosDaGaveta())['saidas'],
+            'entradas_na_gaveta' => $gaveta['entradas'],
             'total_sales'     => (float) $s->total_sales,
-            'expected_cash'   => (float) ($s->expected_cash ?? 0),
+            // Aberto, o esperado conta já com as saídas e entradas da gaveta.
+            'expected_cash'   => $s->status === 'open' ? $s->dinheiroEsperado() : (float) ($s->expected_cash ?? 0),
             'actual_cash'     => (float) ($s->actual_cash ?? 0),
             'cash_difference' => (float) ($s->cash_difference ?? 0),
         ];

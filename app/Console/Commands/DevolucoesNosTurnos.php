@@ -119,11 +119,13 @@ class DevolucoesNosTurnos extends Command
 
                 if ($estado !== 'open') {
                     $turno->refresh();
+                    // O esperado pela conta única do turno — que conta também as
+                    // saídas e entradas da gaveta (PosShift::dinheiroEsperado).
+                    $esperado = $turno->dinheiroEsperado();
                     $turno->forceFill([
                         'status' => $estado,
-                        'expected_cash' => (float) $turno->opening_balance + (float) $turno->cash_sales,
-                        'cash_difference' => (float) $turno->actual_cash
-                            - ((float) $turno->opening_balance + (float) $turno->cash_sales),
+                        'expected_cash' => $esperado,
+                        'cash_difference' => (float) $turno->actual_cash - $esperado,
                     ])->save();
                 }
             }

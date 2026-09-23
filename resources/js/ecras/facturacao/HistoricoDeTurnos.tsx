@@ -151,6 +151,9 @@ function Detalhe({ id, abaInicial, aoFechar }: { id: number; abaInicial: TipoDeF
                             [t('Operador'), turno.operador ?? '—'], [t('Abertura'), turno.opened_at ?? '—'], [t('Fecho'), turno.closed_at ?? '—'], [t('Fechado por'), turno.fechado_por ?? '—'],
                             [t('Saldo inicial'), `${kz(turno.opening_balance)} Kz`], [t('Dinheiro'), `${kz(turno.cash_sales)} Kz`], [t('Cartão'), `${kz(turno.card_sales)} Kz`], [t('Transferência'), `${kz(turno.bank_transfer_sales)} Kz`],
                             [t('Outros'), `${kz(turno.other_sales)} Kz`],
+                            // A recolha do gerente, a despesa paga da gaveta, o reforço de troco.
+                            [t('Saídas da gaveta'), `${kz(turno.saidas_da_gaveta ?? 0)} Kz`],
+                            [t('Entradas na gaveta'), `${kz(turno.entradas_na_gaveta ?? 0)} Kz`],
                             // BRUTO, DEVOLVIDO, LÍQUIDO — o mesmo vocabulário do
                             // relatório de vendas do POS, que já os distinguia.
                             [t('Vendido'), `${kz(turno.total_sales)} Kz`],

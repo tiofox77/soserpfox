@@ -230,6 +230,8 @@ async function executar(job: Trabalho): Promise<void> {
                     opening_balance: r.shift.opening_balance,
                     cash_sales: r.shift.cash_sales,
                     total_sales: r.shift.total_sales,
+                    saidas_da_gaveta: r.shift.saidas_da_gaveta,
+                    entradas_na_gaveta: r.shift.entradas_na_gaveta,
                 } });
                 anunciar('pwa:shift-synced', { action: 'open', shift: r.shift });
             }

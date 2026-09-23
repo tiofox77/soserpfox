@@ -439,6 +439,10 @@ class SyncController extends Controller
                     'opening_balance' => (float) $openShift->opening_balance,
                     'cash_sales' => (float) $openShift->cash_sales,
                     'total_sales' => (float) $openShift->total_sales,
+                    // O que a tesouraria tirou ou pôs na gaveta durante o turno
+                    // (recolhas, despesas, troco): entra no esperado do fecho.
+                    'saidas_da_gaveta' => ($gaveta = $openShift->movimentosDaGaveta())['saidas'],
+                    'entradas_na_gaveta' => $gaveta['entradas'],
                 ];
             }
         } catch (\Throwable $e) {
