@@ -20,14 +20,25 @@ class VerDocumentosEmitidos extends Command
                             {--tenant= : id da empresa}
                             {--limite=10 : quantos mostrar}
                             {--numero= : fim do número, separados por vírgula (FR4226S61319N/003254,FR4226S61319N/003253): mostra cada factura por inteiro}
-                            {--janela=10 : minutos à volta, para as vendas vizinhas e os movimentos dos artigos}';
+                            {--janela=10 : minutos à volta, para as vendas vizinhas e os movimentos dos artigos}
+                            {--auditar : auditoria das vendas e do stock de --tenant entre --de e --ate}
+                            {--de= : primeiro dia (AAAA-MM-DD)}
+                            {--ate= : último dia (AAAA-MM-DD)}';
 
-    protected $description = 'Mostra os últimos documentos emitidos e o imposto de cada um; com --numero, a vida inteira de uma factura (só leitura)';
+    protected $description = 'Mostra os últimos documentos emitidos e o imposto de cada um; com --numero, a vida inteira de uma factura; com --auditar, as vendas e o stock de um período (só leitura)';
 
     public function handle(): int
     {
         if (filled($this->option('numero'))) {
             return $this->porNumero();
+        }
+
+        if ($this->option('auditar')) {
+            return (new \App\Services\Invoicing\AuditoriaDasVendas(
+                (int) $this->option('tenant'),
+                (string) ($this->option('de') ?: now()->toDateString()),
+                (string) ($this->option('ate') ?: now()->toDateString()),
+            ))->relatar($this);
         }
 
         $empresa = Tenant::find($this->option('tenant'));
