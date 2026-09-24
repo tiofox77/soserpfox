@@ -60,4 +60,27 @@ class AuditoriaDasVendasTest extends TenantTestCase
         $this->assertStringContainsString('esperava 10, leu 11', $saida);
         $this->assertStringContainsString('ponto(s) a ver', $saida);
     }
+
+    public function test_os_turnos_refeitos_e_so_o_operador_pedido(): void
+    {
+        $hoje = now()->toDateString();
+        $turno = \App\Models\Invoicing\PosShift::createSafely([
+            'tenant_id' => $this->tenant->id, 'user_id' => $this->user->id,
+            'status' => 'open', 'opened_at' => now(), 'opening_balance' => 1000,
+        ], $this->tenant->id);
+        $turno->addTransaction(['type' => 'invoice', 'payment_method' => 'cash', 'amount' => 2000, 'description' => 'Venda']);
+        // Fechou com 500 a menos na gaveta: esperava 3000, contou 2500.
+        $turno->fresh()->close(2500, null, 'Troco mal dado');
+
+        Artisan::call('documentos:ver', ['--auditar' => true, '--tenant' => $this->tenant->id, '--de' => $hoje, '--ate' => $hoje, '--operador' => $this->user->id]);
+        $saida = Artisan::output();
+
+        $this->assertStringContainsString('Só o operador #' . $this->user->id, $saida);
+        $this->assertStringContainsString('numerário esperado na gaveta 3 000,00 · contado 2 500,00', $saida);
+        $this->assertStringContainsString('falta de caixa no fecho: 500,00 Kz — motivo: Troco mal dado', $saida);
+
+        // Outro operador não vê este turno.
+        Artisan::call('documentos:ver', ['--auditar' => true, '--tenant' => $this->tenant->id, '--de' => $hoje, '--ate' => $hoje, '--operador' => 999999]);
+        $this->assertStringContainsString('(nenhum turno no período)', Artisan::output());
+    }
 }

@@ -23,7 +23,8 @@ class VerDocumentosEmitidos extends Command
                             {--janela=10 : minutos à volta, para as vendas vizinhas e os movimentos dos artigos}
                             {--auditar : auditoria das vendas e do stock de --tenant entre --de e --ate}
                             {--de= : primeiro dia (AAAA-MM-DD)}
-                            {--ate= : último dia (AAAA-MM-DD)}';
+                            {--ate= : último dia (AAAA-MM-DD)}
+                            {--operador= : com --auditar, só as vendas e os turnos deste utilizador (id)}';
 
     protected $description = 'Mostra os últimos documentos emitidos e o imposto de cada um; com --numero, a vida inteira de uma factura; com --auditar, as vendas e o stock de um período (só leitura)';
 
@@ -38,6 +39,7 @@ class VerDocumentosEmitidos extends Command
                 (int) $this->option('tenant'),
                 (string) ($this->option('de') ?: now()->toDateString()),
                 (string) ($this->option('ate') ?: now()->toDateString()),
+                $this->option('operador') ? (int) $this->option('operador') : null,
             ))->relatar($this);
         }
 

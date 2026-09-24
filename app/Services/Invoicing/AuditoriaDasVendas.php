@@ -36,7 +36,7 @@ final class AuditoriaDasVendas
 
     private string $ate;
 
-    public function __construct(private int $tenantId, string $de, string $ate)
+    public function __construct(private int $tenantId, string $de, string $ate, private ?int $operador = null)
     {
         $this->de = $de . ' 00:00:00';
         $this->ate = $ate . ' 23:59:59';
@@ -55,11 +55,15 @@ final class AuditoriaDasVendas
 
         $saida->newLine();
         $saida->info(" AUDITORIA #{$this->tenantId} {$empresa} — de {$this->de} a {$this->ate}");
+        if ($this->operador) {
+            $saida->info(' Só o operador #' . $this->operador . ' ' . (DB::table('users')->where('id', $this->operador)->value('name') ?? '?') . ' (o stock e as notas de crédito são da empresa toda).');
+        }
 
         $facturas = DB::table('invoicing_sales_invoices')
             ->where('tenant_id', $this->tenantId)
             ->whereNull('deleted_at')
             ->whereBetween('created_at', [$this->de, $this->ate])
+            ->when($this->operador, fn ($q) => $q->where('created_by', $this->operador))
             ->orderBy('id')
             ->get();
 
@@ -67,6 +71,7 @@ final class AuditoriaDasVendas
         $problemas += $this->resumo($facturas);
         $problemas += $this->repetidas($facturas);
         $problemas += $this->dinheiro($facturas);
+        $problemas += $this->turnos();
         $problemas += $this->agt($facturas);
         $problemas += $this->cadeia($facturas);
         $problemas += $this->numeracao($facturas);
@@ -173,6 +178,85 @@ final class AuditoriaDasVendas
 
         if ($problemas === 0) {
             $this->linha('   ✓ pagas pelo total, no turno e na tesouraria');
+        }
+
+        return $problemas;
+    }
+
+    /**
+     * OS TURNOS, REFEITOS A PARTIR DOS MOVIMENTOS.
+     *
+     * O que o turno guardou (vendido, numerário, esperado) comparado com o que
+     * os movimentos dele dão hoje — a mesma conta do `recalculateTotals` e do
+     * `dinheiroEsperado`. E o fecho: o contado contra o esperado.
+     */
+    private function turnos(): int
+    {
+        $this->titulo('TURNOS (abertos ou fechados no período)');
+
+        $turnos = DB::table('invoicing_pos_shifts')->where('tenant_id', $this->tenantId)->whereNull('deleted_at')
+            ->when($this->operador, fn ($q) => $q->where('user_id', $this->operador))
+            ->where(fn ($q) => $q->whereBetween('opened_at', [$this->de, $this->ate])
+                ->orWhereBetween('closed_at', [$this->de, $this->ate])
+                ->orWhere(fn ($q) => $q->where('opened_at', '<', $this->de)->where('status', 'open')))
+            ->orderBy('opened_at')->get();
+
+        if ($turnos->isEmpty()) {
+            $this->linha('   (nenhum turno no período)');
+
+            return 0;
+        }
+
+        $nomes = DB::table('users')->whereIn('id', $turnos->pluck('user_id')->unique())->pluck('name', 'id');
+        $movimentos = DB::table('invoicing_pos_shift_transactions')->whereIn('shift_id', $turnos->pluck('id'))
+            ->get(['shift_id', 'type', 'payment_method', 'amount'])->groupBy('shift_id');
+
+        $numerario = fn ($m) => (bool) preg_match('/cash|dinheiro|numerar|especie|espécie/i', (string) $m);
+        $problemas = 0;
+
+        foreach ($turnos as $t) {
+            $mov = $movimentos->get($t->id, collect());
+            $gaveta = $mov->whereIn('type', ['withdrawal', 'deposit']);
+            $vendas = $mov->whereNotIn('type', ['withdrawal', 'deposit']);
+
+            $vendido = (float) $vendas->where('type', '!=', 'credit_note')->sum('amount');
+            $devolvido = abs((float) $vendas->where('type', 'credit_note')->sum('amount'));
+            $emNumerario = (float) $vendas->filter(fn ($m) => $numerario($m->payment_method))->sum('amount');
+            $saidas = abs((float) $gaveta->where('type', 'withdrawal')->sum('amount'));
+            $entradas = (float) $gaveta->where('type', 'deposit')->sum('amount');
+            $esperado = round((float) $t->opening_balance + $emNumerario + $entradas - $saidas, 2);
+
+            $porForma = $vendas->groupBy(fn ($m) => strtolower((string) $m->payment_method) ?: '?')
+                ->map(fn ($l, $forma) => $forma . ' ' . $this->kz($l->sum('amount')))->implode(' · ');
+
+            $this->linha(sprintf('   %s · %s · %s · aberto %s%s', $t->shift_number, mb_strimwidth((string) ($nomes[$t->user_id] ?? '#' . $t->user_id), 0, 20), $t->status,
+                substr((string) $t->opened_at, 5, 11), $t->closed_at ? ' · fechado ' . substr((string) $t->closed_at, 5, 11) : ''));
+            $this->linha(sprintf('      fundo %s · vendido %s (%d vendas) · devolvido %s · %s', $this->kz($t->opening_balance), $this->kz($vendido),
+                $vendas->where('type', 'invoice')->count(), $this->kz($devolvido), $porForma ?: 'sem movimentos'));
+            if ($saidas > 0 || $entradas > 0) {
+                $this->linha(sprintf('      gaveta: saídas %s · entradas %s', $this->kz($saidas), $this->kz($entradas)));
+            }
+            $this->linha(sprintf('      numerário esperado na gaveta %s', $this->kz($esperado))
+                . ($t->status === 'closed' ? sprintf(' · contado %s · diferença %s', $this->kz($t->actual_cash), $this->kz($t->cash_difference)) : ''));
+
+            if (abs((float) $t->total_sales - $vendido) > 0.01 || abs((float) $t->cash_sales - $emNumerario) > 0.01) {
+                $this->saida->warn(sprintf('      ⚠ o turno guardou vendido %s / numerário %s, e os movimentos dão %s / %s',
+                    $this->kz($t->total_sales), $this->kz($t->cash_sales), $this->kz($vendido), $this->kz($emNumerario)));
+                $problemas++;
+            }
+            if ($t->status === 'closed' && $t->expected_cash !== null && abs((float) $t->expected_cash - $esperado) > 0.01) {
+                $this->saida->warn(sprintf('      ⚠ no fecho esperava-se %s; os movimentos de hoje dão %s', $this->kz($t->expected_cash), $this->kz($esperado)));
+                $problemas++;
+            }
+            if ($t->status === 'closed' && abs((float) $t->cash_difference) > 0.01) {
+                $this->saida->warn(sprintf('      ⚠ %s de caixa no fecho: %s Kz%s', (float) $t->cash_difference < 0 ? 'falta' : 'sobra',
+                    $this->kz(abs((float) $t->cash_difference)), $t->difference_reason ? ' — motivo: ' . mb_strimwidth((string) $t->difference_reason, 0, 80, '…') : ''));
+                $problemas++;
+            }
+            if ($t->status === 'open' && strtotime((string) $t->opened_at) < time() - 86400) {
+                $this->saida->warn('      ⚠ aberto há mais de 24 horas');
+                $problemas++;
+            }
         }
 
         return $problemas;
