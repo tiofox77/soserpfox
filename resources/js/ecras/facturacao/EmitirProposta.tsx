@@ -139,6 +139,8 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
         if (!opcoes.data || id !== undefined || duplicarDe !== undefined) return;
         porArmazemId(opcoes.data.armazem_padrao ? String(opcoes.data.armazem_padrao) : '');
         porModeloId(opcoes.data.modelo_padrao ? String(opcoes.data.modelo_padrao) : '');
+        // As condições de pagamento da empresa, escritas: mudam-se aqui só para este documento.
+        porCondicoes(opcoes.data.condicoes_padrao ?? '');
     }, [opcoes.data, id, duplicarDe]);
 
     const [totais, porTotais] = useState<Totais | null>(null);
@@ -294,7 +296,7 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
                             porLinhas([{ ...LINHA_NOVA }]);
                             porParteId('');
                             porNotas('');
-                            porCondicoes('');
+                            porCondicoes(o.condicoes_padrao ?? '');
                             porDescontoComercial('');
                             porDescontoLegado('');
                             porDescontoFinanceiro('');
@@ -726,16 +728,28 @@ export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string;
                     </Campo>
 
                     {/* AS CONDIÇÕES SAEM NO DOCUMENTO — prazos de
-                        pagamento, garantias. Não são notas internas. */}
-                    <Campo etiqueta={t('Termos e Condições')} erro={erros.condicoes}>
+                        pagamento, garantias. Não são notas internas. Nas
+                        vendas nascem com as da empresa e saem no rodapé. */}
+                    <Campo
+                        etiqueta={o.condicoes_padrao !== undefined && o.preco === 'venda' ? t('Condições e políticas de pagamento') : t('Termos e Condições')}
+                        erro={erros.condicoes}
+                        ajuda={o.preco === 'venda' ? t('Saem no rodapé do documento. Vêm das condições da empresa (Definições › Textos por omissão) e podem mudar-se só para este.') : undefined}
+                    >
                         <textarea
-                            rows={3}
+                            rows={o.preco === 'venda' ? 8 : 3}
                             value={condicoes}
                             onChange={(e) => porCondicoes(e.target.value)}
                             placeholder={t('Condições de pagamento, garantias, etc.')}
-                            className={cls(entrada, 'h-auto py-2')}
+                            className={cls(entrada, 'h-auto py-2 leading-relaxed')}
                         />
                     </Campo>
+                    {!soLeitura && o.condicoes_padrao && condicoes !== o.condicoes_padrao && (
+                        <div className="-mt-2 flex justify-end">
+                            <Botao altura="pequeno" icone="fa-rotate-left" onClick={() => porCondicoes(o.condicoes_padrao ?? '')}>
+                                {t('Repor as da empresa')}
+                            </Botao>
+                        </div>
+                    )}
                 </div>
             </Cartao>
             </fieldset>

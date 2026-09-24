@@ -75,6 +75,8 @@ export type OpcoesDoEmissor = {
     imprimir_ao_gravar: boolean;
     /** A descrição da linha abre o editor formatado (proformas de venda e orçamentos). */
     descricao_rica?: boolean;
+    /** As condições de pagamento da empresa: um documento novo nasce com elas (null nas compras). */
+    condicoes_padrao?: string | null;
 };
 
 /** O CONTEÚDO COMERCIAL de uma proposta: o que se aproveita ao duplicar. */

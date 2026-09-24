@@ -13076,5 +13076,10 @@
     "Escolher artigo…": "Choose item…",
     "Na linha": "On this line",
     "Artigo #:id": "Item #:id",
-    "Total s/ IVA": "Total excl. VAT"
+    "Total s/ IVA": "Total excl. VAT",
+    "Condições e políticas de pagamento": "Payment terms and policies",
+    "Saem no rodapé do documento. Vêm das condições da empresa (Definições › Textos por omissão) e podem mudar-se só para este.": "Printed in the document footer. They come from the company terms (Settings › Default texts) and can be changed for this document only.",
+    "Repor as da empresa": "Restore the company's",
+    "Condições de pagamento (proformas e orçamentos)": "Payment terms (pro formas and quotes)",
+    "Saem no rodapé das proformas e dos orçamentos, e vêm escritas em cada documento novo — onde se podem mudar só para esse.": "Printed in the footer of pro formas and quotes, and pre-filled in every new document — where they can be changed for that document only."
 }

@@ -13076,5 +13076,10 @@
     "Escolher artigo…": "Choisir un article…",
     "Na linha": "Sur la ligne",
     "Artigo #:id": "Article n° :id",
-    "Total s/ IVA": "Total HT"
+    "Total s/ IVA": "Total HT",
+    "Condições e políticas de pagamento": "Conditions et politiques de paiement",
+    "Saem no rodapé do documento. Vêm das condições da empresa (Definições › Textos por omissão) e podem mudar-se só para este.": "Imprimées en pied de page du document. Elles viennent des conditions de l'entreprise (Paramètres › Textes par défaut) et peuvent être modifiées pour ce document seulement.",
+    "Repor as da empresa": "Rétablir celles de l'entreprise",
+    "Condições de pagamento (proformas e orçamentos)": "Conditions de paiement (pro forma et devis)",
+    "Saem no rodapé das proformas e dos orçamentos, e vêm escritas em cada documento novo — onde se podem mudar só para esse.": "Imprimées en pied de page des pro forma et des devis, et pré-remplies dans chaque nouveau document — où elles peuvent être modifiées pour ce document seulement."
 }

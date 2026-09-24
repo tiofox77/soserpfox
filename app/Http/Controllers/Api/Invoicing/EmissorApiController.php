@@ -171,6 +171,13 @@ class EmissorApiController extends Controller
             // A descrição da linha abre o editor formatado (proformas de venda e orçamentos).
             'descricao_rica' => ! empty($editor['descricao_rica']),
 
+            // As condições da empresa (Definições › Textos por omissão): nascem em
+            // cada proforma e orçamento novo e mudam-se no documento. Nas compras
+            // não, que as condições são as do fornecedor.
+            'condicoes_padrao' => $editor['parte_id'] === 'client_id'
+                ? (trim((string) \App\Models\Invoicing\InvoicingSettings::forTenant(activeTenantId())->default_terms) ?: null)
+                : null,
+
             /*
              * «IMPRIMIR AUTOMATICAMENTE AO GRAVAR», das definições da empresa.
              *
@@ -335,7 +342,7 @@ class EmissorApiController extends Controller
             'data' => ['required', 'date'],
             'valido_ate' => ['nullable', 'date', 'after_or_equal:data'],
             'notas' => ['nullable', 'string', 'max:2000'],
-            'condicoes' => ['nullable', 'string', 'max:2000'],
+            'condicoes' => ['nullable', 'string', 'max:10000'],
             'is_service' => ['nullable', 'boolean'],
             'quote_template_id' => ['nullable', 'integer'],
             'campos_proposta' => ['nullable', 'array'],

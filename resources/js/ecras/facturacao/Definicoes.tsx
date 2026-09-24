@@ -366,8 +366,14 @@ export default function Definicoes() {
                             <Campo etiqueta={t('Observações')} erro={erros.default_notes}>
                                 <textarea rows={2} value={forma.default_notes ?? ''} onChange={texto('default_notes')} className={cls(entrada, 'h-auto py-2')} />
                             </Campo>
-                            <Campo etiqueta={t('Condições')} erro={erros.default_terms}>
-                                <textarea rows={2} value={forma.default_terms ?? ''} onChange={texto('default_terms')} className={cls(entrada, 'h-auto py-2')} />
+                            {/* Não era usado em lado nenhum até 24/09/2026: agora nasce em cada
+                                proforma e orçamento novo e sai no rodapé deles. */}
+                            <Campo
+                                etiqueta={t('Condições de pagamento (proformas e orçamentos)')}
+                                erro={erros.default_terms}
+                                ajuda={t('Saem no rodapé das proformas e dos orçamentos, e vêm escritas em cada documento novo — onde se podem mudar só para esse.')}
+                            >
+                                <textarea rows={10} value={forma.default_terms ?? ''} onChange={texto('default_terms')} className={cls(entrada, 'h-auto py-2 leading-relaxed')} />
                             </Campo>
                         </div>
                     </Cartao>

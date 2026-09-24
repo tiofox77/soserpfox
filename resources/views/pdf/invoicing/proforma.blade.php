@@ -798,6 +798,8 @@
                 </div>
             </div>
 
+            @include('pdf.invoicing.partials.condicoes-de-pagamento', ['documento' => $proforma])
+
             <div class="agt-description">
                 Esta proforma foi processada pelo Sistema de Facturação | Regime: {{ method_exists($tenant, "regimeLabel") ? $tenant->regimeLabel() : ($tenant->regime ?? "Regime Geral") }}
             </div>

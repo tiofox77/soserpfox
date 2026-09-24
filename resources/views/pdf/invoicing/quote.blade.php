@@ -519,16 +519,10 @@
                 </tbody>
             </table>
 
-            @if($quote->notes || $quote->terms)
+            @if($quote->notes)
             <div class="notes-block">
-                @if($quote->notes)
-                    <div class="notes-title">Notas</div>
-                    <div>{{ $quote->notes }}</div>
-                @endif
-                @if($quote->terms)
-                    <div class="notes-title" style="margin-top:4px;">Termos e Condições</div>
-                    <div>{{ $quote->terms }}</div>
-                @endif
+                <div class="notes-title">Notas</div>
+                <div>{{ $quote->notes }}</div>
             </div>
             @endif
         </div>
@@ -626,6 +620,8 @@
                     </div>
                 </div>
             </div>
+
+            @include('pdf.invoicing.partials.condicoes-de-pagamento', ['documento' => $quote])
 
             <div class="doc-note">
                 Este orçamento é uma proposta comercial. Não substitui factura e não tem valor fiscal.
