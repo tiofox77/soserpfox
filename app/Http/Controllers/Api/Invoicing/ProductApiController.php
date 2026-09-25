@@ -304,12 +304,41 @@ class ProductApiController extends Controller
 
         $dados = $this->validar($request);
 
-        // Só na criação. Ver a nota no topo da classe.
-        $dados['stock_quantity'] = $request->input('type') === 'servico'
-            ? 0
-            : (float) $request->input('stock_quantity', 0);
+        /*
+         * A QUANTIDADE INICIAL ENTRA NO ARMAZÉM PADRÃO, COM MOVIMENTO.
+         *
+         * Gravava-se só no agregado (`stock_quantity`), sem linha em armazém
+         * nem movimento. O POS e as vendas lêem o stock por armazém: para eles
+         * o artigo estava a zero, e com «esconder sem stock» sumia do balcão
+         * (Tecstore, 25/09/2026: 8 telemóveis; 13 artigos em 5 empresas).
+         *
+         * Agora o total nasce a zero e a entrada «Stock inicial» cria a linha
+         * do armazém padrão — é ela que enche o total (StockObserver), como em
+         * toda a casa. Só na criação; ver a nota no topo da classe.
+         */
+        $inicial = $request->input('type') === 'servico' ? 0.0 : max(0.0, (float) $request->input('stock_quantity', 0));
+        $dados['stock_quantity'] = 0;
 
-        $artigo = Product::create($dados + ['tenant_id' => activeTenantId()]);
+        $artigo = \Illuminate\Support\Facades\DB::transaction(function () use ($dados, $inicial, $request) {
+            $artigo = Product::create($dados + ['tenant_id' => activeTenantId()]);
+
+            if ($inicial > 0) {
+                \App\Models\Invoicing\StockMovement::create([
+                    'tenant_id' => activeTenantId(),
+                    'warehouse_id' => defaultWarehouseId() ?? getOrCreateDefaultWarehouse()->id,
+                    'product_id' => $artigo->id,
+                    'type' => \App\Models\Invoicing\StockMovement::TYPE_IN,
+                    'quantity' => $inicial,
+                    'unit_cost' => $artigo->cost,
+                    'reference_type' => Product::class,
+                    'reference_id' => $artigo->id,
+                    'user_id' => $request->user()?->id,
+                    'notes' => 'Stock inicial do artigo',
+                ]);
+            }
+
+            return $artigo->fresh();
+        });
 
         return (new ProductResource($artigo->load(['category', 'taxRate'])))
             ->response()

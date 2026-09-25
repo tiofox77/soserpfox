@@ -185,6 +185,28 @@ class ApiDosProdutosParaReactTest extends TenantTestCase
             ->json('data.id');
 
         $this->assertSame(7.0, (float) Product::find($id)->stock_quantity);
+
+        /*
+         * E ENTRA NO ARMAZÉM PADRÃO, com movimento: só no total, o POS e as
+         * vendas (que lêem por armazém) viam-no a zero — Tecstore, 25/09/2026.
+         */
+        $armazem = defaultWarehouseId();
+        $this->assertEqualsWithDelta(7, (float) \App\Models\Invoicing\Stock::where('product_id', $id)->where('warehouse_id', $armazem)->value('quantity'), 0.001);
+        $entrada = \App\Models\Invoicing\StockMovement::where('product_id', $id)->first();
+        $this->assertSame('in', $entrada->type);
+        $this->assertEqualsWithDelta(7, (float) $entrada->quantity, 0.001);
+        $this->assertSame('Stock inicial do artigo', $entrada->notes);
+    }
+
+    /** Sem quantidade inicial não há entrada nenhuma. @test */
+    public function sem_quantidade_inicial_nao_ha_entrada(): void
+    {
+        $this->comPermissoes('invoicing.products.create');
+
+        $id = $this->postJson(self::RAIZ, $this->corpo(['stock_quantity' => 0]))->assertCreated()->json('data.id');
+
+        $this->assertSame(0, \App\Models\Invoicing\StockMovement::where('product_id', $id)->count());
+        $this->assertSame(0, \App\Models\Invoicing\Stock::where('product_id', $id)->count());
     }
 
     /**
