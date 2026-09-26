@@ -49,6 +49,7 @@ class DefinicoesDaFacturacao
         'pos_auto_print', 'pos_play_sounds', 'pos_validate_stock', 'pos_allow_negative_stock',
         'pos_hide_out_of_stock', 'pos_show_product_images', 'pos_products_per_page',
         'pos_auto_complete_sale', 'pos_require_customer', 'pos_default_payment_method_id',
+        'turno_inclui_documentos',
         'profile_pharmacy', 'profile_clothing', 'profile_cosmetics', 'profile_grocery',
     ];
 
@@ -59,6 +60,7 @@ class DefinicoesDaFacturacao
         'auto_print_after_save', 'show_company_logo',
         'pos_auto_print', 'pos_play_sounds', 'pos_validate_stock', 'pos_allow_negative_stock',
         'pos_hide_out_of_stock', 'pos_show_product_images', 'pos_auto_complete_sale', 'pos_require_customer',
+        'turno_inclui_documentos',
         'profile_pharmacy', 'profile_clothing', 'profile_cosmetics', 'profile_grocery',
     ];
 
@@ -164,6 +166,7 @@ class DefinicoesDaFacturacao
             'number_format' => 'nullable|string|max:20',
             'decimal_places' => 'nullable|integer|min:0|max:4',
             'price_mask_enabled' => 'boolean',
+            'turno_inclui_documentos' => 'boolean',
             // Dois valores e mais nenhum: isto decide o que sai na
             // impressora de quem está ao balcão.
             'pos_formato_impressao' => 'nullable|in:a4,talao',

@@ -12,6 +12,7 @@ use App\Models\Product;
 use App\Models\Treasury\PaymentMethod;
 use App\Observers\SalesInvoiceObserver;
 use App\Services\AGT\AutoSubmissao;
+use App\Services\POS\DocumentosNoTurno;
 use App\Services\Treasury\TreasuryMovementService;
 use DomainException;
 use Illuminate\Support\Collection;
@@ -174,6 +175,17 @@ class EmissorDeFacturas
                         'invoice' => $factura->invoice_number,
                         'error' => $e->getMessage(),
                     ]);
+                }
+            }
+
+            // No FECHO DE TURNO de quem a emitiu, se a empresa o quiser: a FR
+            // conta pela forma de pagamento, a FT sai como a prazo. Ver
+            // DocumentosNoTurno (26/09/2026).
+            if ($status !== 'draft') {
+                if ($factura->invoice_type === 'FR') {
+                    DocumentosNoTurno::facturaRecibo($factura, (string) (($dados['payment_method'] ?? null) ?: 'cash'), auth()->id());
+                } else {
+                    DocumentosNoTurno::aPrazo($factura, 'FT', (string) $factura->invoice_number, (float) $factura->total, auth()->id());
                 }
             }
 

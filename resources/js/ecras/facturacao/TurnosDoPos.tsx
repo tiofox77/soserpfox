@@ -121,6 +121,10 @@ export default function TurnosDoPos() {
                             ? [[t('Devolvido'), kz(turno.credit_notes_amount), 'fa-rotate-left', 'ambar']] as Array<[string, string, string, TomDoCartao]>
                             : []),
                         [t('Documentos'), t(':facturas facturas · :recibos recibos', { facturas: turno.total_invoices, recibos: turno.total_receipts }), 'fa-file-invoice', 'azul'],
+                        // Os documentos a prazo dos Documentos: no fecho, fora da gaveta.
+                        ...(turno.a_prazo?.quantos
+                            ? [[t('A prazo (fora da gaveta)'), kz(turno.a_prazo.valor), 'fa-hourglass-half', 'cinza']] as Array<[string, string, string, TomDoCartao]>
+                            : []),
                         [t('Esperado em caixa'), kz(turno.expected_cash), 'fa-vault', 'ambar'],
                     ] as Array<[string, string, string, TomDoCartao]>).map(([r, v, icone, tom], i) => (
                         <div key={r} className="entra" style={cascata(i)}>
@@ -208,6 +212,7 @@ function TurnoFechado({ turno, tipo, reimpressao = false, aoFechar }: { turno: T
                         [t('Transferência'), turno.bank_transfer_sales], [t('Outros'), turno.other_sales],
                         ...(turno.credit_notes_amount > 0 ? [[t('Devolvido'), -turno.credit_notes_amount]] as Array<[string, number]> : []),
                         [t('Total de vendas'), turno.net_sales],
+                        ...(turno.a_prazo?.quantos ? [[t('A prazo (fora da gaveta)'), turno.a_prazo.valor]] as Array<[string, number]> : []),
                     ] as Array<[string, number]>).map(([r, v]) => (
                         <p key={r} className="flex justify-between gap-3 border-b border-dashed border-slate-200 py-1"><span className="text-slate-600">{r}</span><strong>{kz(v)}</strong></p>
                     ))}

@@ -141,7 +141,13 @@ class PdfDoEcraTest extends TenantTestCase
     {
         $s = file_get_contents(resource_path('js/ecras/facturacao/ListaDeDocumentos.tsx'));
 
-        $ficha = $this->pedaco($s, 'function FichaDoDocumento(', 'function Soma(');
+        // A ficha vive no seu próprio ficheiro desde 26/09/2026: a lista de
+        // facturas de venda também a abre.
+        $ficha = $this->pedaco(
+            file_get_contents(resource_path('js/ecras/facturacao/FichaDoDocumento.tsx')),
+            'export function FichaDoDocumento(',
+            'export function Soma('
+        );
         // O PDF do SERVIDOR (DomPDF) saiu das listas a pedido do utilizador (2026-09-14): saía torto.
         $this->assertStringNotContainsString('${rota}/${documento.id}/pdf', $ficha, 'o PDF do servidor saiu da ficha');
         $this->assertStringContainsString('<PdfDoEcra', $ficha, 'a ficha tem de levar o PDF do ecrã');

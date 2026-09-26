@@ -53,8 +53,11 @@ class EmissorDeAdiantamentos
      * @param  array{account_id?: ?int, cash_register_id?: ?int}  $destino  para onde vai o dinheiro,
      *         quando quem chama já o escolheu (o excedente de um pagamento vai para a
      *         mesma gaveta do recibo). Vazio: a regra de sempre (a caixa do operador).
+     * @param  bool  $noTurno  se entra no turno aberto de quem o regista. O ecrã dos
+     *         Adiantamentos segue a opção «Documentos no fecho de turno»
+     *         (DocumentosNoTurno); o excedente de um pagamento vai sempre, com o recibo.
      */
-    public function criar(array $d, int $tenantId, ?int $autorId, array $destino = []): Advance
+    public function criar(array $d, int $tenantId, ?int $autorId, array $destino = [], bool $noTurno = true): Advance
     {
         $adiantamento = Advance::create([
             'tenant_id' => $tenantId,
@@ -69,7 +72,7 @@ class EmissorDeAdiantamentos
             'created_by' => $autorId,
         ]);
 
-        $this->lancarNaTesouraria($adiantamento, $autorId, destino: $destino);
+        $this->lancarNaTesouraria($adiantamento, $autorId, $noTurno, $destino);
 
         return $adiantamento;
     }

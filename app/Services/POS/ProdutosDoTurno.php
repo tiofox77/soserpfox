@@ -3,6 +3,7 @@
 namespace App\Services\POS;
 
 use App\Models\Invoicing\CreditNote;
+use App\Models\Invoicing\DebitNote;
 use App\Models\Invoicing\PosShift;
 use App\Models\Invoicing\SalesInvoice;
 use Illuminate\Support\Collection;
@@ -20,6 +21,12 @@ use Illuminate\Support\Collection;
  * anuladas ficam na lista dos documentos mas não contam para os artigos. O
  * desconto dado ao documento inteiro fica numa linha à parte — é o que faz a
  * soma dos artigos bater com o total das facturas.
+ *
+ * OS DOCUMENTOS DO ECRÃ «DOCUMENTOS» (26/09/2026), quando a empresa os quer no
+ * fecho (App\Services\POS\DocumentosNoTurno): a FR A4 entra como qualquer
+ * venda; a FT, a ND e a NC sem devolução entram como A PRAZO — na lista e nos
+ * artigos, com o total à parte em `totais.a_prazo`, porque não passaram pela
+ * gaveta.
  */
 class ProdutosDoTurno
 {
@@ -28,20 +35,29 @@ class ProdutosDoTurno
     /**
      * @return array{
      *   produtos: list<array{chave:string, nome:string, codigo:?string, quantidade:float, devolvida:float, liquida:float, preco_medio:float, total:float, devolvido:float, liquido:float, documentos:int, peso:float}>,
-     *   totais: array{artigos:int, quantidade:float, bruto:float, descontos:float, devolvido:float, liquido:float, imposto:float, facturas:int, anuladas:int, notas:int, ticket_medio:float},
-     *   documentos: list<array{tipo:string, numero:string, hora:?string, cliente:?string, meio:string, artigos:int, total:float, anulada:bool}>,
+     *   totais: array{artigos:int, quantidade:float, bruto:float, descontos:float, devolvido:float, liquido:float, imposto:float, facturas:int, anuladas:int, notas:int, ticket_medio:float, a_prazo:float, documentos_a_prazo:int, debitos:int},
+     *   documentos: list<array{tipo:string, numero:string, hora:?string, cliente:?string, meio:string, artigos:int, total:float, anulada:bool, a_prazo:bool}>,
      * }
      */
     public static function de(PosShift $turno): array
     {
         $movimentos = $turno->relationLoaded('transactions') ? $turno->transactions : $turno->transactions()->get();
 
-        $idsFacturas = $movimentos->where('type', 'invoice')->where('reference_type', SalesInvoice::class)->pluck('reference_id')->filter()->unique()->values();
-        $idsNotas = $movimentos->where('type', 'credit_note')->pluck('reference_id')->filter()->unique()->values();
+        $aPrazo = $movimentos->where('type', 'a_prazo');
+        $ids = fn (Collection $ms, string $classe) => $ms->where('reference_type', $classe)->pluck('reference_id')->filter()->unique()->values();
+
+        $idsFacturas = $ids($movimentos->where('type', 'invoice'), SalesInvoice::class)->merge($ids($aPrazo, SalesInvoice::class))->unique()->values();
+        $idsNotas = $movimentos->where('type', 'credit_note')->pluck('reference_id')->filter()->merge($ids($aPrazo, CreditNote::class))->unique()->values();
+        $idsDebito = $ids($aPrazo, DebitNote::class);
+
+        // Quais entraram A PRAZO, por documento: não passaram pela gaveta.
+        $saoAPrazo = $aPrazo->map(fn ($m) => class_basename((string) $m->reference_type) . ':' . $m->reference_id)->flip();
 
         // O meio de cada documento sai dos movimentos DESTE turno: numa venda
-        // dividida são dois, e a factura só diz «multiple».
-        $meios = $movimentos->groupBy(fn ($m) => $m->type . ':' . $m->reference_id)
+        // dividida são dois, e a factura só diz «multiple». A chave é o
+        // DOCUMENTO (classe e id), porque uma factura e uma nota podem ter o
+        // mesmo id.
+        $meios = $movimentos->groupBy(fn ($m) => class_basename((string) $m->reference_type) . ':' . $m->reference_id)
             ->map(fn (Collection $ms) => $ms->map(fn ($m) => $m->payment_method_label)->unique()->implode(' + '));
 
         $facturas = $idsFacturas->isEmpty() ? collect() : SalesInvoice::withoutGlobalScope('tenant')
@@ -53,6 +69,12 @@ class ProdutosDoTurno
         $notas = $idsNotas->isEmpty() ? collect() : CreditNote::withoutGlobalScope('tenant')
             ->where('tenant_id', $turno->tenant_id)
             ->whereIn('id', $idsNotas)
+            ->with(['items.product:id,code,name', 'client:id,name', 'series:id,prefix,series_code,agt_series_id'])
+            ->get();
+
+        $debitos = $idsDebito->isEmpty() ? collect() : DebitNote::withoutGlobalScope('tenant')
+            ->where('tenant_id', $turno->tenant_id)
+            ->whereIn('id', $idsDebito)
             ->with(['items.product:id,code,name', 'client:id,name', 'series:id,prefix,series_code,agt_series_id'])
             ->get();
 
@@ -91,7 +113,10 @@ class ProdutosDoTurno
                     $bruto += (float) $item->total;
                     $imposto += (float) $item->tax_amount;
                 }
-                $descontos += (float) $f->discount_amount;
+                // O desconto que NÃO está nas linhas: no balcão é o desconto
+                // todo; a factura A4 já o reparte pelas linhas, e somar o
+                // `discount_amount` dela contava-o duas vezes.
+                $descontos += max(0.0, (float) $f->discount_amount - (float) $f->items->sum('discount_amount'));
             }
 
             $documentos[] = [
@@ -102,10 +127,11 @@ class ProdutosDoTurno
                 'hora' => optional($f->created_at)->format('H:i'),
                 'quando' => $f->created_at?->toIso8601String(),
                 'cliente' => $f->client?->name,
-                'meio' => $meios->get('invoice:' . $f->id) ?: posPaymentMethodLabel($f->payment_method),
+                'meio' => $meios->get('SalesInvoice:' . $f->id) ?: posPaymentMethodLabel($f->payment_method),
                 'artigos' => $f->items->count(),
                 'total' => round((float) $f->total, 2),
                 'anulada' => $anulada,
+                'a_prazo' => $saoAPrazo->has('SalesInvoice:' . $f->id),
             ];
         }
 
@@ -133,10 +159,44 @@ class ProdutosDoTurno
                 'hora' => optional($n->created_at)->format('H:i'),
                 'quando' => $n->created_at?->toIso8601String(),
                 'cliente' => $n->client?->name,
-                'meio' => $meios->get('credit_note:' . $n->id) ?: '—',
+                'meio' => $meios->get('CreditNote:' . $n->id) ?: '—',
                 'artigos' => $n->items->count(),
                 'total' => -round((float) $n->total, 2),
                 'anulada' => $anulada,
+                'a_prazo' => $saoAPrazo->has('CreditNote:' . $n->id),
+            ];
+        }
+
+        // As notas de débito (sempre a prazo): acrescentam ao que se facturou.
+        $validasDebito = 0;
+
+        foreach ($debitos as $d) {
+            $anulada = in_array($d->status, self::ANULADAS, true);
+
+            if (! $anulada) {
+                $validasDebito++;
+                foreach ($d->items as $item) {
+                    $k = $linha($item, null);
+                    $produtos[$k]['quantidade'] += (float) $item->quantity;
+                    $produtos[$k]['total'] += (float) $item->total;
+                    $produtos[$k]['documentos']['nd' . $d->id] = true;
+                    $bruto += (float) $item->total;
+                    $imposto += (float) $item->tax_amount;
+                }
+            }
+
+            $documentos[] = [
+                'tipo' => 'debito',
+                'numero' => $d->numeroInterno(),
+                'numero_agt' => $d->numeroInterno() !== (string) $d->debit_note_number ? (string) $d->debit_note_number : null,
+                'hora' => optional($d->created_at)->format('H:i'),
+                'quando' => $d->created_at?->toIso8601String(),
+                'cliente' => $d->client?->name,
+                'meio' => $meios->get('DebitNote:' . $d->id) ?: __('A prazo'),
+                'artigos' => $d->items->count(),
+                'total' => round((float) $d->total, 2),
+                'anulada' => $anulada,
+                'a_prazo' => true,
             ];
         }
 
@@ -179,6 +239,11 @@ class ProdutosDoTurno
                 'anuladas' => $anuladas,
                 'notas' => $validasNotas,
                 'ticket_medio' => $validas > 0 ? round(($bruto - $descontos) / $validas, 2) : 0.0,
+                // O que se emitiu a prazo pelos Documentos: está no líquido,
+                // mas não na gaveta.
+                'a_prazo' => round((float) $aPrazo->sum('amount'), 2),
+                'documentos_a_prazo' => $aPrazo->count(),
+                'debitos' => $validasDebito,
             ],
             'documentos' => array_map(fn ($d) => array_diff_key($d, ['quando' => true]), $documentos),
         ];

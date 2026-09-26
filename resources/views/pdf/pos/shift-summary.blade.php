@@ -91,6 +91,15 @@
                 <td>TOTAL</td>
                 <td class="text-right">{{ number_format($shift->net_sales, 2) }}</td>
             </tr>
+            {{-- OS DOCUMENTOS A PRAZO emitidos pelos Documentos (FT, ND, NC sem
+                 devolução): saem no fecho, mas não passaram pela gaveta e não
+                 entram no TOTAL acima. Ver App\Services\POS\DocumentosNoTurno. --}}
+            @php
+                $aPrazo = $shift->documentosAPrazo();
+            @endphp
+            @if($aPrazo['quantos'] > 0)
+            <tr><td>A prazo pelos Documentos ({{ $aPrazo['quantos'] }} doc.) — fora da gaveta</td><td class="text-right">{{ number_format($aPrazo['valor'], 2) }}</td></tr>
+            @endif
         </tbody>
     </table>
 

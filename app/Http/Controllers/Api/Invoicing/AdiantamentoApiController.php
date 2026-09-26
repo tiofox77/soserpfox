@@ -51,7 +51,8 @@ class AdiantamentoApiController extends Controller
         $dados = $request->validate($emissor->regras());
         $this->clienteDaEmpresa($dados['client_id']);
 
-        $a = $emissor->criar($dados, activeTenantId(), $request->user()?->id);
+        $a = $emissor->criar($dados, activeTenantId(), $request->user()?->id,
+            noTurno: \App\Services\POS\DocumentosNoTurno::ligado(activeTenantId()));
 
         return response()->json([
             'data' => $this->um($a),

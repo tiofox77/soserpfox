@@ -412,6 +412,60 @@ export default function Definicoes() {
                             </Campo>
                         </div>
                     </Cartao>
+
+                    {/* OS DOCUMENTOS NO FECHO DE TURNO. As duas maneiras ficam
+                        escritas, e a que está em vigor destaca-se: quem muda
+                        isto tem de saber o que muda na contagem da gaveta. */}
+                    <div className="lg:col-span-2">
+                        <Cartao titulo={t('Fecho de turno')} icone="fa-cash-register">
+                            <Interruptor
+                                etiqueta={t('Os documentos emitidos nos Documentos entram no fecho de turno')}
+                                valor={forma.turno_inclui_documentos}
+                                aoMudar={(v) => mudar('turno_inclui_documentos', v)}
+                            />
+                            <p className="mt-3 text-sm text-slate-600">
+                                {t('Vale para quem tem um turno aberto no POS e emite pelo ecrã dos Documentos: faturas, faturas-recibo A4, notas de crédito, notas de débito e adiantamentos.')}
+                            </p>
+                            <div className="mt-3 grid gap-3 md:grid-cols-2">
+                                <div
+                                    className={cls(
+                                        'border p-3 text-sm transition-colors',
+                                        RAIO,
+                                        forma.turno_inclui_documentos ? 'border-emerald-300 bg-emerald-50 text-emerald-900' : 'border-slate-200 text-slate-500',
+                                    )}
+                                >
+                                    <p className="mb-1 font-semibold">
+                                        <i className="fas fa-toggle-on mr-1.5" aria-hidden="true" />
+                                        {t('Ligado')}
+                                    </p>
+                                    <ul className="list-disc space-y-1 pl-5">
+                                        <li>{t('A fatura-recibo A4 conta como venda, pela forma de pagamento: em dinheiro, entra no esperado da gaveta.')}</li>
+                                        <li>{t('A fatura, a nota de débito e a nota de crédito de uma fatura por pagar saem como «a prazo»: aparecem na lista e nos artigos do fecho, mas não mexem na gaveta.')}</li>
+                                        <li>{t('A nota de crédito que devolve dinheiro baixa a gaveta, e o adiantamento entra nela.')}</li>
+                                    </ul>
+                                </div>
+                                <div
+                                    className={cls(
+                                        'border p-3 text-sm transition-colors',
+                                        RAIO,
+                                        ! forma.turno_inclui_documentos ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-slate-200 text-slate-500',
+                                    )}
+                                >
+                                    <p className="mb-1 font-semibold">
+                                        <i className="fas fa-toggle-off mr-1.5" aria-hidden="true" />
+                                        {t('Desligado')}
+                                    </p>
+                                    <ul className="list-disc space-y-1 pl-5">
+                                        <li>{t('O fecho mostra só o que passou pelo POS.')}</li>
+                                        <li>{t('Estes documentos não aparecem no fecho. O dinheiro que movimentam continua a entrar na tesouraria, mas o esperado da gaveta não conta com ele: conte-o à parte.')}</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <p className="mt-3 text-xs text-slate-500">
+                                {t('Os recibos entram sempre: são o pagamento do que se vendeu a prazo, e a gaveta não bate sem eles.')}
+                            </p>
+                        </Cartao>
+                    </div>
                 </div>
             )}
 

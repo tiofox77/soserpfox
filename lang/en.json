@@ -13081,5 +13081,17 @@
     "Saem no rodapé do documento. Vêm das condições da empresa (Definições › Textos por omissão) e podem mudar-se só para este.": "Printed in the document footer. They come from the company terms (Settings › Default texts) and can be changed for this document only.",
     "Repor as da empresa": "Restore the company's",
     "Condições de pagamento (proformas e orçamentos)": "Payment terms (pro formas and quotes)",
-    "Saem no rodapé das proformas e dos orçamentos, e vêm escritas em cada documento novo — onde se podem mudar só para esse.": "Printed in the footer of pro formas and quotes, and pre-filled in every new document — where they can be changed for that document only."
+    "Saem no rodapé das proformas e dos orçamentos, e vêm escritas em cada documento novo — onde se podem mudar só para esse.": "Printed in the footer of pro formas and quotes, and pre-filled in every new document — where they can be changed for that document only.",
+    "A prazo": "On credit",
+    "A prazo (fora da gaveta)": "On credit (not in the drawer)",
+    "Os documentos emitidos nos Documentos entram no fecho de turno": "Documents issued in Documents are included in the shift close",
+    "Vale para quem tem um turno aberto no POS e emite pelo ecrã dos Documentos: faturas, faturas-recibo A4, notas de crédito, notas de débito e adiantamentos.": "Applies to whoever has an open POS shift and issues from the Documents screen: invoices, A4 invoice-receipts, credit notes, debit notes and advances.",
+    "A fatura-recibo A4 conta como venda, pela forma de pagamento: em dinheiro, entra no esperado da gaveta.": "The A4 invoice-receipt counts as a sale, by payment method: in cash, it goes into the drawer's expected amount.",
+    "A fatura, a nota de débito e a nota de crédito de uma fatura por pagar saem como «a prazo»: aparecem na lista e nos artigos do fecho, mas não mexem na gaveta.": "The invoice, the debit note and the credit note of an unpaid invoice appear as \"on credit\": they show in the close's list and items, but do not touch the drawer.",
+    "A nota de crédito que devolve dinheiro baixa a gaveta, e o adiantamento entra nela.": "A credit note that refunds money lowers the drawer, and an advance goes into it.",
+    "O fecho mostra só o que passou pelo POS.": "The close only shows what went through the POS.",
+    "Estes documentos não aparecem no fecho. O dinheiro que movimentam continua a entrar na tesouraria, mas o esperado da gaveta não conta com ele: conte-o à parte.": "These documents do not appear in the close. Their money still goes into treasury, but the drawer's expected amount does not include it: count it separately.",
+    "Os recibos entram sempre: são o pagamento do que se vendeu a prazo, e a gaveta não bate sem eles.": "Receipts are always included: they are the payment of what was sold on credit, and the drawer does not balance without them.",
+    "Fatura-Recibo :n (Documentos)": "Invoice-Receipt :n (Documents)",
+    ":sigla :n a prazo (Documentos)": ":sigla :n on credit (Documents)"
 }

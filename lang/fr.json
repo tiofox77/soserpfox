@@ -13081,5 +13081,17 @@
     "Saem no rodapé do documento. Vêm das condições da empresa (Definições › Textos por omissão) e podem mudar-se só para este.": "Imprimées en pied de page du document. Elles viennent des conditions de l'entreprise (Paramètres › Textes par défaut) et peuvent être modifiées pour ce document seulement.",
     "Repor as da empresa": "Rétablir celles de l'entreprise",
     "Condições de pagamento (proformas e orçamentos)": "Conditions de paiement (pro forma et devis)",
-    "Saem no rodapé das proformas e dos orçamentos, e vêm escritas em cada documento novo — onde se podem mudar só para esse.": "Imprimées en pied de page des pro forma et des devis, et pré-remplies dans chaque nouveau document — où elles peuvent être modifiées pour ce document seulement."
+    "Saem no rodapé das proformas e dos orçamentos, e vêm escritas em cada documento novo — onde se podem mudar só para esse.": "Imprimées en pied de page des pro forma et des devis, et pré-remplies dans chaque nouveau document — où elles peuvent être modifiées pour ce document seulement.",
+    "A prazo": "À crédit",
+    "A prazo (fora da gaveta)": "À crédit (hors tiroir)",
+    "Os documentos emitidos nos Documentos entram no fecho de turno": "Les documents émis dans Documents sont inclus dans la clôture de caisse",
+    "Vale para quem tem um turno aberto no POS e emite pelo ecrã dos Documentos: faturas, faturas-recibo A4, notas de crédito, notas de débito e adiantamentos.": "S'applique à quiconque a une caisse ouverte au POS et émet depuis l'écran Documents : factures, factures-reçus A4, avoirs, notes de débit et acomptes.",
+    "A fatura-recibo A4 conta como venda, pela forma de pagamento: em dinheiro, entra no esperado da gaveta.": "La facture-reçu A4 compte comme une vente, par mode de paiement : en espèces, elle entre dans le montant attendu du tiroir.",
+    "A fatura, a nota de débito e a nota de crédito de uma fatura por pagar saem como «a prazo»: aparecem na lista e nos artigos do fecho, mas não mexem na gaveta.": "La facture, la note de débit et l'avoir d'une facture impayée apparaissent « à crédit » : ils figurent dans la liste et les articles de la clôture, sans toucher au tiroir.",
+    "A nota de crédito que devolve dinheiro baixa a gaveta, e o adiantamento entra nela.": "L'avoir qui rembourse de l'argent réduit le tiroir, et l'acompte y entre.",
+    "O fecho mostra só o que passou pelo POS.": "La clôture ne montre que ce qui est passé par le POS.",
+    "Estes documentos não aparecem no fecho. O dinheiro que movimentam continua a entrar na tesouraria, mas o esperado da gaveta não conta com ele: conte-o à parte.": "Ces documents n'apparaissent pas dans la clôture. Leur argent entre toujours en trésorerie, mais le montant attendu du tiroir ne le compte pas : comptez-le à part.",
+    "Os recibos entram sempre: são o pagamento do que se vendeu a prazo, e a gaveta não bate sem eles.": "Les reçus sont toujours inclus : ils sont le paiement de ce qui a été vendu à crédit, et le tiroir ne s'équilibre pas sans eux.",
+    "Fatura-Recibo :n (Documentos)": "Facture-Reçu :n (Documents)",
+    ":sigla :n a prazo (Documentos)": ":sigla :n à crédit (Documents)"
 }

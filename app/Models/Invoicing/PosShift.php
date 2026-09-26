@@ -327,7 +327,13 @@ class PosShift extends Model
          * no que se vendeu: ficam fora dos baldes e do total vendido, e contam
          * à parte em `movimentosDaGaveta()`.
          */
-        $transactions = $transactions->whereNotIn('type', self::TIPOS_DA_GAVETA);
+        /*
+         * E OS DOCUMENTOS A PRAZO TAMBÉM NÃO (26/09/2026): a factura por pagar,
+         * a nota de débito e a nota de crédito sem devolução que o operador
+         * emitiu pelos Documentos saem no fecho, mas nenhum passou pela gaveta
+         * nem é dinheiro recebido. Contam à parte em `documentosAPrazo()`.
+         */
+        $transactions = $transactions->whereNotIn('type', [...self::TIPOS_DA_GAVETA, ...self::TIPOS_A_PRAZO]);
 
         $byBucket = $transactions->groupBy(fn($t) => $bucket($t->payment_method));
 
@@ -365,6 +371,21 @@ class PosShift extends Model
 
     /** Os tipos que só mexem na gaveta (ver App\Services\POS\GavetaDoTurno). */
     public const TIPOS_DA_GAVETA = ['withdrawal', 'deposit'];
+
+    /** Os documentos que saem no fecho sem mexer na gaveta (ver App\Services\POS\DocumentosNoTurno). */
+    public const TIPOS_A_PRAZO = ['a_prazo'];
+
+    /**
+     * Os documentos a prazo do turno: quantos e quanto somam (a NC desconta).
+     *
+     * @return array{quantos: int, valor: float}
+     */
+    public function documentosAPrazo(): array
+    {
+        $linhas = $this->transactions()->withoutGlobalScopes()->whereIn('type', self::TIPOS_A_PRAZO)->get(['amount']);
+
+        return ['quantos' => $linhas->count(), 'valor' => round((float) $linhas->sum('amount'), 2)];
+    }
 
     /**
      * O que saiu e entrou na gaveta fora das vendas, os dois em positivo.

@@ -47,6 +47,8 @@ export type Definicoes = {
     pos_auto_complete_sale: boolean;
     pos_require_customer: boolean;
     pos_default_payment_method_id: number | null;
+    /** Os documentos emitidos nos Documentos com o turno aberto saem no fecho (DocumentosNoTurno). */
+    turno_inclui_documentos: boolean;
     pwa_menu: string[];
     default_payment_term_id: number | null;
     profile_pharmacy: boolean;

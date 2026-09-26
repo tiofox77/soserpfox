@@ -14,6 +14,8 @@ export type Turno = {
     total_invoices: number; total_receipts: number; expected_cash: number; actual_cash: number | null; cash_difference: number | null;
     /** O que a tesouraria tirou ou pôs na gaveta durante o turno (recolhas, despesas, troco). Já contado no esperado. */
     saidas_da_gaveta: number; entradas_na_gaveta: number;
+    /** O que o operador emitiu A PRAZO pelos Documentos (FT, ND, NC sem devolução). Fora da gaveta e do total. */
+    a_prazo?: { quantos: number; valor: number };
     closing_notes: string | null; difference_reason: string | null;
     /** O papel resumido e o com produtos (`?detalhe=produtos`). */
     exportar: { pdf: string; talao: string; pdf_produtos: string; talao_produtos: string };

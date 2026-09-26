@@ -159,6 +159,7 @@ function Detalhe({ id, abaInicial, aoFechar }: { id: number; abaInicial: TipoDeF
                             [t('Vendido'), `${kz(turno.total_sales)} Kz`],
                             [t('Devolvido'), `${kz(turno.credit_notes_amount)} Kz`],
                             [t('Líquido'), `${kz(turno.net_sales)} Kz`],
+                            [t('A prazo (fora da gaveta)'), `${kz(turno.a_prazo?.valor ?? 0)} Kz`],
                             [t('Esperado'), `${kz(turno.expected_cash)} Kz`], [t('Contado'), turno.actual_cash === null ? '—' : `${kz(turno.actual_cash)} Kz`],
                             [t('Diferença'), turno.cash_difference === null ? '—' : `${kz(turno.cash_difference)} Kz`], [t('Motivo'), turno.difference_reason ?? '—'], [t('Notas'), turno.closing_notes ?? turno.opening_notes ?? '—'],
                         ].map(([r, v]) => <div key={r}><dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">{r}</dt><dd className="font-medium text-slate-900">{v}</dd></div>)}

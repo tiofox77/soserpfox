@@ -14,6 +14,7 @@ use App\Models\Invoicing\SalesInvoice;
 use App\Models\Product;
 use App\Models\Treasury\Transaction;
 use App\Services\AGT\AutoSubmissao;
+use App\Services\POS\DocumentosNoTurno;
 use DomainException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -302,12 +303,15 @@ class EmissorDeNotas
     {
         try {
             $devolvido = $this->quantoSeDevolve($nota, $tenantId);
+            $numero = $nota->credit_note_number ?: ('#' . $nota->id);
 
+            // Sem dinheiro a devolver (a factura não foi paga), a nota sai no
+            // fecho como documento a prazo — se a empresa o quiser.
             if ($devolvido <= 0) {
+                DocumentosNoTurno::aPrazo($nota, 'NC', $numero, -(float) $nota->total, auth()->id());
+
                 return;
             }
-
-            $numero = $nota->credit_note_number ?: ('#' . $nota->id);
 
             app(LancamentoDeDinheiro::class)->lancar($nota, [
                 'valor' => $devolvido,
@@ -318,7 +322,10 @@ class EmissorDeNotas
                 'invoice_id' => $nota->invoice_id,
                 'referencia' => $numero,
                 'descricao' => __('Devolução :nota', ['nota' => $numero]),
-                'turno' => [
+                // No turno só com a opção «Documentos no fecho de turno»
+                // ligada (DocumentosNoTurno). Desligada, a devolução fica só
+                // na tesouraria.
+                'turno' => ! DocumentosNoTurno::ligado($tenantId) ? null : [
                     'type' => 'credit_note',
                     'reference_number' => $nota->credit_note_number,
                     'metadata' => [
@@ -440,6 +447,10 @@ class EmissorDeNotas
 
             return $nota;
         });
+
+        // A nota de débito não traz dinheiro: sai no fecho como a prazo, se a
+        // empresa o quiser (DocumentosNoTurno).
+        DocumentosNoTurno::aPrazo($nota, 'ND', (string) ($nota->debit_note_number ?: ('#' . $nota->id)), (float) $nota->total, auth()->id());
 
         return ['nota' => $nota, 'fila' => AutoSubmissao::enfileirar($nota)];
     }

@@ -59,6 +59,7 @@ class PosShiftTransaction extends Model
             'bank_transfer' => __('Transferência'),
             'mbway' => __('MB WAY'),
             'multibanco' => __('Multibanco'),
+            'a_prazo' => __('A prazo'),
             default => $this->payment_method,
         };
     }

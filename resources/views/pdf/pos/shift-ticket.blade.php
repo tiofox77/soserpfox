@@ -66,6 +66,14 @@
              negativo. Esta linha é para o operador VER o que devolveu. --}}
         <tr><td>Devolvido ({{ $shift->total_credit_notes }} NC)</td><td class="right">-{{ number_format($shift->credit_notes_amount, 2) }} Kz</td></tr>
         @endif
+        {{-- Os documentos a prazo dos Documentos: no fecho, fora da gaveta. --}}
+        @php
+            $aPrazo = $shift->documentosAPrazo();
+        @endphp
+        @if($aPrazo['quantos'] > 0)
+        <tr><td>A prazo ({{ $aPrazo['quantos'] }} doc.)*</td><td class="right">{{ number_format($aPrazo['valor'], 2) }} Kz</td></tr>
+        <tr><td colspan="2" style="font-size:9px">* Emitidos nos Documentos; não entram na gaveta.</td></tr>
+        @endif
     </table>
     <hr class="dashed">
     <table>

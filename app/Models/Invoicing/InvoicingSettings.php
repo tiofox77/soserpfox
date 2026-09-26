@@ -78,6 +78,7 @@ class InvoicingSettings extends Model
         'pos_auto_complete_sale',
         'pos_require_customer',
         'pos_default_payment_method_id',
+        'turno_inclui_documentos',
         // Que entradas do PWA a empresa quer no aparelho — ver App\Support\MenuDoPwa.
         'pwa_menu',
         // Perfil do negócio
@@ -132,6 +133,7 @@ class InvoicingSettings extends Model
         'pos_products_per_page' => 'integer',
         'pos_auto_complete_sale' => 'boolean',
         'pos_require_customer' => 'boolean',
+        'turno_inclui_documentos' => 'boolean',
         'profile_pharmacy' => 'boolean',
         'profile_clothing' => 'boolean',
         'profile_cosmetics' => 'boolean',
@@ -324,6 +326,7 @@ class InvoicingSettings extends Model
                 'pos_validate_stock' => true,
                 'pos_allow_negative_stock' => false,
                 'pos_hide_out_of_stock' => true,
+                'turno_inclui_documentos' => true,
                 'pos_show_product_images' => true,
                 'pos_products_per_page' => 12,
                 'pos_auto_complete_sale' => false,
