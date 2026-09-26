@@ -32,15 +32,24 @@ class EmailTemplate extends Model
         $bodyText = $this->body_text;
 
         foreach ($data as $key => $value) {
-            $placeholder = '{' . $key . '}';
+            /*
+             * AS DUAS FORMAS DO MARCADOR, a dupla primeiro (26/09/2026).
+             *
+             * Os modelos usam `{chave}`, mas o `new-user` — o das credenciais —
+             * foi escrito com `{{chave}}`. Só se substituía a simples, e o
+             * email saía com a senha e o email entre chavetas: «{Ab12…}», e o
+             * assunto «Bem-vindo ao {SOS ERP}». Tirando primeiro a dupla, a
+             * simples já não encontra o que sobrava dela.
+             */
+            $placeholders = ['{{' . $key . '}}', '{{ ' . $key . ' }}', '{' . $key . '}'];
             $value = is_scalar($value) || $value === null ? (string) $value : '';
-            $subject = str_replace($placeholder, $value, $subject);
+            $subject = str_replace($placeholders, $value, $subject);
             // No HTML, o valor é TEXTO: um nome com «<script>» ou «<a href>» não
             // vira marcação no email. `false` não re-escapa quem já chega
             // escapado (AvisosDeSubscricao faz o seu próprio e()).
-            $bodyHtml = str_replace($placeholder, e($value, false), $bodyHtml);
+            $bodyHtml = str_replace($placeholders, e($value, false), $bodyHtml);
             if ($bodyText) {
-                $bodyText = str_replace($placeholder, $value, $bodyText);
+                $bodyText = str_replace($placeholders, $value, $bodyText);
             }
         }
 

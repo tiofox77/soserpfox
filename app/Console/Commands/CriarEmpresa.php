@@ -4,9 +4,15 @@ namespace App\Console\Commands;
 
 use App\Models\Plan;
 use App\Models\Tenant;
+use App\Models\User;
+use App\Services\Plataforma\AvisosDeConta;
+use App\Services\Plataforma\TrocarDePlano;
+use App\Services\Tenant\TenantModuleSyncService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Spatie\Permission\Models\Role;
 
 /**
  * Uma empresa nova, montada por inteiro.
@@ -20,6 +26,18 @@ use Illuminate\Support\Str;
  *
  * Em produção não há consola, e este comando é a forma de provisionar uma
  * empresa pelo endereço de manutenção. Sem `--aplicar` mostra o que faria.
+ *
+ * A EMPRESA INTEIRA, COM DONO (26/09/2026). Com o plano, liga-o pela regra do
+ * ecrã de planos (TrocarDePlano + módulos do plano). Com `dono_email`, cria a
+ * pessoa que entra, com o papel Super Admin da empresa, e, com
+ * `enviar_acessos`, manda-lhe as credenciais pelo modelo `new-user` — a senha
+ * é gerada aqui, viaja só nesse email e nunca aparece no ecrã.
+ *
+ * OS DADOS PESSOAIS NÃO VÃO NO ENDEREÇO. O endereço de manutenção leva os
+ * argumentos na query string, que fica nos registos do servidor. O NIF, o
+ * email, o telefone e a morada chegam num ficheiro JSON em
+ * `storage/app/privado/` (`--ficheiro=`), que se apaga depois de a empresa
+ * nascer.
  */
 class CriarEmpresa extends Command
 {
@@ -34,14 +52,24 @@ class CriarEmpresa extends Command
                             {--municipio= : município}
                             {--bairro= : bairro}
                             {--pais=AO : código ISO do país}
+                            {--regime= : regime do IVA (geral, simplificado, exclusao)}
                             {--plano= : id ou slug do plano}
                             {--expira= : fim da subscrição, AAAA-MM-DD}
                             {--dados= : tudo de uma vez, em JSON codificado em base64}
+                            {--ficheiro= : ficheiro JSON em storage/app/privado (os dados pessoais fora do endereço)}
                             {--aplicar : grava (sem isto é simulação)}';
 
-    protected $description = 'Cria uma empresa completa — papéis, contabilidade, RH e notificações — e liga-lhe o plano';
+    protected $description = 'Cria uma empresa completa — papéis, contabilidade, RH, notificações, plano e dono — e envia-lhe os acessos';
 
-    /** O que veio no `--dados`, para as opções soltas caírem para trás. */
+    /** Os nomes curtos do regime, como se dizem, para o canónico. */
+    private const REGIMES_CURTOS = [
+        'geral' => Tenant::REGIME_GERAL,
+        'simplificado' => Tenant::REGIME_SIMPLIFICADO,
+        'exclusao' => Tenant::REGIME_NAO_SUJEICAO,
+        'nao_sujeicao' => Tenant::REGIME_NAO_SUJEICAO,
+    ];
+
+    /** O que veio no `--dados` ou no `--ficheiro`, para as opções soltas caírem para trás. */
     private array $doBloco = [];
 
     public function handle(): int
@@ -65,6 +93,24 @@ class CriarEmpresa extends Command
             }
 
             $this->doBloco = $json;
+        }
+
+        $ficheiro = $this->ficheiro();
+
+        if ($ficheiro === false) {
+            return self::FAILURE;
+        }
+
+        if ($ficheiro !== null) {
+            $json = json_decode((string) file_get_contents($ficheiro), true);
+
+            if (!is_array($json)) {
+                $this->error('O ficheiro não tem um JSON válido.');
+
+                return self::FAILURE;
+            }
+
+            $this->doBloco = $json + $this->doBloco;
         }
 
         $nome = trim((string) $this->valor('nome'));
@@ -98,6 +144,18 @@ class CriarEmpresa extends Command
             return self::FAILURE;
         }
 
+        $regime = $this->regime();
+
+        if ($regime === false) {
+            return self::FAILURE;
+        }
+
+        $dono = $this->dono();
+
+        if ($dono === false) {
+            return self::FAILURE;
+        }
+
         $expira = $this->valor('expira') ? \Carbon\Carbon::parse($this->valor('expira'))->endOfDay() : null;
 
         $dados = [
@@ -105,6 +163,9 @@ class CriarEmpresa extends Command
             'company_name'  => $nome,
             'slug'          => $this->slugLivre($nome),
             'nif'           => $nif,
+            // O regime entra NA criação: é ele que decide os impostos com que
+            // a empresa é provisionada (o mesmo que o registo faz).
+            'regime'        => $regime,
             'email'         => $this->valor('email') ?: null,
             'phone'         => $this->valor('telefone') ?: null,
             'address'       => $this->valor('morada') ?: null,
@@ -122,6 +183,8 @@ class CriarEmpresa extends Command
             $dados['subscription_ends_at'] = $expira;
         }
 
+        $enviarAcessos = $dono !== null && filter_var($this->valor('enviar_acessos') ?? false, FILTER_VALIDATE_BOOLEAN);
+
         $this->line('<options=bold>EMPRESA A CRIAR</>');
         foreach ($dados as $campo => $valor) {
             if ($valor === null || $valor === '') continue;
@@ -129,6 +192,8 @@ class CriarEmpresa extends Command
         }
         $this->line(sprintf('  %-16s %s', 'plano', $plano ? $plano->name . ' (#' . $plano->id . ')' : '(nenhum)'));
         $this->line(sprintf('  %-16s %s', 'expira', $expira ? $expira->format('d/m/Y') : '(sem fim definido)'));
+        $this->line(sprintf('  %-16s %s', 'dono', $dono ? $dono['nome'] . ' <' . $dono['email'] . '> — Super Admin' : '(nenhum)'));
+        $this->line(sprintf('  %-16s %s', 'acessos', $enviarAcessos ? 'enviados por email ao dono (senha gerada, não aparece aqui)' : 'não se enviam'));
 
         if (!$this->option('aplicar')) {
             $this->newLine();
@@ -137,14 +202,56 @@ class CriarEmpresa extends Command
             return self::SUCCESS;
         }
 
-        // Ou nasce completa, ou não nasce.
-        $empresa = DB::transaction(function () use ($dados) {
+        // Ou nasce completa, ou não nasce: empresa, plano, módulos e dono.
+        [$empresa, $pessoa, $senha, $subscricao] = DB::transaction(function () use ($dados, $plano, $dono) {
             $empresa = Tenant::create($dados);
 
             createDefaultRolesForTenant($empresa->id);
             initializeAccountingDataForTenant($empresa->id);
 
-            return $empresa;
+            // O plano pela regra do ecrã de planos: a primeira vez começa em
+            // teste, se o plano o tiver; e os módulos dele ficam ligados.
+            $subscricao = null;
+
+            if ($plano) {
+                $subscricao = app(TrocarDePlano::class)->aplicar($empresa, $plano, 'monthly');
+
+                $sync = new TenantModuleSyncService();
+                foreach ($plano->moduleSlugsWithDependencies() as $slug) {
+                    $sync->activateModule($empresa, $slug);
+                }
+            }
+
+            $pessoa = null;
+            $senha = null;
+
+            if ($dono) {
+                // Letras e números, sem símbolos: o email é copiado à mão, e um
+                // `$` no meio passaria por marcador de substituição.
+                $senha = Str::password(12, symbols: false);
+
+                $pessoa = User::create([
+                    'name' => $dono['nome'],
+                    'email' => $dono['email'],
+                    'phone' => $dono['telefone'],
+                    'password' => Hash::make($senha),
+                    'is_active' => true,
+                    'is_super_admin' => false,
+                ]);
+
+                $pessoa->tenants()->attach($empresa->id, ['is_active' => true, 'joined_at' => now()]);
+                $pessoa->tenant_id = $empresa->id;
+                $pessoa->save();
+
+                setPermissionsTeamId($empresa->id);
+                $papel = Role::where('name', 'Super Admin')->where('tenant_id', $empresa->id)->first();
+
+                if ($papel) {
+                    $pessoa->assignRole($papel);
+                }
+            }
+
+            return [$empresa, $pessoa, $senha, $subscricao];
         });
 
         // Catálogos acessórios: falham em silêncio, mas ficam relatados. Uma
@@ -162,29 +269,146 @@ class CriarEmpresa extends Command
         }
 
         $this->newLine();
-        $this->info("Empresa criada: #{$empresa->id} — {$empresa->name}");
+        $this->info("Empresa criada: #{$empresa->id} — {$empresa->name} ({$empresa->regimeLabel()})");
 
-        if ($plano) {
-            $this->line('  Falta ligar o plano: <options=bold>empresas:trocar-plano --tenant=' . $empresa->id
-                . ' --plano=' . $plano->slug . ' --aplicar</>');
+        if ($subscricao) {
+            $this->line(sprintf('  plano %s — %s até %s', $plano->name, $subscricao->status,
+                $subscricao->ends_at?->format('d/m/Y') ?: '—'));
         }
 
-        $this->line('  Falta criar quem entra: <options=bold>utilizadores:criar</> (ver a ajuda do comando)');
+        if ($pessoa) {
+            $this->line("  dono: #{$pessoa->id} {$pessoa->email} (Super Admin)");
+
+            if ($enviarAcessos) {
+                $enviado = app(AvisosDeConta::class)->credenciais($pessoa, $senha, $empresa);
+
+                $enviado
+                    ? $this->line('  <fg=green>acessos enviados</> por email')
+                    : $this->line('  <fg=yellow>os acessos NÃO seguiram</> (ver o registo do email); o dono pode usar «Esqueci a senha»');
+            }
+        } else {
+            $this->line('  Falta criar quem entra: <options=bold>utilizadores:criar</> (ver a ajuda do comando)');
+        }
+
+        $senha = null;
+
+        // Os dados pessoais não ficam no servidor depois de servirem.
+        if ($ficheiro !== null) {
+            @unlink($ficheiro);
+            $this->line('  ficheiro dos dados apagado');
+        }
 
         return self::SUCCESS;
     }
 
-    /** O valor de um campo: primeiro o bloco `--dados`, depois a opção solta. */
+    /**
+     * O ficheiro dos dados: só um nome, dentro de `storage/app/privado`.
+     *
+     * @return string|false|null  o caminho; false quando o nome não serve; null sem ficheiro
+     */
+    private function ficheiro(): string|false|null
+    {
+        $nome = $this->option('ficheiro');
+
+        if ($nome === null || $nome === '') {
+            return null;
+        }
+
+        // Um nome e nada mais: sem pastas, sem subir de directório.
+        if (!preg_match('/^[a-z0-9_-]+\.json$/i', (string) $nome)) {
+            $this->error('O --ficheiro é só o nome de um .json em storage/app/privado.');
+
+            return false;
+        }
+
+        $caminho = storage_path('app/privado/' . $nome);
+
+        if (!is_file($caminho)) {
+            $this->error('Não há esse ficheiro em storage/app/privado.');
+
+            return false;
+        }
+
+        return $caminho;
+    }
+
+    /** O regime canónico; sem regime indicado, o geral. */
+    private function regime(): string|false
+    {
+        $pedido = mb_strtolower(trim((string) $this->valor('regime')));
+
+        if ($pedido === '') {
+            return Tenant::REGIME_GERAL;
+        }
+
+        $pedido = str_replace(['ã', ' '], ['a', '_'], $pedido);
+
+        if (isset(self::REGIMES_CURTOS[$pedido])) {
+            return self::REGIMES_CURTOS[$pedido];
+        }
+
+        if (isset(Tenant::REGIMES[$pedido]) || isset(Tenant::REGIME_ALIASES[$pedido])) {
+            return Tenant::canonicalRegime($pedido);
+        }
+
+        $this->error('Regime desconhecido. Use geral, simplificado ou exclusao.');
+
+        return false;
+    }
+
+    /**
+     * Quem entra na empresa: o dono, se veio.
+     *
+     * @return array{nome: string, email: string, telefone: ?string}|false|null
+     */
+    private function dono(): array|false|null
+    {
+        $email = mb_strtolower(trim((string) $this->valor('dono_email')));
+
+        if ($email === '') {
+            return null;
+        }
+
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $this->error('O email do dono não é válido.');
+
+            return false;
+        }
+
+        // Uma pessoa que já existe não se junta a outra empresa às escondidas:
+        // isso faz-se no ecrã das empresas, onde se vê quem é.
+        if (User::where('email', $email)->exists()) {
+            $this->error('Já existe uma conta com o email do dono. Junte-a à empresa pelo ecrã das empresas.');
+
+            return false;
+        }
+
+        return [
+            'nome' => trim((string) ($this->valor('dono_nome') ?: $this->valor('nome'))),
+            'email' => $email,
+            'telefone' => $this->valor('dono_telefone') ?: $this->valor('telefone'),
+        ];
+    }
+
+    /** O valor de um campo: primeiro o bloco (`--ficheiro` ou `--dados`), depois a opção solta. */
     private function valor(string $campo): ?string
     {
         if (array_key_exists($campo, $this->doBloco) && $this->doBloco[$campo] !== null) {
-            return (string) $this->doBloco[$campo];
+            $v = $this->doBloco[$campo];
+
+            return is_bool($v) ? ($v ? '1' : '0') : (string) $v;
+        }
+
+        // Os campos que só existem no bloco (o dono) não são opções.
+        if (!$this->getDefinition()->hasOption($campo)) {
+            return null;
         }
 
         $solta = $this->option($campo);
 
         return $solta === null || $solta === '' ? null : (string) $solta;
     }
+
     private function resolverPlano(): ?Plan
     {
         $chave = $this->valor('plano');
