@@ -53,6 +53,22 @@ class DiagnosticoDaEmpresa extends Command
         }
         foreach ($d['pedidos'] as $o) {
             $this->line(sprintf('  pedido #%d · %s · plano %s · %s', $o['id'], $o['estado'], $o['plano'] ?? '—', $o['criado_em']));
+            $this->line(sprintf('    pagamento: %s · referência: %s · comprovativo: %s',
+                $o['forma_de_pagamento'] ?? '—', $sim($o['com_referencia'] ?? false), $sim($o['com_comprovativo'] ?? false)));
+            if (! empty($o['aprovado_em'])) {
+                $this->line("    aprovado em {$o['aprovado_em']} por " . ($o['aprovado_por'] ?? '—'));
+            }
+            if (! empty($o['recusado_em'])) {
+                $this->line("    recusado em {$o['recusado_em']} por " . ($o['recusado_por'] ?? '—')
+                    . ' · motivo: ' . ($o['motivo_da_recusa'] ?: '(nenhum)'));
+            }
+        }
+        foreach ($d['subscricoes'] ?? [] as $x) {
+            $this->line(sprintf('  subscrição #%d · %s · plano %s · criada %s · termina %s',
+                $x['id'], $x['estado'], $x['plano'] ?? '—', $x['criada_em'] ?? '—', $x['termina'] ?? '—'));
+        }
+        if (($d['subscricoes'] ?? []) === []) {
+            $this->line('  (nenhuma subscrição, nem cancelada)');
         }
 
         $this->newLine();

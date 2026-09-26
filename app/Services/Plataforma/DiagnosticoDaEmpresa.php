@@ -84,9 +84,27 @@ class DiagnosticoDaEmpresa
         if (! $sub) {
             $faltas[] = 'Sem subscrição activa (nem em teste).';
         }
-        $pedidos = Order::where('tenant_id', $t->id)->latest('id')->limit(5)->get()->map(fn ($o) => [
+        // O DESTINO de cada pedido: sem isto, uma empresa sem plano não dizia
+        // se o pedido foi recusado, por quem e porquê (empresas 108 e 110).
+        // Da referência e do comprovativo diz-se só se existem.
+        $pedidos = Order::with(['plan', 'rejectedBy:id,name', 'approvedBy:id,name'])->where('tenant_id', $t->id)->latest('id')->limit(5)->get()->map(fn ($o) => [
             'id' => $o->id, 'estado' => $o->status, 'plano' => $o->plan?->name, 'valor' => (float) $o->amount,
             'criado_em' => $o->created_at?->toIso8601String(),
+            'forma_de_pagamento' => $o->payment_method,
+            'com_referencia' => filled($o->payment_reference),
+            'com_comprovativo' => filled($o->payment_proof),
+            'aprovado_em' => $o->approved_at?->toIso8601String(),
+            'aprovado_por' => $o->approvedBy ? "#{$o->approvedBy->id} {$o->approvedBy->name}" : null,
+            'recusado_em' => $o->rejected_at?->toIso8601String(),
+            'recusado_por' => $o->rejectedBy ? "#{$o->rejectedBy->id} {$o->rejectedBy->name}" : ($o->rejected_at ? '(sem utilizador: agente ou sistema)' : null),
+            'motivo_da_recusa' => $o->rejection_reason,
+        ])->values()->all();
+
+        // Todas as subscrições, e não só a viva: é o histórico que explica
+        // uma empresa sem plano.
+        $subscricoes = $t->subscriptions()->with('plan:id,name')->latest('id')->limit(5)->get()->map(fn ($x) => [
+            'id' => $x->id, 'plano' => $x->plan?->name, 'estado' => $x->status,
+            'criada_em' => $x->created_at?->toIso8601String(), 'termina' => $x->ends_at?->toIso8601String(),
         ])->values()->all();
 
         /* Módulos e permissões */
@@ -159,6 +177,7 @@ class DiagnosticoDaEmpresa
                 'valor' => $sub->amount === null ? null : (float) $sub->amount,
             ] : null,
             'pedidos' => $pedidos,
+            'subscricoes' => $subscricoes,
             'modulos' => [
                 'activos' => array_values($activos),
                 'no_plano' => array_values($doPlano),
