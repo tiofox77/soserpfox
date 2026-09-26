@@ -60,8 +60,10 @@
                 </div>
             </div>
 
-            {{-- Hero illustration (mockup realista) --}}
-            <div class="hidden md:block">
+            {{-- Hero illustration (mockup realista). Também no telemóvel
+                 (26/09/2026): era aí que entravam os anúncios, e o produto
+                 não aparecia — fica por baixo dos botões. --}}
+            <div class="mt-2 md:mt-0">
                 @include('modules.partials.mockup', ['slug' => $module['slug']])
             </div>
         </div>

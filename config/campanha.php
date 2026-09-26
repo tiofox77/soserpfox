@@ -25,6 +25,17 @@ return [
         'restaurant' => 'pacote-restaurante',
     ],
 
+    // O nome do módulo, como o formulário do registo o diz («Está a
+    // registar-se para: Vendas»). Mesmas chaves do mapa de cima.
+    'nomes_dos_modulos' => [
+        'vendas' => 'Vendas e Faturação',
+        'rh' => 'Recursos Humanos',
+        'hotel' => 'Hotel',
+        'salao' => 'Salão de Beleza',
+        'oficina' => 'Oficina',
+        'restaurant' => 'Restaurante',
+    ],
+
     // Os parâmetros de atribuição que se guardam (nenhum é dado pessoal).
     'atribuicao' => ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'fbclid', 'gclid'],
 

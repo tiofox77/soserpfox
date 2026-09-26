@@ -13111,5 +13111,18 @@
     "para registo :r · whatsapp :w · módulos :m": "to sign up :r · whatsapp :w · modules :m",
     "Taxa de clique para registo": "Sign-up click rate",
     "cliques para registo por visitante — as empresas criadas estão no percurso": "sign-up clicks per visitor — companies created are in the funnel",
-    "Cliques para registo": "Sign-up clicks"
+    "Cliques para registo": "Sign-up clicks",
+    "Não carregou. Tocar para tentar de novo.": "It did not load. Tap to try again.",
+    "Esta página não carregou": "This page did not load",
+    "A ligação pode estar lenta, ou saiu entretanto uma versão nova. O que já escreveu fica guardado — só a palavra-passe, se a tinha escrito, volta a ser pedida.": "The connection may be slow, or a new version was just released. What you typed is kept — only the password, if you had typed it, will be asked again.",
+    "O teste começa já, sem pagamento.": "The trial starts now, with no payment.",
+    "O teste grátis de :dias dias começa assim que concluir. Não precisa de pagar nada para começar.": "The :dias-day free trial starts as soon as you finish. You don't need to pay anything to start.",
+    "Depois do teste, o plano :plano custa :preco Kz por mês. Pode pagar dentro da conta, quando decidir continuar.": "After the trial, the :plano plan costs :preco Kz per month. You can pay inside your account when you decide to continue.",
+    "Já fez a transferência? Enviar o comprovativo (opcional)": "Already made the transfer? Send the receipt (optional)",
+    "Está a registar-se para: :modulo": "You are signing up for: :modulo",
+    "Plano: :plano": "Plan: :plano",
+    "Grátis — não há nada a pagar.": "Free — nothing to pay.",
+    ":dias dias grátis, sem pagamento para começar. Depois, :preco Kz/mês.": ":dias days free, no payment to start. Then :preco Kz/month.",
+    ":dias dias grátis. Depois, :preco Kz/mês.": ":dias days free. Then :preco Kz/month.",
+    ":preco Kz/mês — sem período de teste.": ":preco Kz/month — no trial period."
 }

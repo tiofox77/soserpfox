@@ -17,6 +17,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cacheDeMutacoesComAvisos } from '@/casca/avisosDasMutacoes';
 import { carregarDicionario, lingua } from '@/i18n';
 import { LimiteDeErro } from '@/casca/LimiteDeErro';
+import { carregarComRecuperacao, FalhaAoCarregar } from '@/casca/FalhaAoCarregar';
 import { ligarRelatoDeErros } from '@/casca/relatarErro';
 import { Carregando } from '@/ui/Carregando';
 import { ecras } from '@/ecras/registo';
@@ -80,17 +81,23 @@ function montar(elemento: HTMLElement): void {
 
     const raiz = createRoot(elemento);
 
-    void carregar().then(({ default: Ecra }) => {
-        raiz.render(
-            <StrictMode>
-                <LimiteDeErro ecra={nome} discreto={peca}>
-                    <QueryClientProvider client={clienteDeConsultas}>
-                        <Ecra {...props} />
-                    </QueryClientProvider>
-                </LimiteDeErro>
-            </StrictMode>,
-        );
-    });
+    // Com novas tentativas e uma recarga no máximo: um pedaço que não chega
+    // deixava o esqueleto para sempre (ver casca/FalhaAoCarregar.tsx).
+    carregarComRecuperacao(nome, carregar)
+        .then(({ default: Ecra }) => {
+            raiz.render(
+                <StrictMode>
+                    <LimiteDeErro ecra={nome} discreto={peca}>
+                        <QueryClientProvider client={clienteDeConsultas}>
+                            <Ecra {...props} />
+                        </QueryClientProvider>
+                    </LimiteDeErro>
+                </StrictMode>,
+            );
+        })
+        .catch(() => {
+            raiz.render(<FalhaAoCarregar discreto={peca} />);
+        });
 
     // As peças pequenas do topo não mostram esqueleto: ocupavam o cabeçalho.
     if (!peca) raiz.render(<Carregando />);

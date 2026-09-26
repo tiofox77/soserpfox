@@ -582,4 +582,84 @@ class RegistoAssistenteTest extends TestCase
         $this->putJson('/register/progresso', ['passo' => 2, 'name' => 'Outro Nome', 'email' => 'outro@exemplo.ao'])->assertOk();
         $this->assertSame($dono->email, session('wizard_progress.email'));
     }
+
+    /** Um plano pago com teste e activação sozinha (como os pacotes da montra). */
+    private function planoPagoComTeste(): Plan
+    {
+        return Plan::create([
+            'name' => 'Pacote Ensaio', 'slug' => 'pacote-ensaio-'.uniqid(), 'description' => 'Pago com teste',
+            'price_monthly' => 5900, 'price_yearly' => 59000, 'trial_days' => 14,
+            'max_users' => 5, 'max_companies' => 1, 'is_active' => true,
+            'auto_activate' => true, 'order' => 3,
+        ]);
+    }
+
+    /**
+     * MANDAR O COMPROVATIVO JÁ NÃO TIRA O TESTE (26/09/2026, decisão do dono).
+     * Era o que deixava as empresas 108 e 110 sem nada quando a prova era
+     * recusada. O teste arranca; o comprovativo fica no pedido para aprovação,
+     * e recusá-lo não apaga o teste.
+     */
+    public function test_com_direito_a_teste_o_comprovativo_nao_tira_o_teste(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        $plano = $this->planoPagoComTeste();
+        $dados = $this->registoCompleto($plano, [
+            'payment_reference' => 'TRF-ERRADA',
+            'payment_proof' => UploadedFile::fake()->create('comprovativo.pdf', 100, 'application/pdf'),
+        ]);
+
+        $this->post('/register', $dados, ['Accept' => 'application/json'])->assertOk();
+
+        $empresa = Tenant::where('nif', $dados['company_nif'])->firstOrFail();
+        $this->assertSame('trial', $empresa->subscriptions()->first()->status, 'o teste começa mesmo com comprovativo');
+
+        $pedido = \App\Models\Order::where('tenant_id', $empresa->id)->firstOrFail();
+        $this->assertSame('pending', $pedido->status, 'o comprovativo fica para aprovação');
+
+        // Recusar o comprovativo não apaga o teste.
+        $pedido->update(['status' => 'rejected', 'rejection_reason' => 'Comprovativo errado', 'rejected_at' => now()]);
+        $this->assertSame(1, $empresa->subscriptions()->where('status', 'trial')->count());
+    }
+
+    /** Sem pagamento para começar, nem a forma de pagamento se exige; e o ecrã sabe-o. */
+    public function test_o_teste_sem_pagamento_nao_pede_forma_de_pagamento(): void
+    {
+        $plano = $this->planoPagoComTeste();
+
+        // Antes de registar: o ecrã sabe que o teste deste plano não pede pagamento.
+        $estado = $this->props($this->get('/register'))['estado'];
+        $this->assertTrue($this->planoNoEstado($estado, $plano->id)['teste_sem_pagamento']);
+
+        // Uma pessoa demora a preencher: o travão dos robôs recusa o que chega depressa demais.
+        $this->withSession(['registo_aberto_em' => time() - 120]);
+
+        $dados = $this->registoCompleto($plano);
+        unset($dados['payment_method']);
+
+        $this->post('/register', $dados, ['Accept' => 'application/json'])->assertOk();
+        $this->assertSame('trial', Tenant::where('nif', $dados['company_nif'])->firstOrFail()->subscriptions()->first()->status);
+    }
+
+    /** A senha já não pede confirmação — a regra de força continua. */
+    public function test_a_senha_nao_pede_confirmacao_mas_continua_forte(): void
+    {
+        $sem = $this->passo1();
+        unset($sem['password_confirmation']);
+        $this->postJson('/register/seguinte', $sem)->assertOk();
+
+        $fraca = array_merge($this->passo1(), ['password' => 'abc']);
+        unset($fraca['password_confirmation']);
+        $this->postJson('/register/seguinte', $fraca)->assertStatus(422)->assertJsonValidationErrors('password');
+    }
+
+    /** O módulo por onde entrou vai para o ecrã, com o nome. */
+    public function test_o_modulo_de_entrada_aparece_no_formulario(): void
+    {
+        $this->get('/modulos/hotel')->assertOk();
+
+        $estado = $this->props($this->get('/register'))['estado'];
+        $this->assertSame('hotel', $estado['modulo']['slug']);
+        $this->assertSame('Hotel', $estado['modulo']['nome']);
+    }
 }

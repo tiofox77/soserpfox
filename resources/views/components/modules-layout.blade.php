@@ -57,7 +57,9 @@
                     <div class="flex-shrink-0 flex items-center">
                         <a href="/" class="flex items-center">
                             @if(function_exists('app_logo') && app_logo())
-                                <img src="{{ app_logo() }}" alt="{{ function_exists('app_name') ? app_name() : 'SOSERP' }}" style="height: 80px; max-height: 80px;" class="w-auto object-contain">
+                                {{-- Altura responsiva (26/09/2026): com 80px fixos, no telemóvel o
+                                     «Começar Grátis» ficava por cima do logótipo. --}}
+                                <img src="{{ app_logo() }}" alt="{{ function_exists('app_name') ? app_name() : 'SOSERP' }}" class="h-12 sm:h-16 lg:h-20 w-auto object-contain">
                             @else
                                 <div class="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mr-3">
                                     <i class="fas fa-chart-line text-white text-2xl"></i>
@@ -118,6 +120,7 @@
                 </a>
                 <a href="/modulos/vendas" class="px-3 py-1.5 rounded-full text-gray-600 hover:bg-white hover:text-orange-600 whitespace-nowrap transition">📊 Vendas</a>
                 <a href="/modulos/rh" class="px-3 py-1.5 rounded-full text-gray-600 hover:bg-white hover:text-purple-600 whitespace-nowrap transition">👥 RH</a>
+                <a href="/modulos/restaurant" class="px-3 py-1.5 rounded-full text-gray-600 hover:bg-white hover:text-orange-600 whitespace-nowrap transition">🍽 Restaurante</a>
                 <a href="/modulos/hotel" class="px-3 py-1.5 rounded-full text-gray-600 hover:bg-white hover:text-cyan-600 whitespace-nowrap transition">🏨 Hotel</a>
                 <a href="/modulos/salao" class="px-3 py-1.5 rounded-full text-gray-600 hover:bg-white hover:text-pink-600 whitespace-nowrap transition">💇 Salão</a>
                 <a href="/modulos/oficina" class="px-3 py-1.5 rounded-full text-gray-600 hover:bg-white hover:text-orange-700 whitespace-nowrap transition">🔧 Oficina</a>
@@ -134,7 +137,7 @@
     <section class="py-16" style="background: linear-gradient(135deg, {{ $gradientFrom }}, {{ $gradientTo }});">
         <div class="max-w-4xl mx-auto px-4 text-center text-white">
             <h2 class="text-3xl md:text-4xl font-bold mb-4">Pronto para começar?</h2>
-            <p class="text-lg opacity-90 mb-8">{{ $ctaText ?? 'Experimenta grátis durante 14 dias. Sem cartão de crédito.' }}</p>
+            <p class="text-lg opacity-90 mb-8">{{ $ctaText ?? ('Experimenta grátis: ' . \App\Support\DiasDeTeste::frase() . '. Sem cartão de crédito.') }}</p>
             <div class="flex flex-col sm:flex-row gap-3 justify-center">
                 <a href="{{ route('register') }}" class="bg-white text-gray-900 px-8 py-3 rounded-xl font-bold hover:bg-gray-100 shadow-lg">
                     <i class="fas fa-rocket mr-2"></i>Começar Grátis
@@ -173,6 +176,7 @@
                         <li><a href="/modulos" class="hover:text-white">Módulos</a></li>
                         <li><a href="/modulos/vendas" class="hover:text-white">— Vendas</a></li>
                         <li><a href="/modulos/rh" class="hover:text-white">— RH</a></li>
+                        <li><a href="/modulos/restaurant" class="hover:text-white">— Restaurante</a></li>
                         <li><a href="/modulos/hotel" class="hover:text-white">— Hotel</a></li>
                         <li><a href="/modulos/salao" class="hover:text-white">— Salão</a></li>
                         <li><a href="/modulos/oficina" class="hover:text-white">— Oficina</a></li>

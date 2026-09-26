@@ -23,6 +23,8 @@ type Plano = {
     dias_de_teste: number;
     recusa: string | null;
     com_teste: boolean;
+    /** O teste começa sem pagamento nenhum (plano gratuito ou activado sozinho). */
+    teste_sem_pagamento: boolean;
 };
 
 type Campos = {
@@ -53,6 +55,8 @@ type Estado = {
     aviso: { tipo: 'info' | 'warning'; texto: string } | null;
     /** O revendedor do código (ou do link), quando é válido. */
     revendedor: { codigo: string; nome: string } | null;
+    /** O módulo por onde a pessoa entrou (a página do anúncio), se entrou por um. */
+    modulo?: { slug: string; nome: string } | null;
 };
 
 type Regime = { valor: string; rotulo: string; descricao: string; volume: string };
@@ -63,6 +67,9 @@ type Props = {
     conta: { banco: string; titular: string; iban: string };
     site: string;
     entrar: string;
+    /** O logótipo e o nome da marca — os mesmos das páginas comerciais. */
+    logo?: string | null;
+    nome?: string;
 };
 
 const CAMPO =
@@ -77,10 +84,13 @@ const CAMPO =
  * se escreve guarda-se sozinho na sessão (menos a palavra-passe), para que um
  * F5 a meio não deite nada fora.
  */
-export default function Assistente({ estado: inicial, regimes, conta, site, entrar }: Props) {
+export default function Assistente({ estado: inicial, regimes, conta, site, entrar, logo = null, nome = 'SOSERP' }: Props) {
     const [estado, porEstado] = useState<Estado>(inicial);
     const [campos, porCampos] = useState<Campos>(inicial.campos);
-    const [senha, porSenha] = useState({ password: '', password_confirmation: '' });
+    // A palavra-passe vive só aqui: nunca vai para a sessão nem para o browser.
+    const [senha, porSenha] = useState({ password: '' });
+    const [verSenha, porVerSenha] = useState(false);
+    const [comprovativoAberto, porComprovativoAberto] = useState(false);
     const [comprovativo, porComprovativo] = useState<File | null>(null);
     const [termos, porTermos] = useState(false);
     const [aviso, porAviso] = useState(inicial.aviso);
@@ -91,6 +101,9 @@ export default function Assistente({ estado: inicial, regimes, conta, site, entr
     const plano = estado.planos.find((p) => p.id === campos.selected_plan_id) ?? null;
     const naoHaNadaAPagar = plano?.gratuito ?? false;
     const temDireitoATeste = plano?.com_teste ?? false;
+    // O teste começa já, sem transferência: o último passo é uma confirmação,
+    // não um pagamento (26/09/2026).
+    const semPagamentoParaComecar = !naoHaNadaAPagar && temDireitoATeste && (plano?.teste_sem_pagamento ?? false);
     const temPassoDePlano = !estado.plano_veio_do_link;
 
     // `website` é a armadilha para robôs: um campo que nenhuma pessoa vê.
@@ -114,7 +127,7 @@ export default function Assistente({ estado: inicial, regimes, conta, site, entr
     const outroPlano = useMutation({ mutationFn: () => registo.criar<Estado>('/outro-plano', corpo()), onSuccess: aplicar });
     const recomecar = useMutation({
         mutationFn: () => registo.apagar<Estado>('/progresso'),
-        onSuccess: (novo) => { porSenha({ password: '', password_confirmation: '' }); porComprovativo(null); porTermos(false); porARecomecar(false); aplicar(novo); },
+        onSuccess: (novo) => { porSenha({ password: '' }); porComprovativo(null); porTermos(false); porARecomecar(false); aplicar(novo); },
     });
     const registar = useMutation({
         mutationFn: () => {
@@ -157,11 +170,19 @@ export default function Assistente({ estado: inicial, regimes, conta, site, entr
         <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 p-4">
             <div className="w-full max-w-4xl">
                 <div className="animate-fade-in mb-8 text-center">
-                    <a href={site} className="group mb-4 inline-flex items-center">
-                        <span className="mr-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 shadow-lg transition-transform group-hover:rotate-6 group-hover:scale-105">
-                            <i className="fas fa-chart-line text-2xl text-white" aria-hidden="true" />
-                        </span>
-                        <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-3xl font-bold text-transparent">SOSERP</span>
+                    {/* O MESMO LOGÓTIPO das páginas comerciais: quem vem do anúncio
+                        tem de reconhecer onde está. */}
+                    <a href={site} className="group mb-4 inline-flex items-center" aria-label={nome}>
+                        {logo ? (
+                            <img src={logo} alt={nome} className="h-12 w-auto object-contain sm:h-14" />
+                        ) : (
+                            <>
+                                <span className="mr-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 shadow-lg transition-transform group-hover:rotate-6 group-hover:scale-105">
+                                    <i className="fas fa-chart-line text-2xl text-white" aria-hidden="true" />
+                                </span>
+                                <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-3xl font-bold text-transparent">{nome}</span>
+                            </>
+                        )}
                     </a>
                 </div>
 
@@ -205,9 +226,13 @@ export default function Assistente({ estado: inicial, regimes, conta, site, entr
                                     <Linha cheia={passo >= 4} />
                                 </>
                             )}
-                            <Passo numero={numeroDoUltimo} rotulo={naoHaNadaAPagar ? t('Confirmação') : t('Pagamento')} actual={passo} passo={4} ultimo />
+                            <Passo numero={numeroDoUltimo} rotulo={naoHaNadaAPagar || semPagamentoParaComecar ? t('Confirmação') : t('Pagamento')} actual={passo} passo={4} ultimo />
                         </ol>
                     </div>
+
+                    {plano && passo < 4 && (
+                        <ResumoDoPlano plano={plano} modulo={estado.modulo ?? null} comTeste={temDireitoATeste} semPagamento={semPagamentoParaComecar} gratuito={naoHaNadaAPagar} />
+                    )}
 
                     <form onSubmit={submeter} noValidate className="p-5 sm:p-8">
                         <div key={passo} className="animate-fade-in">
@@ -221,18 +246,25 @@ export default function Assistente({ estado: inicial, regimes, conta, site, entr
                             {passo === 1 && (
                                 <Seccao titulo={t('Crie sua conta')} nota={t('Comece informando seus dados pessoais')}>
                                     <Entrada icone="fa-user" rotulo={t('Nome Completo')} obrigatorio erro={erros.name}>
-                                        <input className={cls(CAMPO, 'focus:border-blue-500 focus:ring-blue-500', erros.name && 'border-red-500')} autoComplete="name" placeholder="João Silva" value={campos.name} onChange={muda('name')} />
+                                        <input id="registo-nome" name="name" className={cls(CAMPO, 'focus:border-blue-500 focus:ring-blue-500', erros.name && 'border-red-500')} autoComplete="name" autoCapitalize="words" enterKeyHint="next" placeholder="João Silva" value={campos.name} onChange={muda('name')} />
                                     </Entrada>
                                     <Entrada icone="fa-envelope" rotulo={t('Email')} obrigatorio erro={erros.email}>
-                                        <input type="email" className={cls(CAMPO, 'focus:border-blue-500 focus:ring-blue-500', erros.email && 'border-red-500')} autoComplete="email" placeholder="joao@empresa.vip" value={campos.email} onChange={muda('email')} />
+                                        <input id="registo-email" name="email" type="email" inputMode="email" autoCapitalize="none" spellCheck={false} enterKeyHint="next" className={cls(CAMPO, 'focus:border-blue-500 focus:ring-blue-500', erros.email && 'border-red-500')} autoComplete="email" placeholder="joao@empresa.vip" value={campos.email} onChange={muda('email')} />
                                     </Entrada>
-                                    <Entrada icone="fa-lock" rotulo={t('Senha')} obrigatorio erro={erros.password}>
-                                        <input type="password" className={cls(CAMPO, 'focus:border-blue-500 focus:ring-blue-500', erros.password && 'border-red-500')} autoComplete="new-password" placeholder={t('Mínimo 8 caracteres, com letras e números.')}
-                                            value={senha.password} onChange={(e) => porSenha({ ...senha, password: e.target.value })} />
-                                    </Entrada>
-                                    <Entrada icone="fa-lock" rotulo={t('Confirmar Senha')} obrigatorio>
-                                        <input type="password" className={cls(CAMPO, 'focus:border-blue-500 focus:ring-blue-500')} autoComplete="new-password" placeholder={t('Digite a senha novamente')}
-                                            value={senha.password_confirmation} onChange={(e) => porSenha({ ...senha, password_confirmation: e.target.value })} />
+                                    {/* SEM «CONFIRMAR SENHA» (26/09/2026): com «mostrar senha» a
+                                        pessoa vê o que escreveu, e quem se engana recupera-a pelo
+                                        email. A regra de força continua no servidor. */}
+                                    <Entrada icone="fa-lock" rotulo={t('Senha')} obrigatorio erro={erros.password} ajuda={t('Mínimo 8 caracteres, com letras e números.')}>
+                                        <span className="relative block">
+                                            <input id="registo-senha" name="password" type={verSenha ? 'text' : 'password'} className={cls(CAMPO, 'pr-14 focus:border-blue-500 focus:ring-blue-500', erros.password && 'border-red-500')}
+                                                autoComplete="new-password" autoCapitalize="none" spellCheck={false} enterKeyHint="go" placeholder={t('Mínimo 8 caracteres, com letras e números.')}
+                                                value={senha.password} onChange={(e) => porSenha({ password: e.target.value })} />
+                                            <button type="button" onClick={() => porVerSenha((v) => !v)} aria-pressed={verSenha}
+                                                aria-label={verSenha ? t('Esconder a senha') : t('Mostrar a senha')} title={verSenha ? t('Esconder a senha') : t('Mostrar a senha')}
+                                                className={cls('absolute inset-y-0 right-1 my-auto flex h-11 w-11 items-center justify-center rounded-lg text-gray-500 hover:text-gray-800', FOCO)}>
+                                                <i className={cls('fas', verSenha ? 'fa-eye-slash' : 'fa-eye')} aria-hidden="true" />
+                                            </button>
+                                        </span>
                                     </Entrada>
                                 </Seccao>
                             )}
@@ -240,12 +272,12 @@ export default function Assistente({ estado: inicial, regimes, conta, site, entr
                             {passo === 2 && (
                                 <Seccao titulo={t('Dados da Empresa')} nota={t('Informe os dados da sua empresa')}>
                                     <Entrada icone="fa-building" cor="text-purple-500" rotulo={t('Nome da Empresa')} obrigatorio erro={erros.company_name}>
-                                        <input className={cls(CAMPO, 'focus:border-purple-500 focus:ring-purple-500', erros.company_name && 'border-red-500')} autoComplete="organization" placeholder="Minha Empresa Lda" value={campos.company_name} onChange={muda('company_name')} />
+                                        <input id="registo-empresa" name="organization" className={cls(CAMPO, 'focus:border-purple-500 focus:ring-purple-500', erros.company_name && 'border-red-500')} autoComplete="organization" enterKeyHint="next" placeholder="Minha Empresa Lda" value={campos.company_name} onChange={muda('company_name')} />
                                     </Entrada>
                                     {/* O exemplo começa por 5: diz a regra do NIF de empresa sem ser preciso lê-la. Os de dez dígitos começados por 0 (alvarás de empresários em nome individual) também passam. */}
                                     <Entrada icone="fa-id-card" cor="text-purple-500" rotulo={t('NIF da empresa')} obrigatorio erro={erros.company_nif}
                                         ajuda={t('Nove ou dez dígitos, começados por 5 (ou dez começados por 0). Não é o número do bilhete de identidade.')}>
-                                        <input className={cls(CAMPO, 'focus:border-purple-500 focus:ring-purple-500', erros.company_nif && 'border-red-500')} inputMode="numeric" maxLength={14} placeholder="5417289442" value={campos.company_nif} onChange={muda('company_nif')} />
+                                        <input id="registo-nif" name="company_nif" autoComplete="off" enterKeyHint="next" className={cls(CAMPO, 'focus:border-purple-500 focus:ring-purple-500', erros.company_nif && 'border-red-500')} inputMode="numeric" maxLength={14} placeholder="5417289442" value={campos.company_nif} onChange={muda('company_nif')} />
                                     </Entrada>
 
                                     <fieldset>
@@ -276,14 +308,14 @@ export default function Assistente({ estado: inicial, regimes, conta, site, entr
                                     </fieldset>
 
                                     <Entrada icone="fa-map-marker-alt" cor="text-purple-500" rotulo={t('Endereço')} erro={erros.company_address}>
-                                        <input className={cls(CAMPO, 'focus:border-purple-500 focus:ring-purple-500')} autoComplete="street-address" placeholder="Rua exemplo, Luanda" value={campos.company_address} onChange={muda('company_address')} />
+                                        <input id="registo-morada" name="street-address" className={cls(CAMPO, 'focus:border-purple-500 focus:ring-purple-500')} autoComplete="street-address" enterKeyHint="next" placeholder="Rua exemplo, Luanda" value={campos.company_address} onChange={muda('company_address')} />
                                     </Entrada>
                                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                         <Entrada icone="fa-phone" cor="text-purple-500" rotulo={t('Telefone')} erro={erros.company_phone}>
-                                            <input type="tel" className={cls(CAMPO, 'focus:border-purple-500 focus:ring-purple-500')} autoComplete="tel" placeholder="+244 923 456 789" value={campos.company_phone} onChange={muda('company_phone')} />
+                                            <input id="registo-telefone" name="tel" type="tel" inputMode="tel" enterKeyHint="next" className={cls(CAMPO, 'focus:border-purple-500 focus:ring-purple-500')} autoComplete="tel" placeholder="+244 923 456 789" value={campos.company_phone} onChange={muda('company_phone')} />
                                         </Entrada>
                                         <Entrada icone="fa-envelope" cor="text-purple-500" rotulo={t('Email da Empresa')} erro={erros.company_email}>
-                                            <input type="email" className={cls(CAMPO, 'focus:border-purple-500 focus:ring-purple-500', erros.company_email && 'border-red-500')} placeholder="contato@empresa.vip" value={campos.company_email} onChange={muda('company_email')} />
+                                            <input id="registo-email-empresa" name="company_email" type="email" inputMode="email" autoCapitalize="none" autoComplete="email" enterKeyHint="next" className={cls(CAMPO, 'focus:border-purple-500 focus:ring-purple-500', erros.company_email && 'border-red-500')} placeholder="contato@empresa.vip" value={campos.company_email} onChange={muda('company_email')} />
                                         </Entrada>
                                     </div>
 
@@ -315,8 +347,10 @@ export default function Assistente({ estado: inicial, regimes, conta, site, entr
                             )}
 
                             {passo === 4 && (
-                                <Seccao titulo={naoHaNadaAPagar ? t('Confirmação') : t('Método de Pagamento')}
-                                    nota={naoHaNadaAPagar ? t('Este plano é gratuito — não há nada a pagar.') : t('Como deseja efetuar o pagamento?')}>
+                                <Seccao titulo={naoHaNadaAPagar || semPagamentoParaComecar ? t('Confirmação') : t('Método de Pagamento')}
+                                    nota={naoHaNadaAPagar ? t('Este plano é gratuito — não há nada a pagar.')
+                                        : semPagamentoParaComecar ? t('O teste começa já, sem pagamento.')
+                                        : t('Como deseja efetuar o pagamento?')}>
                                     {plano && (
                                         <div className="rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500 p-6 text-white shadow-lg">
                                             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -354,6 +388,39 @@ export default function Assistente({ estado: inicial, regimes, conta, site, entr
                                             <h4 className="mb-1 font-bold text-gray-900">{t('Sem pagamento a efetuar')}</h4>
                                             <p className="text-sm text-gray-600">{t('O plano :plano não tem custo. A conta fica activa assim que concluir o registo.', { plano: plano?.nome ?? '' })}</p>
                                         </div>
+                                    ) : semPagamentoParaComecar ? (
+                                        <>
+                                            {/* O TESTE NÃO PEDE PAGAMENTO. Pedir a transferência aqui fazia
+                                                pessoas mandarem um comprovativo qualquer — e mandar a prova
+                                                tirava-lhes o teste (empresas 108 e 110). O comprovativo
+                                                continua possível, recolhido e opcional. */}
+                                            <div className="rounded-xl border-2 border-green-200 bg-green-50 p-5">
+                                                <p className="flex items-start gap-3 font-bold text-gray-900">
+                                                    <i className="fas fa-gift mt-1 text-green-600" aria-hidden="true" />
+                                                    <span>{t('O teste grátis de :dias dias começa assim que concluir. Não precisa de pagar nada para começar.', { dias: plano?.dias_de_teste ?? 0 })}</span>
+                                                </p>
+                                                <p className="mt-2 pl-7 text-sm text-gray-700">
+                                                    <span>{t('Depois do teste, o plano :plano custa :preco Kz por mês. Pode pagar dentro da conta, quando decidir continuar.', { plano: plano?.nome ?? '', preco: kz(plano?.preco ?? 0, 0) })}</span>
+                                                </p>
+                                            </div>
+                                            {!comprovativoAberto ? (
+                                                <button type="button" onClick={() => porComprovativoAberto(true)} className="text-sm font-semibold text-blue-700 underline-offset-2 hover:underline">
+                                                    <i className="fas fa-receipt mr-1.5" aria-hidden="true" /><span>{t('Já fez a transferência? Enviar o comprovativo (opcional)')}</span>
+                                                </button>
+                                            ) : (
+                                                <Pagamento
+                                                    campos={campos}
+                                                    muda={muda}
+                                                    aoMetodo={(m) => porCampos({ ...campos, payment_method: m })}
+                                                    conta={conta}
+                                                    valor={plano?.preco ?? 0}
+                                                    obrigatorio={false}
+                                                    comprovativo={comprovativo}
+                                                    porComprovativo={porComprovativo}
+                                                    erros={erros}
+                                                />
+                                            )}
+                                        </>
                                     ) : (
                                         <Pagamento
                                             campos={campos}
@@ -388,12 +455,14 @@ export default function Assistente({ estado: inicial, regimes, conta, site, entr
                             )}
                         </div>
 
-                        <div className="mt-8 flex items-center justify-between border-t border-gray-200 pt-6">
+                        {/* NO TELEMÓVEL A BARRA FICA À VISTA, colada ao fundo — com o
+                            teclado aberto o «Próximo» continua ao alcance. */}
+                        <div className="sticky bottom-0 z-10 -mx-5 mt-8 flex items-center justify-between gap-3 border-t border-gray-200 bg-white/95 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur sm:static sm:mx-0 sm:bg-transparent sm:px-0 sm:pb-0 sm:pt-6 sm:backdrop-blur-none">
                             {passo > (autenticado ? 2 : 1) ? (
                                 <button type="button" onClick={() => anterior.mutate()} disabled={ocupado}
                                     className={cls('group flex items-center rounded-xl border-2 border-gray-300 px-6 py-3 font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50', TRANSICAO, FOCO)}>
                                     <i className={cls('fas mr-2 transition-transform group-hover:-translate-x-1', anterior.isPending ? 'fa-spinner fa-spin' : 'fa-arrow-left')} aria-hidden="true" />
-                                    {t('Voltar')}
+                                    <span>{t('Voltar')}</span>
                                 </button>
                             ) : (
                                 <a href={entrar} className="px-2 py-3 font-semibold text-gray-600 transition hover:text-gray-900 hover:underline sm:px-6">
@@ -404,14 +473,17 @@ export default function Assistente({ estado: inicial, regimes, conta, site, entr
                             {passo < 4 ? (
                                 <button type="submit" disabled={ocupado}
                                     className={cls('group flex items-center rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 px-8 py-3 font-semibold text-white hover:scale-105 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-75', TRANSICAO, FOCO)}>
-                                    {seguinte.isPending ? <i className="fas fa-spinner fa-spin" aria-hidden="true" /> : <>{t('Próximo')}<i className="fas fa-arrow-right ml-2 transition-transform group-hover:translate-x-1" aria-hidden="true" /></>}
+                                    {/* O texto SEMPRE dentro de um <span>: trocar um nó de texto solto
+                                        por um ícone parte o React quando o tradutor do browser mexe na
+                                        página («removeChild», 15/09/2026). */}
+                                    <span className={seguinte.isPending ? 'sr-only' : undefined}>{t('Próximo')}</span>
+                                    <i className={cls('fas', seguinte.isPending ? 'fa-spinner fa-spin' : 'fa-arrow-right ml-2 transition-transform group-hover:translate-x-1')} aria-hidden="true" />
                                 </button>
                             ) : (
                                 <button type="submit" disabled={ocupado || !termos}
                                     className={cls('group flex items-center rounded-xl bg-gradient-to-r from-green-600 to-green-700 px-8 py-3 font-semibold text-white hover:scale-105 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100', TRANSICAO, FOCO)}>
-                                    {registar.isPending
-                                        ? <><i className="fas fa-spinner fa-spin mr-2" aria-hidden="true" />{t('Processando...')}</>
-                                        : <><i className="fas fa-check mr-2 transition-transform group-hover:scale-110" aria-hidden="true" />{t('Finalizar cadastro')}</>}
+                                    <i className={cls('fas mr-2', registar.isPending ? 'fa-spinner fa-spin' : 'fa-check transition-transform group-hover:scale-110')} aria-hidden="true" />
+                                    <span>{registar.isPending ? t('Processando...') : t('Finalizar cadastro')}</span>
                                 </button>
                             )}
                         </div>
@@ -466,6 +538,38 @@ function Aviso({ tipo, texto, aoFechar }: { tipo: 'info' | 'warning' | 'erro'; t
     );
 }
 
+/**
+ * PARA QUE SE ESTÁ A REGISTAR, E EM QUE CONDIÇÕES (26/09/2026).
+ *
+ * Quem vem do anúncio de um módulo tem de ver, em todos os passos, o módulo e
+ * as condições verdadeiras do teste — os dias do PLANO (o Hotel dá 30, não os
+ * 14 genéricos), se começa sem pagamento e o que custa depois.
+ */
+function ResumoDoPlano({ plano, modulo, comTeste, semPagamento, gratuito }: {
+    plano: Plano; modulo: { slug: string; nome: string } | null; comTeste: boolean; semPagamento: boolean; gratuito: boolean;
+}) {
+    return (
+        <div className="border-b border-purple-100 bg-purple-50/70 px-5 py-3 text-sm sm:px-8">
+            <p className="font-semibold text-gray-900">
+                <i className="fas fa-cube mr-2 text-purple-500" aria-hidden="true" />
+                <span>{modulo ? t('Está a registar-se para: :modulo', { modulo: modulo.nome }) : t('Plano: :plano', { plano: plano.nome })}</span>
+                {modulo && <span className="font-normal text-gray-600"> · {plano.nome}</span>}
+            </p>
+            <p className="mt-1 text-gray-700">
+                <span>
+                    {gratuito
+                        ? t('Grátis — não há nada a pagar.')
+                        : comTeste && plano.dias_de_teste > 0
+                            ? semPagamento
+                                ? t(':dias dias grátis, sem pagamento para começar. Depois, :preco Kz/mês.', { dias: plano.dias_de_teste, preco: kz(plano.preco, 0) })
+                                : t(':dias dias grátis. Depois, :preco Kz/mês.', { dias: plano.dias_de_teste, preco: kz(plano.preco, 0) })
+                            : t(':preco Kz/mês — sem período de teste.', { preco: kz(plano.preco, 0) })}
+                </span>
+            </p>
+        </div>
+    );
+}
+
 function Passo({ numero, rotulo, actual, passo, ultimo = false }: { numero: number; rotulo: string; actual: number; passo: number; ultimo?: boolean }) {
     const feito = !ultimo && actual > passo;
     const chegou = actual >= passo;
@@ -474,7 +578,7 @@ function Passo({ numero, rotulo, actual, passo, ultimo = false }: { numero: numb
         <li className="flex shrink-0 items-center" aria-current={actual === passo ? 'step' : undefined}>
             <span className={cls('flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg font-bold transition-all duration-500 sm:h-12 sm:w-12',
                 chegou ? 'bg-white text-purple-600 shadow-lg' : 'bg-white/30 text-white', actual === passo && 'scale-110 ring-4 ring-white/30')}>
-                {feito ? <i className="fas fa-check animate-scale-in" aria-hidden="true" /> : numero}
+                {feito ? <i className="fas fa-check animate-scale-in" aria-hidden="true" /> : <span>{numero}</span>}
             </span>
             <span className="ml-3 hidden whitespace-nowrap text-white md:block">
                 <span className="block text-sm font-semibold">{t('Passo :n', { n: numero })}</span>

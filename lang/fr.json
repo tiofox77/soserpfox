@@ -13111,5 +13111,18 @@
     "para registo :r · whatsapp :w · módulos :m": "vers inscription :r · whatsapp :w · modules :m",
     "Taxa de clique para registo": "Taux de clic vers l'inscription",
     "cliques para registo por visitante — as empresas criadas estão no percurso": "clics vers l'inscription par visiteur — les entreprises créées sont dans le parcours",
-    "Cliques para registo": "Clics vers l'inscription"
+    "Cliques para registo": "Clics vers l'inscription",
+    "Não carregou. Tocar para tentar de novo.": "Pas chargé. Touchez pour réessayer.",
+    "Esta página não carregou": "Cette page ne s'est pas chargée",
+    "A ligação pode estar lenta, ou saiu entretanto uma versão nova. O que já escreveu fica guardado — só a palavra-passe, se a tinha escrito, volta a ser pedida.": "La connexion est peut-être lente, ou une nouvelle version vient de sortir. Ce que vous avez écrit est conservé — seul le mot de passe, si vous l'aviez saisi, sera redemandé.",
+    "O teste começa já, sem pagamento.": "L'essai commence maintenant, sans paiement.",
+    "O teste grátis de :dias dias começa assim que concluir. Não precisa de pagar nada para começar.": "L'essai gratuit de :dias jours commence dès que vous terminez. Rien à payer pour commencer.",
+    "Depois do teste, o plano :plano custa :preco Kz por mês. Pode pagar dentro da conta, quando decidir continuar.": "Après l'essai, le forfait :plano coûte :preco Kz par mois. Vous pouvez payer dans votre compte quand vous décidez de continuer.",
+    "Já fez a transferência? Enviar o comprovativo (opcional)": "Virement déjà fait ? Envoyer le justificatif (facultatif)",
+    "Está a registar-se para: :modulo": "Vous vous inscrivez pour : :modulo",
+    "Plano: :plano": "Forfait : :plano",
+    "Grátis — não há nada a pagar.": "Gratuit — rien à payer.",
+    ":dias dias grátis, sem pagamento para começar. Depois, :preco Kz/mês.": ":dias jours gratuits, sans paiement pour commencer. Ensuite :preco Kz/mois.",
+    ":dias dias grátis. Depois, :preco Kz/mês.": ":dias jours gratuits. Ensuite :preco Kz/mois.",
+    ":preco Kz/mês — sem período de teste.": ":preco Kz/mois — sans période d'essai."
 }

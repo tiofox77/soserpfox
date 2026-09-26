@@ -289,7 +289,7 @@
                     <div class="mt-8 flex items-center space-x-6 text-sm text-gray-600">
                         <div class="flex items-center">
                             <i class="fas fa-check-circle text-green-500 mr-2"></i>
-                            14 dias grátis
+                            {{ \App\Support\DiasDeTeste::frase() }}
                         </div>
                         <div class="flex items-center">
                             <i class="fas fa-check-circle text-green-500 mr-2"></i>
@@ -959,7 +959,7 @@
                     Experimentar Gestão de Eventos Grátis
                     <i class="fas fa-arrow-right ml-3"></i>
                 </a>
-                <p class="text-purple-200 mt-4 text-sm">✨ 14 dias grátis • Sem cartão de crédito • Cancele quando quiser</p>
+                <p class="text-purple-200 mt-4 text-sm">✨ {{ \App\Support\DiasDeTeste::frase() }} • Sem cartão de crédito • Cancele quando quiser</p>
             </div>
         </div>
     </section>
@@ -1734,7 +1734,7 @@
                 <i class="fas fa-rocket mr-2"></i>Começar Gratuitamente
             </a>
             <p class="text-blue-100 text-sm mt-4">
-                Sem cartão de crédito • 14 dias grátis • Cancele quando quiser
+                Sem cartão de crédito • {{ \App\Support\DiasDeTeste::frase() }} • Cancele quando quiser
             </p>
         </div>
     </section>

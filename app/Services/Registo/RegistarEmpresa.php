@@ -99,14 +99,21 @@ class RegistarEmpresa
                 ]);
             }
 
-            if ($pagou) {
-                // Pagou: aguarda aprovação.
-                [$estado, $fimDoTeste, $inicio, $fim] = ['pending', null, null, null];
-            } elseif ($temTeste && ($autoActiva || (float) ($plan->price_monthly ?? 0) <= 0)) {
+            if ($temTeste && ($autoActiva || (float) ($plan->price_monthly ?? 0) <= 0)) {
                 // Teste só para planos GRATUITOS ou auto-activáveis. Antes bastava
                 // trial_days > 0 e qualquer plano pago arrancava sem pagamento.
+                //
+                // E COMEÇA MESMO QUE VENHA UM COMPROVATIVO (26/09/2026, decisão
+                // do dono). Mandar a prova tirava o teste: a inscrição ficava
+                // pendente, e se a prova fosse recusada a empresa ficava sem
+                // nada — foi o que aconteceu às empresas 108 e 110. Agora o
+                // teste arranca já, e o comprovativo fica no pedido para
+                // aprovação, sem tirar o acesso.
                 $fimDoTeste = $agora->copy()->addDays($diasDeTeste);
                 [$estado, $inicio, $fim] = ['trial', $agora, $fimDoTeste];
+            } elseif ($pagou) {
+                // Pagou (e não há teste): aguarda aprovação.
+                [$estado, $fimDoTeste, $inicio, $fim] = ['pending', null, null, null];
             } elseif ($autoActiva && $diasDeTeste === 0) {
                 // Auto-activável que nunca teve teste: 30 dias. Não se confunde
                 // com «o teste foi negado», que não dá dias nenhuns.

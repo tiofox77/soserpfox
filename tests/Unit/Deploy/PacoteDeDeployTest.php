@@ -293,4 +293,24 @@ class PacoteDeDeployTest extends TestCase
 
         @rmdir($pasta);
     }
+
+    /** O manifesto do pacote React escreve-se depois dos pedaços que ele aponta (26/09/2026). */
+    public function test_os_manifestos_do_browser_escrevem_se_no_fim(): void
+    {
+        $ordem = \App\Support\Deploy\Pacote::manifestosNoFim([
+            'app/Models/User.php',
+            'public/react/.vite/manifest.json',
+            'public/react/app-AAA.js',
+            'public/pwa-app/.vite/manifest.json',
+            'public/react/pedacos/Assistente-BBB.js',
+        ]);
+
+        $this->assertSame([
+            'app/Models/User.php',
+            'public/react/app-AAA.js',
+            'public/react/pedacos/Assistente-BBB.js',
+            'public/react/.vite/manifest.json',
+            'public/pwa-app/.vite/manifest.json',
+        ], $ordem);
+    }
 }

@@ -449,7 +449,9 @@ class AssistenteDeRegisto
         $this->validar([
             'name' => ['required', 'min:3', new NomeQueParecePessoa()],
             'email' => ['required', 'email', 'unique:users,email', new EmailQueExiste()],
-            'password' => ['required', 'confirmed', \App\Support\Seguranca\RegraDaSenha::regra()],
+            // Sem confirmação (26/09/2026): o campo tem «mostrar senha», e quem se
+            // engana recupera-a pelo email. A regra de força continua igual.
+            'password' => ['required', \App\Support\Seguranca\RegraDaSenha::regra()],
         ]);
     }
 
@@ -537,7 +539,9 @@ class AssistenteDeRegisto
         $regra = $this->temDireitoATeste() ? 'nullable' : 'required';
 
         $this->validar([
-            'payment_method' => 'required|in:transfer',
+            // Com direito a teste nem a forma de pagamento é obrigatória: o
+            // teste começa sem pagamento (26/09/2026).
+            'payment_method' => $regra.'|in:transfer',
             'payment_reference' => $regra.'|string|max:255',
             'payment_proof' => $regra.'|file|mimes:pdf,jpg,jpeg,png|max:5120',
         ], [
@@ -620,6 +624,12 @@ class AssistenteDeRegisto
             // O revendedor do código, para o ecrã confirmar o nome antes de criar a conta.
             'revendedor' => ($rev = $this->revendedor()) ? ['codigo' => $rev->code, 'nome' => $rev->nomeVisivel()] : null,
             'plano_veio_do_link' => $this->planoVeioDoLink,
+            // O módulo por onde a pessoa entrou (a página do anúncio), para o
+            // formulário dizer para que se está a registar.
+            'modulo' => ($slug = session('registration_module')) ? [
+                'slug' => $slug,
+                'nome' => __((string) config('campanha.nomes_dos_modulos.' . $slug, ucfirst($slug))),
+            ] : null,
             'passo_antes_da_senha' => $this->passoAntesDaSenha,
             'sem_teste' => ($direito->jaTeveTeste() || $direito->jaTeveGratuito()) ? __($direito->motivoSemTeste()) : null,
             'planos' => $this->planos()->map(fn (Plan $p) => [
@@ -635,6 +645,10 @@ class AssistenteDeRegisto
                 'dias_de_teste' => (int) $p->trial_days,
                 'recusa' => ($r = $direito->motivoParaRecusar($p)) ? __($r) : null,
                 'com_teste' => $direito->temDireitoATeste($p),
+                // O teste começa SEM pagamento: é o que o passo «Confirmação»
+                // tem de dizer, em vez de pedir uma transferência.
+                'teste_sem_pagamento' => $direito->temDireitoATeste($p)
+                    && ((bool) $p->auto_activate || (float) ($p->getPrice('monthly') ?? 0) <= 0),
             ])->values()->all(),
             'guardado_em' => session('wizard_progress.saved_at'),
             'aviso' => $this->aviso,

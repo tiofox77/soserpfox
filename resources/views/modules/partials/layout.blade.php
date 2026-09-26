@@ -65,7 +65,7 @@
 <section class="py-16 bg-gradient-to-br" style="background-image: linear-gradient(135deg, var(--from, #2563eb), var(--to, #7c3aed));">
     <div class="max-w-4xl mx-auto px-4 text-center text-white">
         <h2 class="text-3xl md:text-4xl font-bold mb-4">Pronto para começar?</h2>
-        <p class="text-lg opacity-90 mb-8">{{ $ctaText ?? 'Experimenta grátis durante 14 dias. Sem cartão de crédito.' }}</p>
+        <p class="text-lg opacity-90 mb-8">{{ $ctaText ?? ('Experimenta grátis: ' . \App\Support\DiasDeTeste::frase() . '. Sem cartão de crédito.') }}</p>
         <div class="flex flex-col sm:flex-row gap-3 justify-center">
             <a href="{{ route('register') }}" class="bg-white text-gray-900 px-8 py-3 rounded-xl font-bold hover:bg-gray-100 shadow-lg">
                 <i class="fas fa-rocket mr-2"></i>Começar Grátis

@@ -249,7 +249,12 @@ final class Pacote
         $escritos = 0;
 
         try {
-            foreach ($conteudo['ficheiros'] as $relativo) {
+            // OS MANIFESTOS DOS PACOTES REACT/PWA VÃO NO FIM (26/09/2026). Por
+            // ordem alfabética, `public/react/.vite/manifest.json` escrevia-se
+            // antes dos pedaços: nesse intervalo a página apontava para
+            // ficheiros que ainda não existiam. Os pedaços primeiro, e o
+            // manifesto — que é o que os torna visíveis — por último.
+            foreach (self::manifestosNoFim($conteudo['ficheiros']) as $relativo) {
                 $dados = $zip->getFromName($relativo);
 
                 if ($dados === false) {
@@ -387,6 +392,24 @@ final class Pacote
         } finally {
             $zip->close();
         }
+    }
+
+    /**
+     * A ordem de escrita: tudo o resto primeiro, os manifestos dos pacotes do
+     * browser (`.vite/manifest.json`) por último — são eles que tornam os
+     * pedaços novos visíveis.
+     *
+     * @param  list<string>  $ficheiros
+     * @return list<string>
+     */
+    public static function manifestosNoFim(array $ficheiros): array
+    {
+        $eManifesto = fn (string $f) => str_ends_with(str_replace('\\', '/', $f), '/.vite/manifest.json');
+
+        return array_values(array_merge(
+            array_filter($ficheiros, fn ($f) => ! $eManifesto($f)),
+            array_filter($ficheiros, $eManifesto),
+        ));
     }
 
     private static function escrever(string $absoluto, string $dados): void
