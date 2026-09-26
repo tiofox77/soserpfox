@@ -484,11 +484,24 @@ class AnalyticsApiController extends Controller
                 COUNT(DISTINCT CASE WHEN event_name = "click_register" THEN visitor_id END) as registo
             ')->first();
 
+        /*
+         * O CLIQUE NÃO É O REGISTO (26/09/2026). Chamava-se «Começou o
+         * registo» a quem clicou num link para `/register`. Os passos que
+         * contam vêm do servidor, sem as contas de teste: o formulário
+         * iniciado (primeira etapa válida), a empresa criada, o teste activado
+         * e a primeira utilização (o primeiro trabalho a sério).
+         */
+        $inscricao = \App\Services\Campanha\ResultadosDaCampanha::resumo($this->de(), $this->ate());
+
         return [
             ['degrau' => __('Chegou à página inicial'), 'quantos' => (int) $f->entrada, 'icone' => 'fa-house'],
             ['degrau' => __('Viu os módulos'), 'quantos' => (int) $f->modulos, 'icone' => 'fa-cubes'],
             ['degrau' => __('Clicou nos planos'), 'quantos' => (int) $f->planos, 'icone' => 'fa-tag'],
-            ['degrau' => __('Começou o registo'), 'quantos' => (int) $f->registo, 'icone' => 'fa-rocket'],
+            ['degrau' => __('Clicou para registo'), 'quantos' => (int) $f->registo, 'icone' => 'fa-hand-pointer'],
+            ['degrau' => __('Iniciou o formulário'), 'quantos' => $inscricao['formularios_iniciados'], 'icone' => 'fa-pen-to-square'],
+            ['degrau' => __('Criou a empresa'), 'quantos' => $inscricao['empresas_criadas'], 'icone' => 'fa-building'],
+            ['degrau' => __('Activou o teste'), 'quantos' => $inscricao['testes_activados'], 'icone' => 'fa-flask'],
+            ['degrau' => __('Primeira utilização'), 'quantos' => $inscricao['primeira_utilizacao'], 'icone' => 'fa-rocket'],
         ];
     }
 

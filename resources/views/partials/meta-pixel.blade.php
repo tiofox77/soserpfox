@@ -1,4 +1,25 @@
-@php($metaPixelId = \App\Models\SystemSetting::get('facebook_pixel_id'))
+@php
+    $metaPixelId = \App\Models\SystemSetting::get('facebook_pixel_id');
+
+    /*
+     * A INSCRIÇÃO CONCLUÍDA, para o CompleteRegistration (26/09/2026).
+     *
+     * Fica na sessão desde que a empresa nasce (RegistarEmpresa) até uma página
+     * com o pixel e COM consentimento de marketing a usar — aí sai da sessão, e
+     * recarregar já não repete nada. Sem consentimento fica guardada (a pessoa
+     * pode aceitar mais à frente) e vai no script à espera dele; com mais de 24
+     * horas deixa de valer. O eventID é determinístico por empresa: se chegar
+     * a sair duas vezes, a Meta deduplica.
+     */
+    $inscricao = session('meta_registration_completed');
+    if ($inscricao && (now()->timestamp - (int) ($inscricao['em'] ?? now()->timestamp)) > 86400) {
+        session()->forget('meta_registration_completed');
+        $inscricao = null;
+    }
+    if ($inscricao && !empty($metaPixelId) && \App\Services\Privacidade\Consentimentos::permite('marketing')) {
+        session()->forget('meta_registration_completed');
+    }
+@endphp
 @if(!empty($metaPixelId))
     <!-- Meta Pixel: cadastro e conversão — só com consentimento de marketing
          (acordado por partials/consentimento; sem ele não sai nada para a Meta).
@@ -16,17 +37,16 @@
             fbq('init', @json((string) $metaPixelId));
             fbq('track', 'PageView');
 
-            @if(session('meta_registration_completed'))
-                // Só depois de a inscrição estar gravada (flash de uma requisição).
-                // O eventID é determinístico por empresa: recarregar ou reenviar
-                // repete o mesmo id e a Meta deduplica.
+            @if($inscricao)
+                // Só depois de a empresa estar gravada. O eventID é
+                // determinístico por empresa: a Meta deduplica repetições.
                 fbq('track', 'CompleteRegistration', {
-                    content_name: @json(session('meta_registration_completed.plan')),
-                    status: @json(session('meta_registration_completed.status')),
+                    content_name: @json($inscricao['plan'] ?? null),
+                    status: @json($inscricao['status'] ?? null),
                     currency: 'USD',
                     value: 0
                 }, {
-                    eventID: @json(session('meta_registration_completed.event_id'))
+                    eventID: @json($inscricao['event_id'] ?? null)
                 });
             @endif
         }

@@ -11,15 +11,20 @@ use Illuminate\Support\Collection;
 /**
  * OS RESULTADOS DA CAMPANHA, SEPARADOS E SEM OS TESTES.
  *
- * Quatro coisas que se confundem numa só:
- *  - EVENTOS Meta (CompleteRegistration): disparados no browser; um por
- *    inscrição gravada (event_id determinístico por empresa — não duplicam).
- *  - INSCRIÇÕES únicas: as conversões que o servidor gravou (a fonte de
- *    verdade, não o que a Meta atribui).
- *  - EMPRESAS criadas: uma por inscrição.
- *  - PRIMEIRA utilização: quantas dessas empresas já entraram (login).
+ * O PERCURSO, passo a passo, cada um pela sua fonte (26/09/2026):
+ *  - CLIQUES para o registo: o browser, `click_register` — um clique não é
+ *    uma pessoa; conta-se por visitante, sem os robôs.
+ *  - FORMULÁRIOS INICIADOS: o servidor, `registo_iniciado` — a primeira etapa
+ *    que passou na validação (EventosDaInscricao).
+ *  - EMPRESAS criadas: o servidor, `complete_registration`, uma por empresa
+ *    (agrupado por tenant_id, mesmo que uma tenha gravado duas vezes).
+ *  - TESTES activados: a subscrição da empresa entrou em teste.
+ *  - PRIMEIRA utilização: a empresa criou o primeiro trabalho a sério
+ *    (PrimeiraUtilizacao) — e não o login, que o registo faz sozinho.
  *
- * E os TESTES saem das contas comerciais — identificados, nunca adivinhados.
+ * Os TESTES saem das contas comerciais — identificados, nunca adivinhados. As
+ * LINHAS não levam dados pessoais: nem email, nem NIF, nem nome. O email, o
+ * NIF e o nome só servem, cá dentro, para reconhecer as contas de teste.
  */
 class ResultadosDaCampanha
 {
@@ -50,8 +55,8 @@ class ResultadosDaCampanha
     }
 
     /**
-     * As linhas das conversões do período, cada uma anotada (empresa, plano,
-     * origem, se já entrou, e se é teste).
+     * As empresas criadas no período, uma linha cada, SEM dados pessoais:
+     * origem, módulo de entrada, plano, estado, teste e primeira utilização.
      *
      * @return Collection<int, array<string, mixed>>
      */
@@ -74,36 +79,63 @@ class ResultadosDaCampanha
                 $tenant = $tenantId ? Tenant::withTrashed()->find($tenantId) : null;
                 $user = $e->user_id ? User::withTrashed()->find($e->user_id) : null;
 
-                $email = $user?->email ?? $tenant?->email;
-                $nome = $tenant?->name ?? $user?->name;
-                $nif = $tenant?->nif;
+                $estado = $e->meta['subscription_status'] ?? null;
+                $primeira = $tenant ? PrimeiraUtilizacao::de($tenant) : null;
 
                 return [
                     'tenant_id' => $tenantId,
-                    'empresa' => $nome,
-                    'email' => $email,
-                    'nif' => $nif,
                     'plano' => $e->meta['plan_slug'] ?? null,
-                    'estado' => $e->meta['subscription_status'] ?? null,
-                    'utm_source' => $e->utm_source,
+                    'modulo' => $e->meta['modulo'] ?? null,
+                    'estado' => $estado,
+                    'origem' => $e->utm_source ?: (! empty($e->meta['fbclid']) ? 'facebook' : (! empty($e->meta['gclid']) ? 'google' : null)),
                     'utm_campaign' => $e->utm_campaign ?? null,
                     'quando' => $e->created_at,
                     'eventos_gravados' => $grupo->count(),
-                    'primeira_utilizacao' => (bool) ($user?->last_login_at),
-                    'teste' => self::eTeste($email, $nif, $nome),
+                    // O teste começou: no registo, ou mais tarde (um pendente aprovado para teste).
+                    'teste_activado' => $estado === 'trial'
+                        || ($tenant && $tenant->subscriptions()->whereNotNull('trial_ends_at')->exists()),
+                    'primeira_utilizacao' => $primeira !== null,
+                    'primeira_utilizacao_em' => $primeira,
+                    'teste' => self::eTeste($user?->email ?? $tenant?->email, $tenant?->nif, $tenant?->name ?? $user?->name),
                 ];
             })
             ->values();
     }
 
     /**
-     * O resumo com as quatro medidas separadas e os testes de fora.
+     * Os visitantes distintos que clicaram para o registo, e os formulários
+     * iniciados — os dois passos antes de haver empresa.
+     *
+     * @return array{cliques_para_registo: int, formularios_iniciados: int}
+     */
+    public static function antesDaEmpresa(CarbonInterface $desde, CarbonInterface $ate): array
+    {
+        return [
+            // Por visitante: dez cliques da mesma pessoa são uma pessoa. Sem
+            // quem tinha sessão iniciada (já é cliente).
+            'cliques_para_registo' => AnalyticsEvent::query()
+                ->where('event_name', 'click_register')
+                ->whereNull('user_id')
+                ->whereBetween('created_at', [$desde, $ate])
+                ->distinct()->count('visitor_id'),
+            'formularios_iniciados' => AnalyticsEvent::query()
+                ->where('event_name', EventosDaInscricao::INICIADO)
+                ->whereBetween('created_at', [$desde, $ate])
+                ->distinct()->count('visitor_id'),
+        ];
+    }
+
+    /**
+     * O resumo com o percurso separado e os testes de fora.
      *
      * @return array{
      *   periodo: array{desde:string, ate:string},
+     *   cliques_para_registo: int,
+     *   formularios_iniciados: int,
      *   eventos_completeregistration: int,
      *   inscricoes_unicas: int,
      *   empresas_criadas: int,
+     *   testes_activados: int,
      *   primeira_utilizacao: int,
      *   testes_excluidos: int,
      *   linhas: Collection<int, array<string, mixed>>
@@ -116,10 +148,14 @@ class ResultadosDaCampanha
 
         return [
             'periodo' => ['desde' => $desde->toDateTimeString(), 'ate' => $ate->toDateTimeString()],
-            // Um evento por empresa (disparo do pixel). É o que se compara com a Meta.
+            ...self::antesDaEmpresa($desde, $ate),
+            // Conversões gravadas pelo servidor (uma por empresa). NÃO são os
+            // disparos do pixel: esses dependem do consentimento de marketing
+            // e de o browser os deixar sair — é a Meta que os conta.
             'eventos_completeregistration' => (int) $linhas->sum('eventos_gravados'),
             'inscricoes_unicas' => $comerciais->count(),
             'empresas_criadas' => $comerciais->pluck('tenant_id')->filter()->unique()->count(),
+            'testes_activados' => $comerciais->where('teste_activado', true)->count(),
             'primeira_utilizacao' => $comerciais->where('primeira_utilizacao', true)->count(),
             'testes_excluidos' => $linhas->where('teste', true)->count(),
             'linhas' => $linhas,

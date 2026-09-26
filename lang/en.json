@@ -13102,5 +13102,14 @@
     "Faturas de compra": "Purchase invoices",
     "Compra paga": "Purchase paid",
     "Compra a pagar": "Purchase unpaid",
-    "Fatura de compra :n (Documentos)": "Purchase invoice :n (Documents)"
+    "Fatura de compra :n (Documentos)": "Purchase invoice :n (Documents)",
+    "Clicou para registo": "Clicked to sign up",
+    "Iniciou o formulário": "Started the form",
+    "Criou a empresa": "Created the company",
+    "Activou o teste": "Started the trial",
+    "Primeira utilização": "First use",
+    "para registo :r · whatsapp :w · módulos :m": "to sign up :r · whatsapp :w · modules :m",
+    "Taxa de clique para registo": "Sign-up click rate",
+    "cliques para registo por visitante — as empresas criadas estão no percurso": "sign-up clicks per visitor — companies created are in the funnel",
+    "Cliques para registo": "Sign-up clicks"
 }

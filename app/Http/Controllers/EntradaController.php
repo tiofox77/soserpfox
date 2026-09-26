@@ -57,6 +57,11 @@ class EntradaController extends Controller
             ])->values()->all(),
             'conta' => route('my-account'),
             'sair' => route('logout'),
+        ], [
+            // Uma inscrição pendente aterra AQUI (o /home redirecciona): é a
+            // primeira página com pixel que ela vê, e o CompleteRegistration
+            // ainda está à espera na sessão (ver partials/meta-pixel).
+            'pixel' => session()->has('meta_registration_completed'),
         ])();
     }
 }

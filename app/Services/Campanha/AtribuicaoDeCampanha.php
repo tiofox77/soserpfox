@@ -49,6 +49,10 @@ class AtribuicaoDeCampanha
             $plano = self::planoDoModulo($moduloSlug);
             if ($plano !== null) {
                 $request->session()->put('registration_plan', $plano);
+                // E o MÓDULO por onde entrou: o plano não o diz (vários módulos
+                // podem acabar no mesmo plano), e o relatório da campanha
+                // precisa de ligar a origem ao módulo e à empresa.
+                $request->session()->put('registration_module', $moduloSlug);
             }
         }
     }

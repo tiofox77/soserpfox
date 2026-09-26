@@ -20,7 +20,7 @@ class ConversoesDaCampanha extends Command
         {--tudo : inclui os testes na lista (continuam fora das contas comerciais)}
         {--json : devolve tudo em JSON}';
 
-    protected $description = 'Separa eventos Meta, inscrições únicas, empresas criadas e primeira utilização, excluindo testes';
+    protected $description = 'O percurso da inscrição: cliques, formulários iniciados, empresas, testes activados e primeira utilização, sem dados pessoais e sem testes';
 
     public function handle(): int
     {
@@ -38,30 +38,34 @@ class ConversoesDaCampanha extends Command
         $this->info(sprintf('Campanha de %s a %s', $r['periodo']['desde'], $r['periodo']['ate']));
         $this->newLine();
 
+        // Sem dados pessoais: a empresa pelo número, e nada de email nem NIF.
         $linhas = $this->option('tudo') ? $r['linhas'] : $r['linhas']->where('teste', false);
         $this->table(
-            ['Empresa', 'Email', 'Plano', 'Estado', 'Origem', 'Quando', 'Já entrou', 'Eventos', 'Teste'],
+            ['Empresa', 'Origem', 'Campanha', 'Módulo', 'Plano', 'Estado', 'Quando', 'Teste activado', '1.ª utilização', 'Conta de teste'],
             $linhas->map(fn ($l) => [
-                $l['empresa'] ?? '—',
-                $l['email'] ?? '—',
+                '#' . $l['tenant_id'],
+                $l['origem'] ?? '—',
+                $l['utm_campaign'] ?? '—',
+                $l['modulo'] ?? '—',
                 $l['plano'] ?? '—',
                 $l['estado'] ?? '—',
-                $l['utm_source'] ?? '—',
                 optional($l['quando'])->format('d/m/Y H:i') ?? '—',
-                $l['primeira_utilizacao'] ? 'sim' : 'não',
-                $l['eventos_gravados'],
+                $l['teste_activado'] ? 'sim' : 'não',
+                $l['primeira_utilizacao_em'] ? $l['primeira_utilizacao_em']->format('d/m/Y H:i') : 'ainda não',
                 $l['teste'] ? 'TESTE' : '',
             ])->all(),
         );
 
         $this->newLine();
-        $this->line('<comment>Resultados (testes excluídos):</comment>');
-        $this->table(['Medida', 'Valor'], [
-            ['Eventos CompleteRegistration disparados', $r['eventos_completeregistration']],
-            ['Inscrições únicas (comerciais)', $r['inscricoes_unicas']],
+        $this->line('<comment>O percurso (testes excluídos a partir das empresas):</comment>');
+        $this->table(['Passo', 'Valor'], [
+            ['Cliques para registo (visitantes)', $r['cliques_para_registo']],
+            ['Formulários iniciados', $r['formularios_iniciados']],
             ['Empresas criadas', $r['empresas_criadas']],
-            ['Primeira utilização (já entraram)', $r['primeira_utilizacao']],
-            ['Testes excluídos', $r['testes_excluidos']],
+            ['Testes activados', $r['testes_activados']],
+            ['Primeira utilização (criou trabalho)', $r['primeira_utilizacao']],
+            ['Conversões gravadas pelo servidor', $r['eventos_completeregistration']],
+            ['Contas de teste excluídas', $r['testes_excluidos']],
         ]);
 
         $this->newLine();

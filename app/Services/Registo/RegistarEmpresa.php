@@ -224,6 +224,10 @@ class RegistarEmpresa
                     'plan_id' => $plan->id,
                     'plan_slug' => $plan->slug,
                     'subscription_status' => $estado,
+                    // O módulo por onde entrou e o id do evento da Meta: é o que
+                    // liga a origem ao módulo e à empresa, e o pixel ao servidor.
+                    'modulo' => session('registration_module'),
+                    'event_id' => 'registration-'.$tenant->id,
                     'fbclid' => $marketing ? ($origem['fbclid'] ?? null) : null,
                     'gclid' => $marketing ? ($origem['gclid'] ?? null) : null,
                 ],
@@ -245,12 +249,20 @@ class RegistarEmpresa
         // empresa criada é UMA conversão. Recarregar a página ou reenviar o
         // pedido repete o mesmo id, e a Meta dedduplica — e um Conversions API,
         // se um dia existir, tem de reutilizar exactamente este id.
-        session()->flash('meta_registration_completed', [
+        //
+        // GUARDADO, e não «flash» (26/09/2026): numa inscrição pendente o
+        // `/home` redirecciona para `/subscription-expired`, e o redireccionamento
+        // gastava a mensagem de uma só leitura antes de haver página com o
+        // pixel — essas inscrições nunca chegavam à Meta. Fica na sessão até
+        // uma página com o pixel e com consentimento de marketing o usar (ver
+        // partials/meta-pixel); recarregar depois disso já não o repete.
+        session()->put('meta_registration_completed', [
             'event_id' => 'registration-'.$tenant->id,
             'plan' => $plan->slug,
             'status' => $estado,
+            'em' => now()->timestamp,
         ]);
-        session()->forget(['registration_acquisition', 'registration_visitor_id', 'registration_plan']);
+        session()->forget(['registration_acquisition', 'registration_visitor_id', 'registration_plan', 'registration_module', 'registo_iniciado_gravado']);
     }
 
     /** O email de boas-vindas: o modelo `welcome` e o SMTP da plataforma, da base de dados. */

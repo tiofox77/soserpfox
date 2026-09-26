@@ -65,6 +65,10 @@ class RegistoController extends Controller
             throw $e;
         }
 
+        // A primeira etapa válida é o início EFECTIVO do formulário — o clique
+        // no «Começar» não é. Uma vez por sessão (EventosDaInscricao).
+        \App\Services\Campanha\EventosDaInscricao::iniciado($a->planoEscolhido()?->slug);
+
         return response()->json($a->paraEcra());
     }
 

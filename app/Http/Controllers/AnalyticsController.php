@@ -54,6 +54,13 @@ class AnalyticsController extends Controller
         }
 
         $ua = $request->userAgent();
+
+        // Os robôs (o revisor de anúncios da Meta, as pré-visualizações de
+        // links, os indexadores) não contam como visitas nem como cliques.
+        if (\App\Support\Robos::eRobo($ua)) {
+            return response()->json(['ok' => true]);
+        }
+
         $device = $this->detectDevice($ua);
 
         /*

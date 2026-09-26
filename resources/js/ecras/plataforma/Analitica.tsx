@@ -249,16 +249,16 @@ export default function Analitica() {
                     valor={kz(n.cliques, 0)}
                     icone="fa-bullseye"
                     tom="ambar"
-                    nota={t('registo :r · whatsapp :w · módulos :m', {
+                    nota={t('para registo :r · whatsapp :w · módulos :m', {
                         r: n.registos, w: n.whatsapp, m: n.modulos,
                     })}
                 />
                 <CartaoNumero
-                    rotulo={t('Taxa de conversão')}
+                    rotulo={t('Taxa de clique para registo')}
                     valor={`${n.conversao}%`}
                     icone="fa-percent"
                     tom="roxo"
-                    nota={t('visitante → começou o registo')}
+                    nota={t('cliques para registo por visitante — as empresas criadas estão no percurso')}
                 />
             </div>
 
@@ -274,7 +274,9 @@ export default function Analitica() {
                     alerta={n.rejeicao > 70}
                 />
                 <Medida rotulo={t('Pesquisas')} valor={kz(n.pesquisas, 0)} />
-                <Medida rotulo={t('Registos começados')} valor={kz(n.registos, 0)} />
+                {/* Um clique num link para /register não é um registo: o que se
+                    preencheu e criou está no percurso (26/09/2026). */}
+                <Medida rotulo={t('Cliques para registo')} valor={kz(n.registos, 0)} />
             </div>
 
             <div className={cls(CARTAO, 'p-4')}>

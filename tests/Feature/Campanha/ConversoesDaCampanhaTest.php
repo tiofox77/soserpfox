@@ -53,12 +53,47 @@ class ConversoesDaCampanhaTest extends TestCase
 
         $tenant = Tenant::where('name', 'Padaria Nova')->latest('id')->firstOrFail();
 
-        // O event_id é determinístico (uma empresa = uma conversão), e ficou em flash.
+        // O event_id é determinístico (uma empresa = uma conversão), e fica à
+        // espera na sessão até uma página com o pixel o usar.
         $this->assertSame('registration-' . $tenant->id, session('meta_registration_completed.event_id'));
 
-        // Recarregar a página do registo consome o flash: não volta a disparar.
-        $this->get('/register')->assertOk();
+        \App\Models\SystemSetting::set('facebook_pixel_id', '1234567890');
+        $comMarketing = \App\Services\Privacidade\Consentimentos::valorDoCookie(false, true);
+
+        // Sem consentimento de marketing vai no script à espera dele, e não se gasta.
+        $semConsentimento = $this->get('/register')->assertOk();
+        $this->assertStringContainsString('registration-' . $tenant->id, $semConsentimento->getContent());
+        $this->assertNotNull(session('meta_registration_completed'), 'sem consentimento não se gasta');
+
+        // Com consentimento sai UMA vez: recarregar já não repete.
+        $primeira = $this->withUnencryptedCookie('sos_consentimento', $comMarketing)->get('/register')->assertOk();
+        $this->assertStringContainsString("'CompleteRegistration'", $primeira->getContent());
         $this->assertNull(session('meta_registration_completed'));
+
+        $recarregada = $this->withUnencryptedCookie('sos_consentimento', $comMarketing)->get('/register')->assertOk();
+        $this->assertStringNotContainsString("'CompleteRegistration'", $recarregada->getContent(), 'recarregar não conta outra inscrição');
+
+        // E o servidor gravou a conversão UMA vez, com o event_id do pixel.
+        $conversoes = AnalyticsEvent::where('event_name', 'complete_registration')->get()
+            ->filter(fn ($e) => (int) ($e->meta['tenant_id'] ?? 0) === $tenant->id);
+        $this->assertCount(1, $conversoes);
+        $this->assertSame('registration-' . $tenant->id, $conversoes->first()->meta['event_id']);
+    }
+
+    public function test_a_inscricao_pendente_leva_o_evento_ate_a_pagina_da_subscricao(): void
+    {
+        $plano = $this->planoGratuito();
+        $user = User::create(['name' => 'X', 'email' => 'x' . uniqid() . '@cliente.ao', 'password' => bcrypt('x'), 'is_active' => true]);
+        \App\Models\SystemSetting::set('facebook_pixel_id', '1234567890');
+
+        $resposta = $this->actingAs($user)
+            ->withSession(['meta_registration_completed' => ['event_id' => 'registration-999', 'plan' => $plano->slug, 'status' => 'pending', 'em' => now()->timestamp]])
+            ->withUnencryptedCookie('sos_consentimento', \App\Services\Privacidade\Consentimentos::valorDoCookie(false, true))
+            ->get('/subscription-expired')
+            ->assertOk();
+
+        $this->assertStringContainsString("'CompleteRegistration'", $resposta->getContent(), 'a página das pendentes tem o pixel com o evento');
+        $this->assertStringContainsString('registration-999', $resposta->getContent());
     }
 
     public function test_o_resumo_separa_as_medidas_e_deixa_os_testes_de_fora(): void
@@ -77,8 +112,34 @@ class ConversoesDaCampanhaTest extends TestCase
         $this->assertSame(4, $r['eventos_completeregistration'], 'quatro disparos: 2 reais + 1 repetido + 1 teste');
         $this->assertSame(2, $r['inscricoes_unicas'], 'duas inscrições comerciais (o repetido não conta duas vezes)');
         $this->assertSame(2, $r['empresas_criadas']);
-        $this->assertSame(1, $r['primeira_utilizacao'], 'só uma das comerciais já entrou');
+        $this->assertSame(1, $r['primeira_utilizacao'], 'só uma das comerciais já criou trabalho');
         $this->assertSame(1, $r['testes_excluidos']);
+
+        // As linhas não levam dados pessoais.
+        foreach ($r['linhas'] as $linha) {
+            $this->assertArrayNotHasKey('email', $linha);
+            $this->assertArrayNotHasKey('nif', $linha);
+            $this->assertArrayNotHasKey('empresa', $linha);
+        }
+    }
+
+    public function test_entrar_nao_e_primeira_utilizacao_criar_trabalho_e(): void
+    {
+        [$desde, $ate] = [now()->subDay(), now()->addDay()];
+
+        // Entrou (o registo inicia sessão sozinho) mas não fez nada.
+        $parado = $this->conversao('Loja Parada', 'loja@parada.ao', 'pacote-vendas', entrou: false);
+        User::where('email', 'loja@parada.ao')->update(['last_login_at' => now()]);
+
+        $linha = ResultadosDaCampanha::linhas($desde, $ate)->firstWhere('tenant_id', $parado->id);
+        $this->assertFalse($linha['primeira_utilizacao'], 'o login do próprio registo não é utilização');
+
+        // O que o registo provisiona no mesmo segundo também não conta.
+        \Illuminate\Support\Facades\DB::table('invoicing_clients')->insert([
+            'tenant_id' => $parado->id, 'name' => 'Consumidor Final', 'nif' => '999999999',
+            'created_at' => $parado->created_at->copy()->addMinutes(5), 'updated_at' => now(),
+        ]);
+        $this->assertNull(\App\Services\Campanha\PrimeiraUtilizacao::de($parado), 'o Consumidor Final não é trabalho');
     }
 
     /** Cria uma empresa + dono + o evento de conversão, e devolve o tenant. */
@@ -91,8 +152,17 @@ class ConversoesDaCampanhaTest extends TestCase
         $user = User::create([
             'name' => 'Dono ' . $empresa, 'email' => $email, 'password' => bcrypt('x'),
             'tenant_id' => $tenant->id, 'is_active' => true,
-            'last_login_at' => $entrou ? now() : null,
+            'last_login_at' => now(),
         ]);
+
+        // «Entrou» = criou trabalho a sério, depois do registo.
+        if ($entrou) {
+            \Illuminate\Support\Facades\DB::table('invoicing_products')->insert([
+                'tenant_id' => $tenant->id, 'name' => 'Pão', 'code' => 'P-' . uniqid(), 'type' => 'produto',
+                'price' => 100, 'unit' => 'UN', 'is_active' => true,
+                'created_at' => $tenant->created_at->copy()->addMinutes(3), 'updated_at' => now(),
+            ]);
+        }
 
         AnalyticsEvent::create([
             'visitor_id' => (string) \Illuminate\Support\Str::uuid(),
