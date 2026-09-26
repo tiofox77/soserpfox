@@ -5,6 +5,7 @@ namespace App\Services\POS;
 use App\Models\Invoicing\CreditNote;
 use App\Models\Invoicing\DebitNote;
 use App\Models\Invoicing\PosShift;
+use App\Models\Invoicing\PurchaseInvoice;
 use App\Models\Invoicing\SalesInvoice;
 use Illuminate\Support\Collection;
 
@@ -26,7 +27,9 @@ use Illuminate\Support\Collection;
  * fecho (App\Services\POS\DocumentosNoTurno): a FR A4 entra como qualquer
  * venda; a FT, a ND e a NC sem devolução entram como A PRAZO — na lista e nos
  * artigos, com o total à parte em `totais.a_prazo`, porque não passaram pela
- * gaveta.
+ * gaveta. As facturas de compra saem só na lista, com o total em
+ * `totais.compras`: não são vendas, e o pagamento delas já sai da gaveta
+ * pelo GavetaDoTurno.
  */
 class ProdutosDoTurno
 {
@@ -49,6 +52,8 @@ class ProdutosDoTurno
         $idsFacturas = $ids($movimentos->where('type', 'invoice'), SalesInvoice::class)->merge($ids($aPrazo, SalesInvoice::class))->unique()->values();
         $idsNotas = $movimentos->where('type', 'credit_note')->pluck('reference_id')->filter()->merge($ids($aPrazo, CreditNote::class))->unique()->values();
         $idsDebito = $ids($aPrazo, DebitNote::class);
+        $deCompra = $movimentos->where('type', 'compra');
+        $idsCompra = $ids($deCompra, PurchaseInvoice::class);
 
         // Quais entraram A PRAZO, por documento: não passaram pela gaveta.
         $saoAPrazo = $aPrazo->map(fn ($m) => class_basename((string) $m->reference_type) . ':' . $m->reference_id)->flip();
@@ -70,6 +75,13 @@ class ProdutosDoTurno
             ->where('tenant_id', $turno->tenant_id)
             ->whereIn('id', $idsNotas)
             ->with(['items.product:id,code,name', 'client:id,name', 'series:id,prefix,series_code,agt_series_id'])
+            ->get();
+
+        $compras = $idsCompra->isEmpty() ? collect() : PurchaseInvoice::withoutGlobalScope('tenant')
+            ->where('tenant_id', $turno->tenant_id)
+            ->whereIn('id', $idsCompra)
+            ->withCount('items')
+            ->with('supplier:id,name')
             ->get();
 
         $debitos = $idsDebito->isEmpty() ? collect() : DebitNote::withoutGlobalScope('tenant')
@@ -200,6 +212,24 @@ class ProdutosDoTurno
             ];
         }
 
+        // As facturas de compra: só na lista. Não são vendas, e não mexem nos
+        // artigos vendidos nem no líquido do turno.
+        foreach ($compras as $c) {
+            $documentos[] = [
+                'tipo' => 'compra',
+                'numero' => (string) $c->invoice_number,
+                'numero_agt' => null,
+                'hora' => optional($c->created_at)->format('H:i'),
+                'quando' => $c->created_at?->toIso8601String(),
+                'cliente' => $c->supplier?->name,
+                'meio' => $c->status === 'paid' ? __('Compra paga') : __('Compra a pagar'),
+                'artigos' => (int) $c->items_count,
+                'total' => round((float) $c->total, 2),
+                'anulada' => $c->status === 'cancelled',
+                'a_prazo' => false,
+            ];
+        }
+
         $somaLiquida = array_sum(array_map(fn ($p) => $p['total'] - $p['devolvido'], $produtos));
 
         $lista = collect($produtos)->map(function (array $p) use ($somaLiquida) {
@@ -244,6 +274,9 @@ class ProdutosDoTurno
                 'a_prazo' => round((float) $aPrazo->sum('amount'), 2),
                 'documentos_a_prazo' => $aPrazo->count(),
                 'debitos' => $validasDebito,
+                // As facturas de compra do turno: fora das vendas.
+                'compras' => round((float) $deCompra->sum('amount'), 2),
+                'documentos_compra' => $deCompra->count(),
             ],
             'documentos' => array_map(fn ($d) => array_diff_key($d, ['quando' => true]), $documentos),
         ];

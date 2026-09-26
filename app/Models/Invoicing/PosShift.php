@@ -333,7 +333,7 @@ class PosShift extends Model
          * emitiu pelos Documentos saem no fecho, mas nenhum passou pela gaveta
          * nem é dinheiro recebido. Contam à parte em `documentosAPrazo()`.
          */
-        $transactions = $transactions->whereNotIn('type', [...self::TIPOS_DA_GAVETA, ...self::TIPOS_A_PRAZO]);
+        $transactions = $transactions->whereNotIn('type', [...self::TIPOS_DA_GAVETA, ...self::TIPOS_A_PRAZO, ...self::TIPOS_DE_COMPRA]);
 
         $byBucket = $transactions->groupBy(fn($t) => $bucket($t->payment_method));
 
@@ -374,6 +374,24 @@ class PosShift extends Model
 
     /** Os documentos que saem no fecho sem mexer na gaveta (ver App\Services\POS\DocumentosNoTurno). */
     public const TIPOS_A_PRAZO = ['a_prazo'];
+
+    /**
+     * As facturas de compra do turno: no fecho, fora das vendas. O pagamento
+     * delas sai da gaveta como `withdrawal` (GavetaDoTurno), não por aqui.
+     */
+    public const TIPOS_DE_COMPRA = ['compra'];
+
+    /**
+     * As facturas de compra do turno: quantas e quanto somam.
+     *
+     * @return array{quantos: int, valor: float}
+     */
+    public function comprasDoTurno(): array
+    {
+        $linhas = $this->transactions()->withoutGlobalScopes()->whereIn('type', self::TIPOS_DE_COMPRA)->get(['amount']);
+
+        return ['quantos' => $linhas->count(), 'valor' => round((float) $linhas->sum('amount'), 2)];
+    }
 
     /**
      * Os documentos a prazo do turno: quantos e quanto somam (a NC desconta).

@@ -175,6 +175,12 @@ class EmissorDeCompras
                 app(ActualizarCustoDeCompra::class)->aplicar($factura->fresh(['items.product']));
             }
 
+            // No FECHO DE TURNO de quem a emitiu, se a empresa o quiser
+            // (DocumentosNoTurno) — fora das vendas e da gaveta.
+            if ($status !== 'draft') {
+                \App\Services\POS\DocumentosNoTurno::compra($factura, auth()->id());
+            }
+
             return $factura;
         });
     }

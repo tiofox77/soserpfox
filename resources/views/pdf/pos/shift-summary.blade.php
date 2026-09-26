@@ -96,9 +96,15 @@
                  entram no TOTAL acima. Ver App\Services\POS\DocumentosNoTurno. --}}
             @php
                 $aPrazo = $shift->documentosAPrazo();
+                $compras = $shift->comprasDoTurno();
             @endphp
             @if($aPrazo['quantos'] > 0)
             <tr><td>A prazo pelos Documentos ({{ $aPrazo['quantos'] }} doc.) — fora da gaveta</td><td class="text-right">{{ number_format($aPrazo['valor'], 2) }}</td></tr>
+            @endif
+            {{-- As facturas de compra: não são vendas. O pagamento delas, quando
+                 sai da gaveta, já conta nas saídas da gaveta. --}}
+            @if($compras['quantos'] > 0)
+            <tr><td>Faturas de compra ({{ $compras['quantos'] }} doc.) — fora das vendas</td><td class="text-right">{{ number_format($compras['valor'], 2) }}</td></tr>
             @endif
         </tbody>
     </table>

@@ -149,6 +149,45 @@ class DocumentosNoFechoDeTurnoTest extends TenantTestCase
         $this->assertContains('nota', $tipos);
     }
 
+    public function test_a_factura_de_compra_sai_fora_das_vendas_e_da_gaveta(): void
+    {
+        $this->comPermissoes('invoicing.purchases.invoices.create');
+        $turno = $this->turno();
+
+        $fornecedor = \App\Models\Supplier::create([
+            'tenant_id' => $this->tenant->id, 'name' => 'Fornecedor ' . uniqid(), 'nif' => '5000000000',
+            'type' => 'pessoa_juridica', 'is_active' => true,
+        ]);
+        $categoria = Category::firstOrCreate(['tenant_id' => $this->tenant->id, 'name' => 'Geral'], ['is_active' => true]);
+        $artigo = Product::create([
+            'tenant_id' => $this->tenant->id, 'name' => 'Artigo ' . uniqid(), 'type' => 'produto', 'price' => 1500, 'cost' => 0,
+            'unit' => 'un', 'category_id' => $categoria->id, 'tax_type' => 'isento', 'exemption_reason' => 'M99',
+            'manage_stock' => true, 'stock_quantity' => 0, 'is_active' => true,
+        ]);
+
+        $r = $this->postJson('/api/v1/invoicing/react/compra', [
+            'supplier_id' => $fornecedor->id,
+            'warehouse_id' => $this->armazem->id,
+            'invoice_date' => now()->toDateString(),
+            'linhas' => [['product_id' => $artigo->id, 'quantity' => 3, 'price' => 800, 'tax_rate' => 0]],
+        ])->assertCreated();
+
+        $turno->refresh();
+        $compra = \App\Models\Invoicing\PurchaseInvoice::findOrFail($r->json('id'));
+
+        $movimento = $turno->transactions()->where('reference_id', $compra->id)->first();
+        $this->assertNotNull($movimento, 'a factura de compra entrou no turno de quem a emitiu');
+        $this->assertSame('compra', $movimento->type);
+        $this->assertEqualsWithDelta(0, (float) $turno->total_sales, 0.01, 'uma compra não é uma venda');
+        $this->assertEqualsWithDelta(0, $turno->dinheiroEsperado(), 0.01, 'nem tira da gaveta: o pagamento é que tira');
+        $this->assertSame(1, $turno->comprasDoTurno()['quantos']);
+
+        $r = ProdutosDoTurno::de($turno);
+        $this->assertSame('compra', $r['documentos'][0]['tipo']);
+        $this->assertSame([], $r['produtos'], 'os artigos comprados não são vendas por produto');
+        $this->assertEqualsWithDelta((float) $compra->total, $r['totais']['compras'], 0.01);
+    }
+
     public function test_desligada_nada_disto_entra_no_turno(): void
     {
         $this->opcao(false);

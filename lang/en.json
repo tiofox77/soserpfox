@@ -13093,5 +13093,14 @@
     "Estes documentos não aparecem no fecho. O dinheiro que movimentam continua a entrar na tesouraria, mas o esperado da gaveta não conta com ele: conte-o à parte.": "These documents do not appear in the close. Their money still goes into treasury, but the drawer's expected amount does not include it: count it separately.",
     "Os recibos entram sempre: são o pagamento do que se vendeu a prazo, e a gaveta não bate sem eles.": "Receipts are always included: they are the payment of what was sold on credit, and the drawer does not balance without them.",
     "Fatura-Recibo :n (Documentos)": "Invoice-Receipt :n (Documents)",
-    ":sigla :n a prazo (Documentos)": ":sigla :n on credit (Documents)"
+    ":sigla :n a prazo (Documentos)": ":sigla :n on credit (Documents)",
+    "Ponto de venda e turnos": "Point of sale and shifts",
+    "Turnos abertos: o que entra no fecho": "Open shifts: what goes into the close",
+    "Vale para quem tem um turno aberto no POS e emite pelo ecrã dos Documentos: faturas, faturas-recibo A4, notas de crédito, notas de débito, adiantamentos e faturas de compra.": "Applies to whoever has an open POS shift and issues from the Documents screen: invoices, A4 invoice-receipts, credit notes, debit notes, advances and purchase invoices.",
+    "A fatura de compra sai numa linha própria, fora das vendas. O pagamento dela em dinheiro já conta nas saídas da gaveta.": "The purchase invoice appears on its own line, outside sales. Paying it in cash already counts in the drawer outflows.",
+    "O que entra no fecho": "What goes into the close",
+    "Faturas de compra": "Purchase invoices",
+    "Compra paga": "Purchase paid",
+    "Compra a pagar": "Purchase unpaid",
+    "Fatura de compra :n (Documentos)": "Purchase invoice :n (Documents)"
 }

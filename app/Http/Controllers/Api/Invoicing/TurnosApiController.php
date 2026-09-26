@@ -150,6 +150,8 @@ class TurnosApiController extends Controller
             // Os documentos a prazo emitidos pelos Documentos (FT, ND, NC sem
             // devolução): saem no fecho, fora da gaveta (26/09/2026).
             'a_prazo' => $s->documentosAPrazo(),
+            // As facturas de compra que o operador emitiu: informativas.
+            'compras' => $s->comprasDoTurno(),
             // O esperado em caixa: o fundo, mais o que entrou em dinheiro, mais
             // as entradas e menos as saídas da gaveta pela tesouraria (23/09).
             'expected_cash' => $s->status === 'closed' ? (float) $s->expected_cash : $s->dinheiroEsperado(),

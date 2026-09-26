@@ -5,6 +5,7 @@ namespace App\Services\POS;
 use App\Models\Invoicing\InvoicingSettings;
 use App\Models\Invoicing\PosShift;
 use App\Models\Invoicing\PosShiftTransaction;
+use App\Models\Invoicing\PurchaseInvoice;
 use App\Models\Invoicing\SalesInvoice;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
@@ -26,7 +27,9 @@ use Illuminate\Support\Facades\Log;
  *      - a FT, a ND e a NC de uma factura por pagar entram como A PRAZO:
  *        aparecem na lista e nos artigos, mas não mexem na gaveta;
  *      - a NC que devolve dinheiro e o adiantamento entram como sempre
- *        entraram (devolução e recebimento).
+ *        entraram (devolução e recebimento);
+ *      - a factura de compra sai numa linha própria, fora das vendas: o
+ *        pagamento dela, esse, já sai da gaveta pelo GavetaDoTurno.
  *  · DESLIGADA — nenhum destes documentos vai ao turno. O dinheiro continua a
  *    entrar na tesouraria, e o fecho de caixa só conta o que passou pelo POS.
  *
@@ -87,6 +90,27 @@ final class DocumentosNoTurno
             'amount' => round($valor, 2),
             'description' => __(':sigla :n a prazo (Documentos)', ['sigla' => $sigla, 'n' => $numero]),
             'metadata' => ['origem' => 'documentos', 'documento' => $sigla],
+        ]);
+    }
+
+    /**
+     * A FACTURA DE COMPRA: sai no fecho, fora das vendas e da gaveta.
+     *
+     * O dinheiro de uma compra só sai quando se regista o pagamento, e esse
+     * já vai ao turno como saída da gaveta (GavetaDoTurno). Contá-la aqui
+     * também era tirar o mesmo dinheiro duas vezes.
+     */
+    public static function compra(PurchaseInvoice $factura, ?int $userId): ?PosShiftTransaction
+    {
+        $numero = (string) $factura->invoice_number;
+
+        return self::registar($factura, $userId, [
+            'type' => 'compra',
+            'reference_number' => $numero,
+            'payment_method' => 'compra',
+            'amount' => round((float) $factura->total, 2),
+            'description' => __('Fatura de compra :n (Documentos)', ['n' => $numero]),
+            'metadata' => ['origem' => 'documentos', 'documento' => 'FC'],
         ]);
     }
 

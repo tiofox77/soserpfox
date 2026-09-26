@@ -64,6 +64,8 @@ export default function TurnosDoPos() {
                     <>
                         {ultimo_fechado && <button type="button" onClick={reimprimir} className={ACCAO_DA_FAIXA}><i className="fas fa-print" aria-hidden="true" />{t('Reimprimir último fecho')}</button>}
                         <a href="/invoicing/pos/shift-history" className={ACCAO_DA_FAIXA}><i className="fas fa-clock-rotate-left" aria-hidden="true" />{t('Histórico')}</a>
+                        {/* A opção que decide o que os Documentos põem no fecho. */}
+                        <a href="/invoicing/settings?separador=pos" className={ACCAO_DA_FAIXA}><i className="fas fa-sliders" aria-hidden="true" />{t('O que entra no fecho')}</a>
                         {turno
                             ? <Botao cor="perigo" tom="solida" icone="fa-lock" onClick={() => porFecharModal(true)}>{t('Fechar turno')}</Botao>
                             : <Botao cor="bom" tom="solida" icone="fa-unlock" onClick={() => porAbrirModal(true)}>{t('Abrir turno')}</Botao>}
@@ -124,6 +126,9 @@ export default function TurnosDoPos() {
                         // Os documentos a prazo dos Documentos: no fecho, fora da gaveta.
                         ...(turno.a_prazo?.quantos
                             ? [[t('A prazo (fora da gaveta)'), kz(turno.a_prazo.valor), 'fa-hourglass-half', 'cinza']] as Array<[string, string, string, TomDoCartao]>
+                            : []),
+                        ...(turno.compras?.quantos
+                            ? [[t('Faturas de compra'), kz(turno.compras.valor), 'fa-truck', 'cinza']] as Array<[string, string, string, TomDoCartao]>
                             : []),
                         [t('Esperado em caixa'), kz(turno.expected_cash), 'fa-vault', 'ambar'],
                     ] as Array<[string, string, string, TomDoCartao]>).map(([r, v, icone, tom], i) => (
@@ -213,6 +218,7 @@ function TurnoFechado({ turno, tipo, reimpressao = false, aoFechar }: { turno: T
                         ...(turno.credit_notes_amount > 0 ? [[t('Devolvido'), -turno.credit_notes_amount]] as Array<[string, number]> : []),
                         [t('Total de vendas'), turno.net_sales],
                         ...(turno.a_prazo?.quantos ? [[t('A prazo (fora da gaveta)'), turno.a_prazo.valor]] as Array<[string, number]> : []),
+                        ...(turno.compras?.quantos ? [[t('Faturas de compra'), turno.compras.valor]] as Array<[string, number]> : []),
                     ] as Array<[string, number]>).map(([r, v]) => (
                         <p key={r} className="flex justify-between gap-3 border-b border-dashed border-slate-200 py-1"><span className="text-slate-600">{r}</span><strong>{kz(v)}</strong></p>
                     ))}

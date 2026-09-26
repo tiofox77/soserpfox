@@ -16,6 +16,8 @@ export type Turno = {
     saidas_da_gaveta: number; entradas_na_gaveta: number;
     /** O que o operador emitiu A PRAZO pelos Documentos (FT, ND, NC sem devolução). Fora da gaveta e do total. */
     a_prazo?: { quantos: number; valor: number };
+    /** As facturas de compra que o operador emitiu. Fora das vendas: o pagamento sai pelas saídas da gaveta. */
+    compras?: { quantos: number; valor: number };
     closing_notes: string | null; difference_reason: string | null;
     /** O papel resumido e o com produtos (`?detalhe=produtos`). */
     exportar: { pdf: string; talao: string; pdf_produtos: string; talao_produtos: string };

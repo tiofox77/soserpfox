@@ -13093,5 +13093,14 @@
     "Estes documentos não aparecem no fecho. O dinheiro que movimentam continua a entrar na tesouraria, mas o esperado da gaveta não conta com ele: conte-o à parte.": "Ces documents n'apparaissent pas dans la clôture. Leur argent entre toujours en trésorerie, mais le montant attendu du tiroir ne le compte pas : comptez-le à part.",
     "Os recibos entram sempre: são o pagamento do que se vendeu a prazo, e a gaveta não bate sem eles.": "Les reçus sont toujours inclus : ils sont le paiement de ce qui a été vendu à crédit, et le tiroir ne s'équilibre pas sans eux.",
     "Fatura-Recibo :n (Documentos)": "Facture-Reçu :n (Documents)",
-    ":sigla :n a prazo (Documentos)": ":sigla :n à crédit (Documents)"
+    ":sigla :n a prazo (Documentos)": ":sigla :n à crédit (Documents)",
+    "Ponto de venda e turnos": "Point de vente et caisses",
+    "Turnos abertos: o que entra no fecho": "Caisses ouvertes : ce qui entre dans la clôture",
+    "Vale para quem tem um turno aberto no POS e emite pelo ecrã dos Documentos: faturas, faturas-recibo A4, notas de crédito, notas de débito, adiantamentos e faturas de compra.": "S'applique à quiconque a une caisse ouverte au POS et émet depuis l'écran Documents : factures, factures-reçus A4, avoirs, notes de débit, acomptes et factures d'achat.",
+    "A fatura de compra sai numa linha própria, fora das vendas. O pagamento dela em dinheiro já conta nas saídas da gaveta.": "La facture d'achat figure sur sa propre ligne, hors ventes. Son paiement en espèces compte déjà dans les sorties du tiroir.",
+    "O que entra no fecho": "Ce qui entre dans la clôture",
+    "Faturas de compra": "Factures d'achat",
+    "Compra paga": "Achat payé",
+    "Compra a pagar": "Achat à payer",
+    "Fatura de compra :n (Documentos)": "Facture d'achat :n (Documents)"
 }

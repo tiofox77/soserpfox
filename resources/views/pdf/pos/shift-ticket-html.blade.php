@@ -95,10 +95,15 @@
         {{-- Os documentos a prazo dos Documentos: no fecho, fora da gaveta. --}}
         @php
             $aPrazo = $shift->documentosAPrazo();
+            $compras = $shift->comprasDoTurno();
         @endphp
         @if($aPrazo['quantos'] > 0)
         <tr><td>A prazo ({{ $aPrazo['quantos'] }} doc.)*</td><td class="right">{{ number_format($aPrazo['valor'], 2) }} Kz</td></tr>
         <tr><td colspan="2" style="font-size:9px">* Emitidos nos Documentos; não entram na gaveta.</td></tr>
+        @endif
+        @if($compras['quantos'] > 0)
+        <tr><td>Faturas de compra ({{ $compras['quantos'] }})</td><td class="right">{{ number_format($compras['valor'], 2) }} Kz</td></tr>
+        <tr><td colspan="2" style="font-size:9px">Fora das vendas; o pagamento em dinheiro já conta nas saídas da gaveta.</td></tr>
         @endif
     </table>
     <hr class="dashed">
