@@ -172,4 +172,36 @@ class CoerenciaDosPlanosTest extends TenantTestCase
 
         $this->assertSame($antes, Plan::where('slug', 'enterprise')->first()->modules()->count());
     }
+
+    /**
+     * Correr outra vez não repete linhas. A montra chegou a mostrar a linha
+     * dos módulos de sector do Business quatro vezes (26/09/2026).
+     */
+    public function test_correr_varias_vezes_nao_duplica_as_linhas_das_descricoes(): void
+    {
+        $business = Plan::where('slug', 'business')->first();
+        $business->features = ['Todos os módulos incluídos', 'Até 10 utilizadores', 'Suporte prioritário'];
+        $business->save();
+
+        $this->artisan('planos:coerencia')->assertSuccessful();
+        $depoisDaPrimeira = Plan::where('slug', 'business')->first()->features;
+
+        $this->artisan('planos:coerencia')->assertSuccessful();
+        $this->artisan('planos:coerencia')->assertSuccessful();
+        $depoisDaTerceira = Plan::where('slug', 'business')->first()->features;
+
+        $this->assertSame($depoisDaPrimeira, $depoisDaTerceira);
+        $this->assertNotContains('Todos os módulos incluídos', $depoisDaPrimeira, 'a linha antiga dos módulos sai');
+        $this->assertContains('Até 10 utilizadores', $depoisDaPrimeira, 'o resto fica');
+        $this->assertSame($depoisDaPrimeira, array_values(array_unique($depoisDaPrimeira)), 'nenhuma linha repetida');
+
+        // E limpa as cópias que as corridas antigas deixaram.
+        $sujo = $depoisDaPrimeira;
+        array_splice($sujo, 1, 0, [$sujo[1], $sujo[1]]);
+        $business->refresh()->features = $sujo;
+        $business->save();
+
+        $this->artisan('planos:coerencia')->assertSuccessful();
+        $this->assertSame($depoisDaPrimeira, Plan::where('slug', 'business')->first()->features);
+    }
 }

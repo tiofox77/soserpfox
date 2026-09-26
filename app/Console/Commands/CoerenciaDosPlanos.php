@@ -175,9 +175,27 @@ class CoerenciaDosPlanos extends Command
 
             // A primeira linha é a dos módulos — é a que a montra mostra em
             // destaque. O resto (utilizadores, suporte, SLA) fica como está.
-            array_splice($features, 0, 1, $linhas);
+            //
+            // IDEMPOTENTE (26/09/2026). Trocava-se a PRIMEIRA linha pelas
+            // nossas: no Business são duas, e cada nova corrida deixava mais
+            // uma cópia da segunda — a montra chegou a mostrar «Módulos de
+            // sector… só no Enterprise» quatro vezes. Agora tiram-se primeiro
+            // todas as cópias das nossas linhas; a linha antiga dos módulos só
+            // sai na primeira vez, quando as nossas ainda lá não estavam.
+            $jaNormalizado = in_array($linhas[0], $features, true);
+            $resto = array_values(array_filter($features, fn ($f) => ! in_array($f, $linhas, true)));
 
-            $plano->features = array_values($features);
+            if (! $jaNormalizado) {
+                array_shift($resto);
+            }
+
+            $novas = array_merge($linhas, $resto);
+
+            if ($novas === array_values($features)) {
+                continue;
+            }
+
+            $plano->features = $novas;
             $plano->save();
 
             $this->line("Descrição do {$plano->name} actualizada.");
