@@ -50,10 +50,12 @@
     @foreach($produtos['documentos'] as $d)
         <tr>
             <td style="white-space:nowrap">{{ $d['hora'] }}</td>
-            <td>{{ $d['numero'] }}@if($d['anulada']) <span class="b">(ANULADA)</span>@endif</td>
+            <td>Int. {{ $d['numero'] }}@if($d['anulada']) <span class="b">(ANULADA)</span>@endif</td>
             <td class="right" style="white-space:nowrap">{{ number_format($d['total'], 2) }}</td>
         </tr>
-        <tr><td></td><td colspan="2" style="font-size:9px">@if(!empty($d['numero_agt'])){{ $d['numero_agt'] }} · @endif{{ $d['meio'] }}@if($d['cliente']) · {{ $d['cliente'] }}@endif · {{ $d['artigos'] }} art.</td></tr>
+        {{-- A série da AGT na sua linha e com o nome: sem rótulo, confundia-se com a interna. --}}
+        <tr><td></td><td colspan="2" style="font-size:9px">AGT {{ $d['numero_agt'] ?: '—' }}</td></tr>
+        <tr><td></td><td colspan="2" style="font-size:9px">{{ $d['meio'] }}@if($d['cliente']) · {{ $d['cliente'] }}@endif · {{ $d['artigos'] }} art.</td></tr>
     @endforeach
 </table>
 @endif

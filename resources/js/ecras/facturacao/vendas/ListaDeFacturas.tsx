@@ -21,6 +21,7 @@ import { PdfDoEcra } from '@/ui/PdfDoEcra';
 import { CARTAO, FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
 import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { ACCAO_DA_FAIXA, Faixa } from '../faixa';
+import { FichaDoDocumento } from '../FichaDoDocumento';
 
 /**
  * A LISTA DE FACTURAS DE VENDA.
@@ -59,6 +60,9 @@ export default function ListaDeFacturas({ tipo }: { tipo?: 'FT' | 'FR' }) {
     const [aPagar, porAPagar] = useState<FacturaDeVenda | null>(null);
     // O rascunho que se está a apagar, à espera de confirmação.
     const [aApagar, porAApagar] = useState<FacturaDeVenda | null>(null);
+    // A factura aberta na ficha (o olho). A página de ver do Livewire saiu com
+    // ele, e o olho levava a um 404.
+    const [aVer, porAVer] = useState<FacturaDeVenda | null>(null);
     const [recado, porRecado] = useRecadoNoCanto('');
 
     /**
@@ -160,6 +164,15 @@ export default function ListaDeFacturas({ tipo }: { tipo?: 'FT' | 'FR' }) {
             )}
 
             <Totais contas={contas} somas={contas?.somas} contagens={contas?.contagens} aActualizar={lista.isFetching} />
+
+            {/* VER: a mesma ficha dos outros documentos. */}
+            <FichaDoDocumento
+                tipo="facturas-venda"
+                documento={aVer}
+                rota="/invoicing/sales/invoices"
+                rotuloDaParte={t('Cliente')}
+                aoFechar={() => porAVer(null)}
+            />
 
             {/* Pagar: o modal partilhado, o mesmo caminho do Livewire. */}
             {aPagar && (
@@ -358,6 +371,7 @@ export default function ListaDeFacturas({ tipo }: { tipo?: 'FT' | 'FR' }) {
                         eliminacaoBloqueada={opcoes.data?.eliminacao_bloqueada ?? false}
                         aoPagar={porAPagar}
                         aoApagar={porAApagar}
+                        aoVer={porAVer}
                     />
                 </Cartao>
             )}
@@ -496,6 +510,7 @@ function Tabela({
     eliminacaoBloqueada,
     aoPagar: porAPagar,
     aoApagar: porAApagar,
+    aoVer: porAVer,
 }: {
     facturas: FacturaDeVenda[];
     podeDuplicar: boolean;
@@ -505,6 +520,7 @@ function Tabela({
     eliminacaoBloqueada: boolean;
     aoPagar: (f: FacturaDeVenda) => void;
     aoApagar: (f: FacturaDeVenda) => void;
+    aoVer: (f: FacturaDeVenda) => void;
 }) {
     return (
         // A tabela rola dentro da sua caixa. Sem isto, uma linha larga põe a
@@ -535,12 +551,13 @@ function Tabela({
                             style={cascata(i)}
                         >
                             <td className="px-4 py-3">
-                                <a
-                                    href={`/invoicing/sales/invoices/${f.id}`}
+                                <button
+                                    type="button"
+                                    onClick={() => porAVer(f)}
                                     className={cls('font-semibold text-indigo-700 hover:underline', FOCO)}
                                 >
                                     {f.numero}
-                                </a>
+                                </button>
                                 {/* Os DOIS números: o interno e o da AGT. */}
                                 {f.numero_agt && f.numero_agt !== f.numero && (
                                     <div className="mt-0.5 font-mono text-[11px] text-slate-400">
@@ -589,6 +606,7 @@ function Tabela({
                                     eliminacaoBloqueada={eliminacaoBloqueada}
                                     aoPagar={() => porAPagar(f)}
                                     aoApagar={() => porAApagar(f)}
+                                    aoVer={() => porAVer(f)}
                                 />
                             </td>
                         </tr>
@@ -615,6 +633,7 @@ function Accoes({
     eliminacaoBloqueada,
     aoPagar,
     aoApagar,
+    aoVer,
 }: {
     factura: FacturaDeVenda;
     podeDuplicar: boolean;
@@ -624,6 +643,7 @@ function Accoes({
     eliminacaoBloqueada: boolean;
     aoPagar: () => void;
     aoApagar: () => void;
+    aoVer: () => void;
 }) {
     return (
         <div className="flex items-center justify-end gap-1">
@@ -644,7 +664,19 @@ function Accoes({
                 </button>
             )}
 
-            <Accao href={`/invoicing/sales/invoices/${factura.id}`} icone="fa-eye" titulo={t('Ver')} />
+            <button
+                type="button"
+                onClick={aoVer}
+                title={t('Ver detalhes')}
+                aria-label={t('Ver :numero', { numero: factura.numero })}
+                className={cls(
+                    'p-2 text-indigo-600 transition-all duration-200 hover:scale-110 hover:bg-indigo-50 active:scale-100',
+                    RAIO,
+                    FOCO,
+                )}
+            >
+                <i className="fas fa-eye" aria-hidden="true" />
+            </button>
 
             {/* DOIS CAMINHOS PARA O MESMO DOCUMENTO. A PRÉ-VISUALIZAÇÃO é a
                 origem de tudo: abre num separador e é de lá que se imprime e se

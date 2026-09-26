@@ -279,7 +279,9 @@ export default function Painel() {
                                     <tr key={f.id} className="transition hover:bg-slate-50">
                                         <td className="px-4 py-3">
                                             <a
-                                                href={`/invoicing/sales/invoices/${f.id}`}
+                                                href={`/invoicing/sales/invoices/${f.id}/preview`}
+                                                target="_blank"
+                                                rel="noreferrer"
                                                 className="font-semibold text-indigo-700 hover:underline"
                                             >
                                                 {f.numero}
@@ -456,7 +458,9 @@ function ActividadesRecentes({ linhas }: { linhas: NumerosDoPainel['actividades'
                                         numero: (
                                             <a
                                                 key="n"
-                                                href={`/invoicing/sales/invoices/${a.id}`}
+                                                href={`/invoicing/sales/invoices/${a.id}/preview`}
+                                                target="_blank"
+                                                rel="noreferrer"
                                                 className="font-bold text-indigo-700 hover:underline"
                                             >
                                                 {a.numero}

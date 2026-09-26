@@ -202,8 +202,10 @@
             @foreach($produtos['documentos'] as $d)
             <tr @if($d['anulada']) style="color:#9ca3af;text-decoration:line-through" @endif>
                 <td>{{ $d['hora'] }}</td>
-                <td>{{ $d['numero'] }}@if($d['anulada']) (anulada)@endif
-                    @if(!empty($d['numero_agt']))<div style="font-size:8px;color:#666;">{{ $d['numero_agt'] }}</div>@endif
+                {{-- Os DOIS números, cada um com o seu nome: sem rótulo, a
+                     série interna e a da AGT confundiam-se no papel. --}}
+                <td><span style="font-size:8px;color:#666;">Interna:</span> {{ $d['numero'] }}@if($d['anulada']) (anulada)@endif
+                    <div style="font-size:8px;color:#666;">AGT: {{ $d['numero_agt'] ?: '—' }}</div>
                 </td>
                 <td>{{ $d['cliente'] ?? '—' }}</td>
                 <td>{{ $d['meio'] }}</td>

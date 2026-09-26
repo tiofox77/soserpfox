@@ -251,10 +251,50 @@ class DocumentosApiController extends Controller
      */
     public function mostrar(Request $request, string $tipo, int $id): JsonResponse
     {
+        // A factura de venda só tem FICHA por aqui — ver fichaDaFactura().
+        if ($tipo === 'facturas-venda') {
+            return $this->fichaDaFactura($request, $id);
+        }
+
         $def = $this->definicao($request, $tipo);
 
-        $d = $this->baseDoAutor()->findOrFail($id);
+        return $this->ficha($this->baseDoAutor()->findOrFail($id), $def);
+    }
 
+    /**
+     * A FICHA DE UMA FACTURA DE VENDA — o mesmo modal de VER dos outros.
+     *
+     * O olho da lista de facturas apontava para `/invoicing/sales/invoices/{id}`,
+     * a página de ver do Livewire, que saiu com ele: dava 404. A factura não
+     * entra nos tipos da lista genérica (TiposDeDocumento), porque isso lhe
+     * abria também o apagar e o converter de lá: `facturas-venda` só existe
+     * na ficha. Só se LÊ, com a permissão de ver facturas e o escopo por autor
+     * de sempre.
+     */
+    private function fichaDaFactura(Request $request, int $id): JsonResponse
+    {
+        abort_unless(
+            $request->user()?->can('invoicing.sales.invoices.view'),
+            403,
+            __('Sem permissão para ver estes documentos.')
+        );
+
+        $this->modeloActual = \App\Models\Invoicing\SalesInvoice::class;
+
+        return $this->ficha($this->baseDoAutor()->findOrFail($id), [
+            'modelo' => \App\Models\Invoicing\SalesInvoice::class,
+            'numero' => 'invoice_number',
+            'data' => 'invoice_date',
+            'prazo' => ['coluna' => 'due_date', 'rotulo' => 'Vencimento'],
+            'relacao' => 'client',
+            'valor' => 'total',
+            'agt' => 'propria',
+        ]);
+    }
+
+    /** A ficha de um documento já encontrado, segundo o esquema do tipo. */
+    private function ficha($d, array $def): JsonResponse
+    {
         $parte = $d->{$this->relacaoDaParte($d, $def)};
         $temLinhas = method_exists($d, 'items');
 
@@ -337,10 +377,18 @@ class DocumentosApiController extends Controller
                 'subtotal' => round((float) ($d->subtotal ?? 0), 2),
                 // Os dois descontos que o documento tem: o comercial (na linha
                 // ou no total) e o financeiro (pronto pagamento).
-                'desconto_comercial' => round(
-                    (float) ($d->discount_commercial ?? 0) + (float) ($d->discount_amount ?? 0),
-                    2
-                ),
+                // Na factura de venda sai das LINHAS (DescontoDoDocumento): o
+                // balcão grava o mesmo desconto em `discount_amount` e em
+                // `discount_commercial`, e a soma dos dois dobrava-o.
+                'desconto_comercial' => $d instanceof \App\Models\Invoicing\SalesInvoice
+                    ? round(array_sum(array_column(
+                        \App\Services\Invoicing\DescontoDoDocumento::repartir($d, $d->items()->get()),
+                        'desconto'
+                    )), 2)
+                    : round(
+                        (float) ($d->discount_commercial ?? 0) + (float) ($d->discount_amount ?? 0),
+                        2
+                    ),
                 'desconto_financeiro' => round((float) ($d->discount_financial ?? 0), 2),
                 'imposto' => round((float) ($d->tax_amount ?? 0), 2),
                 /*

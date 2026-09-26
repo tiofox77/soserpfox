@@ -240,8 +240,8 @@ export function VendasPorProduto({ id, compacto = false }: { id: number; compact
                                             <span className={cls('font-mono text-xs font-semibold', d.anulada && 'line-through')}>{d.numero}</span>
                                             {d.anulada && <span className="ml-2"><Etiqueta cor="perigo" icone="fa-ban">{t('Anulada')}</Etiqueta></span>}
                                             {d.tipo === 'nota' && !d.anulada && <span className="ml-2"><Etiqueta cor="aviso" icone="fa-rotate-left">{t('Devolução')}</Etiqueta></span>}
-                                            {/* A série interna em cima, a da AGT abaixo. */}
-                                            {d.numero_agt && <div className="mt-0.5 font-mono text-[11px] text-slate-400">{d.numero_agt}</div>}
+                                            {/* A série interna em cima, a da AGT abaixo — com o nome, para não se confundirem. */}
+                                            <div className="mt-0.5 font-mono text-[11px] text-slate-400">AGT: {d.numero_agt ?? '—'}</div>
                                         </td>
                                         <td className="px-3 py-2">{d.cliente ?? '—'}</td>
                                         <td className="px-3 py-2">{d.meio}</td>
