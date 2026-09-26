@@ -206,14 +206,7 @@ class SuporteApiController extends Controller
      */
     private function proximoNumero(int $tenantId): string
     {
-        $ultimo = Ticket::where('tenant_id', $tenantId)
-            ->lockForUpdate()
-            ->orderByDesc('id')
-            ->value('ticket_number');
-
-        $seguinte = $ultimo ? ((int) preg_replace('/\D/', '', $ultimo)) + 1 : 1;
-
-        return 'TKT-'.str_pad((string) $seguinte, 6, '0', STR_PAD_LEFT);
+        return Ticket::proximoNumero($tenantId);
     }
 
     /** @return array<int, string> os caminhos gravados */

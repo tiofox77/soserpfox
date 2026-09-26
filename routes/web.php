@@ -320,6 +320,7 @@ Route::middleware(['auth'])->prefix('api/v1/casca')->name('api.casca.')->group(f
     Route::post('/mensagens/{id}/dispensar', [$c, 'dispensar'])->whereNumber('id')->name('mensagens.dispensar');
     Route::get('/avisos', [$c, 'avisos'])->name('avisos');
     Route::get('/inicio', [$c, 'inicio'])->name('inicio');
+    Route::post('/ajuda', [$c, 'pedirAjuda'])->middleware('throttle:10,1')->name('ajuda');
     // Voltar à plataforma a meio de uma personificação. Aqui, e não no grupo
     // da plataforma: quem carrega no botão é, para o sistema, a pessoa da
     // empresa — o `superadmin` recusava-o.
@@ -1992,6 +1993,7 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::get('/privacidade', [$p, 'mostrar'])->name('privacidade');
             Route::get('/privacidade/exportar', [$p, 'exportar'])->middleware('throttle:5,10')->name('privacidade.exportar');
             Route::put('/privacidade/consentimentos', [$p, 'consentimentos'])->middleware('throttle:20,1')->name('privacidade.consentimentos');
+            Route::post('/privacidade/whatsapp/retirar', [$p, 'retirarWhatsapp'])->middleware('throttle:20,1')->name('privacidade.whatsapp.retirar');
             Route::post('/privacidade/sessoes/terminar', [$p, 'terminarSessoes'])->middleware('throttle:10,10')->name('privacidade.terminar-sessoes');
             Route::post('/privacidade/pedidos', [$p, 'pedir'])->middleware('throttle:5,60')->name('privacidade.pedir');
 

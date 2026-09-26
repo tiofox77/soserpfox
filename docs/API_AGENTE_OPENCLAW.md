@@ -498,6 +498,27 @@ acesso a esta conta". Para o histórico de entradas ao longo do tempo, ver
 Cada leitura fica no registo de pedidos do agente: há sempre resposta para
 "quem viu o número deste cliente e quando".
 
+#### O consentimento do WhatsApp (26/09/2026)
+
+Cada utilizador traz `whatsapp` — a sua última escolha no «Preciso de ajuda
+para começar» da página inicial (ou a retirada em *Minha conta › Privacidade*):
+
+```json
+"whatsapp": { "aceite": true, "contacto": "+244923456789", "versao": "2026-09-26", "quando": "2026-09-26 15:02:11" }
+```
+
+- **`aceite: true` com `contacto`** — autorizou ser contactado por WhatsApp,
+  **só para esse número** e **só para a finalidade** em `whatsapp_regras.finalidade`
+  (ajuda a começar; não é marketing).
+- **`aceite: false`** — recusou ou retirou. **Não escrever.**
+- **`whatsapp: null`** — nunca respondeu. **Não escrever** por iniciativa própria.
+
+A resposta traz também `whatsapp_regras` (finalidade e versão do texto que a
+pessoa leu). O soserp **não envia** estas mensagens nem as conta: os limites de
+envio são do agente e têm de ser cumpridos do lado dele —
+**uma mensagem inicial por empresa**, **no máximo 5 por dia**, **só entre as
+09h e as 18h de Angola**, e nunca a quem recusou.
+
 ---
 
 ### Ciclo de facturação — `billing:read`, `billing:write`

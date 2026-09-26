@@ -179,6 +179,14 @@ class OperacoesController extends Controller
                 'ultimo_acesso' => $u->last_login_at,
             ]);
 
+        // O CONSENTIMENTO DO WHATSAPP (26/09/2026): a última escolha de cada
+        // pessoa no «Preciso de ajuda para começar». Só `aceite = true` com
+        // `contacto` autoriza mensagem, e só para esse número; `false` é uma
+        // recusa ou uma retirada — não se escreve; `null` é nunca perguntado —
+        // também não. As restantes regras de envio são do agente.
+        $whatsapp = \App\Services\Privacidade\Consentimentos::whatsappDe($utilizadores->pluck('id')->all());
+        $utilizadores = $utilizadores->map(fn ($u) => $u + ['whatsapp' => $whatsapp[$u['id']] ?? null]);
+
         return response()->json([
             'empresa' => [
                 'id'   => $tenant->id,
@@ -199,6 +207,12 @@ class OperacoesController extends Controller
             ],
             // Todos os logins da empresa (não só o responsável de facturação).
             'utilizadores' => $utilizadores,
+            'whatsapp_regras' => [
+                'so_com_consentimento' => 'Só utilizadores com whatsapp.aceite = true, e só para whatsapp.contacto.',
+                'finalidade' => (string) config('privacidade.whatsapp_ajuda.finalidade'),
+                'versao_do_texto' => (string) config('privacidade.whatsapp_ajuda.versao'),
+                'nunca' => 'Quem recusou ou retirou (aceite = false) e quem nunca respondeu (whatsapp = null).',
+            ],
             'aviso' => 'Contactos reais. Usar só para contactar esta empresa sobre a conta dela.',
         ]);
     }

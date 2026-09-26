@@ -30,6 +30,23 @@ class Ticket extends Model
         'images' => 'array',
     ];
     
+    /**
+     * O número seguinte desta empresa (TKT-000001…), único por empresa. Chamar
+     * dentro de uma transacção: o lockForUpdate segura a última linha até ao
+     * fim, e dois pedidos ao mesmo tempo não saem com o mesmo número.
+     */
+    public static function proximoNumero(int $tenantId): string
+    {
+        $ultimo = static::where('tenant_id', $tenantId)
+            ->lockForUpdate()
+            ->orderByDesc('id')
+            ->value('ticket_number');
+
+        $seguinte = $ultimo ? ((int) preg_replace('/\D/', '', $ultimo)) + 1 : 1;
+
+        return 'TKT-'.str_pad((string) $seguinte, 6, '0', STR_PAD_LEFT);
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

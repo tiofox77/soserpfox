@@ -21,6 +21,19 @@ return [
 
     'actualizada_em' => '15 de Setembro de 2026',
 
+    /*
+     | SER CONTACTADO POR WHATSAPP PARA AJUDA A COMEÇAR (26/09/2026). Opcional
+     | e nunca pré-marcado. O texto é o que a pessoa lê ao lado da caixa, e a
+     | versão vai gravada em cada escolha: mudar o texto é mudar a versão — um
+     | «sim» a outro texto não vale para este. Não é marketing: só a ajuda que
+     | a pessoa pediu.
+     */
+    'whatsapp_ajuda' => [
+        'versao' => '2026-09-26',
+        'finalidade' => 'Ajuda para começar a usar o SOSERP',
+        'texto' => 'Aceito que a equipa do SOSERP me contacte por WhatsApp, neste número, para me ajudar a começar a usar o sistema. Não é publicidade, e posso retirar a autorização a qualquer momento em Minha conta › Privacidade.',
+    ],
+
     /* Quem responde pelos dados da conta e onde se exercem os direitos. */
     'responsavel' => [
         'nome' => 'Softec Angola',

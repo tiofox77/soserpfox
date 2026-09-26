@@ -71,7 +71,7 @@ export type CategoriaDeDados = {
 
 export type DireitoDoTitular = { chave: string; icone: string; nome: string; descricao: string; artigos: string };
 
-export type EstadoDoConsentimento = { aceite: boolean; versao: string; quando: string; origem: string } | null;
+export type EstadoDoConsentimento = { aceite: boolean; versao: string; quando: string; origem: string; contacto?: string | null } | null;
 
 export type Privacidade = {
     versao: string;
@@ -91,7 +91,7 @@ export type Privacidade = {
         entradas: Array<{ evento: string; ip: string | null; aparelho: string; quando: string }>;
         aparelhos: Array<{ plataforma: string | null; aparelho: string; visto_pela_primeira_vez: string | null; visto_pela_ultima_vez: string | null }>;
         estatisticas: { eventos: number; primeiro?: string | null; ultimo?: string | null; paises?: string[]; cidades?: string[] };
-        consentimentos: Record<'termos' | 'privacidade' | 'estatisticas' | 'marketing', EstadoDoConsentimento>;
+        consentimentos: Record<'termos' | 'privacidade' | 'estatisticas' | 'marketing', EstadoDoConsentimento> & { whatsapp_ajuda?: EstadoDoConsentimento };
         pedidos: Array<{ id: number; tipo: string; mensagem: string | null; estado: string; resposta: string | null; prazo_em: string | null; respondido_em: string | null; created_at: string }>;
     };
 };
@@ -201,6 +201,8 @@ export const conta = {
         exportar: `/api/v1/invoicing/react${C}/privacidade/exportar`,
         consentimentos: (dados: { estatisticas: boolean; marketing: boolean }) =>
             api.guardar<Recado>(`${C}/privacidade/consentimentos`, dados),
+        /** Retira a autorização de contacto por WhatsApp (dá-se no «Preciso de ajuda para começar»). */
+        retirarWhatsapp: () => api.criar<Recado>(`${C}/privacidade/whatsapp/retirar`, {}),
         terminarSessoes: (incluir_aplicacao: boolean) =>
             api.criar<Recado & { sessoes: number; tokens: number }>(`${C}/privacidade/sessoes/terminar`, { incluir_aplicacao }),
         pedir: (dados: { tipo: string; mensagem: string }) =>

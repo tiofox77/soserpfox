@@ -41,6 +41,7 @@ class PaginaInicial
             ->first();
 
         $pedidoPendente = Order::where('user_id', $user->id)->where('status', 'pending')->exists();
+        $passo = $user->isSuperAdmin() ? null : PrimeiroPasso::para($empresa);
 
         return [
             'utilizador' => ['nome' => $user->name],
@@ -72,7 +73,30 @@ class PaginaInicial
                 ])->values()->all()
                 : [],
             'numeros' => $empresa ? $this->numeros($empresa->id) : [],
+            // O próximo passo de uma empresa nova, pelo módulo do plano, e a
+            // ajuda para começar (26/09/2026). Ver PrimeiroPasso e PedidoDeAjuda.
+            'primeiro_passo' => $passo,
+            'ajuda' => $this->mostraAjuda($user, $empresa, $passo) ? [
+                'texto_whatsapp' => __((string) config('privacidade.whatsapp_ajuda.texto')),
+                'versao_whatsapp' => (string) config('privacidade.whatsapp_ajuda.versao'),
+                'telefone' => app(\App\Services\SmsService::class)->formatPhoneNumber($user->phone),
+                'suporte' => route('support.tickets'),
+            ] : null,
         ];
+    }
+
+    /**
+     * A ajuda para começar é para quem ESTÁ a começar: enquanto houver um
+     * próximo passo, ou no primeiro mês da empresa. Numa empresa com anos de
+     * casa, um cartão «precisa de ajuda para começar?» era só ruído.
+     */
+    private function mostraAjuda(User $user, $empresa, ?array $passo): bool
+    {
+        if (! $empresa || $user->isSuperAdmin()) {
+            return false;
+        }
+
+        return $passo !== null || ($empresa->created_at && $empresa->created_at->gt(now()->subDays(30)));
     }
 
     private function avisosDoPacote($empresa, $subscricao, bool $pedidoPendente): array

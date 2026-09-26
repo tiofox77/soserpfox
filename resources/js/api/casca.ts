@@ -172,7 +172,15 @@ export type PaginaInicial = {
     mostra_subscricao: boolean;
     modulos: Array<{ nome: string; descricao: string | null; icone: string | null; activo: boolean }>;
     numeros: { clientes?: number; produtos?: number; facturas_do_mes?: number; facturado_no_mes?: number; so_o_seu?: boolean };
+    /** O próximo passo de uma empresa nova (App\Services\Casca\PrimeiroPasso); null quando já está feito. */
+    primeiro_passo: PrimeiroPasso | null;
+    /** «Preciso de ajuda para começar»: o texto do consentimento do WhatsApp e o número sugerido. */
+    ajuda: { texto_whatsapp: string; versao_whatsapp: string; telefone: string | null; suporte: string } | null;
 };
+
+export type PrimeiroPasso = { modulo: string; titulo: string; texto: string; botao: string; icone: string; url: string };
+
+export type PedidoDeAjuda = { mensagem: string; whatsapp: boolean; telefone: string; modulo: string | null };
 
 export const casca = {
     inicio: () => apiDaCasca.ler<PaginaInicial>('/inicio'),
@@ -189,4 +197,6 @@ export const casca = {
     mensagens: () => apiDaCasca.ler<{ mensagens: MensagemDaPlataforma[] }>('/mensagens'),
     dispensar: (id: number) => apiDaCasca.criar<Recado>(`/mensagens/${id}/dispensar`, {}),
     avisos: () => apiDaCasca.ler<{ avisos: MensagemDaPlataforma[] }>('/avisos'),
+    /** Abre o pedido de suporte e grava a escolha do WhatsApp (o «não» também). */
+    pedirAjuda: (dados: PedidoDeAjuda) => apiDaCasca.criar<Recado & { ticket: string; novo: boolean }>('/ajuda', dados),
 };

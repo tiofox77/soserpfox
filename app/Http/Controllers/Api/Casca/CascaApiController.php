@@ -7,6 +7,7 @@ use App\Services\Audit\AuditRecorder;
 use App\Services\Casca\MensagensParaOUtilizador;
 use App\Services\Casca\NotificacoesDoSistema;
 use App\Services\Casca\PaginaInicial;
+use App\Services\Casca\PedidoDeAjuda;
 use App\Services\Casca\PrazoDaSubscricao;
 use App\Services\Plataforma\Personificacao;
 use Illuminate\Http\JsonResponse;
@@ -209,5 +210,44 @@ class CascaApiController extends Controller
     public function inicio(Request $request, PaginaInicial $pagina): JsonResponse
     {
         return response()->json($pagina->para($request->user()));
+    }
+
+    /**
+     * «Preciso de ajuda para começar»: abre um pedido de suporte e grava a
+     * escolha do WhatsApp — o «sim» com o número, ou a recusa. A caixa chega
+     * desmarcada do ecrã; aqui exige-se que venha dita, e sem número de
+     * telemóvel angolano um «sim» não passa.
+     */
+    public function pedirAjuda(Request $request, PedidoDeAjuda $ajuda): JsonResponse
+    {
+        $empresa = $request->user()->activeTenant();
+        abort_unless($empresa, 422, __('Escolha primeiro a empresa.'));
+
+        $dados = $request->validate([
+            'mensagem' => ['nullable', 'string', 'max:1000'],
+            'whatsapp' => ['required', 'boolean'],
+            'telefone' => ['nullable', 'string', 'max:30'],
+            'modulo' => ['nullable', 'string', 'max:60'],
+        ]);
+
+        if ($dados['whatsapp']) {
+            $numero = app(\App\Services\SmsService::class)->formatPhoneNumber($dados['telefone'] ?? null);
+            if (! $numero || ! preg_match('/^\+2449\d{8}$/', $numero)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'telefone' => [__('Indique o número de telemóvel com WhatsApp (nove dígitos, começado por 9).')],
+                ]);
+            }
+            $dados['telefone'] = $numero;
+        }
+
+        $r = $ajuda->pedir($request->user(), $empresa, $dados, $request);
+
+        return response()->json([
+            'message' => $r['novo']
+                ? __('Pedido :numero aberto. A equipa responde-lhe em Suporte.', ['numero' => $r['ticket']->ticket_number])
+                : __('Já tinha pedido ajuda (:numero). A equipa responde-lhe em Suporte.', ['numero' => $r['ticket']->ticket_number]),
+            'ticket' => $r['ticket']->ticket_number,
+            'novo' => $r['novo'],
+        ], $r['novo'] ? 201 : 200);
     }
 }

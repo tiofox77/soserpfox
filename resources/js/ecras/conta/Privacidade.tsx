@@ -73,6 +73,10 @@ export function Privacidade() {
             window.dispatchEvent(new CustomEvent('sos:consentimento', { detail: { escolha } }));
         },
     });
+    const retirarWhatsapp = useMutation({
+        mutationFn: () => conta.privacidade.retirarWhatsapp(),
+        onSuccess: recarregar,
+    });
     const terminar = useMutation({
         mutationFn: () => conta.privacidade.terminarSessoes(incluirAplicacao),
         onSuccess: () => { porAFechar(false); recarregar(); },
@@ -152,6 +156,25 @@ export function Privacidade() {
                             aoMudar={(v) => porEscolha({ ...escolha, marketing: v })}
                             descricao={t('Meta Pixel (Facebook/Instagram) e Google Ads, para medir campanhas.')}
                         />
+                        {d.consentimentos.whatsapp_ajuda?.aceite && (
+                            <div className={cls('flex items-start gap-3 border border-slate-200 p-3', RAIO)}>
+                                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-600">
+                                    <i className="fab fa-whatsapp" aria-hidden="true" />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-semibold text-slate-800">{t('Contacto por WhatsApp')}</p>
+                                    <p className="text-xs text-slate-500">
+                                        {t('Autorizou a equipa a contactá-lo no :numero para ajuda a começar (:dia).', {
+                                            numero: d.consentimentos.whatsapp_ajuda.contacto ?? '—',
+                                            dia: quando(d.consentimentos.whatsapp_ajuda.quando),
+                                        })}
+                                    </p>
+                                </div>
+                                <Botao cor="perigo" altura="pequeno" aTrabalhar={retirarWhatsapp.isPending} onClick={() => retirarWhatsapp.mutate()}>
+                                    {t('Retirar')}
+                                </Botao>
+                            </div>
+                        )}
                     </div>
 
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">

@@ -88,6 +88,24 @@ class PrivacidadeApiController extends Controller
     }
 
     /**
+     * Retira a autorização de ser contactado por WhatsApp (26/09/2026). Dar a
+     * autorização faz-se no «Preciso de ajuda para começar», onde se lê o
+     * texto e se indica o número; retirar faz-se aqui, com um clique — e fica
+     * uma linha nova `aceite = false`, que o agente lê como «não escrever».
+     */
+    public function retirarWhatsapp(Request $request): JsonResponse
+    {
+        Consentimentos::registar(Consentimentos::WHATSAPP, false, 'minha_conta', $request->user(), null, $request, [
+            'tenant_id' => activeTenantId(),
+        ]);
+
+        return response()->json([
+            'message' => __('Autorização de contacto por WhatsApp retirada.'),
+            'consentimentos' => Consentimentos::actuais($request->user()),
+        ]);
+    }
+
+    /**
      * Fecha as sessões dos outros aparelhos (e, se pedido, os tokens da app).
      *
      * A de quem carrega no botão fica: pôr alguém fora a meio de proteger a
