@@ -416,18 +416,22 @@ class GeradorDeSaft
                     : $invoice->created_at->format('Y-m-d\TH:i:s'));
             $node->addChild('CustomerID', $invoice->client_id);
             
-            // Lines
-            foreach ($invoice->items as $index => $item) {
+            // Lines — com o desconto do documento repartido: o balcão grava-o
+            // só no documento e as linhas somavam acima do NetTotal.
+            $valores = DescontoDoDocumento::repartir($invoice, $invoice->items->values());
+
+            foreach ($invoice->items->values() as $index => $item) {
+                $valor = $valores[$index];
                 $line = $node->addChild('Line');
                 $line->addChild('LineNumber', $index + 1);
                 $line->addChild('ProductCode', $item->product->sku ?? (string) $item->product_id);
                 $line->addChild('ProductDescription', htmlspecialchars($item->description ?? $item->product->name ?? ''));
                 $line->addChild('Quantity', number_format($item->quantity, 2, '.', ''));
                 $line->addChild('UnitOfMeasure', $item->unit ?? 'UN');
-                $line->addChild('UnitPrice', number_format($item->unit_price, 2, '.', ''));
+                $line->addChild('UnitPrice', $this->precoUnitario($item, $valor));
                 $line->addChild('TaxPointDate', $invoice->invoice_date->format('Y-m-d'));
                 $line->addChild('Description', htmlspecialchars($item->description ?? $item->product->name ?? ''));
-                $line->addChild('CreditAmount', number_format($item->subtotal ?? ($item->quantity * $item->unit_price), 2, '.', ''));
+                $line->addChild('CreditAmount', number_format($valor['liquido'], 2, '.', ''));
                 
                 $tax = $line->addChild('Tax');
                 $tax->addChild('TaxType', 'IVA');
@@ -441,6 +445,8 @@ class GeradorDeSaft
                     $line->addChild('TaxExemptionCode', $item->tax_exemption_code
                         ?: ($item->taxRate->exemption_code ?? $tenantExemptionCode));
                 }
+
+                $this->descontoDaLinha($line, $valor);
             }
             
             // DocumentTotals
@@ -489,17 +495,20 @@ class GeradorDeSaft
             $node->addChild('CustomerID', $cn->client_id);
             
             // Lines
-            foreach ($cn->items as $index => $item) {
+            $valores = DescontoDoDocumento::repartir($cn, $cn->items->values());
+
+            foreach ($cn->items->values() as $index => $item) {
+                $valor = $valores[$index];
                 $line = $node->addChild('Line');
                 $line->addChild('LineNumber', $index + 1);
                 $line->addChild('ProductCode', $item->product->sku ?? (string) $item->product_id);
                 $line->addChild('ProductDescription', htmlspecialchars($item->description ?? $item->product->name ?? ''));
                 $line->addChild('Quantity', number_format($item->quantity, 2, '.', ''));
                 $line->addChild('UnitOfMeasure', 'UN');
-                $line->addChild('UnitPrice', number_format($item->unit_price, 2, '.', ''));
+                $line->addChild('UnitPrice', $this->precoUnitario($item, $valor));
                 $line->addChild('TaxPointDate', $cn->issue_date->format('Y-m-d'));
                 $line->addChild('Description', htmlspecialchars($item->description ?? ''));
-                $line->addChild('DebitAmount', number_format($item->subtotal ?? ($item->quantity * $item->unit_price), 2, '.', ''));
+                $line->addChild('DebitAmount', number_format($valor['liquido'], 2, '.', ''));
                 
                 $tax = $line->addChild('Tax');
                 $tax->addChild('TaxType', 'IVA');
@@ -564,17 +573,20 @@ class GeradorDeSaft
             $node->addChild('CustomerID', $dn->client_id);
             
             // Lines
-            foreach ($dn->items as $index => $item) {
+            $valores = DescontoDoDocumento::repartir($dn, $dn->items->values());
+
+            foreach ($dn->items->values() as $index => $item) {
+                $valor = $valores[$index];
                 $line = $node->addChild('Line');
                 $line->addChild('LineNumber', $index + 1);
                 $line->addChild('ProductCode', $item->product->sku ?? (string) $item->product_id);
                 $line->addChild('ProductDescription', htmlspecialchars($item->description ?? $item->product->name ?? ''));
                 $line->addChild('Quantity', number_format($item->quantity, 2, '.', ''));
                 $line->addChild('UnitOfMeasure', 'UN');
-                $line->addChild('UnitPrice', number_format($item->unit_price, 2, '.', ''));
+                $line->addChild('UnitPrice', $this->precoUnitario($item, $valor));
                 $line->addChild('TaxPointDate', $dn->issue_date->format('Y-m-d'));
                 $line->addChild('Description', htmlspecialchars($item->description ?? ''));
-                $line->addChild('CreditAmount', number_format($item->subtotal ?? ($item->quantity * $item->unit_price), 2, '.', ''));
+                $line->addChild('CreditAmount', number_format($valor['liquido'], 2, '.', ''));
                 
                 $tax = $line->addChild('Tax');
                 $tax->addChild('TaxType', 'IVA');
@@ -608,6 +620,29 @@ class GeradorDeSaft
     /**
      * Payments: Recibos (RC)
      */
+    /**
+     * O UnitPrice do SAF-T é o preço já deduzido dos descontos de linha e de
+     * cabeçalho. Sem desconto, é o preço da linha, como sempre foi.
+     *
+     * @param  array{bruto: float, desconto: float, liquido: float}  $valor
+     */
+    private function precoUnitario($item, array $valor): string
+    {
+        $preco = $valor['desconto'] > 0.005
+            ? DescontoDoDocumento::precoLiquido($valor['liquido'], (float) $item->quantity)
+            : (float) $item->unit_price;
+
+        return number_format($preco, 2, '.', '');
+    }
+
+    /** O SettlementAmount da linha: o seu desconto e a parte do global. */
+    private function descontoDaLinha(\SimpleXMLElement $line, array $valor): void
+    {
+        if ($valor['desconto'] > 0.005) {
+            $line->addChild('SettlementAmount', number_format($valor['desconto'], 2, '.', ''));
+        }
+    }
+
     private function buildPaymentsSection(\SimpleXMLElement $sourceDocuments, int $tenantId): void
     {
         $receipts = Receipt::where('tenant_id', $tenantId)

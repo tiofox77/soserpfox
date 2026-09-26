@@ -67,13 +67,25 @@ class EmissorDeNotas
      *
      * É o `loadInvoiceItems` que o Livewire fazia para o carrinho — aqui para
      * qualquer chamador. Herda da linha original tudo o que a AGT vai comparar.
+     *
+     * O DESCONTO VEM COM A LINHA, e inclui a parte do desconto do documento.
+     * O balcão grava o desconto só no documento, e as linhas ao preço cheio: a
+     * nota copiava-as assim e anulava mais do que a factura valia (a FR/000060
+     * da Tecstore: 289.900 numa factura de 274.000). A percentagem vai com
+     * todas as casas, para o desconto dar o mesmo cêntimo que na factura; numa
+     * anulação parcial desconta na mesma proporção.
      */
     public function linhasDaFactura(SalesInvoice $factura): Collection
     {
         $factura->loadMissing('items.product');
 
-        return $factura->items->values()->map(function ($item, $index) use ($factura) {
+        $itens = $factura->items->values();
+        $valores = DescontoDoDocumento::repartir($factura, $itens);
+
+        return $itens->map(function ($item, $index) use ($factura, $valores) {
             $taxa = (float) ($item->tax_rate ?? 0);
+            $valor = $valores[$index];
+            $desconto = $valor['bruto'] > 0 ? $valor['desconto'] / $valor['bruto'] * 100 : 0.0;
 
             return (object) [
                 'id' => $item->product_id,
@@ -84,7 +96,7 @@ class EmissorDeNotas
                     'tax_rate' => $taxa,
                     'tax_type' => $taxa > 0 ? 'iva' : 'isento',
                     'exemption_reason' => $item->tax_exemption_code ?? null,
-                    'discount_percent' => (float) ($item->discount_percent ?? 0),
+                    'discount_percent' => $desconto,
                     'tax_code' => $item->tax_code ?? null,
                     'tax_country_region' => $item->tax_country_region ?? 'AO',
                     'origem_line_type' => get_class($item),
@@ -192,7 +204,13 @@ class EmissorDeNotas
 
             $porAnular = $factura->porCreditar();
 
-            if (round((float) $totais['total'], 2) > $porAnular + 0.01) {
+            // Um cêntimo de folga POR LINHA: com o desconto do documento
+            // repartido, o imposto de cada linha pode arredondar um cêntimo ao
+            // lado do da factura. A AGT compara as linhas que lhe foram
+            // enviadas, e essas a nota repete-as tal e qual.
+            $folga = 0.01 * max(1, $linhas->count());
+
+            if (round((float) $totais['total'], 2) > $porAnular + $folga) {
                 throw new DomainException(__('Esta nota anula :nota, mas a factura :factura só tem :saldo por anular. A AGT recusaria (E43).', [
                     'nota' => number_format((float) $totais['total'], 2, ',', '.'),
                     'factura' => $factura->invoice_number,
@@ -229,9 +247,13 @@ class EmissorDeNotas
                 'created_by' => auth()->id(),
             ]);
 
-            [$iva, $extra] = $this->criarLinhas($nota, $linhas, $expressao, credito: true);
+            [$iva, $extra, $netLiquido] = $this->criarLinhas($nota, $linhas, $expressao, credito: true);
 
             // Totais com IEC/IS incluídos — só agora se conhece o imposto total.
+            // A base é a soma dos líquidos das LINHAS. Era o bruto
+            // (subtotal_original), e uma nota com desconto saía com o total, o
+            // hash e o netTotal da AGT pelo preço cheio, acima das linhas (E23).
+            $nota->net_total = round($netLiquido, 2);
             $nota->tax_amount = $iva;
             $nota->tax_payable = $iva + $extra;
             $nota->gross_total = (float) $nota->net_total + $nota->tax_payable;

@@ -338,7 +338,11 @@ class AGTPayloadBuilder
             'productDescription' => (string) ($line['productDescription'] ?? ''),
             'quantity'           => $this->money($line['quantity'] ?? 0, 4),
             'unitOfMeasure'      => (string) ($line['unitOfMeasure'] ?? 'UN'),
-            'unitPriceBase'      => $this->money($line['unitPriceBase'] ?? $line['unitPrice'] ?? 0),
+            // Até 4 casas: o preço já descontado nem sempre se divide certo
+            // pela quantidade, e a quantidade vezes ele tem de dar o
+            // creditAmount (E21). O DocumentMapper só manda mais de 2 quando é
+            // preciso.
+            'unitPriceBase'      => $this->money($line['unitPriceBase'] ?? $line['unitPrice'] ?? 0, 4),
             'unitPrice'          => $this->money($line['unitPrice'] ?? 0),
         ];
 

@@ -36,6 +36,23 @@ import {
  */
 type Linha = LinhaDaFactura & { quantidade: number | string };
 
+const redondo = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;
+
+/**
+ * O que a linha vale NA NOTA, pelas contas do servidor (EmissorDeNotas).
+ *
+ * O desconto vem da factura e já inclui a parte do desconto do documento: a
+ * FR do balcão com 15.900 de desconto anula 274.000, não os 289.900 do preço.
+ * É só para ver — o servidor volta a fazer as contas.
+ */
+function contasDaLinha(l: Linha) {
+    const bruto = redondo(l.price * (Number(l.quantidade) || 0));
+    const desconto = redondo((bruto * (l.discount_percent || 0)) / 100);
+    const liquido = redondo(bruto - desconto);
+
+    return { desconto, total: redondo(liquido + redondo((liquido * (l.tax_rate || 0)) / 100)) };
+}
+
 export default function EmitirNota({ tipo, id, facturaId, clienteId }: { tipo: TipoDeNota; id?: number; facturaId?: number; clienteId?: number | null }) {
     if (id !== undefined) {
         return <NotaEmitida tipo={tipo} id={id} />;
@@ -316,7 +333,9 @@ function Emitir({ tipo, facturaId: daMorada, clienteId: clienteDaMorada }: { tip
                                     <th className={cls('text-right', CELULA_DO_CABECALHO)}>{t('Na factura')}</th>
                                     <th className={cls('w-32 text-right', CELULA_DO_CABECALHO)}>{eCredito ? t('A anular') : t('A debitar')}</th>
                                     <th className={cls('text-right', CELULA_DO_CABECALHO)}>{t('Preço')}</th>
+                                    <th className={cls('text-right', CELULA_DO_CABECALHO)}>{t('Desconto')}</th>
                                     <th className={cls('text-right', CELULA_DO_CABECALHO)}>{t('Imposto')}</th>
+                                    <th className={cls('text-right', CELULA_DO_CABECALHO)}>{t('Valor')}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -336,14 +355,29 @@ function Emitir({ tipo, facturaId: daMorada, clienteId: clienteDaMorada }: { tip
                                             />
                                         </td>
                                         <td className="px-4 py-2 text-right tabular-nums text-slate-600">{kz(l.price)}</td>
+                                        <td className="px-4 py-2 text-right tabular-nums text-slate-600">
+                                            {contasDaLinha(l).desconto > 0 ? `−${kz(contasDaLinha(l).desconto)}` : '—'}
+                                        </td>
                                         {/* A taxa e a região são as da linha ORIGINAL — vêm do
                                             servidor, e é assim que a AGT as compara. */}
                                         <td className="px-4 py-2 text-right text-xs tabular-nums text-slate-500">
                                             {l.tax_rate}% · {l.tax_country_region}
                                         </td>
+                                        <td className="px-4 py-2 text-right font-semibold tabular-nums text-slate-800">{kz(contasDaLinha(l).total)}</td>
                                     </tr>
                                 ))}
                             </tbody>
+                            <tfoot>
+                                <tr className="border-t-2 border-slate-200 bg-slate-50/70">
+                                    <td className="px-4 py-3 font-bold text-slate-700" colSpan={6}>
+                                        {eCredito ? t('A anular') : t('A debitar')}
+                                    </td>
+                                    <td className="px-4 py-3 text-right text-base font-bold tabular-nums text-slate-900">
+                                        {kz(redondo(linhas.reduce((soma, l) => soma + contasDaLinha(l).total, 0)))}{' '}
+                                        <span className="text-sm font-normal text-slate-500">Kz</span>
+                                    </td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                 )}

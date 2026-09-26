@@ -85,11 +85,16 @@ class DocumentMapper
         // só a NC emitia referenceInfo e a ND seguia sem referência.
         $isRectifying = in_array($type, ['NC', 'ND'], true);
 
+        // O desconto do DOCUMENTO desce às linhas antes de elas saírem: o
+        // balcão grava-o só no documento, e as linhas iam ao preço cheio com o
+        // netTotal descontado (E23). Ver DescontoDoDocumento.
+        $valores = \App\Services\Invoicing\DescontoDoDocumento::repartir($document, $items);
+
         $lines = [];
         $lineNo = 0;
         foreach ($items as $item) {
+            $lines[] = $this->mapLine($item, $lineNo + 1, $isCreditNote, $eacCode, $isRectifying, $valores[$lineNo]);
             $lineNo++;
-            $lines[] = $this->mapLine($item, $lineNo, $isCreditNote, $eacCode, $isRectifying);
         }
 
         // Os totais derivam das LINHAS já construídas, que é exactamente o que a
@@ -265,15 +270,29 @@ class DocumentMapper
         }
     }
 
-    /** Mapear uma linha (item) para a estrutura AGT v1.2. */
-    private function mapLine($item, int $lineNo, bool $isCreditNote, ?string $defaultEac, bool $isRectifying = false): array
+    /**
+     * Mapear uma linha (item) para a estrutura AGT v1.2.
+     *
+     * @param  array{bruto: float, desconto: float, liquido: float}  $valor
+     *         a linha com o desconto do documento já repartido (DescontoDoDocumento)
+     */
+    private function mapLine($item, int $lineNo, bool $isCreditNote, ?string $defaultEac, bool $isRectifying, array $valor): array
     {
         $unitPrice    = (float) ($item->unit_price ?? 0);
         $unitPriceBase = (float) ($item->unit_price_base ?? $item->unit_price ?? 0);
         $quantity     = (float) ($item->quantity ?? 1);
         $discount     = (float) ($item->discount_amount ?? 0);
-        // Líquido de desconto, para fechar com os totais do documento
-        $netLine      = (float) ($item->subtotal ?? ($unitPrice * $quantity)) - $discount;
+        // Líquido de TODOS os descontos, o da linha e a parte do global: é o
+        // que fecha com o netTotal do documento.
+        $netLine      = $valor['liquido'];
+        $comDesconto  = $valor['desconto'] > 0.005;
+
+        // DS.120: unitPrice é o preço SEM descontos; unitPriceBase é o preço
+        // JÁ deduzido dos descontos de linha e de cabeçalho, e a quantidade
+        // vezes ele dá o creditAmount (E21). Sem desconto, os dois coincidem.
+        if ($comDesconto) {
+            $unitPriceBase = \App\Services\Invoicing\DescontoDoDocumento::precoLiquido($netLine, $quantity);
+        }
         $taxAmount    = (float) ($item->tax_amount ?? 0);
         $taxRate      = (float) ($item->tax_rate ?? 0);
 
@@ -291,7 +310,7 @@ class DocumentMapper
             'productDescription' => (string) ($item->description ?? $item->product_name ?? $item->product?->name ?? 'Item'),
             'quantity'           => round($quantity, 4),
             'unitOfMeasure'      => (string) ($item->unit ?? 'UN'),
-            'unitPriceBase'      => round($unitPriceBase, 2),
+            'unitPriceBase'      => $comDesconto ? $unitPriceBase : round($unitPriceBase, 2),
             'unitPrice'          => round($unitPrice, 2),
         ];
 
@@ -308,14 +327,15 @@ class DocumentMapper
         // As colunas são NOT NULL DEFAULT 0, logo o `??` nunca disparava e TODAS as
         // linhas seguiam para a AGT com 0 — tratar 0 como "não preenchido".
         $debitCol  = (float) ($item->debit_amount ?? 0);
-        $creditCol = (float) ($item->credit_amount ?? 0);
 
+        // O líquido já vem das colunas quando a linha as tem (as notas) e já
+        // leva a parte do desconto do documento.
         if ($isCreditNote || $debitCol > 0) {
-            $line['debitAmount']  = round($debitCol > 0 ? $debitCol : $netLine, 2);
+            $line['debitAmount']  = round($netLine, 2);
             $line['creditAmount'] = 0;
         } else {
             $line['debitAmount']  = 0;
-            $line['creditAmount'] = round($creditCol > 0 ? $creditCol : $netLine, 2);
+            $line['creditAmount'] = round($netLine, 2);
         }
 
         // taxContribution: a AGT APURA o IVA por arredondamento ao cêntimo por
@@ -366,7 +386,10 @@ class DocumentMapper
                 : []
         );
 
-        $line['settlementAmount'] = round((float) ($item->settlement_amount ?? $discount ?? 0), 2);
+        // DS.120: o total dos descontos da linha — o seu e a parte do global.
+        $line['settlementAmount'] = $comDesconto
+            ? round($valor['desconto'], 2)
+            : round((float) ($item->settlement_amount ?? $discount ?? 0), 2);
 
         return $line;
     }
