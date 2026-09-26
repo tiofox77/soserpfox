@@ -43,6 +43,29 @@
         body { font-family: 'Inter', sans-serif; }
         .feature-card { transition: all 0.3s; }
         .feature-card:hover { transform: translateY(-4px); box-shadow: 0 20px 40px -10px rgba(0,0,0,0.15); }
+
+        /* A ALTURA DO TOPO (26/09/2026), em CSS e não em classes do Tailwind:
+           o `sm:h-16`/`lg:h-20` do logótipo não estavam no publico.css e ele
+           ficava com 48px em todo o lado — e a barra dos módulos, presa aos
+           100px, deixava um vão por baixo do topo. O logótipo é 2:1; a linha
+           do topo é o logótipo mais 20px, e o resto segue daí. */
+        .sos-logo-modulos { height: 5rem; width: auto; }
+        .sos-subnav-modulos { top: 100px; }
+        .sos-conteudo-modulos { padding-top: 144px; }
+        /* A barra dos módulos desliza de lado sem mostrar a barra de rolagem
+           (o último módulo cortado já diz que há mais). */
+        .sos-subnav-modulos .overflow-x-auto { scrollbar-width: none; }
+        .sos-subnav-modulos .overflow-x-auto::-webkit-scrollbar { display: none; }
+        @media (max-width: 1023px) {
+            .sos-logo-modulos { height: 4rem; }
+            .sos-subnav-modulos { top: 84px; }
+            .sos-conteudo-modulos { padding-top: 128px; }
+        }
+        @media (max-width: 639px) {
+            .sos-logo-modulos { height: 2.75rem; }
+            .sos-subnav-modulos { top: 64px; }
+            .sos-conteudo-modulos { padding-top: 108px; }
+        }
     </style>
     {{-- No fim do <head>: era aqui que o Tailwind em runtime injectava o CSS, e a cascata depende disso. --}}
     @include('partials.css-publico')
@@ -57,9 +80,8 @@
                     <div class="flex-shrink-0 flex items-center">
                         <a href="/" class="flex items-center">
                             @if(function_exists('app_logo') && app_logo())
-                                {{-- Altura responsiva (26/09/2026): com 80px fixos, no telemóvel o
-                                     «Começar Grátis» ficava por cima do logótipo. --}}
-                                <img src="{{ app_logo() }}" alt="{{ function_exists('app_name') ? app_name() : 'SOSERP' }}" class="h-12 sm:h-16 lg:h-20 w-auto object-contain">
+                                {{-- Altura por ecrã (80/64/44px) na classe sos-logo-modulos, no <style> acima. --}}
+                                <img src="{{ app_logo() }}" alt="{{ function_exists('app_name') ? app_name() : 'SOSERP' }}" class="sos-logo-modulos object-contain">
                             @else
                                 <div class="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mr-3">
                                     <i class="fas fa-chart-line text-white text-2xl"></i>
@@ -86,7 +108,8 @@
                     <a href="{{ route('login') }}" class="hidden sm:inline-flex items-center text-gray-700 hover:text-blue-600 text-sm font-medium transition px-2 py-2 whitespace-nowrap">
                         <i class="fas fa-sign-in-alt mr-1"></i>Entrar
                     </a>
-                    <a href="{{ route('register') }}" class="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl text-sm font-semibold hover:shadow-lg transition px-4 py-2.5 whitespace-nowrap inline-flex items-center">
+                    {{-- No telemóvel vai para a barra de baixo (partials.cta-no-telemovel). --}}
+                    <a href="{{ route('register') }}" class="sos-cta-topo bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl text-sm font-semibold hover:shadow-lg transition px-4 py-2.5 whitespace-nowrap inline-flex items-center">
                         <i class="fas fa-rocket mr-2"></i>Começar Grátis
                     </a>
                     <button onclick="document.getElementById('mod-mobile-menu').classList.toggle('hidden')" class="lg:hidden text-gray-700 hover:text-blue-600 ml-1 p-2">
@@ -112,7 +135,7 @@
     </nav>
 
     {{-- Sub-nav de módulos (debaixo da nav principal) --}}
-    <div class="fixed top-[100px] w-full bg-gradient-to-r from-blue-50 to-purple-50 border-b border-gray-200 z-40">
+    <div class="sos-subnav-modulos fixed w-full bg-gradient-to-r from-blue-50 to-purple-50 border-b border-gray-200 z-40">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center gap-1 overflow-x-auto py-2 text-xs font-medium scrollbar-hide">
                 <a href="/modulos" class="px-3 py-1.5 rounded-full text-gray-600 hover:bg-white hover:text-blue-600 whitespace-nowrap transition">
@@ -129,7 +152,7 @@
     </div>
 
     {{-- Conteúdo da página com offset para a nav fixa --}}
-    <main style="padding-top: 144px;">
+    <main class="sos-conteudo-modulos">
         {{ $slot }}
     </main>
 
@@ -249,6 +272,7 @@
         </div>
     </footer>
 
+    @include('partials.cta-no-telemovel', ['whatsapp' => $whatsapp])
     @include('partials.consentimento')
 </body>
 </html>

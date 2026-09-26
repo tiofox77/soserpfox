@@ -43,9 +43,16 @@ class PaginasComerciaisNoTelemovelTest extends TestCase
     {
         $html = $this->get('/modulos/vendas')->assertOk()->getContent();
 
-        // O logótipo com altura responsiva, e não os 80px fixos que o botão tapava.
+        // O logótipo com altura por ecrã, e não os 80px fixos que o botão tapava.
+        // Em CSS na própria página: classes do Tailwind que não estejam no
+        // publico.css compilado não fazem nada em produção.
         $this->assertStringNotContainsString('style="height: 80px; max-height: 80px;"', $html);
-        $this->assertStringContainsString('h-12 sm:h-16 lg:h-20', $html);
+        $this->assertStringContainsString('class="sos-logo-modulos object-contain"', $html);
+        $this->assertStringContainsString('.sos-logo-modulos { height: 2.75rem; }', $html);
+
+        // No telemóvel o «Começar Grátis» sai do topo para a barra de baixo,
+        // com o WhatsApp ao lado — sem tapar o logótipo.
+        $this->assertBarraDeBaixo($html, '244939729902');
 
         // O Restaurante na navegação dos módulos.
         $this->assertStringContainsString('href="/modulos/restaurant"', $html);
@@ -61,5 +68,17 @@ class PaginasComerciaisNoTelemovelTest extends TestCase
 
         $this->assertStringContainsString(DiasDeTeste::frase(), $html);
         $this->assertStringNotContainsString('✨ 14 dias grátis •', $html);
+
+        // O mesmo topo apertado, a mesma barra de baixo; o WhatsApp é o
+        // contacto da plataforma, das definições.
+        $this->assertBarraDeBaixo($html, preg_replace('/\D/', '', \App\Support\Entrada::contacto()['telefone']));
+    }
+
+    private function assertBarraDeBaixo(string $html, string $whatsapp): void
+    {
+        $this->assertStringContainsString('class="sos-cta-topo ', $html, 'o botão do topo esconde-se no telemóvel');
+        $this->assertStringContainsString('.sos-cta-topo { display: none !important; }', $html);
+        $this->assertMatchesRegularExpression('~<div class="sos-cta-fundo">\s*<a href="[^"]*/register" class="sos-cta-principal">~', $html);
+        $this->assertStringContainsString('href="https://wa.me/' . $whatsapp . '"', $html);
     }
 }

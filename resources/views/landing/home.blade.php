@@ -231,7 +231,8 @@
                     <a href="{{ route('login') }}" class="hidden sm:inline-flex items-center text-gray-700 hover:text-blue-600 text-[13px] 2xl:text-sm font-medium transition px-2 py-2 whitespace-nowrap">
                         <i class="fas fa-sign-in-alt mr-1"></i>Entrar
                     </a>
-                    <a href="{{ route('register') }}" class="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl text-[13px] 2xl:text-sm font-semibold hover:shadow-lg transition px-3.5 2xl:px-4 py-2.5 whitespace-nowrap inline-flex items-center">
+                    {{-- No telemóvel vai para a barra de baixo (partials.cta-no-telemovel). --}}
+                    <a href="{{ route('register') }}" class="sos-cta-topo bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl text-[13px] 2xl:text-sm font-semibold hover:shadow-lg transition px-3.5 2xl:px-4 py-2.5 whitespace-nowrap inline-flex items-center">
                         <i class="fas fa-rocket mr-1.5 2xl:mr-2"></i>Começar Grátis
                     </a>
 
@@ -2040,6 +2041,7 @@
         }
     </script>
 
+    @include('partials.cta-no-telemovel')
     @include('partials.consentimento')
 </body>
 </html>
