@@ -6,18 +6,19 @@ use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 
 /**
- * O NIF tem de ser de EMPRESA, e não o do bilhete de identidade.
+ * O NIF de quem se regista: de EMPRESA, ou de EMPRESÁRIO EM NOME INDIVIDUAL.
  *
  * Em Angola o NIF de pessoa colectiva é atribuído pela AGT e tem dez dígitos
  * começados por 5. O de pessoa singular é o próprio número do BI — nove
- * dígitos, duas letras da província e três dígitos, como 004512345LA041 — e
- * chega a começar por 0 ou por 2.
+ * dígitos, duas letras da província e três dígitos, como 004512345LA041. A AGT
+ * usa-o como NIF desde 2019, com ou sem actividade comercial.
  *
- * Porque é que isto tem de ser travado à entrada: o NIF da empresa vai em cada
- * documento fiscal comunicado à AGT, e é por ele que a empresa é identificada.
- * Registar-se com o NIF do BI passa despercebido durante semanas e só aparece
- * quando as facturas começam a ser recusadas — altura em que já há documentos
- * emitidos com o número errado e a correcção deixou de ser só mudar um campo.
+ * O NÚMERO DO BI PASSA (26/09/2026, decisão do dono da plataforma): uma
+ * empresa com NIF singular — o empresário em nome individual — usa o sistema
+ * como as outras. O que se trava é o número MAL ESCRITO: com letras mas fora
+ * do feitio do BI (um dígito a mais, por exemplo), ou só algarismos que não
+ * são de empresa. O NIF vai em cada documento fiscal comunicado à AGT, e um
+ * número errado só se descobre quando as facturas começam a ser recusadas.
  *
  * Desde 22/09/2026 aceita também DEZ dígitos começados por 0: há alvarás
  * comerciais com NIF assim (0000083092, de um empresário em nome individual),
@@ -40,11 +41,14 @@ class NifDeEmpresa implements ValidationRule
             return;
         }
 
-        // As letras denunciam o BI. Vale a pena dizê-lo por palavras: quem
-        // escreve o número do BI não está a errar por distracção, está a achar
-        // que é aquele o número — e uma mensagem genérica não o demove.
+        // O NÚMERO DO BI É O NIF DE PESSOA SINGULAR (26/09/2026): o de um
+        // empresário em nome individual. A AGT usa-o como NIF desde 2019, e
+        // uma empresa assim usa o sistema como as outras. Com letras mas fora
+        // do feitio do BI, é um número mal escrito — e diz-se qual é o feitio.
         if (preg_match('/[A-Za-z]/', $limpo)) {
-            $fail('Esse é o número do bilhete de identidade. O NIF da empresa tem nove ou dez dígitos e começa por 5.');
+            if (!\App\Support\NifAngolano::formatoDeBI($limpo)) {
+                $fail('O NIF de pessoa singular é o número do BI: nove dígitos, duas letras e três dígitos (por exemplo 004512345LA041).');
+            }
 
             return;
         }

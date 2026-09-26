@@ -64,9 +64,11 @@ class ExigirNifDeEmpresa
         // "NIF inválido" não move ninguém; perder as facturas move.
         return redirect()
             ->route('company.profile')
-            ->with('warning', 'O NIF da empresa (' . $empresa->nif . ') é um número de pessoa singular. '
-                . 'Os documentos comunicados à AGT com este número são recusados. '
-                . 'Corrija-o aqui para continuar a usar o sistema.');
+            // O NIF de pessoa singular (o número do BI) é válido desde
+            // 26/09/2026: aqui só chega um número mal escrito.
+            ->with('warning', 'O NIF da empresa (' . $empresa->nif . ') não está bem escrito: o de uma empresa tem nove ou dez dígitos '
+                . '(começado por 5), e o de um empresário em nome individual é o número do BI (nove dígitos, duas letras e três dígitos). '
+                . 'Os documentos comunicados à AGT com um NIF errado são recusados. Corrija-o aqui para continuar a usar o sistema.');
     }
 
     private function empresaActiva()

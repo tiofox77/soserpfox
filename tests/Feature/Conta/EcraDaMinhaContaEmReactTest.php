@@ -182,7 +182,7 @@ class EcraDaMinhaContaEmReactTest extends TenantTestCase
 
         $this->actingAs($this->user)->putJson(self::RAIZ.'/empresas/'.$this->tenant->id, [
             'name' => $this->tenant->name,
-            'nif' => '004512345LA041',
+            'nif' => '0045123455LA041',
             'regime' => 'regime_geral',
         ])->assertStatus(422)->assertJsonValidationErrors('nif');
 

@@ -47,9 +47,14 @@ class NifAngolano
             return ['estado' => self::INVALIDO, 'motivo' => 'consumidor final (999999999) — o registo ficou a meio', 'nif' => $limpo, 'mascarado' => $mascarado];
         }
 
-        // Letras: alguém pôs o número do bilhete de identidade.
+        // O NIF DE PESSOA SINGULAR É O NÚMERO DO BI (26/09/2026). A AGT
+        // passou-o a isso em 2019, com ou sem actividade comercial — é o NIF
+        // de um empresário em nome individual. Válido quando tem o feitio do
+        // BI; com letras mas fora dele, é um número mal escrito.
         if (preg_match('/[A-Za-z]/', $limpo)) {
-            return ['estado' => self::INVALIDO, 'motivo' => 'parece o número do BI (tem letras), não o NIF da empresa', 'nif' => $limpo, 'mascarado' => $mascarado];
+            return self::formatoDeBI($limpo)
+                ? ['estado' => self::VALIDO, 'motivo' => null, 'nif' => $limpo, 'mascarado' => $mascarado]
+                : ['estado' => self::INVALIDO, 'motivo' => 'tem letras mas não é um número de BI (nove dígitos, duas letras e três dígitos)', 'nif' => $limpo, 'mascarado' => $mascarado];
         }
 
         if (!preg_match('/^\d{9,10}$/', $limpo)) {
@@ -91,6 +96,23 @@ class NifAngolano
     public static function formatoDeEmpresa(string $limpo): bool
     {
         return (bool) preg_match('/^(5\d{8,9}|0\d{9})$/', $limpo);
+    }
+
+    /**
+     * O NIF DE PESSOA SINGULAR: o número do bilhete de identidade — nove
+     * dígitos, as duas letras da província e três dígitos (004512345LA041).
+     * É o NIF do empresário em nome individual, e a plataforma aceita-o
+     * (26/09/2026): uma empresa com NIF singular usa o sistema como as outras.
+     */
+    public static function formatoDeBI(string $limpo): bool
+    {
+        return (bool) preg_match('/^\d{9}[A-Z]{2}\d{3}$/', strtoupper($limpo));
+    }
+
+    /** Um NIF que a plataforma aceita: de empresa ou de pessoa singular (BI). */
+    public static function formatoValido(string $limpo): bool
+    {
+        return self::formatoDeEmpresa($limpo) || self::formatoDeBI($limpo);
     }
 
     /** 54******23 — dois dígitos de cada ponta, o meio tapado. */

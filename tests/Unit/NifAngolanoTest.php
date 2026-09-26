@@ -22,10 +22,13 @@ class NifAngolanoTest extends TestCase
         $this->assertSame(NifAngolano::AUSENTE, NifAngolano::classificar('   ')['estado']);
     }
 
-    public function test_bi_com_letras_e_invalido(): void
+    public function test_o_bi_bem_escrito_e_nif_de_pessoa_singular_valido(): void
     {
-        $r = NifAngolano::classificar('004512345LA041');
-        $this->assertSame(NifAngolano::INVALIDO, $r['estado']);
+        $this->assertSame(NifAngolano::VALIDO, NifAngolano::classificar('004512345LA041')['estado']);
+        $this->assertTrue(NifAngolano::formatoDeBI('006378572BA048'));
+
+        $r = NifAngolano::classificar('0063785572BA048');
+        $this->assertSame(NifAngolano::INVALIDO, $r['estado'], 'com letras mas um dígito a mais');
         $this->assertStringContainsString('BI', $r['motivo']);
     }
 

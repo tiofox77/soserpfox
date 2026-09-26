@@ -13124,5 +13124,8 @@
     "Grátis — não há nada a pagar.": "Free — nothing to pay.",
     ":dias dias grátis, sem pagamento para começar. Depois, :preco Kz/mês.": ":dias days free, no payment to start. Then :preco Kz/month.",
     ":dias dias grátis. Depois, :preco Kz/mês.": ":dias days free. Then :preco Kz/month.",
-    ":preco Kz/mês — sem período de teste.": ":preco Kz/month — no trial period."
+    ":preco Kz/mês — sem período de teste.": ":preco Kz/month — no trial period.",
+    "O da empresa (nove ou dez dígitos, começado por 5) ou, se é empresário em nome individual, o número do BI.": "The company's (nine or ten digits, starting with 5) or, if you are a sole trader, your ID card (BI) number.",
+    "Da empresa: começa por 5, ou dez dígitos começados por 0. De empresário em nome individual: o número do BI (nove dígitos, duas letras, três dígitos).": "Company: starts with 5, or ten digits starting with 0. Sole trader: the ID card (BI) number (nine digits, two letters, three digits).",
+    "O NIF de pessoa singular é o número do BI: nove dígitos, duas letras e três dígitos (por exemplo 004512345LA041).": "An individual's tax ID is the ID card (BI) number: nine digits, two letters and three digits (e.g. 004512345LA041)."
 }

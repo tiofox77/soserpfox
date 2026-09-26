@@ -29,12 +29,21 @@ class ExigirNifDeEmpresaTest extends TenantTestCase
         $this->actingAs(\App\Models\User::find($this->user->id));
     }
 
-    public function test_com_nif_de_bi_e_levada_ao_ecra_da_empresa(): void
+    /** Um NIF mal escrito (com letras, mas não o feitio do BI) leva ao ecrã da empresa. */
+    public function test_com_nif_mal_escrito_e_levada_ao_ecra_da_empresa(): void
     {
-        $this->comNif('004512345LA041');
+        $this->comNif('0045123455LA041');
 
         $this->get('/home')
             ->assertRedirect(route('company.profile'));
+    }
+
+    /** O NIF de pessoa singular (o BI) usa o sistema como os outros (26/09/2026). */
+    public function test_com_nif_de_pessoa_singular_usa_o_sistema(): void
+    {
+        $this->comNif('006378572BA048');
+
+        $this->get('/home')->assertOk();
     }
 
     public function test_com_nif_de_pessoa_singular_tambem(): void
@@ -62,7 +71,7 @@ class ExigirNifDeEmpresaTest extends TenantTestCase
     /** O ecra onde se corrige tem de estar sempre acessivel, senao e um beco. */
     public function test_o_ecra_da_empresa_nunca_e_bloqueado(): void
     {
-        $this->comNif('004512345LA041');
+        $this->comNif('0045123455LA041');
 
         $this->get('/empresa')->assertOk();
     }
@@ -75,7 +84,7 @@ class ExigirNifDeEmpresaTest extends TenantTestCase
      */
     public function test_o_pos_offline_continua_a_funcionar(): void
     {
-        $this->comNif('004512345LA041');
+        $this->comNif('0045123455LA041');
 
         $this->get('/invoicing/offline')->assertOk();
     }
@@ -91,7 +100,7 @@ class ExigirNifDeEmpresaTest extends TenantTestCase
     /** A mensagem diz porque importa, e nao so que esta errado. */
     public function test_a_mensagem_explica_a_consequencia(): void
     {
-        $this->comNif('004512345LA041');
+        $this->comNif('0045123455LA041');
 
         $this->get('/home');
 

@@ -13124,5 +13124,8 @@
     "Grátis — não há nada a pagar.": "Gratuit — rien à payer.",
     ":dias dias grátis, sem pagamento para começar. Depois, :preco Kz/mês.": ":dias jours gratuits, sans paiement pour commencer. Ensuite :preco Kz/mois.",
     ":dias dias grátis. Depois, :preco Kz/mês.": ":dias jours gratuits. Ensuite :preco Kz/mois.",
-    ":preco Kz/mês — sem período de teste.": ":preco Kz/mois — sans période d'essai."
+    ":preco Kz/mês — sem período de teste.": ":preco Kz/mois — sans période d'essai.",
+    "O da empresa (nove ou dez dígitos, começado por 5) ou, se é empresário em nome individual, o número do BI.": "Celui de l'entreprise (neuf ou dix chiffres, commençant par 5) ou, si vous êtes entrepreneur individuel, le numéro de votre BI.",
+    "Da empresa: começa por 5, ou dez dígitos começados por 0. De empresário em nome individual: o número do BI (nove dígitos, duas letras, três dígitos).": "Entreprise : commence par 5, ou dix chiffres commençant par 0. Entrepreneur individuel : le numéro du BI (neuf chiffres, deux lettres, trois chiffres).",
+    "O NIF de pessoa singular é o número do BI: nove dígitos, duas letras e três dígitos (por exemplo 004512345LA041).": "Le NIF d'une personne physique est le numéro du BI : neuf chiffres, deux lettres et trois chiffres (par exemple 004512345LA041)."
 }

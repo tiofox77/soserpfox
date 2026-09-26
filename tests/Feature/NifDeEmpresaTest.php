@@ -41,14 +41,19 @@ class NifDeEmpresaTest extends TenantTestCase
         $this->assertNull($this->erro('5417-289-442'));
     }
 
-    /** O caso que motivou tudo isto: o numero do BI. */
-    public function test_o_numero_do_bi_e_recusado_e_dito_pelo_nome(): void
+    /**
+     * O NUMERO DO BI E O NIF DO EMPRESARIO EM NOME INDIVIDUAL (26/09/2026):
+     * passa. O que nao passa e o numero mal escrito — e diz-se o feitio.
+     */
+    public function test_o_numero_do_bi_passa_como_nif_de_pessoa_singular(): void
     {
-        $erro = $this->erro('004512345LA041');
+        $this->assertNull($this->erro('004512345LA041'), 'o BI bem escrito e o NIF de pessoa singular');
+        $this->assertNull($this->erro('006378572BA048'));
 
-        $this->assertNotNull($erro, 'o numero do BI nao pode passar como NIF de empresa');
-        $this->assertStringContainsString('bilhete de identidade', $erro,
-            'dizer so "invalido" nao demove quem acha que aquele e o numero');
+        // Um digito a mais (o caso da empresa 115, antes de corrigido).
+        $erro = $this->erro('0063785572BA048');
+        $this->assertNotNull($erro);
+        $this->assertStringContainsString('nove dígitos, duas letras e três dígitos', $erro);
     }
 
     /** Um NIF de pessoa singular so por digitos tambem nao serve. */
@@ -117,14 +122,14 @@ class NifDeEmpresaTest extends TenantTestCase
      * Pelo ecra e nao pela regra sozinha: o que interessa provar e que o ecra
      * a usa, e nao que a regra funciona isolada — ja ha testes para isso.
      */
-    public function test_o_ecra_de_nova_empresa_recusa_o_numero_do_bi(): void
+    public function test_o_ecra_de_nova_empresa_recusa_um_nif_mal_escrito(): void
     {
         $this->comoDono();
 
         $this->actingAs($this->user)
             ->postJson('/api/v1/invoicing/react/conta/empresas', [
                 'name' => 'Farmácia Teste',
-                'nif' => '004512345LA041',
+                'nif' => '0045123455LA041',
                 'regime' => array_key_first(\App\Models\Tenant::REGIMES),
             ])
             ->assertStatus(422)
@@ -173,7 +178,7 @@ class NifDeEmpresaTest extends TenantTestCase
     public function test_a_regra_com_nome_faz_o_mesmo(): void
     {
         $bom = Validator::make(['nif' => '5417289442'], ['nif' => 'nif_empresa']);
-        $mau = Validator::make(['nif' => '004512345LA041'], ['nif' => 'nif_empresa']);
+        $mau = Validator::make(['nif' => '0045123455LA041'], ['nif' => 'nif_empresa']);
 
         $this->assertFalse($bom->fails());
         $this->assertTrue($mau->fails(), 'a regra com nome tem de recusar o mesmo que o objecto');

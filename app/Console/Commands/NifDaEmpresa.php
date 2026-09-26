@@ -29,6 +29,7 @@ class NifDaEmpresa extends Command
     protected $signature = 'empresas:nif
                             {--tenant= : id da empresa}
                             {--nif= : o NIF novo}
+                            {--ficheiro= : JSON em storage/app/privado com {"nif": "..."} — o número do BI não vai no endereço}
                             {--aplicar : grava (sem isto é simulação)}';
 
     protected $description = 'Define o NIF de uma empresa que ainda não emitiu documentos fiscais (simulação por omissão)';
@@ -52,6 +53,28 @@ class NifDaEmpresa extends Command
         }
 
         $nif = preg_replace('/\s+/', '', (string) $this->option('nif'));
+
+        // O NIF de pessoa singular é o número do BI — um dado pessoal. Pelo
+        // endereço de manutenção, os argumentos vão na query string e ficam nos
+        // registos do servidor; num ficheiro privado, não (apaga-se depois).
+        $ficheiro = null;
+        if ($nome = $this->option('ficheiro')) {
+            if (! preg_match('/^[a-z0-9_-]+\.json$/i', (string) $nome) || ! is_file($ficheiro = storage_path('app/privado/' . $nome))) {
+                $this->error('O --ficheiro é só o nome de um .json que exista em storage/app/privado.');
+
+                return self::FAILURE;
+            }
+            $nif = preg_replace('/\s+/', '', (string) (json_decode((string) file_get_contents($ficheiro), true)['nif'] ?? ''));
+        }
+
+        // Sem NIF não há nada a gravar. A regra não corre sobre valores vazios,
+        // e com --aplicar isto APAGAVA o NIF da empresa.
+        if ($nif === '') {
+            $this->error('Indique o NIF novo (--nif ou --ficheiro).');
+
+            return self::FAILURE;
+        }
+
         $validacao = Validator::make(['nif' => $nif], ['nif' => [new NifDeEmpresa()]]);
 
         if ($validacao->fails()) {
@@ -89,6 +112,10 @@ class NifDaEmpresa extends Command
         }
 
         $empresa->forceFill(['nif' => $nif])->save();
+
+        if ($ficheiro) {
+            @unlink($ficheiro);
+        }
 
         $this->newLine();
         $this->info("NIF da empresa #{$empresa->id} gravado: {$nif}.");

@@ -109,7 +109,7 @@ class AgtDefinicoesEContribuinteTest extends TenantTestCase
         $antigo = $this->tenant->nif;
 
         // O número do bilhete de identidade.
-        $this->postJson(self::RAIZ . '/contribuinte', ['agt_establishment_number' => 'SEDE', 'tax_registration_number' => '004512345LA041'])
+        $this->postJson(self::RAIZ . '/contribuinte', ['agt_establishment_number' => 'SEDE', 'tax_registration_number' => '0045123455LA041'])
             ->assertStatus(422)
             ->assertJsonValidationErrors('tax_registration_number');
 
