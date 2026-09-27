@@ -31,7 +31,8 @@ use Spatie\Permission\Models\Permission;
  */
 class AlinharPermissoes extends Command
 {
-    protected $signature = 'permissoes:alinhar {--aplicar : escreve de facto}';
+    protected $signature = 'permissoes:alinhar {--aplicar : escreve de facto}
+        {--so= : só as permissões com estes prefixos, separados por vírgulas — e sem correr os sincronizadores}';
 
     protected $description = 'Cria as permissões que o código pede e reparte-as (a seco por omissão)';
 
@@ -112,9 +113,22 @@ class AlinharPermissoes extends Command
     {
         $aplicar = (bool) $this->option('aplicar');
 
+        /*
+         * `--so=` (27/09/2026): aplicar SÓ as permissões de uma entrega. Sem
+         * isto, cada deploy de uma permissão nova repartia também, de caminho,
+         * as equivalências antigas pelos papéis criados desde a última
+         * corrida — uma mudança de permissões que ninguém pediu nessa entrega.
+         */
+        $so = array_values(array_filter(array_map('trim', explode(',', (string) $this->option('so')))));
+        $dentro = fn (string $nome): bool => $so === [] || collect($so)->contains(fn ($p) => str_starts_with($nome, $p));
+
         $this->info($aplicar ? 'A APLICAR' : 'A SECO — nada é escrito. Use --aplicar.');
 
-        foreach (self::SINCRONIZADORES as $comando) {
+        if ($so !== []) {
+            $this->line('Só: ' . implode(', ', $so) . ' (sem os sincronizadores).');
+        }
+
+        foreach ($so === [] ? self::SINCRONIZADORES : [] as $comando) {
             $this->line('');
             $this->line("<options=bold>{$comando}</>");
             $this->call($comando, $aplicar ? ['--aplicar' => true] : []);
@@ -124,6 +138,10 @@ class AlinharPermissoes extends Command
         $this->line('<options=bold>As que nenhum sincronizador criava</>');
 
         foreach (self::NOVAS as $nome => $descricao) {
+            if (! $dentro($nome)) {
+                continue;
+            }
+
             if ($aplicar) {
                 Permission::firstOrCreate(['name' => $nome, 'guard_name' => 'web'], ['description' => $descricao]);
             }
@@ -136,6 +154,12 @@ class AlinharPermissoes extends Command
         $novasLigacoes = 0;
 
         foreach (self::EQUIVALENTES as $fonte => $destinos) {
+            $destinos = array_values(array_filter($destinos, $dentro));
+
+            if ($destinos === []) {
+                continue;
+            }
+
             $papeis = DB::table('role_has_permissions as rp')
                 ->join('permissions as p', 'p.id', '=', 'rp.permission_id')
                 ->where('p.name', $fonte)
@@ -166,12 +190,13 @@ class AlinharPermissoes extends Command
 
         app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
 
-        $faltam = collect(self::OBRIGATORIAS)->reject(fn ($n) => Permission::where('name', $n)->exists())->values();
+        $obrigatorias = collect(self::OBRIGATORIAS)->filter($dentro)->values();
+        $faltam = $obrigatorias->reject(fn ($n) => Permission::where('name', $n)->exists())->values();
 
         $this->line('');
 
         if ($faltam->isEmpty()) {
-            $this->info('Todas as ' . count(self::OBRIGATORIAS) . ' permissões que o código pede existem.' . ($aplicar ? " Ligações novas por equivalência: {$novasLigacoes}." : ''));
+            $this->info('Todas as ' . $obrigatorias->count() . ' permissões que o código pede existem.' . ($aplicar ? " Ligações novas por equivalência: {$novasLigacoes}." : ''));
 
             return self::SUCCESS;
         }

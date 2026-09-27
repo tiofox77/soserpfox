@@ -41,4 +41,42 @@ class AlinharPermissoesTest extends TenantTestCase
         $this->artisan('permissoes:alinhar', ['--aplicar' => true])->assertSuccessful();
         $this->assertSame(1, Permission::where('name', 'hotel.dashboard.view')->count());
     }
+
+    /**
+     * `--so=` aplica só as permissões de uma entrega (27/09/2026): as das
+     * compras chegam a quem tratava das encomendas e a quem mexe na
+     * tesouraria como gestor — não ao Caixa, que só cria movimentos — e as
+     * equivalências antigas ficam como estavam.
+     */
+    public function test_so_as_das_compras_e_o_caixa_nao_passa_a_pagar_fornecedores(): void
+    {
+        foreach (['compras.encomendas.facturar', 'compras.pagamentos.solicitar', 'treasury.pagamentos.pagar', 'treasury.transfers.delete'] as $n) {
+            Permission::where('name', $n)->delete();
+        }
+
+        $compras = Role::create(['name' => 'Compras '.uniqid(), 'guard_name' => 'web', 'tenant_id' => $this->tenant->id]);
+        $compras->givePermissionTo(Permission::findOrCreate('compras.encomendas.manage', 'web'));
+
+        $gestor = Role::create(['name' => 'Gestor '.uniqid(), 'guard_name' => 'web', 'tenant_id' => $this->tenant->id]);
+        $gestor->givePermissionTo(Permission::findOrCreate('treasury.transactions.edit', 'web'));
+
+        $caixa = Role::create(['name' => 'Caixa '.uniqid(), 'guard_name' => 'web', 'tenant_id' => $this->tenant->id]);
+        $caixa->givePermissionTo(Permission::findOrCreate('treasury.transactions.create', 'web'));
+        $caixa->givePermissionTo(Permission::findOrCreate('treasury.transfers.create', 'web'));
+
+        $this->artisan('permissoes:alinhar', [
+            '--aplicar' => true,
+            '--so' => 'compras.encomendas.facturar,compras.pagamentos.,treasury.pagamentos.',
+        ])->assertSuccessful();
+
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+
+        $this->assertTrue($compras->fresh()->hasPermissionTo('compras.encomendas.facturar'), 'quem tratava das encomendas continua a facturá-las');
+        $this->assertTrue($compras->fresh()->hasPermissionTo('compras.pagamentos.solicitar'));
+        $this->assertTrue($gestor->fresh()->hasPermissionTo('treasury.pagamentos.pagar'), 'quem edita a tesouraria paga fornecedores');
+        $this->assertFalse($caixa->fresh()->hasPermissionTo('treasury.pagamentos.pagar'), 'o caixa do balcão não paga fornecedores');
+
+        // Fora do --so: a equivalência antiga não correu.
+        $this->assertFalse(Permission::where('name', 'treasury.transfers.delete')->exists());
+    }
 }
