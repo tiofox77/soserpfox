@@ -280,6 +280,7 @@ final class MenuDaCasca
                      */
                     ['rota' => 'treasury.dashboard', 'rotulo' => 'Dashboard', 'icone' => 'fa-chart-line', 'cor' => 'blue-400', 'activo' => 'treasury.dashboard', 'permissao' => 'treasury.transactions.view'],
                     ['rota' => 'treasury.reports', 'rotulo' => 'Relatórios', 'icone' => 'fa-file-invoice-dollar', 'cor' => 'purple-400', 'activo' => 'treasury.reports*', 'permissao' => 'treasury.reports.view'],
+                    ['rota' => 'treasury.dre-integrado', 'rotulo' => 'DRE Integrado', 'icone' => 'fa-scale-balanced', 'cor' => 'emerald-400', 'activo' => 'treasury.dre-integrado', 'permissao' => 'treasury.reports.view'],
                     ['rota' => 'treasury.accounts', 'rotulo' => 'Contas Bancárias', 'icone' => 'fa-wallet', 'cor' => 'purple-400', 'activo' => 'treasury.accounts*', 'permissao' => 'treasury.accounts.view'],
                     ['rota' => 'treasury.transactions', 'rotulo' => 'Transações', 'icone' => 'fa-exchange-alt', 'cor' => 'teal-400', 'activo' => 'treasury.transactions*', 'permissao' => 'treasury.transactions.view'],
                     ['rota' => 'treasury.transaction-types', 'rotulo' => 'Tipos de Transação', 'icone' => 'fa-list', 'cor' => 'cyan-400', 'activo' => 'treasury.transaction-types', 'permissao' => 'treasury.transactions.view'],

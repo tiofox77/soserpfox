@@ -84,10 +84,10 @@
 @elseif($tipo === 'dre')
     <table>
         <tbody>
-        <tr><td>Receita bruta</td><td class="n">{{ $kz($dados['grossRevenue']) }} Kz</td></tr>
-        <tr><td>Deduções</td><td class="n">({{ $kz($dados['deductions']) }}) Kz</td></tr>
+        <tr><td>Receita bruta (facturas, com IVA)</td><td class="n">{{ $kz($dados['grossRevenue']) }} Kz</td></tr>
+        <tr><td>Devoluções (notas de crédito)</td><td class="n">({{ $kz($dados['deductions']) }}) Kz</td></tr>
         <tr class="total"><td>Receita líquida</td><td class="n">{{ $kz($dados['netRevenue']) }} Kz</td></tr>
-        <tr><td>Custos operacionais</td><td class="n">({{ $kz($dados['operationalCosts']) }}) Kz</td></tr>
+        <tr><td>Compras (facturas de compra)</td><td class="n">({{ $kz($dados['operationalCosts']) }}) Kz</td></tr>
         <tr class="total"><td>Lucro bruto</td><td class="n">{{ $kz($dados['grossProfit']) }} Kz</td></tr>
         </tbody>
     </table>
@@ -113,8 +113,62 @@
     </table>
 
     <p class="nota">
-        Sem imposto sobre o lucro e sem deduções por notas de crédito — estas ainda não
-        entram no cálculo. O resultado líquido é, por isso, uma aproximação.
+        Valores com IVA. As despesas não repetem o que já está noutra rubrica: pagamentos de compras,
+        devoluções a clientes e movimentos ligados a facturas. As compras de mercadoria contam aqui
+        pela factura; o resultado económico, com o custo do que foi vendido, está no DRE Integrado.
+    </p>
+
+@elseif($tipo === 'dre_integrado')
+    <table>
+        <tbody>
+        @foreach($dados['linhas'] as $l)
+            <tr class="{{ $l['final'] ? 'grande' : ($l['total'] ? 'total' : '') }}">
+                <td style="padding-left: {{ 6 + 12 * $l['nivel'] }}px">{{ $l['rotulo'] }}</td>
+                <td class="n">{{ $l['valor'] < 0 ? '(' . $kz(abs($l['valor'])) . ')' : $kz($l['valor']) }} Kz</td>
+            </tr>
+        @endforeach
+        </tbody>
+    </table>
+
+    @if(count($dados['despesas']['por_categoria']))
+        <h2>Despesas pagas pela tesouraria, por categoria</h2>
+        <table>
+            <thead><tr><th>Categoria</th><th class="n">Valor</th></tr></thead>
+            <tbody>
+            @foreach($dados['despesas']['por_categoria'] as $c)
+                <tr><td>{{ $c['rotulo'] }}</td><td class="n">{{ $kz($c['valor']) }} Kz</td></tr>
+            @endforeach
+            </tbody>
+        </table>
+    @endif
+
+    @if(count($dados['fora_do_resultado']))
+        <h2>Movimentos que não entram no resultado</h2>
+        <table>
+            <thead><tr><th>Natureza</th><th class="n">Saídas</th><th class="n">Entradas</th></tr></thead>
+            <tbody>
+            @foreach($dados['fora_do_resultado'] as $f)
+                <tr><td>{{ $f['rotulo'] }}</td><td class="n">{{ $kz($f['saidas']) }} Kz</td><td class="n">{{ $kz($f['entradas']) }} Kz</td></tr>
+            @endforeach
+            </tbody>
+        </table>
+    @endif
+
+    <h2>Últimos seis meses</h2>
+    <table>
+        <thead><tr><th>Mês</th><th class="n">Receita líquida</th><th class="n">CMV</th><th class="n">Despesas</th><th class="n">Resultado</th></tr></thead>
+        <tbody>
+        @foreach($dados['mensal'] as $m)
+            <tr><td>{{ $m['mes'] }}</td><td class="n">{{ $kz($m['receita_liquida']) }}</td><td class="n">{{ $kz($m['cmv']) }}</td>
+                <td class="n">{{ $kz($m['despesas']) }}</td><td class="n">{{ $kz($m['resultado']) }}</td></tr>
+        @endforeach
+        </tbody>
+    </table>
+
+    <p class="nota">
+        Sem IVA. Receita pelas facturas e notas emitidas; CMV ao custo de compra à data da venda;
+        despesas pela natureza das categorias da tesouraria e pela parte de serviços das facturas de compra.
+        Compras de stock, pagamentos de facturas, transferências e recebimentos não entram no resultado.
     </p>
 
 @elseif($tipo === 'receivables' || $tipo === 'payables')

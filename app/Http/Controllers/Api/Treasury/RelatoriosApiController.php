@@ -71,6 +71,12 @@ class RelatoriosApiController extends Controller
      */
     private function intervalo(string $periodo, ?string $de, ?string $ate): array
     {
+        return self::intervaloDoPeriodo($periodo, $de, $ate);
+    }
+
+    /** O mesmo intervalo, para quem mais precisar (o detalhe do DRE Integrado). */
+    public static function intervaloDoPeriodo(string $periodo, ?string $de, ?string $ate): array
+    {
         if ($periodo === 'custom' && $de && $ate) {
             // Ao contrário faz o relatório sair vazio sem ninguém perceber
             // porquê: troca-se em vez de se devolver nada.

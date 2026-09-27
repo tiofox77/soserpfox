@@ -37,7 +37,7 @@ class ReportExportController extends Controller
             'ate'     => $ate,
             'empresa' => $empresa,
             'dados'   => $dados,
-        ])->setPaper('a4', $tipo === 'cash_flow' || $tipo === 'dre' ? 'portrait' : 'landscape');
+        ])->setPaper('a4', in_array($tipo, ['cash_flow', 'dre', 'dre_integrado'], true) ? 'portrait' : 'landscape');
 
         return $pdf->stream($this->ficheiro($tipo, 'pdf'));
     }
@@ -71,6 +71,7 @@ class ReportExportController extends Controller
         match ($tipo) {
             'cash_flow'   => $this->folhaFluxoDeCaixa($folha, $dados, $linha),
             'dre'         => $this->folhaResultados($folha, $dados, $linha),
+            'dre_integrado' => $this->folhaDreIntegrado($folha, $dados, $linha),
             'receivables' => $this->folhaEmAberto($folha, $dados['receivables'], 'Cliente', 'client', $linha),
             'payables'    => $this->folhaEmAberto($folha, $dados['payables'], 'Fornecedor', 'supplier', $linha),
             default       => null,
@@ -189,16 +190,63 @@ class ReportExportController extends Controller
         $folha->getStyle('C5:C' . $linha)->getNumberFormat()->setFormatCode('#,##0.00');
     }
 
+    /** O DRE Integrado: as mesmas linhas do ecrã, e a evolução mensal. */
+    private function folhaDreIntegrado($folha, array $d, int $linha): void
+    {
+        $this->cabecalho($folha, ['Rubrica', '', 'Valor (Kz)'], $linha);
+        $linha++;
+
+        foreach ($d['linhas'] as $l) {
+            $folha->setCellValue("A{$linha}", str_repeat('   ', (int) $l['nivel']) . $l['rotulo']);
+            $folha->setCellValue("C{$linha}", (float) $l['valor']);
+            if ($l['total']) {
+                $folha->getStyle("A{$linha}:C{$linha}")->getFont()->setBold(true)->setSize($l['final'] ? 12 : 11);
+            }
+            $linha++;
+        }
+
+        if ($d['fora_do_resultado']) {
+            $linha++;
+            $folha->setCellValue("A{$linha}", 'NÃO ENTRAM NO RESULTADO');
+            $folha->setCellValue("B{$linha}", 'Saídas');
+            $folha->setCellValue("C{$linha}", 'Entradas');
+            $folha->getStyle("A{$linha}:C{$linha}")->getFont()->setBold(true);
+            $linha++;
+            foreach ($d['fora_do_resultado'] as $f) {
+                $folha->setCellValue("A{$linha}", $f['rotulo']);
+                $folha->setCellValue("B{$linha}", (float) $f['saidas']);
+                $folha->setCellValue("C{$linha}", (float) $f['entradas']);
+                $linha++;
+            }
+        }
+
+        $linha++;
+        $folha->setCellValue("A{$linha}", 'ÚLTIMOS SEIS MESES');
+        $folha->getStyle("A{$linha}")->getFont()->setBold(true);
+        $linha++;
+        foreach ($d['mensal'] as $m) {
+            $folha->setCellValue("A{$linha}", $m['mes']);
+            $folha->setCellValue("B{$linha}", 'Receita ' . number_format($m['receita_liquida'], 2, ',', '.') . ' · CMV ' . number_format($m['cmv'], 2, ',', '.') . ' · Despesas ' . number_format($m['despesas'], 2, ',', '.'));
+            $folha->setCellValue("C{$linha}", (float) $m['resultado']);
+            $linha++;
+        }
+
+        $folha->getStyle('B5:C' . $linha)->getNumberFormat()->setFormatCode('#,##0.00');
+        $linha++;
+        $folha->setCellValue("A{$linha}", 'Nota: sem IVA; CMV ao custo de compra à data da venda; compras de stock, pagamentos de facturas, transferências e recebimentos não entram no resultado.');
+        $folha->getStyle("A{$linha}")->getFont()->setItalic(true)->setSize(9);
+    }
+
     private function folhaResultados($folha, array $d, int $linha): void
     {
         $this->cabecalho($folha, ['Rubrica', 'Detalhe', 'Valor (Kz)'], $linha);
         $linha++;
 
         $rubricas = [
-            ['Receita bruta', $d['grossRevenue'], false],
-            ['Deduções', -$d['deductions'], false],
+            ['Receita bruta (facturas, com IVA)', $d['grossRevenue'], false],
+            ['Devoluções (notas de crédito)', -$d['deductions'], false],
             ['Receita líquida', $d['netRevenue'], true],
-            ['Custos operacionais', -$d['operationalCosts'], false],
+            ['Compras (facturas de compra)', -$d['operationalCosts'], false],
             ['Lucro bruto', $d['grossProfit'], true],
         ];
 
@@ -237,7 +285,7 @@ class ReportExportController extends Controller
         $linha += 2;
 
         // O relatório diz o que não sabe, em vez de deixar o leitor supor.
-        $folha->setCellValue("A{$linha}", 'Nota: sem imposto sobre o lucro e sem deduções por notas de crédito.');
+        $folha->setCellValue("A{$linha}", 'Nota: valores com IVA; as despesas não repetem pagamentos de compras, devoluções nem movimentos ligados a facturas. O resultado económico está no DRE Integrado.');
         $folha->getStyle("A{$linha}")->getFont()->setItalic(true)->setSize(9);
 
         $folha->getStyle('C5:C' . $linha)->getNumberFormat()->setFormatCode('#,##0.00');

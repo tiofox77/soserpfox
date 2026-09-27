@@ -51,7 +51,12 @@ final class Catalogo
     /** O caminho da página em React. O de validades vive fora de /reports. */
     public static function caminho(string $slug): string
     {
-        return $slug === 'expiry-report' ? '/invoicing/expiry-report' : "/invoicing/reports/{$slug}";
+        return match ($slug) {
+            'expiry-report' => '/invoicing/expiry-report',
+            // Vive na tesouraria: junta as vendas às despesas (27/09/2026).
+            'dre-integrado' => '/treasury/dre-integrado',
+            default => "/invoicing/reports/{$slug}",
+        };
     }
 
     /** A permissão que abre cada mapa: o das validades e o do stock em falta também servem quem gere stock. */
@@ -82,7 +87,8 @@ final class Catalogo
         return [
             ['titulo' => 'Rentabilidade & Análise', 'icone' => 'fa-coins', 'cor' => 'emerald', 'relatorios' => [
                 ['slug' => 'charts', 'nome' => 'Relatório em Gráficos', 'desc' => 'Evolução, rankings e cobrança num relance', 'icone' => 'fa-chart-area'],
-                ['slug' => 'profit-loss', 'nome' => 'Lucros e Perdas (DRE)', 'desc' => 'Demonstração de resultados completa', 'icone' => 'fa-chart-line'],
+                ['slug' => 'profit-loss', 'nome' => 'Lucros e Perdas (DRE)', 'desc' => 'Vendas, CMV e margem bruta', 'icone' => 'fa-chart-line'],
+                ['slug' => 'dre-integrado', 'nome' => 'DRE Integrado — Resultado do Período', 'desc' => 'Lucro ou prejuízo: vendas, CMV e despesas', 'icone' => 'fa-scale-balanced'],
                 ['slug' => 'margin', 'nome' => 'Análise de Margem', 'desc' => 'Lucro e margem por produto', 'icone' => 'fa-percentage'],
                 ['slug' => 'product-performance', 'nome' => 'Desempenho de Produtos', 'desc' => 'Vendas, stock, lucro e rotação', 'icone' => 'fa-chart-pie'],
                 ['slug' => 'comparative', 'nome' => 'Comparativo', 'desc' => 'Variação entre dois períodos', 'icone' => 'fa-balance-scale'],

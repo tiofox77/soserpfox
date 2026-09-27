@@ -26,7 +26,9 @@ class RelatoriosApiController extends Controller
 
         $seccoes = collect(Catalogo::seccoes())->map(fn ($s) => [
             ...$s,
-            'relatorios' => collect($s['relatorios'])->map(fn ($r) => [...$r, 'caminho' => Catalogo::caminho($r['slug'])])->values(),
+            'relatorios' => collect($s['relatorios'])
+                ->reject(fn ($r) => $r['slug'] === 'dre-integrado' && ! $request->user()?->can('treasury.reports.view'))
+                ->map(fn ($r) => [...$r, 'caminho' => Catalogo::caminho($r['slug'])])->values(),
         ])->values();
 
         return response()->json(['seccoes' => $seccoes]);

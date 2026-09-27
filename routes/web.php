@@ -2482,6 +2482,10 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         // da `RelatoriosDeTesouraria` — as mesmas do PDF e do Excel.
         Route::get('/tesouraria/painel', \App\Http\Controllers\Api\Treasury\PainelApiController::class)->name('tesouraria.painel');
         Route::get('/tesouraria/relatorios', \App\Http\Controllers\Api\Treasury\RelatoriosApiController::class)->name('tesouraria.relatorios');
+        // O DRE Integrado: a origem de cada valor e a natureza das categorias (27/09/2026).
+        Route::get('/tesouraria/relatorios/dre-integrado/detalhe', [\App\Http\Controllers\Api\Treasury\DreIntegradoApiController::class, 'detalhe'])->name('tesouraria.dre-integrado.detalhe');
+        Route::get('/tesouraria/relatorios/naturezas', [\App\Http\Controllers\Api\Treasury\DreIntegradoApiController::class, 'naturezas'])->name('tesouraria.naturezas');
+        Route::put('/tesouraria/relatorios/naturezas', [\App\Http\Controllers\Api\Treasury\DreIntegradoApiController::class, 'guardarNaturezas'])->name('tesouraria.naturezas.guardar');
         // O modo offline: recuperar uma cópia do PWA, e o PIN de turno.
         Route::post('/copia-offline/analisar', [\App\Http\Controllers\Api\Invoicing\OfflineApiController::class, 'analisar'])->name('copia-offline.analisar');
         Route::post('/copia-offline/importar', [\App\Http\Controllers\Api\Invoicing\OfflineApiController::class, 'importar'])->name('copia-offline.importar');
@@ -2893,6 +2897,10 @@ Route::middleware(['auth', 'tenant.module:treasury'])->prefix('treasury')->name(
     Route::middleware('permission:treasury.transactions.view')
         ->get('/dashboard', \App\Support\EcraReact::pagina('tesouraria/painel', 'Dashboard Tesouraria'))
         ->name('dashboard');
+    // O DRE Integrado abre já no seu separador (27/09/2026).
+    Route::middleware('permission:treasury.reports.view')
+        ->get('/dre-integrado', \App\Support\EcraReact::pagina('tesouraria/relatorios', 'DRE Integrado', ['tipo' => 'dre_integrado']))
+        ->name('dre-integrado');
     Route::middleware('permission:treasury.reports.view')
         ->get('/reports', \App\Support\EcraReact::pagina('tesouraria/relatorios', 'Relatórios Financeiros'))
         ->name('reports');

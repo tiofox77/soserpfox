@@ -27,9 +27,15 @@ class RelatoriosDeTesouraria
     public const TIPOS = [
         'cash_flow'   => 'Fluxo de Caixa',
         'dre'         => 'Demonstração de Resultados',
+        // O resultado económico do período: receita sem IVA, CMV, despesas
+        // pela natureza, e o lucro ou prejuízo (27/09/2026).
+        'dre_integrado' => 'DRE Integrado — Resultado do Período',
         'receivables' => 'Contas a Receber',
         'payables'    => 'Contas a Pagar',
     ];
+
+    /** Categorias que o DRE da tesouraria já conta noutra rubrica. */
+    public const JA_NOUTRA_RUBRICA = ['supplier_payment', 'purchase', 'credit_note'];
 
     public function __construct(
         private int $tenantId,
@@ -49,6 +55,7 @@ class RelatoriosDeTesouraria
         return match ($tipo) {
             'cash_flow'   => $this->fluxoDeCaixa(),
             'dre'         => $this->demonstracaoDeResultados(),
+            'dre_integrado' => (new DreIntegrado($this->tenantId, $this->de, $this->ate))->dados(),
             'receivables' => $this->contasAReceber(),
             'payables'    => $this->contasAPagar(),
             default       => [],
@@ -96,6 +103,22 @@ class RelatoriosDeTesouraria
 
     // ── demonstração de resultados ───────────────────────────────────────────
 
+    /**
+     * O DRE DA TESOURARIA — valores com IVA, pelos documentos e pelo dinheiro.
+     *
+     * CORRIGIDO A 27/09/2026 (pedido do cliente, TKT-000003):
+     *
+     *  · AS NOTAS DE CRÉDITO ABATEM À RECEITA. Ficavam a zero nas deduções e a
+     *    devolução paga entrava nas despesas — o mesmo dinheiro contado do lado
+     *    errado.
+     *  · O PAGAMENTO AO FORNECEDOR SAÍA DUAS VEZES: as compras já entram pelas
+     *    facturas de compra («custos operacionais») e o movimento que as paga
+     *    voltava a entrar nas despesas. As despesas são agora só o que não é
+     *    compra nem devolução — nem movimento ligado a uma factura de compra
+     *    ou de venda.
+     *
+     * O resultado económico, sem IVA e com o CMV, é o do DRE Integrado.
+     */
     public function demonstracaoDeResultados(): array
     {
         $receitaBruta = SalesInvoice::where('tenant_id', $this->tenantId)
@@ -103,10 +126,14 @@ class RelatoriosDeTesouraria
             ->whereNotIn('status', ['draft', 'cancelled'])
             ->sum('total');
 
-        // Devoluções e descontos. Continua por implementar contra as notas de
-        // crédito — fica a zero e é dito no relatório, em vez de se inventar
-        // um número que ninguém consegue justificar.
-        $deducoes = 0;
+        // As devoluções: as notas de crédito emitidas no período (com IVA,
+        // como a receita de onde saem).
+        $deducoes = (float) DB::table('invoicing_credit_notes')
+            ->where('tenant_id', $this->tenantId)
+            ->whereBetween('issue_date', [$this->de, $this->ate.' 23:59:59'])
+            ->whereNotIn('status', ['draft', 'cancelled'])
+            ->whereNull('deleted_at')
+            ->sum('total');
 
         $receitaLiquida = $receitaBruta - $deducoes;
 
@@ -115,12 +142,18 @@ class RelatoriosDeTesouraria
             ->whereNotIn('status', ['draft', 'cancelled'])
             ->sum('total');
 
+        // Fora das despesas o que já está noutra rubrica: pagar compras (estão
+        // nos custos operacionais), devolver a clientes (está nas deduções), e
+        // tudo o que está ligado a uma factura — de compra ou de venda.
         $despesasPorCategoria = Transaction::where('tenant_id', $this->tenantId)
             ->where('type', 'expense')
             ->where('status', 'completed')
             ->foraDasInternas()
             ->whereBetween('transaction_date', [$this->de, $this->ate])
             ->whereNotNull('category')
+            ->whereNotIn('category', self::JA_NOUTRA_RUBRICA)
+            ->whereNull('purchase_id')
+            ->whereNull('invoice_id')
             ->select('category', DB::raw('SUM(amount) as total'))
             ->groupBy('category')
             ->orderByDesc('total')

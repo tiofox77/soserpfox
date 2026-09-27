@@ -264,7 +264,40 @@ export const painelDaTesouraria = {
 
 /* ─── Os relatórios ───────────────────────────────────────────────────── */
 
-export type TipoDeRelatorio = 'cash_flow' | 'dre' | 'receivables' | 'payables';
+export type TipoDeRelatorio = 'cash_flow' | 'dre' | 'dre_integrado' | 'receivables' | 'payables';
+
+/* ─── O DRE Integrado (27/09/2026) ─── */
+
+/** Uma linha do DRE Integrado; com `rubrica`, abre o detalhe. */
+export type LinhaDoDre = { rubrica: string | null; rotulo: string; valor: number; nivel: number; total: boolean; final: boolean };
+
+export type DadosDoDreIntegrado = {
+    linhas: LinhaDoDre[];
+    receita: { vendas: number; descontos: number; notas_debito: number; notas_credito: number; receita_liquida: number };
+    cmv: { vendido: number; devolvido: number; liquido: number };
+    despesas: { documentos: number; movimentos: number; total: number; por_categoria: Array<{ categoria: string; rotulo: string; valor: number }> };
+    lucro_bruto: number;
+    margem_bruta: number;
+    resultado_operacional: number;
+    resultado_liquido: number;
+    fora_do_resultado: Array<{ rubrica: string; rotulo: string; saidas: number; entradas: number }>;
+    por_classificar: Array<{ categoria: string; rotulo: string }>;
+    mensal: Array<{ mes: string; receita_liquida: number; cmv: number; lucro_bruto: number; despesas: number; resultado: number }>;
+};
+
+/** A origem de um valor: cada documento e cada movimento, com o endereço para o abrir. */
+export type DetalheDoDre = {
+    titulo: string;
+    total: number;
+    linhas: Array<{ data: string; documento: string; ligacao: string; descricao: string | null; valor: number }>;
+    limitado: boolean;
+};
+
+export type NaturezasDaTesouraria = {
+    categorias: Array<{ categoria: string; rotulo: string; natureza: string; por_omissao: string; de_sistema: boolean }>;
+    naturezas: Array<{ valor: string; rotulo: string; no_resultado: boolean }>;
+    pode_classificar: boolean;
+};
 
 /** Uma linha por categoria, já com o nome legível em vez do código. */
 export type LinhaDeCategoria = { codigo: string | null; rotulo: string; valor: number };
@@ -316,10 +349,16 @@ export type RelatorioDeTesouraria = {
         payables: LinhaEmAberto[];
         totalPayables: number;
         totalOverdue: number;
-    }>;
+    } & DadosDoDreIntegrado>;
 };
 
 export const relatoriosDaTesouraria = {
     ler: (f: { tipo: TipoDeRelatorio; periodo: string; de?: string; ate?: string }) =>
         api.ler<RelatorioDeTesouraria>('/tesouraria/relatorios', f),
+    /** A origem de um valor do DRE Integrado. */
+    detalhe: (f: { rubrica: string; periodo: string; de?: string; ate?: string }) =>
+        api.ler<DetalheDoDre>('/tesouraria/relatorios/dre-integrado/detalhe', f),
+    naturezas: () => api.ler<NaturezasDaTesouraria>('/tesouraria/relatorios/naturezas'),
+    guardarNaturezas: (naturezas: Record<string, string>) =>
+        api.guardar<{ message: string }>('/tesouraria/relatorios/naturezas', { naturezas }),
 };

@@ -348,6 +348,11 @@
         },
         {
             "tag": "a",
+            "href": "/treasury/dre-integrado",
+            "texto": "DRE Integrado"
+        },
+        {
+            "tag": "a",
             "href": "/treasury/accounts",
             "texto": "Contas Bancárias"
         },

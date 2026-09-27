@@ -382,6 +382,6 @@ class ApiDoPainelEDosRelatoriosDaTesourariaTest extends TenantTestCase
 
         $tipos = collect($this->getJson(self::RELATORIOS)->assertOk()->json('tipos'))->pluck('valor')->all();
 
-        $this->assertSame(['cash_flow', 'dre', 'receivables', 'payables'], $tipos);
+        $this->assertSame(['cash_flow', 'dre', 'dre_integrado', 'receivables', 'payables'], $tipos);
     }
 }

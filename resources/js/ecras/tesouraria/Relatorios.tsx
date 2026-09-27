@@ -14,6 +14,7 @@ import { SemNada, cascata } from '@/ui/SemNada';
 import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
 
 import { ACCAO_DA_FAIXA, Faixa } from '../facturacao/faixa';
+import { DreIntegrado } from './DreIntegrado';
 
 /**
  * OS RELATÓRIOS FINANCEIROS.
@@ -36,9 +37,10 @@ const PERIODOS = [
     { valor: 'custom', rotulo: 'Personalizado' },
 ] as const;
 
-export default function Relatorios() {
+export default function Relatorios({ tipo }: { tipo?: TipoDeRelatorio }) {
+    // `/treasury/dre-integrado` abre já no DRE Integrado (27/09/2026).
     const [f, porF] = useState<{ tipo: TipoDeRelatorio; periodo: string; de?: string; ate?: string }>({
-        tipo: 'cash_flow',
+        tipo: tipo ?? 'cash_flow',
         periodo: 'month',
     });
 
@@ -140,6 +142,7 @@ export default function Relatorios() {
 
             {dados.tipo === 'cash_flow' && <FluxoDeCaixa d={dados} />}
             {dados.tipo === 'dre' && <Resultados d={dados} />}
+            {dados.tipo === 'dre_integrado' && <DreIntegrado d={dados.dados} filtros={{ periodo: dados.periodo, de: dados.de, ate: dados.ate }} />}
             {dados.tipo === 'receivables' && <EmAberto d={dados} lado="receivables" />}
             {dados.tipo === 'payables' && <EmAberto d={dados} lado="payables" />}
         </div>
@@ -189,10 +192,10 @@ function Resultados({ d }: { d: RelatorioDeTesouraria }) {
             <div className={cls(CARTAO, 'overflow-hidden')}>
                 <table className="min-w-full text-sm">
                     <tbody className="divide-y divide-slate-100">
-                        <Conta rotulo={t('Receita bruta')} valor={x.grossRevenue ?? 0} />
-                        <Conta rotulo={t('Deduções (devoluções e descontos)')} valor={-(x.deductions ?? 0)} suave />
+                        <Conta rotulo={t('Receita bruta (facturas, com IVA)')} valor={x.grossRevenue ?? 0} />
+                        <Conta rotulo={t('Devoluções (notas de crédito)')} valor={-(x.deductions ?? 0)} />
                         <Conta rotulo={t('Receita líquida')} valor={x.netRevenue ?? 0} forte />
-                        <Conta rotulo={t('Custos operacionais (compras)')} valor={-(x.operationalCosts ?? 0)} />
+                        <Conta rotulo={t('Compras (facturas de compra)')} valor={-(x.operationalCosts ?? 0)} />
                         <Conta rotulo={t('Lucro bruto')} valor={x.grossProfit ?? 0} forte />
                         <Conta rotulo={t('Despesas')} valor={-(x.totalExpenses ?? 0)} />
                         <Conta rotulo={t('Resultado operacional')} valor={x.operationalProfit ?? 0} forte />
@@ -201,13 +204,13 @@ function Resultados({ d }: { d: RelatorioDeTesouraria }) {
                 </table>
             </div>
 
-            {/* O QUE ESTE MAPA NÃO SABE. Dizê-lo é o que o distingue de um
-                número inventado — as deduções ainda não contam as notas de
-                crédito, e não há imposto. */}
+            {/* O QUE ESTE MAPA É (27/09/2026): as notas de crédito abatem à
+                receita e o pagamento das compras já não sai duas vezes. O
+                resultado económico, sem IVA e com o CMV, é o DRE Integrado. */}
             <div className={cls('flex items-start gap-3 border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800', RAIO)}>
                 <i className="fas fa-circle-info mt-0.5" aria-hidden="true" />
                 <span>
-                    {t('Aproximação: as deduções ainda não contam as notas de crédito e o resultado não tem impostos deduzidos.')}
+                    {t('Valores com IVA. As despesas não repetem o que já está noutra rubrica: pagamentos de compras, devoluções a clientes e movimentos ligados a facturas. Para o lucro ou prejuízo com o custo do que foi vendido, veja o DRE Integrado.')}
                 </span>
             </div>
 

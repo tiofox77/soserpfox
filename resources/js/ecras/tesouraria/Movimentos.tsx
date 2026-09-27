@@ -42,10 +42,15 @@ import { ModalDoMovimento } from './ModalDoMovimento';
 export default function Movimentos() {
     const cache = useQueryClient();
 
-    const [filtros, porFiltros] = useState<FiltrosDosMovimentos>({ por_pagina: 25, page: 1 });
+    // Vindo de um relatório (o DRE Integrado liga cada valor ao movimento):
+    // `?ver=` abre a ficha do movimento, `?procura=` já filtra (27/09/2026).
+    const aChegada = new URLSearchParams(window.location.search);
+    const [filtros, porFiltros] = useState<FiltrosDosMovimentos>(() => ({
+        por_pagina: 25, page: 1, ...(aChegada.get('procura') ? { procura: aChegada.get('procura') ?? undefined } : {}),
+    }));
     const [recado, porRecado] = useRecadoNoCanto('');
     const [modal, porModal] = useState<{ aberto: boolean; aEditar: Movimento | null }>({ aberto: false, aEditar: null });
-    const [aVer, porAVer] = useState<number | null>(null);
+    const [aVer, porAVer] = useState<number | null>(() => Number(aChegada.get('ver')) || null);
     const [aEstornar, porAEstornar] = useState<Movimento | null>(null);
     const [aApagar, porAApagar] = useState<Movimento | null>(null);
 
