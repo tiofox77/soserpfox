@@ -114,6 +114,12 @@ class NotificacoesDoSistema
             }
         }
 
+        if ($tenant && $user->hasActiveModule('compras')) {
+            foreach ($this->compras($user, $tenant->id) as $aviso) {
+                $avisos[] = $aviso;
+            }
+        }
+
         if ($user->is_super_admin) {
             $pedidos = Order::where('status', 'pending')->count();
 
@@ -205,6 +211,68 @@ class NotificacoesDoSistema
                 __(':n fatura(s) vencem nos próximos 7 dias - por receber: :valor Kz', ['n' => (int) $linha->a_vencer, 'valor' => number_format((float) $linha->valor_a_vencer, 2, ',', '.')])
                     .($urgentes > 0 ? ' '.__('(:n em 3 dias)', ['n' => $urgentes]) : ''),
                 __('Lembrar clientes'), $lista);
+        }
+
+        return $avisos;
+    }
+
+    /**
+     * O QUE ESPERA POR SI NO CIRCUITO DAS COMPRAS (27/09/2026): cada pessoa
+     * vê só o passo que é seu — o que tem de decidir, aprovar ou pagar. Uma
+     * requisição que ninguém decide, ou um pagamento que o tesoureiro não
+     * sabe que existe, é como o circuito pára sem ninguém dar por isso.
+     *
+     * @return list<array<string, string>>
+     */
+    private function compras(User $user, int $tenantId): array
+    {
+        $avisos = [];
+
+        try {
+            if ($user->can('compras.requisicoes.decidir')) {
+                $n = \App\Models\Compras\Requisicao::withoutGlobalScopes()->where('tenant_id', $tenantId)
+                    ->where('estado', 'submetida')->where('created_by', '!=', $user->id)->count();
+
+                if ($n > 0) {
+                    $avisos[] = $this->aviso('info', 'fa-clipboard-list', 'yellow', __('Requisições por decidir'),
+                        __(':n requisição(ões) de compra à espera da sua decisão.', ['n' => $n]),
+                        __('Requer atenção'), route('compras.requisicoes'));
+                }
+            }
+
+            $aprovacoes = app(\App\Services\Compras\Aprovacoes::class);
+
+            if ($user->can('compras.encomendas.aprovar') && ($n = $aprovacoes->encomendasPorVotar($user, $tenantId)) > 0) {
+                $avisos[] = $this->aviso('info', 'fa-truck', 'green', __('Encomendas por aprovar'),
+                    __(':n encomenda(s) à espera da sua aprovação.', ['n' => $n]),
+                    __('Requer atenção'), route('compras.encomendas'));
+            }
+
+            if ($user->can('compras.pagamentos.aprovar') && ($n = $aprovacoes->pagamentosPorVotar($user, $tenantId)) > 0) {
+                $avisos[] = $this->aviso('info', 'fa-hand-holding-dollar', 'purple', __('Pagamentos por aprovar'),
+                    __(':n pedido(s) de pagamento a fornecedores à espera da sua aprovação.', ['n' => $n]),
+                    __('Requer atenção'), route('treasury.pagamentos-fornecedores'));
+            }
+
+            // O tesoureiro: os pedidos entregues a si, e os que não foram
+            // entregues a ninguém em particular.
+            if ($user->can('treasury.pagamentos.pagar')) {
+                $porPagar = \App\Models\Compras\PedidoDePagamento::withoutGlobalScopes()->where('tenant_id', $tenantId)
+                    ->where('estado', 'por_pagar')
+                    ->where(fn ($q) => $q->whereNull('tesoureiro_id')->orWhere('tesoureiro_id', $user->id));
+                $n = (clone $porPagar)->count();
+
+                if ($n > 0) {
+                    $valor = number_format((float) $porPagar->sum('valor'), 2, ',', '.');
+                    $avisos[] = $this->aviso('warning', 'fa-money-bill-transfer', 'orange', __('Pagamentos a fornecedores'),
+                        __(':n pagamento(s) por fazer (:v Kz).', ['n' => $n, 'v' => $valor]),
+                        __('Requer atenção'), route('treasury.pagamentos-fornecedores'));
+                }
+            }
+        } catch (\Throwable $e) {
+            // O sino nunca rebenta por causa das compras (uma empresa sem as
+            // tabelas novas, por exemplo, a meio de um deploy).
+            report($e);
         }
 
         return $avisos;

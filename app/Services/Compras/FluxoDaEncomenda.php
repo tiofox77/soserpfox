@@ -14,7 +14,10 @@ use App\Services\Invoicing\TaxResolver;
 use Illuminate\Support\Facades\DB;
 
 /**
- * O caminho de uma encomenda: rascunho → enviada → recebida → facturada.
+ * O caminho de uma encomenda: rascunho → [aprovação] → enviada → recebida →
+ * facturada. A aprovação só existe quando a empresa a exige
+ * (`compras_definicoes.aprovacoes_encomenda`); com zero, vai-se do rascunho
+ * direito ao envio, como sempre.
  *
  * Duas regras mandam aqui:
  *
@@ -115,11 +118,20 @@ class FluxoDaEncomenda
             throw new \InvalidArgumentException('Já está tudo encomendado nesta requisição.');
         }
 
+        // O PREÇO É DE QUEM COMPRA (27/09/2026). A requisição deixou de pedir
+        // custo — quem pede nem sempre sabe o preço. A encomenda nasce com o
+        // último custo do artigo como sugestão, e é quem compra que acerta o
+        // valor real com o fornecedor. As requisições antigas que tinham custo
+        // estimado continuam a usá-lo.
+        $custos = Product::withoutGlobalScopes()->where('tenant_id', $tenantId)
+            ->whereIn('id', $pendentes->pluck('product_id')->filter()->all())
+            ->pluck('cost', 'id');
+
         $linhas = $pendentes->map(fn ($i) => [
             'product_id' => $i->product_id,
             'descricao' => $i->descricao,
             'quantidade' => $i->porEncomendar(),
-            'preco_unitario' => $i->custo_estimado ?? 0,
+            'preco_unitario' => $i->custo_estimado ?? (float) ($custos[$i->product_id] ?? 0),
             'desconto_percent' => 0,
             'unidade' => $i->unidade,
         ])->values()->all();
@@ -145,12 +157,77 @@ class FluxoDaEncomenda
         });
     }
 
+    /**
+     * PEDIR A APROVAÇÃO — quando a empresa a exige. Cada pedido abre uma ronda
+     * nova: uma encomenda recusada e corrigida precisa outra vez de todos os
+     * «sim». Enquanto espera, não se edita.
+     */
+    public function pedirAprovacao(Encomenda $enc, int $tenantId): Encomenda
+    {
+        $this->minha($enc, $tenantId);
+
+        if (app(Aprovacoes::class)->necessarias($enc) === 0) {
+            throw new \InvalidArgumentException('A empresa não exige aprovação das encomendas — pode enviá-la já ao fornecedor.');
+        }
+
+        if ($enc->estado !== 'rascunho') {
+            throw new \InvalidArgumentException('Só um rascunho vai a aprovação.');
+        }
+
+        if ($enc->itens()->count() === 0) {
+            throw new \InvalidArgumentException('Não se pede aprovação de uma encomenda sem artigos.');
+        }
+
+        $enc->update([
+            'estado' => 'em_aprovacao',
+            'ronda_aprovacao' => (int) $enc->ronda_aprovacao + 1,
+            'motivo_recusa' => null,
+        ]);
+
+        return $enc;
+    }
+
+    /**
+     * UM VOTO. Chegando aos «sim» que a empresa exige, a encomenda fica
+     * aprovada e pronta a enviar. Um «não» devolve-a ao rascunho, com o
+     * motivo à vista de quem a fez.
+     */
+    public function decidir(Encomenda $enc, int $tenantId, \App\Models\User $user, bool $aprova, ?string $comentario): Encomenda
+    {
+        $this->minha($enc, $tenantId);
+
+        if ($enc->estado !== 'em_aprovacao') {
+            throw new \InvalidArgumentException('Esta encomenda não está à espera de aprovação.');
+        }
+
+        return DB::transaction(function () use ($enc, $user, $aprova, $comentario) {
+            $r = app(Aprovacoes::class)->votar($enc, $user, $aprova, $comentario, (int) $enc->ronda_aprovacao);
+
+            if ($r['recusada']) {
+                $enc->update(['estado' => 'rascunho', 'motivo_recusa' => trim((string) $comentario)]);
+            } elseif ($r['aprovada']) {
+                $enc->update(['estado' => 'aprovada', 'aprovada_em' => now()]);
+            }
+
+            return $enc;
+        });
+    }
+
     public function enviar(Encomenda $enc, int $tenantId): Encomenda
     {
         $this->minha($enc, $tenantId);
 
-        if ($enc->estado !== 'rascunho') {
-            throw new \InvalidArgumentException('Só se envia um rascunho.');
+        // Com aprovação exigida, só sai para o fornecedor o que foi aprovado.
+        $exige = app(Aprovacoes::class)->necessarias($enc) > 0;
+
+        if ($exige && $enc->estado === 'rascunho') {
+            throw new \InvalidArgumentException('Esta encomenda precisa de ser aprovada antes de ir para o fornecedor. Peça a aprovação.');
+        }
+
+        if (! in_array($enc->estado, ['rascunho', 'aprovada'], true)) {
+            throw new \InvalidArgumentException($enc->estado === 'em_aprovacao'
+                ? 'Esta encomenda ainda está à espera de aprovação.'
+                : 'Esta encomenda já foi enviada.');
         }
 
         if ($enc->itens()->count() === 0) {
@@ -289,7 +366,17 @@ class FluxoDaEncomenda
             throw new \InvalidArgumentException('Já entrou mercadoria desta encomenda. Trate a devolução em vez de cancelar.');
         }
 
-        $enc->update(['estado' => 'cancelada']);
+        // Dinheiro já pago ao fornecedor não desaparece com um clique: é um
+        // reembolso a tratar com ele e a registar na tesouraria.
+        if ($enc->valorPago() > 0) {
+            throw new \InvalidArgumentException('Já foi pago dinheiro ao fornecedor por esta encomenda. Trate o reembolso antes de a cancelar.');
+        }
+
+        DB::transaction(function () use ($enc) {
+            // Os pedidos ainda por pagar morrem com ela.
+            $enc->pagamentos()->whereIn('estado', ['em_aprovacao', 'por_pagar'])->update(['estado' => 'cancelado']);
+            $enc->update(['estado' => 'cancelada']);
+        });
 
         return $enc;
     }

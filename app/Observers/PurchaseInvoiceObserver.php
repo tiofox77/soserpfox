@@ -46,6 +46,13 @@ class PurchaseInvoiceObserver
             if ($wasStocked && $newStatus === 'cancelled') {
                 $this->removeStock($invoice);
             }
+
+            // EMITIDA: os pagamentos que a tesouraria já fez pela encomenda
+            // (adiantamentos, no circuito das Compras) ligam-se agora a esta
+            // factura — ela nasce paga no que já foi pago (27/09/2026).
+            if ($oldStatus === 'draft' && ! in_array($newStatus, ['draft', 'cancelled'], true)) {
+                app(\App\Services\Compras\FluxoDoPagamento::class)->aplicarNaFactura($invoice);
+            }
         }
     }
 

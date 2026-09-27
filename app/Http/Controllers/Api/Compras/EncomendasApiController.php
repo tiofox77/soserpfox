@@ -7,7 +7,12 @@ use App\Models\Compras\Encomenda;
 use App\Models\Compras\Requisicao;
 use App\Models\Invoicing\Warehouse;
 use App\Models\Supplier;
+use App\Models\Compras\DefinicoesDasCompras;
+use App\Models\Compras\PedidoDePagamento;
+use App\Services\Compras\Aprovacoes;
 use App\Services\Compras\FluxoDaEncomenda;
+use App\Services\Compras\FluxoDoPagamento;
+use App\Services\Compras\RastoDaCompra;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -26,7 +31,59 @@ use Illuminate\Validation\ValidationException;
  */
 class EncomendasApiController extends Controller
 {
-    public function __construct(private readonly FluxoDaEncomenda $fluxo) {}
+    public function __construct(
+        private readonly FluxoDaEncomenda $fluxo,
+        private readonly Aprovacoes $aprovacoes,
+    ) {}
+
+    /** As regras da empresa, lidas uma vez por pedido. */
+    private ?DefinicoesDasCompras $regras = null;
+
+    private function regras(): DefinicoesDasCompras
+    {
+        return $this->regras ??= DefinicoesDasCompras::da((int) activeTenantId());
+    }
+
+    /**
+     * As formas de pagamento que se podem sugerir ou usar — as da tesouraria,
+     * pelo código que o `LancamentoDeDinheiro` entende.
+     *
+     * @return list<array{valor: string, rotulo: string}>
+     */
+    public static function formas(): array
+    {
+        return collect([
+            'transfer' => 'Transferência bancária',
+            'cash' => 'Dinheiro',
+            'multicaixa' => 'Multicaixa',
+            'card' => 'Cartão',
+            'check' => 'Cheque',
+            'other' => 'Outro',
+        ])->map(fn ($r, $v) => ['valor' => $v, 'rotulo' => __($r)])->values()->all();
+    }
+
+    /**
+     * Quem pode pagar fornecedores nesta empresa — é a lista de onde se escolhe
+     * o tesoureiro a quem o pedido vai.
+     *
+     * @return list<array{valor: string, rotulo: string}>
+     */
+    public static function tesoureiros(): array
+    {
+        $empresa = auth()->user()?->activeTenant();
+
+        if (! $empresa) {
+            return [];
+        }
+
+        return $empresa->users()
+            ->wherePivot('is_active', true)
+            ->orderBy('users.name')
+            ->get(['users.id', 'users.name'])
+            ->filter(fn ($u) => $u->can('treasury.pagamentos.pagar'))
+            ->map(fn ($u) => ['valor' => (string) $u->id, 'rotulo' => $u->name])
+            ->values()->all();
+    }
 
     private function exigir(Request $request, string $permissao): void
     {
@@ -72,7 +129,18 @@ class EncomendasApiController extends Controller
             'permissoes' => [
                 'pode_gerir' => (bool) $request->user()?->can('compras.encomendas.manage'),
                 'pode_receber' => (bool) $request->user()?->can('compras.encomendas.receber'),
+                'pode_aprovar' => (bool) $request->user()?->can('compras.encomendas.aprovar'),
+                'pode_facturar' => (bool) $request->user()?->can('compras.encomendas.facturar'),
+                'pode_pedir_pagamento' => (bool) $request->user()?->can('compras.pagamentos.solicitar'),
+                'pode_aprovar_pagamentos' => (bool) $request->user()?->can('compras.pagamentos.aprovar'),
             ],
+            'regras' => [
+                'aprovacoes_encomenda' => (int) $this->regras()->aprovacoes_encomenda,
+                'aprovacoes_pagamento' => (int) $this->regras()->aprovacoes_pagamento,
+                'tesoureiro_id' => $this->regras()->tesoureiro_id ? (string) $this->regras()->tesoureiro_id : null,
+            ],
+            'formas' => self::formas(),
+            'tesoureiros' => self::tesoureiros(),
         ]);
     }
 
@@ -98,7 +166,7 @@ class EncomendasApiController extends Controller
                     ->orWhereHas('fornecedor', fn ($f) => $f->where('name', 'like', $t))
                     ->orWhereHas('itens', fn ($i) => $i->where('descricao', 'like', $t)));
             })
-            ->with(['fornecedor:id,name', 'warehouse:id,name', 'itens', 'factura:id,invoice_number,status'])
+            ->with(['fornecedor:id,name', 'warehouse:id,name', 'itens', 'factura:id,invoice_number,status,total', 'pagamentos'])
             ->latest()
             ->paginate($filtros['por_pagina'] ?? 15);
 
@@ -121,6 +189,8 @@ class EncomendasApiController extends Controller
                 'por_facturar' => Encomenda::forTenant()
                     ->whereIn('estado', ['parcial', 'recebida'])->whereNull('purchase_invoice_id')->count(),
                 'valor_aberto' => (float) $abertas()->sum('total'),
+                'em_aprovacao' => Encomenda::forTenant()->where('estado', 'em_aprovacao')->count(),
+                'pagamentos_por_pagar' => (float) PedidoDePagamento::forTenant()->whereIn('estado', ['em_aprovacao', 'por_pagar'])->sum('valor'),
             ],
         ]);
     }
@@ -131,6 +201,16 @@ class EncomendasApiController extends Controller
 
         $pedido = (float) $itens->sum('quantidade');
         $recebido = (float) $itens->sum('quantidade_recebida');
+
+        // O DINHEIRO: o que se deve, o que já foi pedido à tesouraria e o que
+        // ela já pagou — é o que diz de relance em que pé está o pagamento.
+        $pagamentos = $e->relationLoaded('pagamentos') ? $e->pagamentos : $e->pagamentos()->get();
+        $activos = $pagamentos->whereIn('estado', PedidoDePagamento::ACTIVOS);
+        $valorPedido = round((float) $activos->sum('valor'), 2);
+        $valorPago = round((float) $pagamentos->where('estado', 'pago')->sum('valor'), 2);
+        $aPagar = $e->valorAPagar();
+        $necessarias = (int) $this->regras()->aprovacoes_encomenda;
+        $user = request()->user();
 
         return [
             'id' => $e->id,
@@ -157,6 +237,24 @@ class EncomendasApiController extends Controller
             'pode_editar' => $e->podeEditar(),
             'pode_receber' => $e->podeReceber(),
             'pode_facturar' => $e->podeFacturar(),
+            'motivo_recusa' => $e->motivo_recusa,
+            'aprovacao' => [
+                'exigida' => $necessarias > 0,
+                'necessarias' => $necessarias,
+                'sins' => $e->estado === 'em_aprovacao' ? $this->aprovacoes->sins($e, (int) $e->ronda_aprovacao) : 0,
+                'pode_votar' => $e->estado === 'em_aprovacao'
+                    && (bool) $user?->can('compras.encomendas.aprovar')
+                    && $this->aprovacoes->podeVotar($e, $user, (int) $e->ronda_aprovacao),
+            ],
+            'pagamento' => [
+                'a_pagar' => $aPagar,
+                'pedido' => $valorPedido,
+                'pago' => $valorPago,
+                'por_pedir' => max(0, round($aPagar - $valorPedido, 2)),
+                'estado' => $valorPago >= $aPagar - 0.01 && $aPagar > 0 ? 'pago'
+                    : ($valorPago > 0 ? 'parcial' : ($valorPedido > 0 ? 'pedido' : 'sem')),
+                'pode_pedir' => in_array($e->estado, Encomenda::PAGAVEIS, true) && $aPagar - $valorPedido > 0.005,
+            ],
             'factura' => $e->factura ? [
                 'id' => $e->factura->id,
                 'numero' => $e->factura->invoice_number,
@@ -173,7 +271,8 @@ class EncomendasApiController extends Controller
             ->with([
                 'itens.produto:id,name,code', 'fornecedor:id,name,phone,email',
                 'warehouse:id,name', 'autor:id,name', 'requisicao:id,numero',
-                'factura:id,invoice_number,status,total',
+                'factura:id,invoice_number,status,total', 'pagamentos.pedidoPor:id,name',
+                'pagamentos.pagoPor:id,name', 'pagamentos.tesoureiro:id,name', 'pagamentos.recibo:id,receipt_number',
             ])
             ->findOrFail($id);
 
@@ -185,7 +284,112 @@ class EncomendasApiController extends Controller
                 'fornecedor_email' => $e->fornecedor?->email,
             ],
             'itens' => $e->itens->map(fn ($i) => $this->linhaDoItem($i))->values(),
+            'pagamentos' => $e->pagamentos->map(fn (PedidoDePagamento $p) => self::linhaDoPagamento($p, $this->aprovacoes))->values(),
+            'aprovacoes' => $this->aprovacoes->historico($e),
+            // O RASTO: cada passo da compra com quem o deu e quando.
+            'rasto' => app(RastoDaCompra::class)->daEncomenda($e),
         ]);
+    }
+
+    /** Um pedido de pagamento, como o ecrã das Compras e o da Tesouraria o mostram. */
+    public static function linhaDoPagamento(PedidoDePagamento $p, Aprovacoes $aprovacoes): array
+    {
+        $user = request()->user();
+
+        return [
+            'id' => $p->id,
+            'numero' => $p->numero,
+            'estado' => $p->estado,
+            'estado_rotulo' => __($p->estadoRotulo()),
+            'valor' => (float) $p->valor,
+            'data_limite' => $p->data_limite?->format('Y-m-d'),
+            'atrasado' => $p->estado === 'por_pagar' && $p->data_limite !== null && $p->data_limite->lt(today()),
+            'forma_sugerida' => $p->forma_sugerida,
+            'notas' => $p->notas,
+            'pedido_por' => $p->pedidoPor?->name,
+            'pedido_em' => $p->created_at?->format('Y-m-d H:i'),
+            'tesoureiro' => $p->tesoureiro?->name,
+            'motivo_recusa' => $p->motivo_recusa,
+            'pago_por' => $p->pagoPor?->name,
+            'pago_em' => $p->pago_em?->format('Y-m-d H:i'),
+            'forma_paga' => $p->forma_paga,
+            'recibo' => $p->recibo?->receipt_number,
+            'aprovacao' => $p->estado === 'em_aprovacao' ? [
+                'sins' => $aprovacoes->sins($p, (int) $p->ronda),
+                'necessarias' => max(1, $aprovacoes->necessarias($p)),
+                'pode_votar' => (bool) $user?->can('compras.pagamentos.aprovar') && $aprovacoes->podeVotar($p, $user, (int) $p->ronda),
+            ] : null,
+            'votos' => $aprovacoes->historico($p),
+        ];
+    }
+
+    /**
+     * PEDIR A APROVAÇÃO da encomenda, quando a empresa a exige.
+     */
+    public function pedirAprovacao(Request $request, int $id): JsonResponse
+    {
+        $this->exigir($request, 'compras.encomendas.manage');
+
+        return $this->correr(
+            fn () => $this->fluxo->pedirAprovacao(Encomenda::forTenant()->findOrFail($id), activeTenantId()),
+            __('Encomenda enviada para aprovação.'),
+        );
+    }
+
+    /**
+     * APROVAR OU RECUSAR — outra autoridade. Quem fez a encomenda não vota
+     * nela, e recusar exige motivo (as regras vivem em `Aprovacoes`).
+     */
+    public function decidir(Request $request, int $id): JsonResponse
+    {
+        $this->exigir($request, 'compras.encomendas.aprovar');
+
+        $dados = $request->validate([
+            'aprova' => ['required', 'boolean'],
+            'comentario' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        return $this->correr(
+            fn () => $this->fluxo->decidir(
+                Encomenda::forTenant()->findOrFail($id), activeTenantId(), $request->user(),
+                (bool) $dados['aprova'], $dados['comentario'] ?? null,
+            ),
+            $request->boolean('aprova') ? __('A sua aprovação ficou registada.') : __('Encomenda recusada — voltou a rascunho com o seu motivo.'),
+        );
+    }
+
+    /**
+     * SOLICITAR PAGAMENTO — a encomenda vai à tesouraria. Quem pede não paga:
+     * o pagamento é feito no ecrã da tesouraria, por quem tem essa permissão.
+     */
+    public function pedirPagamento(Request $request, FluxoDoPagamento $pagamentos, int $id): JsonResponse
+    {
+        $this->exigir($request, 'compras.pagamentos.solicitar');
+
+        $formas = array_column(self::formas(), 'valor');
+
+        $dados = $request->validate([
+            'valor' => ['required', 'numeric', 'min:0.01'],
+            'data_limite' => ['nullable', 'date'],
+            'forma' => ['nullable', 'string', 'in:' . implode(',', $formas)],
+            'notas' => ['nullable', 'string', 'max:1000'],
+            'tesoureiro_id' => ['nullable', 'integer', Rule::in(array_map('intval', array_column(self::tesoureiros(), 'valor')))],
+        ], [
+            'tesoureiro_id.in' => __('Essa pessoa não pode pagar fornecedores nesta empresa.'),
+        ]);
+
+        try {
+            $p = $pagamentos->pedir(Encomenda::forTenant()->findOrFail($id), (int) activeTenantId(), (int) $request->user()->id, $dados);
+        } catch (\InvalidArgumentException $ex) {
+            $this->recusa($ex->getMessage());
+        }
+
+        return response()->json([
+            'message' => $p->estado === 'em_aprovacao'
+                ? __('Pedido :n criado — segue para aprovação antes da tesouraria.', ['n' => $p->numero])
+                : __('Pedido :n enviado à tesouraria.', ['n' => $p->numero]),
+            'data' => $this->linha(Encomenda::forTenant()->with(['fornecedor', 'warehouse', 'itens', 'factura', 'pagamentos'])->findOrFail($id)),
+        ], 201);
     }
 
     private function linhaDoItem($i): array
@@ -358,7 +562,9 @@ class EncomendasApiController extends Controller
 
     public function facturar(Request $request, int $id): JsonResponse
     {
-        $this->exigir($request, 'compras.encomendas.manage');
+        // Facturar tem permissão própria: a regularização documental pode
+        // ser de outra pessoa (27/09/2026).
+        $this->exigir($request, 'compras.encomendas.facturar');
 
         try {
             $factura = $this->fluxo->facturar(
@@ -398,7 +604,7 @@ class EncomendasApiController extends Controller
 
         return response()->json([
             'message' => $sucesso,
-            'data' => $this->linha($e->fresh(['fornecedor', 'warehouse', 'itens', 'factura'])),
+            'data' => $this->linha($e->fresh(['fornecedor', 'warehouse', 'itens', 'factura', 'pagamentos'])),
         ]);
     }
 }

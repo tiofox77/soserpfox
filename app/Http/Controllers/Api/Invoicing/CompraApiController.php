@@ -18,6 +18,7 @@ use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * REGISTAR UMA FACTURA DE COMPRA, para o ecrã em React.
@@ -214,6 +215,19 @@ class CompraApiController extends Controller
                 'pode_criar' => true,
             ],
 
+            // «REGISTAR COMO PAGA» faz sair o dinheiro da tesouraria (27/09/2026):
+            // por onde, e se esta pessoa pode pagar fornecedores.
+            'pagamento' => [
+                'pode_pagar' => (bool) $request->user()?->can('treasury.pagamentos.pagar'),
+                'formas' => \App\Http\Controllers\Api\Compras\EncomendasApiController::formas(),
+                'contas' => \App\Models\Treasury\Account::where('tenant_id', activeTenantId())->where('is_active', true)->orderBy('account_name')
+                    ->get(['id', 'account_name', 'current_balance'])
+                    ->map(fn ($c) => ['id' => $c->id, 'nome' => $c->account_name, 'saldo' => (float) $c->current_balance])->values(),
+                'caixas' => \App\Models\Treasury\CashRegister::where('tenant_id', activeTenantId())->where('is_active', true)->orderBy('name')
+                    ->get(['id', 'name', 'current_balance'])
+                    ->map(fn ($c) => ['id' => $c->id, 'nome' => $c->name, 'saldo' => (float) $c->current_balance])->values(),
+            ],
+
             // «Imprimir automaticamente ao gravar», das definições da empresa:
             // o ecrã abre o PDF da compra assim que fica registada.
             'imprimir_ao_gravar' => DocumentConfigHelper::shouldAutoPrint(),
@@ -293,19 +307,50 @@ class CompraApiController extends Controller
             'linhas.*.manufacturing_date' => ['nullable', 'date'],
             'linhas.*.expiry_date' => ['nullable', 'date'],
             'linhas.*.alert_days' => ['nullable', 'integer', 'min:0'],
+            // «Registar como paga» paga pela tesouraria: por onde sai o dinheiro.
+            'pagamento' => ['nullable', 'array'],
+            'pagamento.forma' => ['required_if:status,paid', 'nullable', 'string', 'in:' . implode(',', array_keys(\App\Services\Invoicing\RegistoDePagamento::MAPA_METODOS))],
+            'pagamento.account_id' => ['nullable', 'integer', \Illuminate\Validation\Rule::exists('treasury_accounts', 'id')->where('tenant_id', activeTenantId())],
+            'pagamento.cash_register_id' => ['nullable', 'integer', \Illuminate\Validation\Rule::exists('treasury_cash_registers', 'id')->where('tenant_id', activeTenantId())],
+            'pagamento.data' => ['nullable', 'date'],
+            'pagamento.referencia' => ['nullable', 'string', 'max:120'],
         ], [
+            'pagamento.forma.required_if' => __('Diga como foi pago — o dinheiro sai da tesouraria.'),
             'supplier_id.required' => __('Escolha o fornecedor.'),
             'warehouse_id.required' => __('Escolha o armazém — a compra dá entrada de stock.'),
             'linhas.required' => __('Uma factura sem linhas não é uma factura.'),
             'linhas.min' => __('Uma factura sem linhas não é uma factura.'),
         ]);
 
+        /*
+         * «REGISTAR COMO PAGA» MOVE DINHEIRO (27/09/2026). Punha a factura em
+         * «paga» sem recibo e sem um cêntimo a sair da tesouraria. Agora
+         * regista-a (pendente) e paga o que falta com um recibo de compra, em
+         * nome de quem pode pagar fornecedores — a mesma permissão do
+         * tesoureiro nos pedidos de pagamento das Compras.
+         */
+        $pagaJa = ($dados['status'] ?? null) === 'paid';
+
+        if ($pagaJa && ! $request->user()?->can('treasury.pagamentos.pagar')) {
+            return response()->json([
+                'message' => __('Registar como paga faz sair o dinheiro da tesouraria: precisa da permissão de pagar fornecedores. Registe-a por pagar e peça o pagamento.'),
+            ], 403);
+        }
+
         try {
-            $f = $emissor->emitir(
-                array_merge($dados, ['status' => $dados['status'] ?? 'pending']),
-                $this->linhasDoPedido($dados['linhas']),
-                $existente
-            );
+            $f = DB::transaction(function () use ($emissor, $dados, $existente, $pagaJa, $request) {
+                $f = $emissor->emitir(
+                    array_merge($dados, ['status' => $pagaJa ? 'pending' : ($dados['status'] ?? 'pending')]),
+                    $this->linhasDoPedido($dados['linhas']),
+                    $existente
+                );
+
+                if ($pagaJa) {
+                    app(\App\Services\Compras\FluxoDoPagamento::class)->pagarFactura($f, $request->user(), $dados['pagamento'] ?? []);
+                }
+
+                return $f->fresh();
+            });
         } catch (DomainException $e) {
             return response()->json(['message' => $e->getMessage(), 'errors' => ['linhas' => [$e->getMessage()]]], 422);
         }

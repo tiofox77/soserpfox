@@ -9,6 +9,7 @@ import { Botao } from '@/ui/Botao';
 import { Campo, entrada } from '@/ui/Campo';
 import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
+import { Modal } from '@/ui/Modal';
 import { CARTAO, RAIO, cls, kz } from '@/ui/tokens';
 import { t } from '@/i18n';
 import { EscolhaDaParte } from './EscolhaDaParte';
@@ -81,6 +82,9 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
     const [termos, porTermos] = useState('');
     const [linhas, porLinhas] = useState<LinhaDaCompra[]>([{ ...LINHA_NOVA }]);
     const [erros, porErros] = useState<Record<string, string[]>>({});
+    // «Registar como paga»: por onde sai o dinheiro (27/09/2026).
+    const [aPagar, porAPagar] = useState(false);
+    const [pagamento, porPagamento] = useState({ forma: 'transfer', destino: '', referencia: '' });
     const [feito, porFeito] = useState<{ numero: string; abrir: string; pdf: string; mensagem: string } | null>(null);
     const [totais, porTotais] = useState<Totais | null>(null);
     const [aContar, porAContar] = useState(false);
@@ -184,6 +188,16 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
                 notes: notas || null,
                 terms: termos || null,
                 status,
+                // PAGA = O DINHEIRO SAI DA TESOURARIA, com recibo de compra.
+                ...(status === 'paid' ? {
+                    pagamento: {
+                        forma: pagamento.forma,
+                        account_id: pagamento.forma !== 'cash' && pagamento.destino ? Number(pagamento.destino) : null,
+                        cash_register_id: pagamento.forma === 'cash' && pagamento.destino ? Number(pagamento.destino) : null,
+                        data: dia,
+                        referencia: pagamento.referencia.trim() || null,
+                    },
+                } : {}),
                 linhas: linhas
                     .filter(comConteudo)
                     .map((l) => ({ ...l, batch_number: l.batch_number || null, expiry_date: l.expiry_date || null, manufacturing_date: l.manufacturing_date || null })),
@@ -591,7 +605,24 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
                         </Botao>
                     )}
 
-                    {!soLeitura && <Botao className="w-full" icone="fa-money-bill" aTrabalhar={aGuardar('paid')} disabled={!o.permissoes.pode_criar} onClick={() => guardar.mutate('paid')}>{t('Registar como paga')}</Botao>}
+                    {/*
+                      * REGISTAR COMO PAGA faz sair o dinheiro da tesouraria
+                      * (27/09/2026): pergunta-se por onde, e só o pode fazer
+                      * quem pode pagar fornecedores. Os outros registam-na por
+                      * pagar e o pagamento segue pela tesouraria.
+                      */}
+                    {!soLeitura && (
+                        <Botao className="w-full" icone="fa-money-bill" aTrabalhar={aGuardar('paid')}
+                            disabled={!o.permissoes.pode_criar || !o.pagamento.pode_pagar}
+                            title={o.pagamento.pode_pagar ? undefined : t('Só quem pode pagar fornecedores regista uma compra já paga.')}
+                            onClick={() => {
+                                const lista = pagamento.forma === 'cash' ? o.pagamento.caixas : o.pagamento.contas;
+                                if (!pagamento.destino && lista[0]) porPagamento({ ...pagamento, destino: String(lista[0].id) });
+                                porAPagar(true);
+                            }}>
+                            {t('Registar como paga')}
+                        </Botao>
+                    )}
 
                     <Botao className="w-full" icone="fa-arrow-left" onClick={() => (window.location.href = '/invoicing/purchases/invoices')}>
                         {soLeitura ? t('Voltar às compras') : t('Cancelar')}
@@ -600,6 +631,55 @@ export default function EmitirFacturaDeCompra({ id, duplicarDe }: { id?: number;
             </div>
 
             </div>
+
+            <Modal
+                aberto={aPagar}
+                aoFechar={() => porAPagar(false)}
+                titulo={t('Registar como paga')}
+                subtitulo={t('O dinheiro sai da tesouraria, com recibo de compra')}
+                icone="fa-money-bill"
+                cor="teal"
+                largura="sm"
+                rodape={
+                    <>
+                        <Botao onClick={() => porAPagar(false)}>{t('Cancelar')}</Botao>
+                        <Botao cor="bom" tom="solida" icone="fa-check" aTrabalhar={aGuardar('paid')} disabled={!pagamento.destino}
+                            onClick={() => guardar.mutate('paid', { onSuccess: () => porAPagar(false) })}>
+                            {t('Registar e pagar')}
+                        </Botao>
+                    </>
+                }
+            >
+                <div className="space-y-4">
+                    <AvisoDeErro erro={guardar.error} />
+                    <Campo etiqueta={t('Forma de pagamento')} obrigatorio>
+                        <select id="compra-paga-forma" value={pagamento.forma}
+                            onChange={(e) => {
+                                const forma = e.target.value;
+                                const lista = forma === 'cash' ? o.pagamento.caixas : o.pagamento.contas;
+                                porPagamento({ ...pagamento, forma, destino: lista[0] ? String(lista[0].id) : '' });
+                            }}
+                            className={entrada}>
+                            {o.pagamento.formas.map((x) => <option key={x.valor} value={x.valor}>{x.rotulo}</option>)}
+                        </select>
+                    </Campo>
+                    <Campo etiqueta={pagamento.forma === 'cash' ? t('Sai da caixa') : t('Sai da conta')} obrigatorio>
+                        <select id="compra-paga-destino" value={pagamento.destino}
+                            onChange={(e) => porPagamento({ ...pagamento, destino: e.target.value })} className={entrada}>
+                            {(pagamento.forma === 'cash' ? o.pagamento.caixas : o.pagamento.contas).length === 0 && (
+                                <option value="">{pagamento.forma === 'cash' ? t('Sem caixas') : t('Sem contas')}</option>
+                            )}
+                            {(pagamento.forma === 'cash' ? o.pagamento.caixas : o.pagamento.contas).map((d) => (
+                                <option key={d.id} value={d.id}>{d.nome} — {kz(d.saldo)} Kz</option>
+                            ))}
+                        </select>
+                    </Campo>
+                    <Campo etiqueta={t('Referência')} ajuda={t('O n.º da transferência ou do cheque.')}>
+                        <input id="compra-paga-referencia" type="text" value={pagamento.referencia}
+                            onChange={(e) => porPagamento({ ...pagamento, referencia: e.target.value })} className={entrada} />
+                    </Campo>
+                </div>
+            </Modal>
         </div>
     );
 }

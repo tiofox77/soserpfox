@@ -1720,7 +1720,15 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             Route::post('/{id}/receber', [$c, 'receber'])->whereNumber('id')->name('receber');
             Route::post('/{id}/facturar', [$c, 'facturar'])->whereNumber('id')->name('facturar');
             Route::post('/{id}/cancelar', [$c, 'cancelar'])->whereNumber('id')->name('cancelar');
+            // A aprovação e o pedido de pagamento à tesouraria (27/09/2026).
+            Route::post('/{id}/pedir-aprovacao', [$c, 'pedirAprovacao'])->whereNumber('id')->name('pedir-aprovacao');
+            Route::post('/{id}/decidir', [$c, 'decidir'])->whereNumber('id')->name('decidir');
+            Route::post('/{id}/pagamentos', [$c, 'pedirPagamento'])->whereNumber('id')->name('pagamentos');
         });
+
+        // As regras do circuito: quantas aprovações e o tesoureiro por omissão.
+        Route::get('/compras/definicoes', [\App\Http\Controllers\Api\Compras\DefinicoesApiController::class, 'mostrar'])->name('compras.definicoes');
+        Route::put('/compras/definicoes', [\App\Http\Controllers\Api\Compras\DefinicoesApiController::class, 'guardar'])->name('compras.definicoes.guardar');
 
         /*
          * O INVENTÁRIO.
@@ -2435,6 +2443,23 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
          * nenhum. Cada verbo exige a sua `treasury.transactions.*` — as quatro
          * permissões existiam e a morada de sempre não aplicava nenhuma.
          */
+        /*
+         * OS PAGAMENTOS A FORNECEDORES (27/09/2026): os pedidos que as Compras
+         * fazem chegam aqui, e é o tesoureiro que paga — o dinheiro sai da
+         * tesouraria com recibo de compra. Ver e pagar são permissões à parte.
+         */
+        Route::prefix('tesouraria/pagamentos')->name('tesouraria.pagamentos.')->group(function () {
+            $c = \App\Http\Controllers\Api\Treasury\PagamentosAFornecedoresApiController::class;
+
+            Route::get('/opcoes', [$c, 'opcoes'])->name('opcoes');
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::get('/{id}', [$c, 'ficha'])->whereNumber('id')->name('ficha');
+            Route::post('/{id}/pagar', [$c, 'pagar'])->whereNumber('id')->middleware('throttle:30,1')->name('pagar');
+            Route::post('/{id}/recusar', [$c, 'recusar'])->whereNumber('id')->name('recusar');
+            Route::post('/{id}/decidir', [$c, 'decidir'])->whereNumber('id')->name('decidir');
+            Route::post('/{id}/cancelar', [$c, 'cancelar'])->whereNumber('id')->name('cancelar');
+        });
+
         Route::get('/tesouraria/movimentos/opcoes', [\App\Http\Controllers\Api\Treasury\MovimentosApiController::class, 'opcoes'])->name('tesouraria.movimentos.opcoes');
         Route::get('/tesouraria/movimentos', [\App\Http\Controllers\Api\Treasury\MovimentosApiController::class, 'index'])->name('tesouraria.movimentos.index');
         // Arrumar de uma vez os movimentos sem conta nem caixa (23/09/2026).
@@ -2898,6 +2923,10 @@ Route::middleware(['auth', 'tenant.module:treasury'])->prefix('treasury')->name(
     Route::middleware('permission:treasury.payment-methods.view')
         ->get('/payment-methods', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Formas de Pagamento', ['tipo' => 'formas-de-pagamento']))
         ->name('payment-methods');
+    // Os pedidos de pagamento das Compras — é aqui que o tesoureiro paga.
+    Route::middleware('permission:treasury.pagamentos.view')
+        ->get('/pagamentos-a-fornecedores', \App\Support\EcraReact::pagina('tesouraria/pagamentos', 'Pagamentos a Fornecedores'))
+        ->name('pagamentos-fornecedores');
     Route::middleware('permission:treasury.banks.view')
         ->get('/banks', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Bancos', ['tipo' => 'bancos']))
         ->name('banks');

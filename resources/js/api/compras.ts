@@ -106,7 +106,52 @@ export type Encomenda = {
     pode_receber: boolean;
     pode_facturar: boolean;
     factura: { id: number; numero: string; estado: string } | null;
+    /** O motivo da última recusa (a encomenda voltou a rascunho). */
+    motivo_recusa: string | null;
+    aprovacao: { exigida: boolean; necessarias: number; sins: number; pode_votar: boolean };
+    pagamento: {
+        a_pagar: number; pedido: number; pago: number; por_pedir: number;
+        estado: 'sem' | 'pedido' | 'parcial' | 'pago';
+        pode_pedir: boolean;
+    };
 };
+
+/** Um voto numa encomenda ou num pedido de pagamento. */
+export type Voto = { quem: string | null; decisao: 'aprovado' | 'recusado'; comentario: string | null; quando: string | null; ronda: number };
+
+/** O pedido de pagamento à tesouraria (PP-…). */
+export type PedidoDePagamento = {
+    id: number;
+    numero: string;
+    estado: 'em_aprovacao' | 'por_pagar' | 'pago' | 'recusado' | 'cancelado';
+    estado_rotulo: string;
+    valor: number;
+    data_limite: string | null;
+    atrasado: boolean;
+    forma_sugerida: string | null;
+    notas: string | null;
+    pedido_por: string | null;
+    pedido_em: string | null;
+    tesoureiro: string | null;
+    motivo_recusa: string | null;
+    pago_por: string | null;
+    pago_em: string | null;
+    forma_paga: string | null;
+    recibo: string | null;
+    aprovacao: { sins: number; necessarias: number; pode_votar: boolean } | null;
+    votos: Voto[];
+    /** Só na lista da tesouraria. */
+    fornecedor?: string | null;
+    encomenda?: { id: number; numero: string } | null;
+};
+
+/** Um passo do rasto de uma compra: o quê, quem e quando. */
+export type PassoDoRasto = {
+    quando: string | null; quem: string | null; passo: string; detalhe: string | null;
+    tipo: 'requisicao' | 'encomenda' | 'aprovacao' | 'pagamento' | 'recepcao' | 'factura';
+};
+
+export type RegrasDasCompras = { aprovacoes_encomenda: number; aprovacoes_pagamento: number; tesoureiro_id: string | null };
 
 export type ItemDaEncomenda = {
     id: number;
@@ -222,14 +267,23 @@ export const compras = {
             fornecedores: Escolha[];
             armazens: Array<Escolha & { padrao: boolean }>;
             requisicoes: Array<Escolha & { linhas: number }>;
-            permissoes: { pode_gerir: boolean; pode_receber: boolean };
+            permissoes: {
+                pode_gerir: boolean; pode_receber: boolean; pode_aprovar: boolean; pode_facturar: boolean;
+                pode_pedir_pagamento: boolean; pode_aprovar_pagamentos: boolean;
+            };
+            regras: RegrasDasCompras;
+            formas: Escolha[];
+            tesoureiros: Escolha[];
         }>(`${C}/encomendas/opcoes`),
         lista: (f: {
             procura?: string; estado?: string; fornecedor?: number | '';
             por_pagina?: number; page?: number;
         }) => api.ler<{
             data: Encomenda[]; meta: Meta;
-            resumo: { abertas: number; atrasadas: number; por_facturar: number; valor_aberto: number };
+            resumo: {
+                abertas: number; atrasadas: number; por_facturar: number; valor_aberto: number;
+                em_aprovacao: number; pagamentos_por_pagar: number;
+            };
         }>(`${C}/encomendas`, f),
         ficha: (id: number) => api.ler<{
             data: Encomenda & {
@@ -237,6 +291,9 @@ export const compras = {
                 fornecedor_telefone: string | null; fornecedor_email: string | null;
             };
             itens: ItemDaEncomenda[];
+            pagamentos: PedidoDePagamento[];
+            aprovacoes: Voto[];
+            rasto: PassoDoRasto[];
         }>(`${C}/encomendas/${id}`),
         guardar: (id: number | null, dados: Record<string, unknown>) =>
             id ? api.guardar<Recado & { data: Encomenda }>(`${C}/encomendas/${id}`, dados)
@@ -250,7 +307,62 @@ export const compras = {
             api.criar<Recado & { data: Encomenda }>(`${C}/encomendas/${id}/receber`, { quantidades }),
         facturar: (id: number) => api.criar<Recado & { data: Encomenda }>(`${C}/encomendas/${id}/facturar`, {}),
         cancelar: (id: number) => api.criar<Recado & { data: Encomenda }>(`${C}/encomendas/${id}/cancelar`, {}),
+        pedirAprovacao: (id: number) => api.criar<Recado & { data: Encomenda }>(`${C}/encomendas/${id}/pedir-aprovacao`, {}),
+        decidir: (id: number, aprova: boolean, comentario?: string) =>
+            api.criar<Recado & { data: Encomenda }>(`${C}/encomendas/${id}/decidir`, { aprova, comentario }),
+        pedirPagamento: (id: number, dados: {
+            valor: number; data_limite?: string | null; forma?: string | null; notas?: string | null; tesoureiro_id?: number | null;
+        }) => api.criar<Recado & { data: Encomenda }>(`${C}/encomendas/${id}/pagamentos`, dados),
     },
+
+    /** As regras do circuito: quantas aprovações e o tesoureiro por omissão. */
+    definicoes: {
+        ler: () => api.ler<{
+            data: { aprovacoes_encomenda: number; aprovacoes_pagamento: number; tesoureiro_id: string };
+            tesoureiros: Escolha[];
+            aprovadores: { encomenda: number; pagamento: number };
+            maximo: number;
+            pode_definir: boolean;
+        }>(`${C}/definicoes`),
+        guardar: (dados: { aprovacoes_encomenda: number; aprovacoes_pagamento: number; tesoureiro_id: number | null }) =>
+            api.guardar<Recado>(`${C}/definicoes`, dados),
+    },
+};
+
+/* ─── Os pagamentos a fornecedores (o lado da tesouraria) ─────────────── */
+
+const P = '/tesouraria/pagamentos';
+
+export type DestinoDoPagamento = { id: number; nome: string; saldo: number; aberta?: boolean };
+
+export const pagamentosAFornecedores = {
+    opcoes: () => api.ler<{
+        estados: Escolha[];
+        formas: Escolha[];
+        contas: DestinoDoPagamento[];
+        caixas: DestinoDoPagamento[];
+        permissoes: { pode_pagar: boolean; pode_aprovar: boolean };
+    }>(`${P}/opcoes`),
+    lista: (f: { estado?: string; procura?: string; meus?: boolean; por_pagina?: number; page?: number }) => api.ler<{
+        data: PedidoDePagamento[];
+        meta: Meta;
+        resumo: { por_pagar: number; valor_por_pagar: number; atrasados: number; em_aprovacao: number; pagos_no_mes: number };
+    }>(P, { ...f, meus: f.meus ? 1 : undefined }),
+    ficha: (id: number) => api.ler<{
+        data: PedidoDePagamento & {
+            fornecedor_nif: string | null;
+            encomenda: {
+                id: number; numero: string; estado: string; total: number; pago: number; factura: string | null;
+                itens: Array<{ descricao: string; quantidade: number; unidade: string | null; preco_unitario: number; total: number }>;
+            } | null;
+        };
+    }>(`${P}/${id}`),
+    pagar: (id: number, dados: {
+        forma: string; account_id?: number | null; cash_register_id?: number | null; data?: string | null; referencia?: string | null;
+    }) => api.criar<Recado>(`${P}/${id}/pagar`, dados),
+    recusar: (id: number, motivo: string) => api.criar<Recado>(`${P}/${id}/recusar`, { motivo }),
+    decidir: (id: number, aprova: boolean, comentario?: string) => api.criar<Recado>(`${P}/${id}/decidir`, { aprova, comentario }),
+    cancelar: (id: number) => api.criar<Recado>(`${P}/${id}/cancelar`, {}),
 };
 
 export const inventario = {

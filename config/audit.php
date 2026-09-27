@@ -154,6 +154,9 @@ return [
         \App\Models\Compras\RequisicaoItem::class,
         \App\Models\Compras\Encomenda::class,
         \App\Models\Compras\EncomendaItem::class,
+        // O pedido de pagamento é dinheiro a sair; as regras dizem quem o autoriza.
+        \App\Models\Compras\PedidoDePagamento::class,
+        \App\Models\Compras\DefinicoesDasCompras::class,
 
         // ── Projetos ──
         // O projeto guarda o orçamento e o preço/hora acordados, e a folha de

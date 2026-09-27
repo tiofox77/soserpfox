@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { compras, type Encomenda, type ItemDaEncomenda } from '@/api/compras';
+import { compras, pagamentosAFornecedores, type Encomenda, type ItemDaEncomenda, type PassoDoRasto, type PedidoDePagamento, type Voto } from '@/api/compras';
 import { AvisoDeErro } from '@/ui/AvisoDeErro';
 import { Botao } from '@/ui/Botao';
 import { Campo, entrada } from '@/ui/Campo';
@@ -27,10 +27,17 @@ import { etiquetaIntl, t } from '@/i18n';
  *
  * SÓ SE FACTURA O QUE JÁ CHEGOU, uma vez só. A encomenda guarda a factura que
  * dela nasceu, e é essa marca que impede pagar duas vezes o mesmo material.
+ *
+ * O CIRCUITO COM SEPARAÇÃO DE FUNÇÕES (27/09/2026): a encomenda pode precisar
+ * da aprovação de outras pessoas antes de ir para o fornecedor, e «Solicitar
+ * pagamento» manda-a à tesouraria — é lá que o tesoureiro paga, sem mexer
+ * nela. A ficha conta o rasto: cada passo, quem o deu e quando.
  */
 
 const COR_DO_ESTADO: Record<string, 'neutra' | 'primaria' | 'aviso' | 'bom' | 'perigo'> = {
     rascunho: 'neutra',
+    em_aprovacao: 'aviso',
+    aprovada: 'bom',
     enviada: 'primaria',
     confirmada: 'primaria',
     parcial: 'aviso',
@@ -40,11 +47,29 @@ const COR_DO_ESTADO: Record<string, 'neutra' | 'primaria' | 'aviso' | 'bom' | 'p
 
 const ICONE_DO_ESTADO: Record<string, string> = {
     rascunho: 'fa-pen-ruler',
+    em_aprovacao: 'fa-user-clock',
+    aprovada: 'fa-circle-check',
     enviada: 'fa-paper-plane',
     confirmada: 'fa-handshake',
     parcial: 'fa-box-open',
     recebida: 'fa-boxes-stacked',
     cancelada: 'fa-ban',
+};
+
+/** O pagamento de relance, na lista. */
+const PAGAMENTO: Record<Encomenda['pagamento']['estado'], { cor: 'neutra' | 'primaria' | 'aviso' | 'bom'; icone: string; rotulo: string }> = {
+    sem: { cor: 'neutra', icone: 'fa-minus', rotulo: 'Por pedir' },
+    pedido: { cor: 'primaria', icone: 'fa-hourglass-half', rotulo: 'Pedido' },
+    parcial: { cor: 'aviso', icone: 'fa-coins', rotulo: 'Pago em parte' },
+    pago: { cor: 'bom', icone: 'fa-circle-check', rotulo: 'Pago' },
+};
+
+const COR_DO_PEDIDO: Record<PedidoDePagamento['estado'], 'neutra' | 'primaria' | 'aviso' | 'bom' | 'perigo'> = {
+    em_aprovacao: 'aviso',
+    por_pagar: 'primaria',
+    pago: 'bom',
+    recusado: 'perigo',
+    cancelado: 'neutra',
 };
 
 type Linha = {
@@ -77,6 +102,9 @@ export default function Encomendas({ encomenda }: { encomenda?: number }) {
     const [aReceber, porAReceber] = useState<number | null>(null);
     const [procuraArtigo, porProcuraArtigo] = useState('');
     const [daRequisicao, porDaRequisicao] = useState<{ requisicao_id: string; supplier_id: string } | null>(null);
+    const [aDecidir, porADecidir] = useState<{ e: Encomenda; aprova: boolean } | null>(null);
+    const [aPedirPagamento, porAPedirPagamento] = useState<Encomenda | null>(null);
+    const [regrasAbertas, porRegrasAbertas] = useState(false);
 
     const opcoes = useQuery({
         queryKey: ['compras', 'encomendas', 'opcoes'],
@@ -107,7 +135,7 @@ export default function Encomendas({ encomenda }: { encomenda?: number }) {
     });
 
     const passo = useMutation({
-        mutationFn: ({ id, qual }: { id: number; qual: 'enviar' | 'confirmar' | 'facturar' | 'cancelar' }) =>
+        mutationFn: ({ id, qual }: { id: number; qual: 'enviar' | 'confirmar' | 'facturar' | 'cancelar' | 'pedirAprovacao' }) =>
             compras.encomendas[qual](id),
         onSuccess: (r) => feito(r.message),
         onError: porErro,
@@ -128,6 +156,7 @@ export default function Encomendas({ encomenda }: { encomenda?: number }) {
     const o = opcoes.data;
     const pode = o.permissoes.pode_gerir;
     const recebe = o.permissoes.pode_receber;
+    const exigeAprovacao = o.regras.aprovacoes_encomenda > 0;
     const numero = (n: number) => n.toLocaleString(etiquetaIntl());
     const resumo = lista.data?.resumo;
     const meta = lista.data?.meta;
@@ -187,6 +216,10 @@ export default function Encomendas({ encomenda }: { encomenda?: number }) {
                             <i className="fas fa-clipboard-list" aria-hidden="true" />
                             {t('Requisições')}
                         </a>
+                        <button type="button" className={ACCAO_DA_FAIXA} onClick={() => porRegrasAbertas(true)}>
+                            <i className="fas fa-sliders" aria-hidden="true" />
+                            {t('Regras')}
+                        </button>
                     </>
                 }
             >
@@ -198,6 +231,16 @@ export default function Encomendas({ encomenda }: { encomenda?: number }) {
                         {resumo.por_facturar > 0 && (
                             <EstadoNaFaixa icone="fa-file-invoice">
                                 {t(':n por facturar', { n: numero(resumo.por_facturar) })}
+                            </EstadoNaFaixa>
+                        )}
+                        {resumo.em_aprovacao > 0 && (
+                            <EstadoNaFaixa icone="fa-user-clock">
+                                {t(':n à espera de aprovação', { n: numero(resumo.em_aprovacao) })}
+                            </EstadoNaFaixa>
+                        )}
+                        {resumo.pagamentos_por_pagar > 0 && (
+                            <EstadoNaFaixa icone="fa-hand-holding-dollar">
+                                {t(':v Kz pedidos à tesouraria', { v: kz(resumo.pagamentos_por_pagar) })}
                             </EstadoNaFaixa>
                         )}
                     </div>
@@ -281,6 +324,7 @@ export default function Encomendas({ encomenda }: { encomenda?: number }) {
                                 <th className="px-4 py-3 text-left">{t('Recebido')}</th>
                                 <th className="px-4 py-3 text-right">{t('Total')}</th>
                                 <th className="px-4 py-3 text-left">{t('Estado')}</th>
+                                <th className="px-4 py-3 text-left">{t('Pagamento')}</th>
                                 <th className="px-4 py-3 text-left">{t('Factura')}</th>
                                 <th className="px-4 py-3" />
                             </tr>
@@ -291,6 +335,12 @@ export default function Encomendas({ encomenda }: { encomenda?: number }) {
                                     <td className="px-4 py-3">
                                         <p className="font-mono font-semibold text-slate-800">{e.numero}</p>
                                         <p className="text-xs text-slate-500">{e.armazem ?? '—'}</p>
+                                        {e.estado === 'rascunho' && e.motivo_recusa && (
+                                            <p className="mt-1 max-w-[16rem] text-xs text-red-600" title={e.motivo_recusa}>
+                                                <i className="fas fa-rotate-left mr-1" aria-hidden="true" />
+                                                {t('Recusada: :m', { m: e.motivo_recusa })}
+                                            </p>
+                                        )}
                                     </td>
                                     <td className="px-4 py-3 text-slate-600">{e.fornecedor ?? '—'}</td>
                                     <td className="px-4 py-3">
@@ -323,6 +373,22 @@ export default function Encomendas({ encomenda }: { encomenda?: number }) {
                                         <Etiqueta cor={COR_DO_ESTADO[e.estado] ?? 'neutra'} icone={ICONE_DO_ESTADO[e.estado]}>
                                             {e.estado_rotulo}
                                         </Etiqueta>
+                                        {e.estado === 'em_aprovacao' && (
+                                            <p className="mt-1 text-xs tabular-nums text-slate-500">
+                                                {t(':s de :n aprovações', { s: String(e.aprovacao.sins), n: String(e.aprovacao.necessarias) })}
+                                            </p>
+                                        )}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        {/* O DINHEIRO de relance: por pedir, pedido à tesouraria, pago em parte, pago. */}
+                                        <Etiqueta cor={PAGAMENTO[e.pagamento.estado].cor} icone={PAGAMENTO[e.pagamento.estado].icone}>
+                                            {t(PAGAMENTO[e.pagamento.estado].rotulo)}
+                                        </Etiqueta>
+                                        {e.pagamento.pago > 0 && e.pagamento.estado !== 'pago' && (
+                                            <p className="mt-1 text-xs tabular-nums text-slate-500">
+                                                {t(':p de :t Kz', { p: kz(e.pagamento.pago), t: kz(e.pagamento.a_pagar) })}
+                                            </p>
+                                        )}
                                     </td>
                                     <td className="px-4 py-3">
                                         {e.factura ? (
@@ -343,15 +409,48 @@ export default function Encomendas({ encomenda }: { encomenda?: number }) {
 
                                             {pode && e.estado === 'rascunho' && (
                                                 <>
-                                                    <Botao altura="pequeno" cor="primaria" tom="solida" icone="fa-paper-plane"
-                                                        aTrabalhar={passo.isPending}
-                                                        onClick={() => passo.mutate({ id: e.id, qual: 'enviar' })}>
-                                                        {t('Enviar')}
-                                                    </Botao>
+                                                    {/*
+                                                      * COM APROVAÇÃO EXIGIDA, o rascunho vai a
+                                                      * aprovação; sem ela, sai direito para o
+                                                      * fornecedor, como sempre.
+                                                      */}
+                                                    {exigeAprovacao ? (
+                                                        <Botao altura="pequeno" cor="primaria" tom="solida" icone="fa-user-check"
+                                                            aTrabalhar={passo.isPending}
+                                                            onClick={() => passo.mutate({ id: e.id, qual: 'pedirAprovacao' })}>
+                                                            {t('Pedir aprovação')}
+                                                        </Botao>
+                                                    ) : (
+                                                        <Botao altura="pequeno" cor="primaria" tom="solida" icone="fa-paper-plane"
+                                                            aTrabalhar={passo.isPending}
+                                                            onClick={() => passo.mutate({ id: e.id, qual: 'enviar' })}>
+                                                            {t('Enviar')}
+                                                        </Botao>
+                                                    )}
                                                     <Botao altura="pequeno" icone="fa-pen"
                                                         onClick={() => abrirEdicao(e.id)}
                                                         aria-label={t('Editar encomenda')} />
                                                 </>
+                                            )}
+
+                                            {e.aprovacao.pode_votar && (
+                                                <>
+                                                    <Botao altura="pequeno" cor="bom" tom="solida" icone="fa-check"
+                                                        onClick={() => porADecidir({ e, aprova: true })}>
+                                                        {t('Aprovar')}
+                                                    </Botao>
+                                                    <Botao altura="pequeno" cor="perigo" icone="fa-xmark"
+                                                        onClick={() => porADecidir({ e, aprova: false })}
+                                                        aria-label={t('Recusar a encomenda')} />
+                                                </>
+                                            )}
+
+                                            {pode && e.estado === 'aprovada' && (
+                                                <Botao altura="pequeno" cor="primaria" tom="solida" icone="fa-paper-plane"
+                                                    aTrabalhar={passo.isPending}
+                                                    onClick={() => passo.mutate({ id: e.id, qual: 'enviar' })}>
+                                                    {t('Enviar')}
+                                                </Botao>
                                             )}
 
                                             {pode && e.estado === 'enviada' && (
@@ -374,7 +473,14 @@ export default function Encomendas({ encomenda }: { encomenda?: number }) {
                                                 </Botao>
                                             )}
 
-                                            {pode && e.pode_facturar && (
+                                            {o.permissoes.pode_pedir_pagamento && e.pagamento.pode_pedir && (
+                                                <Botao altura="pequeno" icone="fa-hand-holding-dollar"
+                                                    onClick={() => porAPedirPagamento(e)}>
+                                                    {t('Pagamento')}
+                                                </Botao>
+                                            )}
+
+                                            {o.permissoes.pode_facturar && e.pode_facturar && (
                                                 <Botao altura="pequeno" cor="primaria" icone="fa-file-invoice"
                                                     aTrabalhar={passo.isPending}
                                                     onClick={() => passo.mutate({ id: e.id, qual: 'facturar' })}>
@@ -382,7 +488,7 @@ export default function Encomendas({ encomenda }: { encomenda?: number }) {
                                                 </Botao>
                                             )}
 
-                                            {pode && ['rascunho', 'enviada', 'confirmada'].includes(e.estado) && (
+                                            {pode && ['rascunho', 'em_aprovacao', 'aprovada', 'enviada', 'confirmada'].includes(e.estado) && (
                                                 <Botao altura="pequeno" cor="perigo" icone="fa-ban"
                                                     aTrabalhar={passo.isPending}
                                                     onClick={() => passo.mutate({ id: e.id, qual: 'cancelar' })}
@@ -666,9 +772,23 @@ export default function Encomendas({ encomenda }: { encomenda?: number }) {
                 )}
             </Modal>
 
-            <Ficha id={aVer} aoFechar={() => porAVer(null)} />
+            <Ficha id={aVer} aoFechar={() => porAVer(null)} podeCancelarPedidos={pode} aoFeito={feito} />
 
             <Recepcao id={aReceber} aoFechar={() => porAReceber(null)} aoFeito={(m) => { feito(m); porAReceber(null); }} />
+
+            <Decisao pedido={aDecidir} aoFechar={() => porADecidir(null)} aoFeito={(m) => { feito(m); porADecidir(null); }} />
+
+            <PedirPagamento
+                encomenda={aPedirPagamento}
+                formas={o.formas}
+                tesoureiros={o.tesoureiros}
+                tesoureiroPadrao={o.regras.tesoureiro_id}
+                comAprovacao={o.regras.aprovacoes_pagamento > 0}
+                aoFechar={() => porAPedirPagamento(null)}
+                aoFeito={(m) => { feito(m); porAPedirPagamento(null); }}
+            />
+
+            <Regras aberta={regrasAbertas} aoFechar={() => porRegrasAbertas(false)} aoFeito={(m) => { feito(m); porRegrasAbertas(false); }} />
         </div>
     );
 
@@ -817,11 +937,18 @@ function Recepcao({
 
 /* ─── A ficha ─────────────────────────────────────────────────────────── */
 
-function Ficha({ id, aoFechar }: { id: number | null; aoFechar: () => void }) {
+function Ficha({ id, aoFechar, podeCancelarPedidos, aoFeito }: {
+    id: number | null; aoFechar: () => void; podeCancelarPedidos: boolean; aoFeito: (m: string) => void;
+}) {
     const ficha = useQuery({
         queryKey: ['compras', 'encomendas', 'ficha', id],
         queryFn: () => compras.encomendas.ficha(id as number),
         enabled: id !== null,
+    });
+
+    const cancelarPedido = useMutation({
+        mutationFn: (pedido: number) => pagamentosAFornecedores.cancelar(pedido),
+        onSuccess: (r) => { aoFeito(r.message); void ficha.refetch(); },
     });
 
     const e = ficha.data?.data;
@@ -908,6 +1035,27 @@ function Ficha({ id, aoFechar }: { id: number | null; aoFechar: () => void }) {
                             {t('Facturada em :numero.', { numero: e.factura.numero })}
                         </p>
                     )}
+
+                    {e.motivo_recusa && e.estado === 'rascunho' && (
+                        <p role="alert" className={cls('border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800', RAIO)}>
+                            <i className="fas fa-rotate-left mr-2" aria-hidden="true" />
+                            {t('Recusada na aprovação: :m', { m: e.motivo_recusa })}
+                        </p>
+                    )}
+
+                    <AvisoDeErro erro={cancelarPedido.error} />
+
+                    <PagamentosDaEncomenda
+                        pagamentos={ficha.data.pagamentos}
+                        resumo={e.pagamento}
+                        podeCancelar={podeCancelarPedidos}
+                        aCancelar={cancelarPedido.isPending}
+                        aoCancelar={(p) => cancelarPedido.mutate(p)}
+                    />
+
+                    {ficha.data.aprovacoes.length > 0 && <Votos titulo={t('Aprovações da encomenda')} votos={ficha.data.aprovacoes} />}
+
+                    <Rasto passos={ficha.data.rasto} />
                 </div>
             ) : null}
         </Modal>
@@ -921,5 +1069,398 @@ function Linha({ rotulo, valor, nota }: { rotulo: string; valor?: string | null;
             <dd className="text-sm font-medium text-slate-800">{valor || '—'}</dd>
             {nota && <dd className="text-xs text-slate-500">{nota}</dd>}
         </div>
+    );
+}
+
+/* ─── Aprovar ou recusar ──────────────────────────────────────────────── */
+
+function Decisao({ pedido, aoFechar, aoFeito }: {
+    pedido: { e: Encomenda; aprova: boolean } | null;
+    aoFechar: () => void;
+    aoFeito: (m: string) => void;
+}) {
+    const [comentario, porComentario] = useState('');
+
+    const decidir = useMutation({
+        mutationFn: () => compras.encomendas.decidir(pedido!.e.id, pedido!.aprova, comentario.trim() || undefined),
+        onSuccess: (r) => { porComentario(''); aoFeito(r.message); },
+    });
+
+    const aprova = pedido?.aprova ?? true;
+
+    return (
+        <Modal
+            aberto={pedido !== null}
+            aoFechar={aoFechar}
+            titulo={aprova ? t('Aprovar a encomenda') : t('Recusar a encomenda')}
+            subtitulo={pedido ? `${pedido.e.numero} · ${pedido.e.fornecedor ?? ''} · ${kz(pedido.e.total)} Kz` : undefined}
+            icone={aprova ? 'fa-check' : 'fa-xmark'}
+            cor={aprova ? 'bom' : 'perigo'}
+            largura="sm"
+            rodape={
+                <>
+                    <Botao onClick={aoFechar}>{t('Cancelar')}</Botao>
+                    <Botao cor={aprova ? 'bom' : 'perigo'} tom="solida" icone={aprova ? 'fa-check' : 'fa-xmark'}
+                        aTrabalhar={decidir.isPending}
+                        disabled={!aprova && comentario.trim().length < 3}
+                        onClick={() => decidir.mutate()}>
+                        {aprova ? t('Aprovar') : t('Recusar')}
+                    </Botao>
+                </>
+            }
+        >
+            {pedido && (
+                <div className="space-y-4">
+                    <AvisoDeErro erro={decidir.error} />
+                    {pedido.e.aprovacao.necessarias > 1 && (
+                        <p className="text-sm text-slate-600">
+                            {t('A empresa exige :n aprovações. Já tem :s.', { n: String(pedido.e.aprovacao.necessarias), s: String(pedido.e.aprovacao.sins) })}
+                        </p>
+                    )}
+                    <Campo etiqueta={aprova ? t('Comentário (opcional)') : t('Motivo da recusa')} obrigatorio={!aprova}
+                        ajuda={aprova ? undefined : t('Quem fez a encomenda vai lê-lo para a corrigir.')}>
+                        <textarea id="decisao-comentario" rows={3} value={comentario}
+                            onChange={(ev) => porComentario(ev.target.value)} className={entrada} />
+                    </Campo>
+                </div>
+            )}
+        </Modal>
+    );
+}
+
+/* ─── Solicitar pagamento ─────────────────────────────────────────────── */
+
+/**
+ * «SOLICITAR PAGAMENTO»: a encomenda vai à tesouraria. Pode pedir-se em
+ * parcelas (um sinal e o resto), nunca mais do que falta pedir. Quem pede
+ * não paga — o pagamento é do tesoureiro, no ecrã da tesouraria.
+ */
+function PedirPagamento({ encomenda, formas, tesoureiros, tesoureiroPadrao, comAprovacao, aoFechar, aoFeito }: {
+    encomenda: Encomenda | null;
+    formas: Array<{ valor: string; rotulo: string }>;
+    tesoureiros: Array<{ valor: string; rotulo: string }>;
+    tesoureiroPadrao: string | null;
+    comAprovacao: boolean;
+    aoFechar: () => void;
+    aoFeito: (m: string) => void;
+}) {
+    const [dados, porDados] = useState({ valor: '', data_limite: '', forma: 'transfer', tesoureiro_id: '', notas: '' });
+    const [preenchido, porPreenchido] = useState<number | null>(null);
+
+    // O que falta pedir entra já escrito — uma vez, para não apagar o que se corrigiu.
+    if (encomenda && preenchido !== encomenda.id) {
+        porPreenchido(encomenda.id);
+        porDados({
+            valor: String(encomenda.pagamento.por_pedir), data_limite: '', forma: 'transfer',
+            tesoureiro_id: tesoureiroPadrao ?? '', notas: '',
+        });
+    }
+
+    const pedir = useMutation({
+        mutationFn: () => compras.encomendas.pedirPagamento(encomenda!.id, {
+            valor: Number(dados.valor || 0),
+            data_limite: dados.data_limite || null,
+            forma: dados.forma || null,
+            tesoureiro_id: dados.tesoureiro_id ? Number(dados.tesoureiro_id) : null,
+            notas: dados.notas.trim() || null,
+        }),
+        onSuccess: (r) => { porPreenchido(null); aoFeito(r.message); },
+    });
+
+    const erros = (pedir.error as { erros?: Record<string, string[]> } | null)?.erros ?? {};
+
+    return (
+        <Modal
+            aberto={encomenda !== null}
+            aoFechar={() => { porPreenchido(null); aoFechar(); }}
+            titulo={t('Solicitar pagamento')}
+            subtitulo={encomenda ? `${encomenda.numero} · ${encomenda.fornecedor ?? ''}` : undefined}
+            icone="fa-hand-holding-dollar"
+            cor="bom"
+            largura="md"
+            rodape={
+                <>
+                    <Botao onClick={() => { porPreenchido(null); aoFechar(); }}>{t('Cancelar')}</Botao>
+                    <Botao cor="bom" tom="solida" icone="fa-paper-plane" aTrabalhar={pedir.isPending}
+                        disabled={Number(dados.valor || 0) <= 0}
+                        onClick={() => pedir.mutate()}>
+                        {comAprovacao ? t('Pedir (vai a aprovação)') : t('Enviar à tesouraria')}
+                    </Botao>
+                </>
+            }
+        >
+            {encomenda && (
+                <div className="space-y-4">
+                    <AvisoDeErro erro={pedir.error} />
+
+                    <dl className={cls('grid grid-cols-3 gap-3 border border-slate-200 bg-slate-50 px-4 py-3', RAIO)}>
+                        <Linha rotulo={t('A pagar')} valor={`${kz(encomenda.pagamento.a_pagar)} Kz`} />
+                        <Linha rotulo={t('Já pedido')} valor={`${kz(encomenda.pagamento.pedido)} Kz`} />
+                        <Linha rotulo={t('Já pago')} valor={`${kz(encomenda.pagamento.pago)} Kz`} />
+                    </dl>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <Campo etiqueta={t('Valor a pagar')} obrigatorio erro={erros.valor}
+                            ajuda={t('Até :v Kz. Pode pedir em parcelas.', { v: kz(encomenda.pagamento.por_pedir) })}>
+                            <input id="pp-valor" type="number" step="0.01" min="0.01" max={encomenda.pagamento.por_pedir}
+                                value={dados.valor} onChange={(ev) => porDados({ ...dados, valor: ev.target.value })}
+                                className={cls(entrada, 'text-right tabular-nums')} />
+                        </Campo>
+                        <Campo etiqueta={t('Pagar até')} erro={erros.data_limite} ajuda={t('O prazo combinado com o fornecedor.')}>
+                            <input id="pp-data" type="date" value={dados.data_limite}
+                                onChange={(ev) => porDados({ ...dados, data_limite: ev.target.value })} className={entrada} />
+                        </Campo>
+                        <Campo etiqueta={t('Forma sugerida')} erro={erros.forma} ajuda={t('A tesouraria pode pagar por outra.')}>
+                            <select id="pp-forma" value={dados.forma} onChange={(ev) => porDados({ ...dados, forma: ev.target.value })} className={entrada}>
+                                {formas.map((x) => <option key={x.valor} value={x.valor}>{x.rotulo}</option>)}
+                            </select>
+                        </Campo>
+                        <Campo etiqueta={t('Tesoureiro')} erro={erros.tesoureiro_id}
+                            ajuda={t('Quem recebe o aviso. Sem ninguém, avisa quem pode pagar.')}>
+                            <select id="pp-tesoureiro" value={dados.tesoureiro_id}
+                                onChange={(ev) => porDados({ ...dados, tesoureiro_id: ev.target.value })} className={entrada}>
+                                <option value="">{t('Qualquer tesoureiro')}</option>
+                                {tesoureiros.map((x) => <option key={x.valor} value={x.valor}>{x.rotulo}</option>)}
+                            </select>
+                        </Campo>
+                    </div>
+
+                    <Campo etiqueta={t('Notas para a tesouraria')} erro={erros.notas}>
+                        <textarea id="pp-notas" rows={2} value={dados.notas} placeholder={t('IBAN do fornecedor, factura pró-forma, condições…')}
+                            onChange={(ev) => porDados({ ...dados, notas: ev.target.value })} className={entrada} />
+                    </Campo>
+                </div>
+            )}
+        </Modal>
+    );
+}
+
+/* ─── Os pagamentos, os votos e o rasto, na ficha ─────────────────────── */
+
+function PagamentosDaEncomenda({ pagamentos, resumo, podeCancelar, aCancelar, aoCancelar }: {
+    pagamentos: PedidoDePagamento[];
+    resumo: Encomenda['pagamento'];
+    podeCancelar: boolean;
+    aCancelar: boolean;
+    aoCancelar: (id: number) => void;
+}) {
+    return (
+        <section aria-labelledby="ficha-pagamentos">
+            <h3 id="ficha-pagamentos" className="mb-2 flex flex-wrap items-baseline justify-between gap-2 text-sm font-bold text-slate-800">
+                <span><i className="fas fa-hand-holding-dollar mr-2 text-emerald-600" aria-hidden="true" />{t('Pagamentos')}</span>
+                <span className="text-xs font-medium tabular-nums text-slate-500">
+                    {t('Pago :p de :t Kz', { p: kz(resumo.pago), t: kz(resumo.a_pagar) })}
+                </span>
+            </h3>
+
+            {pagamentos.length === 0 ? (
+                <p className={cls('border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-400', RAIO)}>
+                    {t('Ainda não foi pedido nenhum pagamento à tesouraria.')}
+                </p>
+            ) : (
+                <ul className="space-y-2">
+                    {pagamentos.map((p) => (
+                        <li key={p.id} className={cls('border border-slate-200 px-4 py-3 text-sm', RAIO)}>
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <p className="font-mono font-semibold text-slate-800">{p.numero}</p>
+                                <span className="font-semibold tabular-nums text-slate-900">{kz(p.valor)} Kz</span>
+                            </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-2">
+                                <Etiqueta cor={COR_DO_PEDIDO[p.estado]}>{p.estado_rotulo}</Etiqueta>
+                                {p.aprovacao && (
+                                    <span className="text-xs tabular-nums text-slate-500">
+                                        {t(':s de :n aprovações', { s: String(p.aprovacao.sins), n: String(p.aprovacao.necessarias) })}
+                                    </span>
+                                )}
+                                {p.atrasado && <Etiqueta cor="perigo" icone="fa-clock">{t('Prazo passado')}</Etiqueta>}
+                            </div>
+                            <p className="mt-1 text-xs text-slate-500">
+                                {t('Pedido por :q em :d', { q: p.pedido_por ?? '—', d: p.pedido_em ?? '—' })}
+                                {p.data_limite && ` · ${t('pagar até :d', { d: p.data_limite })}`}
+                                {p.tesoureiro && ` · ${t('para :q', { q: p.tesoureiro })}`}
+                            </p>
+                            {p.estado === 'pago' && (
+                                <p className="mt-1 text-xs text-emerald-700">
+                                    <i className="fas fa-circle-check mr-1" aria-hidden="true" />
+                                    {t('Pago por :q em :d', { q: p.pago_por ?? '—', d: p.pago_em ?? '—' })}
+                                    {p.recibo && ` · ${t('recibo :r', { r: p.recibo })}`}
+                                </p>
+                            )}
+                            {p.motivo_recusa && (
+                                <p className="mt-1 text-xs text-red-600">{t('Devolvido: :m', { m: p.motivo_recusa })}</p>
+                            )}
+                            {podeCancelar && ['em_aprovacao', 'por_pagar'].includes(p.estado) && (
+                                <div className="mt-2">
+                                    <Botao altura="pequeno" cor="perigo" icone="fa-ban" aTrabalhar={aCancelar}
+                                        onClick={() => aoCancelar(p.id)}>
+                                        {t('Cancelar pedido')}
+                                    </Botao>
+                                </div>
+                            )}
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </section>
+    );
+}
+
+function Votos({ titulo, votos }: { titulo: string; votos: Voto[] }) {
+    return (
+        <section>
+            <h3 className="mb-2 text-sm font-bold text-slate-800">
+                <i className="fas fa-user-check mr-2 text-emerald-600" aria-hidden="true" />{titulo}
+            </h3>
+            <ul className="space-y-1.5 text-sm">
+                {votos.map((v, i) => (
+                    <li key={i} className="flex flex-wrap items-baseline gap-2">
+                        <Etiqueta cor={v.decisao === 'aprovado' ? 'bom' : 'perigo'} icone={v.decisao === 'aprovado' ? 'fa-check' : 'fa-xmark'}>
+                            {v.decisao === 'aprovado' ? t('Aprovou') : t('Recusou')}
+                        </Etiqueta>
+                        <span className="font-medium text-slate-800">{v.quem ?? '—'}</span>
+                        <span className="text-xs tabular-nums text-slate-500">{v.quando}</span>
+                        {v.comentario && <span className="w-full text-xs text-slate-600">«{v.comentario}»</span>}
+                    </li>
+                ))}
+            </ul>
+        </section>
+    );
+}
+
+const ICONE_DO_PASSO: Record<PassoDoRasto['tipo'], string> = {
+    requisicao: 'fa-clipboard-list',
+    encomenda: 'fa-truck',
+    aprovacao: 'fa-user-check',
+    pagamento: 'fa-hand-holding-dollar',
+    recepcao: 'fa-box-open',
+    factura: 'fa-file-invoice',
+};
+
+/** O RASTO: cada passo da compra, quem o deu e quando. */
+function Rasto({ passos }: { passos: PassoDoRasto[] }) {
+    if (passos.length === 0) return null;
+
+    return (
+        <section aria-labelledby="ficha-rasto">
+            <h3 id="ficha-rasto" className="mb-2 text-sm font-bold text-slate-800">
+                <i className="fas fa-route mr-2 text-emerald-600" aria-hidden="true" />{t('Rasto da compra')}
+            </h3>
+            <ol className="relative space-y-3 border-l border-slate-200 pl-5">
+                {passos.map((p, i) => (
+                    <li key={i} className="relative">
+                        <span className="absolute -left-[1.85rem] top-0.5 grid h-5 w-5 place-items-center rounded-full bg-emerald-50 text-[10px] text-emerald-700 ring-2 ring-white">
+                            <i className={cls('fas', ICONE_DO_PASSO[p.tipo])} aria-hidden="true" />
+                        </span>
+                        <p className="text-sm text-slate-800">
+                            <span className="font-semibold">{p.quem ?? t('Sistema')}</span> — {p.passo}
+                        </p>
+                        <p className="text-xs tabular-nums text-slate-500">{p.quando ?? '—'}{p.detalhe ? ` · ${p.detalhe}` : ''}</p>
+                    </li>
+                ))}
+            </ol>
+        </section>
+    );
+}
+
+/* ─── As regras do circuito ───────────────────────────────────────────── */
+
+/**
+ * QUANTAS PESSOAS APROVAM cada passo, e quem é o tesoureiro por omissão. Zero
+ * aprovações é o comportamento de sempre. Não se exige mais aprovações do que
+ * as pessoas que as podem dar — o servidor recusa, e aqui diz-se quantas são.
+ */
+function Regras({ aberta, aoFechar, aoFeito }: { aberta: boolean; aoFechar: () => void; aoFeito: (m: string) => void }) {
+    const regras = useQuery({
+        queryKey: ['compras', 'definicoes'],
+        queryFn: () => compras.definicoes.ler(),
+        enabled: aberta,
+    });
+
+    const [dados, porDados] = useState<{ aprovacoes_encomenda: number; aprovacoes_pagamento: number; tesoureiro_id: string } | null>(null);
+
+    if (regras.data && dados === null && aberta) {
+        porDados(regras.data.data);
+    }
+
+    const guardar = useMutation({
+        mutationFn: () => compras.definicoes.guardar({
+            aprovacoes_encomenda: dados!.aprovacoes_encomenda,
+            aprovacoes_pagamento: dados!.aprovacoes_pagamento,
+            tesoureiro_id: dados!.tesoureiro_id ? Number(dados!.tesoureiro_id) : null,
+        }),
+        onSuccess: (r) => { porDados(null); aoFeito(r.message); },
+    });
+
+    const fechar = () => { porDados(null); aoFechar(); };
+    const erros = (guardar.error as { erros?: Record<string, string[]> } | null)?.erros ?? {};
+    const r = regras.data;
+    const somenteLer = !r?.pode_definir;
+    const opcoesDeNumero = Array.from({ length: (r?.maximo ?? 5) + 1 }, (_, i) => i);
+
+    return (
+        <Modal
+            aberto={aberta}
+            aoFechar={fechar}
+            titulo={t('Regras das compras')}
+            subtitulo={t('Quem aprova cada passo e quem paga')}
+            icone="fa-sliders"
+            cor="bom"
+            largura="md"
+            rodape={
+                <>
+                    <Botao onClick={fechar}>{somenteLer ? t('Fechar') : t('Cancelar')}</Botao>
+                    {!somenteLer && (
+                        <Botao cor="primaria" tom="solida" icone="fa-floppy-disk" aTrabalhar={guardar.isPending}
+                            disabled={!dados} onClick={() => guardar.mutate()}>
+                            {t('Guardar')}
+                        </Botao>
+                    )}
+                </>
+            }
+        >
+            {regras.isPending || !dados ? (
+                <Carregando linhas={4} />
+            ) : regras.isError ? (
+                <AvisoDeErro erro={regras.error} />
+            ) : (
+                <div className="space-y-4">
+                    <AvisoDeErro erro={guardar.error} />
+
+                    <Campo etiqueta={t('Aprovações da encomenda')} erro={erros.aprovacoes_encomenda}
+                        ajuda={t('Antes de ir para o fornecedor. :n pessoa(s) podem aprovar. Quem faz a encomenda não a aprova.', { n: String(r!.aprovadores.encomenda) })}>
+                        <select id="regras-encomenda" value={dados.aprovacoes_encomenda} disabled={somenteLer}
+                            onChange={(ev) => porDados({ ...dados, aprovacoes_encomenda: Number(ev.target.value) })} className={entrada}>
+                            {opcoesDeNumero.map((n) => (
+                                <option key={n} value={n}>{n === 0 ? t('Sem aprovação') : t(':n pessoa(s)', { n: String(n) })}</option>
+                            ))}
+                        </select>
+                    </Campo>
+
+                    <Campo etiqueta={t('Aprovações do pagamento')} erro={erros.aprovacoes_pagamento}
+                        ajuda={t('Antes de a tesouraria poder pagar. :n pessoa(s) podem aprovar. Quem pede não aprova.', { n: String(r!.aprovadores.pagamento) })}>
+                        <select id="regras-pagamento" value={dados.aprovacoes_pagamento} disabled={somenteLer}
+                            onChange={(ev) => porDados({ ...dados, aprovacoes_pagamento: Number(ev.target.value) })} className={entrada}>
+                            {opcoesDeNumero.map((n) => (
+                                <option key={n} value={n}>{n === 0 ? t('Sem aprovação — vai direito à tesouraria') : t(':n pessoa(s)', { n: String(n) })}</option>
+                            ))}
+                        </select>
+                    </Campo>
+
+                    <Campo etiqueta={t('Tesoureiro por omissão')} erro={erros.tesoureiro_id}
+                        ajuda={t('Recebe os pedidos de pagamento. Só aparecem as pessoas que podem pagar fornecedores.')}>
+                        <select id="regras-tesoureiro" value={dados.tesoureiro_id} disabled={somenteLer}
+                            onChange={(ev) => porDados({ ...dados, tesoureiro_id: ev.target.value })} className={entrada}>
+                            <option value="">{t('Qualquer tesoureiro')}</option>
+                            {r!.tesoureiros.map((x) => <option key={x.valor} value={x.valor}>{x.rotulo}</option>)}
+                        </select>
+                    </Campo>
+
+                    <p className={cls('border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600', RAIO)}>
+                        <i className="fas fa-circle-info mr-1.5" aria-hidden="true" />
+                        {t('Quem faz o quê define-se nos Papéis: criar requisições, aprovar, tratar das encomendas, pedir o pagamento, pagar (tesouraria), receber e facturar são permissões separadas.')}
+                    </p>
+                </div>
+            )}
+        </Modal>
     );
 }

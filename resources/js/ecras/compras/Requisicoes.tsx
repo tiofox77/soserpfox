@@ -341,7 +341,7 @@ export default function Requisicoes({ requisicao }: { requisicao?: number }) {
                 aberto={formulario !== null}
                 aoFechar={() => { porFormulario(null); porAEditar(null); }}
                 titulo={aEditar ? t('Editar requisição') : t('Nova requisição')}
-                subtitulo={t('Pede-se o que se precisa, mesmo que ainda não esteja no catálogo')}
+                subtitulo={t('O quê, quanto, para onde, para quando e porquê — o preço acerta-o quem compra')}
                 icone="fa-clipboard-list"
                 cor="bom"
                 largura="xl"
@@ -357,7 +357,10 @@ export default function Requisicoes({ requisicao }: { requisicao?: number }) {
                                 linhas: formulario.linhas.map((l) => ({
                                     ...l,
                                     quantidade: Number(l.quantidade || 0),
-                                    custo_estimado: l.custo_estimado === '' ? null : Number(l.custo_estimado),
+                                    // O PREÇO NÃO É DE QUEM PEDE (27/09/2026): quem pede nem
+                                    // sempre sabe o preço real. É quem compra que o acerta com o
+                                    // fornecedor, na encomenda.
+                                    custo_estimado: null,
                                 })),
                             })}>
                             {t('Guardar')}
@@ -432,7 +435,7 @@ export default function Requisicoes({ requisicao }: { requisicao?: number }) {
                                                     ...formulario,
                                                     linhas: [...formulario.linhas, {
                                                         product_id: a.id, descricao: a.nome, quantidade: 1,
-                                                        custo_estimado: a.custo || '', unidade: a.unidade, notas: null,
+                                                        custo_estimado: '', unidade: a.unidade, notas: null,
                                                     }],
                                                 });
                                                 porProcuraArtigo('');
@@ -460,7 +463,6 @@ export default function Requisicoes({ requisicao }: { requisicao?: number }) {
                                             <th className="px-3 py-2 text-left">{t('O quê')}</th>
                                             <th className="px-3 py-2 text-right">{t('Quantidade')}</th>
                                             <th className="px-3 py-2 text-left">{t('Unidade')}</th>
-                                            <th className="px-3 py-2 text-right">{t('Custo estimado')}</th>
                                             <th className="px-3 py-2" />
                                         </tr>
                                     </thead>
@@ -482,11 +484,7 @@ export default function Requisicoes({ requisicao }: { requisicao?: number }) {
                                                         onChange={(e) => mexerNaLinha(i, 'unidade', e.target.value)}
                                                         className={entrada} />
                                                 </td>
-                                                <td className="px-3 py-2 w-32">
-                                                    <input type="number" step="0.01" min="0" value={l.custo_estimado}
-                                                        onChange={(e) => mexerNaLinha(i, 'custo_estimado', e.target.value)}
-                                                        className={cls(entrada, 'text-right tabular-nums')} />
-                                                </td>
+
                                                 <td className="px-3 py-2">
                                                     <Botao altura="pequeno" cor="perigo" icone="fa-trash"
                                                         onClick={() => porFormulario({
@@ -568,6 +566,8 @@ function Ficha({ id, aoFechar }: { id: number | null; aoFechar: () => void }) {
     });
 
     const r = ficha.data?.data;
+    // O custo estimado só nas requisições antigas que o traziam (deixou de se pedir a 27/09/2026).
+    const comCusto = (ficha.data?.itens ?? []).some((i) => i.custo_estimado !== null);
 
     return (
         <Modal
@@ -615,7 +615,7 @@ function Ficha({ id, aoFechar }: { id: number | null; aoFechar: () => void }) {
                                     <th className="px-3 py-2 text-right">{t('Pedido')}</th>
                                     <th className="px-3 py-2 text-right">{t('Encomendado')}</th>
                                     <th className="px-3 py-2 text-right">{t('Por encomendar')}</th>
-                                    <th className="px-3 py-2 text-right">{t('Custo estimado')}</th>
+                                    {comCusto && <th className="px-3 py-2 text-right">{t('Custo estimado')}</th>}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -633,9 +633,11 @@ function Ficha({ id, aoFechar }: { id: number | null; aoFechar: () => void }) {
                                             i.por_encomendar > 0 ? 'text-amber-600' : 'text-slate-400')}>
                                             {i.por_encomendar}
                                         </td>
-                                        <td className="px-3 py-2 text-right tabular-nums text-slate-600">
-                                            {i.custo_estimado !== null ? kz(i.custo_estimado) : '—'}
-                                        </td>
+                                        {comCusto && (
+                                            <td className="px-3 py-2 text-right tabular-nums text-slate-600">
+                                                {i.custo_estimado !== null ? kz(i.custo_estimado) : '—'}
+                                            </td>
+                                        )}
                                     </tr>
                                 ))}
                             </tbody>

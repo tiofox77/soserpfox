@@ -34,6 +34,13 @@ export type OpcoesDaCompra = {
     /** O FORNECEDOR RÁPIDO: se se pode criar aqui, e com que país por omissão. */
     criar_parte: CriarParte;
     permissoes: { pode_criar: boolean };
+    /** «Registar como paga» faz sair o dinheiro da tesouraria: por onde, e se esta pessoa pode. */
+    pagamento: {
+        pode_pagar: boolean;
+        formas: Array<{ valor: string; rotulo: string }>;
+        contas: Array<{ id: number; nome: string; saldo: number }>;
+        caixas: Array<{ id: number; nome: string; saldo: number }>;
+    };
     /** «Imprimir automaticamente ao gravar», das definições da empresa. */
     imprimir_ao_gravar: boolean;
 };

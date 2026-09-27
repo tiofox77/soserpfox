@@ -376,6 +376,9 @@ export const ecras: Record<string, Ecra> = {
         import('./tesouraria/Painel'),
     'tesouraria/relatorios': () =>
         import('./tesouraria/Relatorios'),
+    // Os pedidos de pagamento das Compras — o tesoureiro paga aqui (27/09/2026).
+    'tesouraria/pagamentos': () =>
+        import('./tesouraria/Pagamentos'),
     'facturacao/editor-de-modelo': () =>
         import('./facturacao/EditorDeModelo'),
 

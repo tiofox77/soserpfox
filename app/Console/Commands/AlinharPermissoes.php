@@ -49,6 +49,14 @@ class AlinharPermissoes extends Command
         'workshop.dashboard.view' => 'Ver o Painel da Oficina',
         'salon.dashboard.view' => 'Ver o Painel do Salão',
         'hr.dashboard.view' => 'Ver o Painel de RH',
+        // O circuito das compras com separação de funções (27/09/2026).
+        'compras.encomendas.aprovar' => 'Aprovar ou recusar Encomendas (quando a empresa exige aprovação)',
+        'compras.encomendas.facturar' => 'Gerar a factura de compra de uma Encomenda recebida',
+        'compras.pagamentos.solicitar' => 'Pedir à Tesouraria o pagamento de uma Encomenda',
+        'compras.pagamentos.aprovar' => 'Aprovar ou recusar Pedidos de pagamento a fornecedores',
+        'compras.definicoes.manage' => 'Definir as regras das Compras (aprovações e tesoureiro)',
+        'treasury.pagamentos.view' => 'Ver os Pagamentos a fornecedores pedidos pelas Compras',
+        'treasury.pagamentos.pagar' => 'Pagar fornecedores (o dinheiro SAI da tesouraria)',
     ];
 
     /** Quem tem a da esquerda passa a ter as da direita. */
@@ -68,6 +76,16 @@ class AlinharPermissoes extends Command
         // O menu já tratava as notas de débito como a porta das guias.
         'invoicing.debit-notes.view' => ['invoicing.transport-guides.view'],
         'invoicing.sales.invoices.create' => ['invoicing.transport-guides.view', 'invoicing.transport-guides.create'],
+        // AS COMPRAS (27/09/2026). Quem tratava das encomendas continua a
+        // facturá-las e passa a poder pedir o pagamento; quem decidia as
+        // requisições decide também as encomendas e os pagamentos, e define
+        // as regras. Ninguém perde o que fazia antes.
+        'compras.encomendas.manage' => ['compras.encomendas.facturar', 'compras.pagamentos.solicitar'],
+        'compras.requisicoes.decidir' => ['compras.encomendas.aprovar', 'compras.pagamentos.aprovar', 'compras.definicoes.manage'],
+        // PAGAR FORNECEDORES vem de EDITAR movimentos e não de criar: o papel
+        // Caixa cria movimentos ao balcão, e dar-lhe o pagamento a
+        // fornecedores desfazia a separação de funções que isto existe para dar.
+        'treasury.transactions.edit' => ['treasury.pagamentos.view', 'treasury.pagamentos.pagar'],
     ];
 
     /** Todas as que o código pede e que faltavam em produção. */
@@ -86,6 +104,8 @@ class AlinharPermissoes extends Command
         'hr.departments.view', 'hr.departments.create', 'hr.departments.edit', 'hr.departments.delete',
         'hr.positions.view', 'hr.positions.create', 'hr.positions.edit', 'hr.positions.delete',
         'hr.shifts.view', 'hr.shifts.create', 'hr.shifts.edit', 'hr.shifts.delete',
+        'compras.encomendas.aprovar', 'compras.encomendas.facturar', 'compras.pagamentos.solicitar',
+        'compras.pagamentos.aprovar', 'compras.definicoes.manage', 'treasury.pagamentos.view', 'treasury.pagamentos.pagar',
     ];
 
     public function handle(): int

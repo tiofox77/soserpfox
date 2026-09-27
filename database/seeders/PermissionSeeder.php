@@ -117,6 +117,9 @@ class PermissionSeeder extends Seeder
             'compras.view',
             'compras.requisicoes.view', 'compras.requisicoes.manage', 'compras.requisicoes.decidir',
             'compras.encomendas.view', 'compras.encomendas.manage', 'compras.encomendas.receber',
+            'compras.encomendas.aprovar', 'compras.encomendas.facturar',
+            'compras.pagamentos.solicitar', 'compras.pagamentos.aprovar', 'compras.definicoes.manage',
+            'treasury.pagamentos.view', 'treasury.pagamentos.pagar',
 
             // Projetos
             'projetos.view', 'projetos.gerir',

@@ -197,6 +197,11 @@ class PermissionsSeeder extends Seeder
         // `permissions:sync-transferencias` para as empresas que já existem.
         $createPermission('treasury.transfers.delete', 'Anular Transferências');
 
+        // Pagamentos a fornecedores pedidos pelas Compras (27/09/2026). Ver e
+        // pagar à parte: pagar faz sair dinheiro, e não é do caixa do balcão.
+        $createPermission('treasury.pagamentos.view', 'Ver Pagamentos a fornecedores');
+        $createPermission('treasury.pagamentos.pagar', 'Pagar fornecedores');
+
         // Relatórios
         $createPermission('treasury.reports.view', 'Ver Relatórios de Tesouraria');
 

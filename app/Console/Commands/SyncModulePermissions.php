@@ -93,6 +93,14 @@ class SyncModulePermissions extends Command
         'compras.encomendas.view'       => 'Ver Encomendas',
         'compras.encomendas.manage'     => 'Criar e enviar Encomendas',
         'compras.encomendas.receber'    => 'Receber mercadoria (dá ENTRADA de stock)',
+        // O circuito com separação de funções (27/09/2026)
+        'compras.encomendas.aprovar'    => 'Aprovar ou recusar Encomendas (quando a empresa exige aprovação)',
+        'compras.encomendas.facturar'   => 'Gerar a factura de compra de uma Encomenda recebida',
+        'compras.pagamentos.solicitar'  => 'Pedir à Tesouraria o pagamento de uma Encomenda',
+        'compras.pagamentos.aprovar'    => 'Aprovar ou recusar Pedidos de pagamento a fornecedores',
+        'compras.definicoes.manage'     => 'Definir as regras das Compras (aprovações e tesoureiro)',
+        'treasury.pagamentos.view'      => 'Ver os Pagamentos a fornecedores pedidos pelas Compras',
+        'treasury.pagamentos.pagar'     => 'Pagar fornecedores (o dinheiro SAI da tesouraria)',
         // Projetos (implementado 2026-09: projetos, tarefas, folha de horas)
         'projetos.view'            => 'Aceder aos Projetos',
         'projetos.gerir'           => 'Criar e editar Projetos (orçamento, preço/hora, estados)',

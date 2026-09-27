@@ -32,6 +32,9 @@ class Encomenda extends Model
         'data_encomenda',
         'entrega_prevista',
         'estado',
+        'ronda_aprovacao',
+        'aprovada_em',
+        'motivo_recusa',
         'subtotal',
         'desconto',
         'imposto',
@@ -47,6 +50,7 @@ class Encomenda extends Model
     protected $casts = [
         'data_encomenda' => 'date',
         'entrega_prevista' => 'date',
+        'aprovada_em' => 'datetime',
         'subtotal' => 'decimal:2',
         'desconto' => 'decimal:2',
         'imposto' => 'decimal:2',
@@ -56,6 +60,8 @@ class Encomenda extends Model
 
     public const ESTADOS = [
         'rascunho' => 'Rascunho',
+        'em_aprovacao' => 'À espera de aprovação',
+        'aprovada' => 'Aprovada',
         'enviada' => 'Enviada',
         'confirmada' => 'Confirmada',
         'parcial' => 'Recebida em parte',
@@ -65,6 +71,13 @@ class Encomenda extends Model
 
     /** Estados em que a mercadoria ainda pode chegar. */
     public const ABERTOS = ['enviada', 'confirmada', 'parcial'];
+
+    /**
+     * Estados em que já se pode pedir o pagamento: a encomenda está definida
+     * (aprovada, ou enviada ao fornecedor quando a empresa não exige
+     * aprovação). Num rascunho o preço ainda pode mudar.
+     */
+    public const PAGAVEIS = ['aprovada', 'enviada', 'confirmada', 'parcial', 'recebida'];
 
     protected static function boot()
     {
@@ -128,6 +141,38 @@ class Encomenda extends Model
     public function factura()
     {
         return $this->belongsTo(PurchaseInvoice::class, 'purchase_invoice_id');
+    }
+
+    public function pagamentos()
+    {
+        return $this->hasMany(PedidoDePagamento::class, 'encomenda_id')->orderBy('id');
+    }
+
+    /** O que já foi pedido à tesouraria (pedidos à espera, por pagar ou pagos). */
+    public function valorPedido(): float
+    {
+        return round((float) $this->pagamentos()->whereIn('estado', PedidoDePagamento::ACTIVOS)->sum('valor'), 2);
+    }
+
+    public function valorPago(): float
+    {
+        return round((float) $this->pagamentos()->where('estado', 'pago')->sum('valor'), 2);
+    }
+
+    /**
+     * Quanto se deve ao fornecedor por esta encomenda: o total da factura
+     * quando já está emitida (é ela que manda — factura-se o que chegou), senão
+     * o total da encomenda.
+     */
+    public function valorAPagar(): float
+    {
+        $factura = $this->purchase_invoice_id ? $this->factura : null;
+
+        if ($factura && ! in_array($factura->status, ['draft', 'cancelled'], true)) {
+            return round((float) $factura->total, 2);
+        }
+
+        return round((float) $this->total, 2);
     }
 
     public function podeEditar(): bool
