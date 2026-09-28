@@ -12,6 +12,7 @@ import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { Paginacao } from '@/ui/Paginacao';
 import { FOCO, RAIO, cls } from '@/ui/tokens';
+import { comLarguraDoAparelho } from '@/ui/larguraDoTalao';
 import { t } from '@/i18n';
 import { PainelDoSeparador, Separadores } from '@/ui/Separadores';
 import { ACCAO_DA_FAIXA, Faixa, SemNada, cascata } from './faixa';
@@ -97,7 +98,7 @@ export default function HistoricoDeTurnos() {
                                             <button type="button" onClick={() => porAberto({ id: turno.id, aba: 'resumido' })} aria-label={t('Ver turno :numero', { numero: turno.shift_number })} title={t('Ver o turno')} className={cls('p-2 text-slate-400 hover:text-indigo-600', RAIO, FOCO)}><i className="fas fa-eye" aria-hidden="true" /></button>
                                             <button type="button" onClick={() => porAberto({ id: turno.id, aba: 'produtos' })} aria-label={t('Vendas por produto do turno :numero', { numero: turno.shift_number })} title={t('Vendas por produto')} className={cls('p-2 text-slate-400 hover:text-emerald-600', RAIO, FOCO)}><i className="fas fa-boxes-stacked" aria-hidden="true" /></button>
                                             <a href={turno.exportar.pdf} target="_blank" rel="noreferrer" aria-label={t('PDF do turno :numero', { numero: turno.shift_number })} className={cls('p-2 text-slate-400 hover:text-red-600', RAIO, FOCO)}><i className="fas fa-file-pdf" aria-hidden="true" /></a>
-                                            <a href={turno.exportar.talao} target="_blank" rel="noreferrer" aria-label={t('Talão do turno :numero', { numero: turno.shift_number })} className={cls('p-2 text-slate-400 hover:text-slate-800', RAIO, FOCO)}><i className="fas fa-receipt" aria-hidden="true" /></a>
+                                            <a href={comLarguraDoAparelho(turno.exportar.talao)} target="_blank" rel="noreferrer" aria-label={t('Talão do turno :numero', { numero: turno.shift_number })} className={cls('p-2 text-slate-400 hover:text-slate-800', RAIO, FOCO)}><i className="fas fa-receipt" aria-hidden="true" /></a>
                                         </span>
                                     </td>
                                 </tr>

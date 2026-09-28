@@ -38,7 +38,7 @@ class DefinicoesDaFacturacao
     public const CAMPOS = [
         'default_warehouse_id', 'default_client_id', 'default_supplier_id', 'default_tax_id', 'default_irt_tax_id',
         'default_currency', 'default_exchange_rate', 'default_payment_method',
-        'number_format', 'decimal_places', 'price_mask_enabled', 'pos_formato_impressao', 'rounding_mode',
+        'number_format', 'decimal_places', 'price_mask_enabled', 'pos_formato_impressao', 'pos_largura_talao', 'rounding_mode',
         'proforma_series', 'invoice_series', 'receipt_series',
         'proforma_next_number', 'invoice_next_number', 'receipt_next_number',
         'default_tax_rate', 'default_irt_rate', 'apply_irt_services',
@@ -170,6 +170,7 @@ class DefinicoesDaFacturacao
             // Dois valores e mais nenhum: isto decide o que sai na
             // impressora de quem está ao balcão.
             'pos_formato_impressao' => 'nullable|in:a4,talao',
+            'pos_largura_talao' => 'nullable|in:58,80',
             'rounding_mode' => 'nullable|string|max:20',
             'pos_products_per_page' => 'nullable|integer|min:1|max:200',
             // Só chaves que existem: o que vem do navegador não escolhe o que
@@ -205,6 +206,10 @@ class DefinicoesDaFacturacao
             if (array_key_exists($c, $valores)) {
                 $valores[$c] = (bool) $valores[$c];
             }
+        }
+
+        if (array_key_exists('pos_largura_talao', $valores)) {
+            $valores['pos_largura_talao'] = (string) $valores['pos_largura_talao'] === '58' ? '58' : '80';
         }
 
         if (array_key_exists('pos_formato_impressao', $valores)) {

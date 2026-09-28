@@ -5,19 +5,23 @@
     <title>Ticket Turno {{ $shift->shift_number }}</title>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;700&display=swap" rel="stylesheet">
+    @php
+        // 80 mm (balcão) ou 58 mm (máquinas portáteis como a Sunmi V2s, 28/09/2026).
+        $largura = (int) ($largura ?? 80) === 58 ? 58 : 80;
+    @endphp
     <style>
-        @page { size: 80mm auto; margin: 0; }
+        @page { size: {{ $largura }}mm auto; margin: 0; }
         * { margin: 0; padding: 0; box-sizing: border-box; color: #000; }
-        html, body { width: 80mm; }
+        html, body { width: {{ $largura }}mm; }
         body {
             font-family: 'Ubuntu', sans-serif;
-            font-size: 11px;
+            font-size: {{ $largura === 58 ? '10px' : '11px' }};
             line-height: 1.3;
             background: #f4f4f5;
             padding: 4mm 2mm;
         }
         .ticket {
-            width: 76mm;
+            width: {{ $largura === 58 ? '52mm' : '76mm' }};
             margin: 0 auto;
             background: #fff;
             padding: 3mm 2mm;
@@ -31,7 +35,7 @@
         hr.solid { border: 0; border-top: 1px solid #000; margin: 4px 0; }
         hr.dashed { border: 0; border-top: 1px dashed #888; margin: 4px 0; }
         table { width: 100%; border-collapse: collapse; }
-        td { padding: 1px 0; vertical-align: top; font-size: 11px; }
+        td { padding: 1px 0; vertical-align: top; font-size: {{ $largura === 58 ? '10px' : '11px' }}; }
         .logo { max-height: 32px; width: auto; }
         .actions { max-width: 320px; margin: 6mm auto 0; display: flex; gap: 8px; }
         .actions button {
@@ -42,7 +46,8 @@
         .btn-close { background: #e5e7eb; color: #111827; }
         @media print {
             body { background: #fff; padding: 1mm; }
-            .ticket { box-shadow: none; width: 80mm; padding: 1mm; }
+            /* 58 mm de rolo imprimem 48 mm: 5 mm de cada lado. */
+            .ticket { box-shadow: none; width: {{ $largura }}mm; padding: {{ $largura === 58 ? '1mm 5mm' : '1mm' }}; }
             .actions, .no-print { display: none !important; }
         }
     </style>

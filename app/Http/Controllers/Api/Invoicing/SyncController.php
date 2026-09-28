@@ -492,6 +492,8 @@ class SyncController extends Controller
                 // Fonte única (ver AGTHelper): a coluna do tenant fica muitas
                 // vezes em C_PENDING e o número real vive na definição global.
                 'agt_cert' => \App\Helpers\AGTHelper::softwareValidationNumber(),
+                // A largura do talão da empresa (80 ou 58 mm); o aparelho pode ter a sua.
+                'talao_largura' => \App\Models\Invoicing\InvoicingSettings::forTenant($tenant->id)->larguraDoTalao(),
             ],
             'warehouse' => $defaultWh ? [
                 'id'   => $defaultWh->id,

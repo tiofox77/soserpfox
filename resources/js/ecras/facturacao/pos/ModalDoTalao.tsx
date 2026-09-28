@@ -4,6 +4,7 @@ import type { VendaFechada } from '@/api/pos';
 import { t } from '@/i18n';
 import { abrirOPapel } from '../imprimirAoGravar';
 import { Botao } from '@/ui/Botao';
+import { comLargura, guardarLarguraDoAparelho, larguraEfectiva, type LarguraDoTalao } from '@/ui/larguraDoTalao';
 import { Modal } from '@/ui/Modal';
 import { FOCO, RAIO, cls, kz } from '@/ui/tokens';
 
@@ -23,6 +24,9 @@ import { FOCO, RAIO, cls, kz } from '@/ui/tokens';
  */
 export function ModalDoTalao({ venda, aoFechar }: { venda: VendaFechada | null; aoFechar: () => void }) {
     const [papel, porPapel] = useState<'talao' | 'a4'>('talao');
+    // A LARGURA DO ROLO (28/09/2026): 80 mm no balcão, 58 mm nas máquinas
+    // portáteis (Sunmi V2s…). A escolha fica NESTE aparelho.
+    const [largura, porLargura] = useState<LarguraDoTalao>(() => larguraEfectiva(venda?.largura));
     const [avisoDeImpressao, porAvisoDeImpressao] = useState(false);
     const folha = useRef<HTMLIFrameElement>(null);
 
@@ -30,13 +34,14 @@ export function ModalDoTalao({ venda, aoFechar }: { venda: VendaFechada | null; 
     useEffect(() => {
         if (venda) {
             porPapel(venda.formato);
+            porLargura(larguraEfectiva(venda.largura));
             porAvisoDeImpressao(false);
         }
     }, [venda]);
 
     if (!venda) return null;
 
-    const morada = venda.papeis[papel];
+    const morada = papel === 'talao' ? comLargura(venda.papeis.talao, largura) : venda.papeis.a4;
 
     /*
      * IMPRIMIR O QUE ESTÁ À FRENTE.
@@ -63,7 +68,7 @@ export function ModalDoTalao({ venda, aoFechar }: { venda: VendaFechada | null; 
         // Sem `noopener` nas características: com ele o `window.open` devolve SEMPRE
         // null, e o aviso «impressão bloqueada» aparecia mesmo com a janela aberta.
         // A ligação de volta corta-se à mão (ver `abrirOPapel`).
-        if (!abrirOPapel(`${morada}?imprimir=1`)) {
+        if (!abrirOPapel(`${morada}${morada.includes('?') ? '&' : '?'}imprimir=1`)) {
             porAvisoDeImpressao(true);
         }
     }
@@ -151,30 +156,45 @@ export function ModalDoTalao({ venda, aoFechar }: { venda: VendaFechada | null; 
                 <div className={cls('flex overflow-hidden border border-slate-200 bg-white', RAIO)}>
                     {(
                         [
-                            ['talao', t('Talão 80 mm'), 'fa-receipt'],
-                            ['a4', t('Factura A4'), 'fa-file-lines'],
+                            ['talao', 80, t('Talão 80 mm'), 'fa-receipt'],
+                            ['talao', 58, t('Talão 58 mm'), 'fa-receipt'],
+                            ['a4', null, t('Factura A4'), 'fa-file-lines'],
                         ] as const
-                    ).map(([qual, rotulo, icone]) => (
-                        <button
-                            key={qual}
-                            type="button"
-                            onClick={() => porPapel(qual)}
-                            aria-pressed={papel === qual}
-                            className={cls(
-                                'flex flex-1 items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold transition-colors',
-                                papel === qual
-                                    ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white'
-                                    : 'text-slate-600 hover:bg-slate-50',
-                                FOCO,
-                            )}
-                        >
-                            <i className={cls('fas', icone)} aria-hidden="true" />
-                            {rotulo}
-                            {venda.formato === qual && (
-                                <span className="ml-1 text-[10px] opacity-70">({t('configurado')})</span>
-                            )}
-                        </button>
-                    ))}
+                    ).map(([qual, mm, rotulo, icone]) => {
+                        const escolhido = papel === qual && (mm === null || mm === largura);
+                        const configurado = venda.formato === qual && (mm === null || mm === (venda.largura ?? 80));
+
+                        return (
+                            <button
+                                key={rotulo}
+                                type="button"
+                                onClick={() => {
+                                    porPapel(qual);
+                                    if (mm !== null) {
+                                        porLargura(mm);
+                                        guardarLarguraDoAparelho(mm);
+                                    }
+                                }}
+                                aria-pressed={escolhido}
+                                title={mm === 58 ? t('Máquinas portáteis com impressora embutida (Sunmi V2s…). Fica guardado neste aparelho.') : undefined}
+                                className={cls(
+                                    // No telemóvel (360 px, a Sunmi V2s) os três não cabiam com ícone e
+                                    // «configurado» ao lado: empilham e perdem o ícone.
+                                    'flex flex-1 flex-col items-center justify-center gap-0.5 px-2 py-2 text-xs font-semibold leading-tight transition-colors sm:flex-row sm:gap-2 sm:px-3 sm:py-2.5 sm:text-sm',
+                                    escolhido
+                                        ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white'
+                                        : 'text-slate-600 hover:bg-slate-50',
+                                    FOCO,
+                                )}
+                            >
+                                <i className={cls('fas hidden sm:inline', icone)} aria-hidden="true" />
+                                {rotulo}
+                                {configurado && (
+                                    <span className="text-[10px] font-normal opacity-70 sm:ml-1">({t('configurado')})</span>
+                                )}
+                            </button>
+                        );
+                    })}
                 </div>
 
                 {/* A PRÉ-VISUALIZAÇÃO. É a página verdadeira do servidor dentro

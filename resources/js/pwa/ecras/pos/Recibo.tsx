@@ -1,8 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { t } from '@/i18n';
+import { guardarLarguraDoAparelho, type LarguraDoTalao } from '@/ui/larguraDoTalao';
 
 import { kz } from '../../ganchos';
+import { larguraDoTalao } from '../../papel';
 import { Camada } from './Camada';
 import type { ControloDoPos } from './usePos';
 
@@ -16,6 +18,9 @@ export function ReciboDaVenda({ pos }: { pos: ControloDoPos }) {
     const recibo = pos.recibo;
     const registo = pos.registoDoRecibo;
     const fechar = pos.fecharRecibo;
+    // A LARGURA DO ROLO (28/09/2026): 58 mm nas máquinas portáteis (Sunmi V2s…),
+    // 80 mm no balcão. Fica guardada NESTE aparelho e vale já no «Imprimir».
+    const [largura, porLargura] = useState<LarguraDoTalao>(() => larguraDoTalao(pos.empresa || {}));
 
     useEffect(() => {
         if (!recibo) return;
@@ -83,6 +88,18 @@ export function ReciboDaVenda({ pos }: { pos: ControloDoPos }) {
                                 className="pwa-toque flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-2xl font-bold text-sm">
                             <i className="fas fa-plus mr-1" aria-hidden="true" />{t('Nova Venda')}
                         </button>
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-center gap-2 text-xs text-gray-500" role="group" aria-label={t('Largura do talão')}>
+                        <span>{t('Papel')}</span>
+                        {([80, 58] as const).map((mm) => (
+                            <button key={mm} type="button" aria-pressed={largura === mm} data-ensaio={`largura-${mm}`}
+                                    onClick={() => { porLargura(mm); guardarLarguraDoAparelho(mm); }}
+                                    title={mm === 58 ? t('Máquinas portáteis com impressora embutida (Sunmi V2s…). Fica guardado neste aparelho.') : undefined}
+                                    className={`pwa-toque px-3 py-1 rounded-full font-semibold border ${largura === mm ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-gray-600 border-gray-300'}`}>
+                                {mm} mm
+                            </button>
+                        ))}
                     </div>
                 </div>
             </div>

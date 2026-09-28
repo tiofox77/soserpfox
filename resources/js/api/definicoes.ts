@@ -15,6 +15,8 @@ export type Definicoes = {
     decimal_places: number | string;
     price_mask_enabled: boolean;
     pos_formato_impressao: 'a4' | 'talao';
+    /** A largura do talão: 80 mm (balcão) ou 58 mm (máquinas portáteis). */
+    pos_largura_talao: '80' | '58';
     rounding_mode: string | null;
     proforma_series: string;
     invoice_series: string;

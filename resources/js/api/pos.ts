@@ -104,6 +104,8 @@ export type VendaFechada = {
     atcud: string | null;
     /** O papel que a empresa configurou: o modal abre neste. */
     formato: 'talao' | 'a4';
+    /** A largura do talão da empresa; o aparelho pode ter a sua (ui/larguraDoTalao). */
+    largura?: 58 | 80;
     /** As duas moradas do documento verdadeiro, geradas pelo servidor. */
     papeis: { talao: string; a4: string };
     /** Alias mantido para consumidores antigos; aponta para o papel A4. */

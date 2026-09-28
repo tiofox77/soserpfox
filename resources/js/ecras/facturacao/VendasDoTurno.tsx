@@ -8,6 +8,7 @@ import { CartaoNumero } from '@/ui/CartaoNumero';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { PainelDoSeparador, Separadores } from '@/ui/Separadores';
 import { FOCO, RAIO, TRANSICAO, cls } from '@/ui/tokens';
+import { comLarguraDoAparelho } from '@/ui/larguraDoTalao';
 import { t } from '@/i18n';
 import { SemNada, cascata } from './faixa';
 
@@ -101,9 +102,9 @@ export function PapelDoFecho({ turno, tipo }: { turno: Turno; tipo: TipoDeFecho 
 
     return (
         <div className="flex flex-wrap gap-2" data-papel-fecho>
-            {ligacao(produtos ? e.talao_produtos : e.talao, 'fa-receipt', produtos ? t('Talão com produtos') : t('Talão resumido'), true)}
+            {ligacao(comLarguraDoAparelho(produtos ? e.talao_produtos : e.talao), 'fa-receipt', produtos ? t('Talão com produtos') : t('Talão resumido'), true)}
             {ligacao(produtos ? e.pdf_produtos : e.pdf, 'fa-file-pdf', produtos ? t('PDF com produtos') : t('PDF resumido'), true)}
-            {ligacao(produtos ? e.talao : e.talao_produtos, 'fa-receipt', produtos ? t('Talão resumido') : t('Talão com produtos'), false)}
+            {ligacao(comLarguraDoAparelho(produtos ? e.talao : e.talao_produtos), 'fa-receipt', produtos ? t('Talão resumido') : t('Talão com produtos'), false)}
             {ligacao(produtos ? e.pdf : e.pdf_produtos, 'fa-file-pdf', produtos ? t('PDF resumido') : t('PDF com produtos'), false)}
         </div>
     );

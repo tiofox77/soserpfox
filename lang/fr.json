@@ -13377,5 +13377,11 @@
     "− Notas de crédito (devoluções e correcções)": "− Avoirs (retours et corrections)",
     "= Receita líquida": "= Chiffre d’affaires net",
     "− Custo das mercadorias vendidas (CMV)": "− Coût des marchandises vendues (CMV)",
-    "= Lucro bruto": "= Marge brute"
+    "= Lucro bruto": "= Marge brute",
+    "Largura do talão": "Largeur du ticket",
+    "80 mm — impressoras de balcão": "80 mm — imprimantes de comptoir",
+    "58 mm — máquinas portáteis (Sunmi V2s e semelhantes)": "58 mm — terminaux portables (Sunmi V2s et similaires)",
+    "Cada aparelho pode escolher a sua na janela de impressão — fica guardada nesse aparelho.": "Chaque appareil peut choisir la sienne dans la fenêtre d'impression — elle est enregistrée sur cet appareil.",
+    "Talão 58 mm": "Ticket 58 mm",
+    "Máquinas portáteis com impressora embutida (Sunmi V2s…). Fica guardado neste aparelho.": "Terminaux portables avec imprimante intégrée (Sunmi V2s…). Enregistré sur cet appareil."
 }

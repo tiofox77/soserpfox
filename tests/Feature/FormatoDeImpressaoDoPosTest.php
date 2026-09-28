@@ -238,7 +238,9 @@ class FormatoDeImpressaoDoPosTest extends TenantTestCase
         $modal = file_get_contents(resource_path('js/ecras/facturacao/pos/ModalDoTalao.tsx'));
 
         // O papel à frente é a morada que o servidor mandou, dentro de um iframe.
-        $this->assertStringContainsString('venda.papeis[papel]', $modal,
+        // (O talão leva a largura do rolo, 80 ou 58 mm, desde 28/09/2026 —
+        // continua a ser a morada do servidor, só com ?largura=.)
+        $this->assertStringContainsString('comLargura(venda.papeis.talao, largura) : venda.papeis.a4', $modal,
             'o papel é o do servidor, não um segundo desenho');
         $this->assertStringContainsString('<iframe', $modal);
 

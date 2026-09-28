@@ -969,6 +969,8 @@ class PosApiController extends Controller
              * imagens carregarem.
              */
             'formato' => ($definicoes->pos_formato_impressao ?? 'talao') === 'a4' ? 'a4' : 'talao',
+            // A largura do talão da empresa (80 ou 58 mm); o aparelho pode ter a sua.
+            'largura' => $definicoes->larguraDoTalao(),
             'papeis' => [
                 'talao' => "/invoicing/sales/invoices/{$factura->id}/talao",
                 'a4' => "/invoicing/sales/invoices/{$factura->id}/preview",
@@ -1127,6 +1129,7 @@ class PosApiController extends Controller
                 'totais' => $consulta->totais(),
                 // O papel configurado: é nele que o botão de imprimir imprime.
                 'formato' => (InvoicingSettings::forTenant($tenantId)->pos_formato_impressao ?? 'talao') === 'a4' ? 'a4' : 'talao',
+                'largura' => InvoicingSettings::forTenant($tenantId)->larguraDoTalao(),
 
                 /*
                  * O SELECTOR DE OPERADOR só existe para quem pode ver as

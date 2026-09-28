@@ -74,6 +74,7 @@ class InvoicingSettings extends Model
         'pos_hide_out_of_stock',
         'pos_show_product_images',
         'pos_formato_impressao',
+        'pos_largura_talao',
         'pos_products_per_page',
         'pos_auto_complete_sale',
         'pos_require_customer',
@@ -229,6 +230,21 @@ class InvoicingSettings extends Model
     public function getPosFormatoImpressaoAttribute($valor): string
     {
         return $valor === 'a4' ? 'a4' : 'talao';
+    }
+
+    /**
+     * A LARGURA DO TALÃO: 80 mm (impressoras de balcão) ou 58 mm (as máquinas
+     * portáteis com impressora embutida, como a Sunmi V2s). Tudo o que não for
+     * 58 é 80 — o talão de sempre.
+     */
+    public function getPosLarguraTalaoAttribute($valor): string
+    {
+        return (string) $valor === '58' ? '58' : '80';
+    }
+
+    public function larguraDoTalao(): int
+    {
+        return (int) $this->pos_largura_talao;
     }
 
     public static function forTenant($tenantId)

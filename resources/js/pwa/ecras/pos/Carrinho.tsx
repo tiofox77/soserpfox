@@ -90,8 +90,19 @@ export function Carrinho({ pos, folha = false }: { pos: ControloDoPos; folha?: b
                 </div>
             )}
 
+            {/*
+              NA FOLHA, ITENS, TOTAIS E PAGAMENTO ROLAM JUNTOS (28/09/2026).
+
+              O rodapé (total, pagamento, desconto, valor recebido) tem ~560 px.
+              Numa máquina de venda portátil como a Sunmi V2s o ecrã útil tem
+              592 px e a folha 92% disso: o rodapé não rolava e o «Finalizar
+              Venda» ficava abaixo do ecrã, sem maneira de lá chegar. Na folha
+              rola tudo o que está no meio e o botão fica sempre à vista em baixo.
+              Na coluna do ecrã largo o invólucro é `contents` — não muda nada.
+            */}
+            <div className={folha ? 'flex-1 min-h-0 overflow-y-auto overscroll-contain' : 'contents'}>
             {/* Itens */}
-            <div className="flex-1 overflow-y-auto overscroll-contain px-4 space-y-2 min-h-[120px]">
+            <div className={`px-4 space-y-2 ${folha ? '' : 'flex-1 overflow-y-auto overscroll-contain min-h-[120px]'}`}>
                 {pos.carrinho.map((linha, idx) => (
                     <LinhaDoCarrinhoUI key={`${linha.product_id ?? 'x'}|${linha.product_name}|${linha.unit_price}`}
                                        linha={linha} idx={idx} pos={pos} />
@@ -138,27 +149,51 @@ export function Carrinho({ pos, folha = false }: { pos: ControloDoPos; folha?: b
             )}
 
             {/* Rodapé: totais + pagamento + acção */}
-            <div className="shrink-0 border-t border-gray-100 px-4 pt-3 pb-4 space-y-3 bg-white">
+            <div className={`shrink-0 border-t border-gray-100 px-4 pt-3 space-y-3 bg-white ${folha ? 'mt-2 pb-3' : 'pb-4'}`}>
                 <Totais pos={pos} />
                 {temItens && <Pagamento pos={pos} />}
-
-                {/* Finalizar. Desactivado sem turno: um botão que se carrega e não vende ensina a carregar duas vezes. */}
-                <button type="button" onClick={() => void pos.finalizar()}
-                        disabled={!pos.carrinho.length || pos.aGuardar || !c.turno.open || !pos.divisaoFechada}
-                        className="pwa-toque w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white rounded-2xl font-bold text-base py-4 shadow-lg shadow-emerald-600/20 disabled:opacity-50 disabled:shadow-none transition">
-                    {pos.aGuardar
-                        ? <><i className="fas fa-spinner fa-spin mr-1.5" aria-hidden="true" />{t('A guardar…')}</>
-                        : <><i className="fas fa-circle-check mr-1.5" aria-hidden="true" />{t('Finalizar Venda')}</>}
-                </button>
-
-                {/* Fechar turno (funciona offline — fecho enfileirado após as vendas) */}
-                {c.turno.open && (
-                    <button type="button" onClick={c.abrirFecho}
-                            className="w-full text-xs text-gray-500 hover:text-red-600 font-bold py-1.5 transition-colors">
-                        <i className="fas fa-lock mr-1" aria-hidden="true" />{t('Fechar turno')}
-                    </button>
-                )}
+                {!folha && <AccoesDoCarrinho pos={pos} />}
             </div>
+            </div>
+
+            {/* Na folha, o fecho da venda fica fora do que rola: sempre à vista. */}
+            {folha && (
+                <div className="shrink-0 border-t border-gray-100 px-4 pt-2 pb-2 bg-white shadow-[0_-6px_16px_-8px_rgba(15,23,42,0.15)]">
+                    <AccoesDoCarrinho pos={pos} comTotal />
+                </div>
+            )}
+        </>
+    );
+}
+
+/**
+ * Finalizar e fechar o turno. Na folha o botão leva o total: os totais podem
+ * ter rolado para fora da vista, e quem cobra tem de ver quanto antes de tocar.
+ */
+function AccoesDoCarrinho({ pos, comTotal = false }: { pos: ControloDoPos; comTotal?: boolean }) {
+    const { turno: c } = pos;
+
+    return (
+        <>
+            {/* Finalizar. Desactivado sem turno: um botão que se carrega e não vende ensina a carregar duas vezes. */}
+            <button type="button" onClick={() => void pos.finalizar()}
+                    disabled={!pos.carrinho.length || pos.aGuardar || !c.turno.open || !pos.divisaoFechada}
+                    className={`pwa-toque w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white rounded-2xl font-bold text-base shadow-lg shadow-emerald-600/20 disabled:opacity-50 disabled:shadow-none transition ${comTotal ? 'py-3.5' : 'py-4'}`}>
+                {pos.aGuardar
+                    ? <><i className="fas fa-spinner fa-spin mr-1.5" aria-hidden="true" />{t('A guardar…')}</>
+                    : <>
+                        <i className="fas fa-circle-check mr-1.5" aria-hidden="true" />{t('Finalizar Venda')}
+                        {comTotal && pos.carrinho.length > 0 && <span className="ml-1.5 tabular-nums opacity-90">· {kz(pos.totais.total)}</span>}
+                    </>}
+            </button>
+
+            {/* Fechar turno (funciona offline — fecho enfileirado após as vendas) */}
+            {c.turno.open && (
+                <button type="button" onClick={c.abrirFecho}
+                        className={`w-full text-xs text-gray-500 hover:text-red-600 font-bold transition-colors ${comTotal ? 'pt-1.5' : 'py-1.5'}`}>
+                    <i className="fas fa-lock mr-1" aria-hidden="true" />{t('Fechar turno')}
+                </button>
+            )}
         </>
     );
 }

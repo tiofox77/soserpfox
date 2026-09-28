@@ -13377,5 +13377,11 @@
     "− Notas de crédito (devoluções e correcções)": "− Credit notes (returns and corrections)",
     "= Receita líquida": "= Net revenue",
     "− Custo das mercadorias vendidas (CMV)": "− Cost of goods sold (COGS)",
-    "= Lucro bruto": "= Gross profit"
+    "= Lucro bruto": "= Gross profit",
+    "Largura do talão": "Receipt width",
+    "80 mm — impressoras de balcão": "80 mm — counter printers",
+    "58 mm — máquinas portáteis (Sunmi V2s e semelhantes)": "58 mm — handheld terminals (Sunmi V2s and similar)",
+    "Cada aparelho pode escolher a sua na janela de impressão — fica guardada nesse aparelho.": "Each device can choose its own in the print window — it is saved on that device.",
+    "Talão 58 mm": "58 mm receipt",
+    "Máquinas portáteis com impressora embutida (Sunmi V2s…). Fica guardado neste aparelho.": "Handheld terminals with a built-in printer (Sunmi V2s…). Saved on this device."
 }

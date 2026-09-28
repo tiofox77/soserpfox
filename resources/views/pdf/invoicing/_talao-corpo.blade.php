@@ -12,7 +12,13 @@
 
     Espera $invoice (com items, client e series). Quem põe o invólucro e o
     CSS de impressão é quem inclui: o modal, ou a página do talão.
+
+    E $largura (80 ou 58, 28/09/2026): a 58 mm — as máquinas portáteis como a
+    Sunmi V2s — o cabeçalho empilha com o QR ao centro, e cada artigo ocupa
+    duas linhas (o nome, e «qtd × preço» com o total). O conteúdo fiscal é o
+    mesmo; muda só a arrumação.
 --}}
+@php $estreito = (int) ($largura ?? 80) === 58; @endphp
             {{-- QR Code AGT (gerar antes do cabeçalho) --}}
             @php
                 try {
@@ -33,22 +39,24 @@
                 }
                 $ticketLogo = $ticketLogo ?: app_logo();
             @endphp
-            <div style="display: flex; align-items: flex-start; justify-content: space-between; border-bottom: 2px dashed #9ca3af; padding-bottom: 10px; margin-bottom: 10px;">
-                <div style="flex: 1;">
+            <div style="{{ $estreito ? 'text-align: center;' : 'display: flex; align-items: flex-start; justify-content: space-between;' }} border-bottom: 2px dashed #9ca3af; padding-bottom: 10px; margin-bottom: 10px;">
+                <div style="{{ $estreito ? '' : 'flex: 1;' }}">
                     @if($ticketLogo)
-                        <img src="{{ $ticketLogo }}" alt="{{ $tenant?->nomeParaDocumentos() ?: app_name() }}" style="display: block; width: 160px; height: 48px; max-width: 100%; object-fit: contain; object-position: left center; margin-bottom: 6px;">
+                        <img src="{{ $ticketLogo }}" alt="{{ $tenant?->nomeParaDocumentos() ?: app_name() }}" style="display: block; width: {{ $estreito ? '120px; height: 36px; margin: 0 auto 4px; object-position: center;' : '160px; height: 48px; margin-bottom: 6px; object-position: left center;' }} max-width: 100%; object-fit: contain;">
                     @endif
-                    <h3 style="font-size: 15px; font-weight: 400; text-transform: uppercase; margin: 0;">{{ $tenant->nomeParaDocumentos() }}</h3>
-                    <p style="font-size: 14px; margin: 0;">NIF: {{ $tenant->nif ?? 'N/A' }}</p>
-                    <p style="font-size: 14px; margin: 0;">{{ $tenant->address ?? 'Endereço' }}</p>
-                    <p style="font-size: 14px; margin: 0;">Tel: {{ $tenant->phone ?? 'Telefone' }}</p>
+                    <h3 style="font-size: {{ $estreito ? '12px' : '15px' }}; font-weight: 400; text-transform: uppercase; margin: 0;">{{ $tenant->nomeParaDocumentos() }}</h3>
+                    <p style="font-size: {{ $estreito ? '11px' : '14px' }}; margin: 0;">NIF: {{ $tenant->nif ?? 'N/A' }}</p>
+                    <p style="font-size: {{ $estreito ? '11px' : '14px' }}; margin: 0;">{{ $tenant->address ?? 'Endereço' }}</p>
+                    <p style="font-size: {{ $estreito ? '11px' : '14px' }}; margin: 0;">Tel: {{ $tenant->phone ?? 'Telefone' }}</p>
                 </div>
                 @if(!empty($ticketQR['image']))
-                <div style="flex-shrink: 0; text-align: center; margin-left: 10px;">
-                    <img src="{{ $ticketQR['image'] }}" alt="QR Code AGT" style="width: 100px; height: 100px;" />
+                {{-- A 58 mm o QR vai ao centro, por baixo, e com ~30 mm: ao lado
+                     do nome não cabia, e mais pequeno não se lê. --}}
+                <div style="{{ $estreito ? 'margin-top: 6px;' : 'flex-shrink: 0; margin-left: 10px;' }} text-align: center;">
+                    <img src="{{ $ticketQR['image'] }}" alt="QR Code AGT" style="width: {{ $estreito ? '112px' : '100px' }}; height: {{ $estreito ? '112px' : '100px' }};{{ $estreito ? ' display: block; margin: 0 auto;' : '' }}" />
                     {{-- Série ainda por registar na AGT não tem ATCUD --}}
                     @if(!empty($ticketQR['atcud']))
-                    <p style="font-size: 14px; color: #000; margin-top: 2px;">ATCUD: {{ $ticketQR['atcud'] }}</p>
+                    <p style="font-size: {{ $estreito ? '10px' : '14px' }}; color: #000; margin-top: 2px;">ATCUD: {{ $ticketQR['atcud'] }}</p>
                     @endif
                 </div>
                 @endif
@@ -100,6 +108,44 @@
 
             {{-- Itens --}}
             <div class="text-xs mb-3">
+                @if($estreito)
+                {{-- A 58 mm: o nome numa linha, «qtd × preço» e o total na de baixo. --}}
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-gray-400">
+                            <th class="text-left py-1">ITEM</th>
+                            <th class="text-right">TOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($invoice->items as $item)
+                        @php $isItemService = str_starts_with($item->description ?? '', '[SERVIÇO]'); @endphp
+                        <tr>
+                            <td colspan="2" class="pt-1">
+                                @if($isItemService)<span class="text-purple-600">●</span>@endif
+                                {{ $item->product_name }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-gray-700">{{ number_format($item->quantity, 0) }} × {{ number_format($item->unit_price, 0) }}</td>
+                            <td class="text-right">{{ number_format($item->subtotal, 0) }}</td>
+                        </tr>
+                        <tr class="text-[10px] text-gray-600 border-b border-dotted border-gray-300">
+                            <td colspan="2" class="pb-1">
+                                @if($item->tax_rate > 0)
+                                IVA {{ number_format($item->tax_rate, 0) }}%: {{ number_format($item->tax_amount, 2) }} Kz
+                                @if($isItemService)
+                                 | <span class="text-purple-600">IRT {{ number_format($irtRate ?? 6.5, 1) }}%</span>
+                                @endif
+                                @else
+                                Isento de IVA
+                                @endif
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+                @else
                 <table class="w-full">
                     <thead>
                         <tr class="border-b border-gray-400">
@@ -140,6 +186,7 @@
                         @endforeach
                     </tbody>
                 </table>
+                @endif
             </div>
 
             {{-- Resumo Fiscal SAFT --}}

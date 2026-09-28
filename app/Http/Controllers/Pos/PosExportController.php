@@ -67,12 +67,19 @@ class PosExportController extends Controller
             return $pdf->stream('ticket-turno-' . $shift->shift_number . '.pdf');
         }
 
+        // A largura do rolo: a que o aparelho pede ou a da empresa (28/09/2026).
+        $pedida = (int) $request->query('largura');
+        $largura = in_array($pedida, [58, 80], true)
+            ? $pedida
+            : \App\Models\Invoicing\InvoicingSettings::forTenant(activeTenantId())->larguraDoTalao();
+
         // Modo default: HTML auto-print + auto-close
         return response()->view('pdf.pos.shift-ticket-html', [
             'shift' => $shift,
             'tenant' => $tenant,
             'produtos' => $produtos,
             'autoPrint' => $request->query('print', '1') !== '0',
+            'largura' => $largura,
         ]);
     }
 

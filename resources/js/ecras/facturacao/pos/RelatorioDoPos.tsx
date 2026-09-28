@@ -12,6 +12,7 @@ import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { Paginacao } from '@/ui/Paginacao';
 import { CORES_DE_ECRA, FOCO, RAIO, cls, data as fmtData, kz } from '@/ui/tokens';
+import { comLarguraDoAparelho } from '@/ui/larguraDoTalao';
 
 /**
  * O MAPA DE VENDAS DO BALCÃO.
@@ -531,11 +532,15 @@ function PapelDoDocumento({
     /** No rodapé do modal os botões são do tamanho dos do modal. */
     grande?: boolean;
 }) {
+    // O talão sai na largura do rolo deste aparelho, se a escolheu (?largura=58).
+    const papel = d.papeis ? d.papeis[formato] : '';
+    const morada = formato === 'talao' ? comLarguraDoAparelho(papel) : papel;
+
     return (
         <>
             {d.papeis && (
                 <a
-                    href={`${d.papeis[formato]}?imprimir=1`}
+                    href={`${morada}${morada.includes('?') ? '&' : '?'}imprimir=1`}
                     target="_blank"
                     rel="noreferrer"
                     aria-label={t('Imprimir :numero', { numero: d.numero_interno })}

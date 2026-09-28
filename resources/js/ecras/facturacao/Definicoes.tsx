@@ -347,8 +347,21 @@ export default function Definicoes() {
                             {/* Dois valores e mais nenhum: isto decide o que sai na impressora de quem está ao balcão. */}
                             <Campo etiqueta={t('Papel da venda ao balcão')} erro={erros.pos_formato_impressao}>
                                 <select value={forma.pos_formato_impressao} onChange={texto('pos_formato_impressao')} className={entrada}>
-                                    <option value="talao">{t('Talão (80 mm)')}</option>
+                                    <option value="talao">{t('Talão')}</option>
                                     <option value="a4">{t('Factura A4')}</option>
+                                </select>
+                            </Campo>
+                            {/*
+                              * A LARGURA DO ROLO (28/09/2026). As máquinas portáteis
+                              * com impressora embutida usam 58 mm; um talão de 80 mm
+                              * saía lá encolhido e ilegível. Cada aparelho pode ainda
+                              * escolher o seu na janela de impressão.
+                              */}
+                            <Campo etiqueta={t('Largura do talão')} erro={erros.pos_largura_talao}
+                                ajuda={t('Cada aparelho pode escolher a sua na janela de impressão — fica guardada nesse aparelho.')}>
+                                <select id="definicoes-largura-talao" value={forma.pos_largura_talao} onChange={texto('pos_largura_talao')} className={entrada}>
+                                    <option value="80">{t('80 mm — impressoras de balcão')}</option>
+                                    <option value="58">{t('58 mm — máquinas portáteis (Sunmi V2s e semelhantes)')}</option>
                                 </select>
                             </Campo>
                             <Campo etiqueta={t('Nome da empresa nos documentos')} erro={erros.nome_nos_documentos} obrigatorio>

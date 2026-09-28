@@ -1,7 +1,12 @@
 import type { Registo } from '../motor/base';
 
 /**
- * O TALÃO DE 80 mm — a Factura-Recibo do balcão, com rede ou sem ela.
+ * O TALÃO — a Factura-Recibo do balcão, com rede ou sem ela.
+ *
+ * DUAS LARGURAS (28/09/2026): 80 mm nas impressoras de balcão, 58 mm nas
+ * máquinas portáteis com impressora embutida (Sunmi V2s…), onde um talão de
+ * 80 mm saía encolhido e ilegível. A 58 mm o cabeçalho empilha com o QR ao
+ * centro e cada artigo ocupa duas linhas; o conteúdo fiscal é o mesmo.
  *
  * NÃO SE TRADUZ NADA AQUI DENTRO. É documento fiscal AGT e sai em português
  * nas três línguas (PLANO-MULTILINGUA.md, decisão 3): traduzir «Isento de IVA»
@@ -28,7 +33,8 @@ export function paymentLabel(code: unknown): string {
     return mapa[c.toLowerCase()] || (c ? c.toUpperCase() : 'DINHEIRO');
 }
 
-export function buildTicketHtml(sale: Registo, company: Registo = {}): string {
+export function buildTicketHtml(sale: Registo, company: Registo = {}, largura: 58 | 80 = 80): string {
+    const estreito = largura === 58;
     const synced = sale._synced === 1;
     const number = synced ? (sale._server_number || sale.provisional_number) : sale.provisional_number;
     const date = new Date(sale.created_at || Date.now());
@@ -41,14 +47,23 @@ export function buildTicketHtml(sale: Registo, company: Registo = {}): string {
         const price = Number(it.unit_price) || 0;
         const lineSub = qty * price;
         const taxRate = Number(it.tax_rate) || 0;
-        itemsHtml += `
+        const imposto = taxRate > 0 ? ('IVA ' + taxRate + '%: ' + money(lineSub * taxRate / 100) + ' Kz') : 'Isento de IVA';
+
+        // A 58 mm: o nome numa linha, «qtd × preço» e o total na de baixo.
+        itemsHtml += estreito
+            ? `
+                <tr class="row-item"><td colspan="2">${esc(it.product_name)}</td></tr>
+                <tr class="row-qty"><td>${qty.toLocaleString('pt-PT')} × ${money(price)}</td><td class="tr">${money(lineSub)}</td></tr>
+                <tr class="row-tax"><td colspan="2">${imposto}</td></tr>
+            `
+            : `
                 <tr class="row-item">
                     <td>${esc(it.product_name)}</td>
                     <td class="tc">${qty.toLocaleString('pt-PT')}</td>
                     <td class="tr">${money(price)}</td>
                     <td class="tr">${money(lineSub)}</td>
                 </tr>
-                <tr class="row-tax"><td colspan="4">${taxRate > 0 ? ('IVA ' + taxRate + '%: ' + money(lineSub * taxRate / 100) + ' Kz') : 'Isento de IVA'}</td></tr>
+                <tr class="row-tax"><td colspan="4">${imposto}</td></tr>
             `;
     }
 
@@ -104,7 +119,9 @@ export function buildTicketHtml(sale: Registo, company: Registo = {}): string {
 
             <table class="items">
                 <thead>
-                    <tr><th class="tl">ITEM</th><th class="tc">QTD</th><th class="tr">PREÇO</th><th class="tr">SUBT.</th></tr>
+                    ${estreito
+                        ? '<tr><th class="tl">ITEM</th><th class="tr">TOTAL</th></tr>'
+                        : '<tr><th class="tl">ITEM</th><th class="tc">QTD</th><th class="tr">PREÇO</th><th class="tr">SUBT.</th></tr>'}
                 </thead>
                 <tbody>${itemsHtml}</tbody>
             </table>
@@ -135,7 +152,29 @@ export function buildTicketHtml(sale: Registo, company: Registo = {}): string {
         `;
 }
 
-export const PRINT_CSS = `
+/**
+ * O CSS DO PAPEL, na largura do rolo. A 58 mm imprimem-se 48 mm: 5 mm de
+ * margem de cada lado, letra um pouco mais pequena, cabeçalho empilhado e
+ * as rubricas a partir para a linha de baixo quando o valor não cabe.
+ */
+export function cssDoTalao(largura: 58 | 80 = 80): string {
+    return largura === 58 ? PRINT_CSS_80.replaceAll('80mm', '58mm') + CSS_58 : PRINT_CSS_80;
+}
+
+const CSS_58 = `
+        body { font-size: 9.5px; padding: 2mm 5mm; }
+        .hdr { display: block; text-align: center; }
+        .logo { margin: 0 auto 3px; height: 30px; }
+        .qr-wrap { margin: 5px auto 0; }
+        .qr { width: 110px; height: 110px; display: block; margin: 0 auto; }
+        .line { flex-wrap: wrap; column-gap: 4px; font-size: 9.5px; }
+        .line > span:last-child { margin-left: auto; text-align: right; }
+        .row-item td { padding-top: 3px; padding-bottom: 0; }
+        .row-qty td { padding-top: 0; }
+        .grand { font-size: 12px; }
+    `;
+
+const PRINT_CSS_80 = `
         @page { size: 80mm auto; margin: 0; }
         * { margin: 0; padding: 0; box-sizing: border-box; color: #000 !important; }
         html, body { width: 80mm; }
@@ -169,3 +208,5 @@ export const PRINT_CSS = `
         .foot .mt { margin-top: 4px; }
         .hash { font-family: monospace; font-size: 8px; word-break: break-all; margin-top: 3px; }
     `;
+
+export const PRINT_CSS = cssDoTalao(80);

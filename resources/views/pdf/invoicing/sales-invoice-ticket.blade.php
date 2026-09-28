@@ -30,9 +30,13 @@
     <script src="/vendor/js/tailwind.js"></script>
     <link rel="stylesheet" href="/vendor/css/fontawesome.min.css">
 
+    @php
+        // 80 mm (balcão) ou 58 mm (máquinas portáteis como a Sunmi V2s).
+        $largura = (int) ($largura ?? 80) === 58 ? 58 : 80;
+    @endphp
     <style>
-        /* O PAPEL. 80 mm é a largura da bobine; o comprimento é o que for. */
-        @page { size: 80mm auto; margin: 0; }
+        /* O PAPEL. A largura é a da bobine; o comprimento é o que for. */
+        @page { size: {{ $largura }}mm auto; margin: 0; }
 
         html, body {
             margin: 0;
@@ -45,14 +49,24 @@
 
             /* Na impressora a folha ocupa a bobine inteira e perde a sombra. */
             #ticket-print {
-                width: 80mm !important;
-                max-width: 80mm !important;
+                width: {{ $largura }}mm !important;
+                max-width: {{ $largura }}mm !important;
                 margin: 0 !important;
-                padding: 4mm !important;
+                /* 58 mm de rolo imprimem 48 mm: 5 mm de cada lado. */
+                padding: {{ $largura === 58 ? '3mm 5mm' : '4mm' }} !important;
                 box-shadow: none !important;
                 overflow: visible !important;
             }
         }
+
+        /*
+         * O ROLO DE 58 mm (28/09/2026). Nos 48 mm impressos, uma rubrica e o
+         * seu valor nem sempre cabem na mesma linha: o valor desce para a de
+         * baixo, encostado à direita, em vez de se sobrepor ao texto.
+         */
+        .papel-58 .flex.justify-between { flex-wrap: wrap; column-gap: 6px; }
+        .papel-58 .flex.justify-between > span:last-child { margin-left: auto; text-align: right; }
+        .papel-58 .text-xs { font-size: 11px; line-height: 1.3; }
 
         @media screen {
             #ticket-print {
@@ -67,8 +81,10 @@
     {{-- O MESMO invólucro do modal do POS, com as mesmas medidas: 480px de
          largura, 16px de folga, Ubuntu a 14px e tinta preta. Mudar qualquer
          um destes números dava um talão diferente do que já se imprime. --}}
-    <div id="ticket-print" class="ticket-thermal" style="width: 480px; max-width: 100%; margin: 0 auto; padding: 16px; background: #fff; font-family: 'Ubuntu', sans-serif; font-size: 14px; color: #000;">
-        @include('pdf.invoicing._talao-corpo', ['invoice' => $invoice])
+    {{-- A 58 mm o invólucro já tem a largura do rolo no ecrã: o que se vê é
+         o que a máquina imprime. --}}
+    <div id="ticket-print" class="ticket-thermal papel-{{ $largura }}" style="width: {{ $largura === 58 ? '58mm' : '480px' }}; max-width: 100%; margin: 0 auto; padding: {{ $largura === 58 ? '3mm 5mm' : '16px' }}; background: #fff; font-family: 'Ubuntu', sans-serif; font-size: {{ $largura === 58 ? '11px' : '14px' }}; color: #000;">
+        @include('pdf.invoicing._talao-corpo', ['invoice' => $invoice, 'largura' => $largura])
     </div>
 
     @if(request()->boolean('imprimir'))

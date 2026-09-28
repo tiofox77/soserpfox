@@ -3,7 +3,16 @@ import { buildDocumentHtml, DOCUMENT_CSS } from './documento';
 import { preencherMolde, type ExtrasDoPapel } from './molde';
 import { buildShiftReportHtml } from './relatorio';
 import { imprimirDocumentoHtml, pdfHtml, printHtml } from './saida';
-import { buildTicketHtml, PRINT_CSS } from './talao';
+import { buildTicketHtml, cssDoTalao } from './talao';
+import { larguraEfectiva } from '@/ui/larguraDoTalao';
+
+/**
+ * A LARGURA DO ROLO (28/09/2026): a deste aparelho (escolhida no recibo e
+ * guardada nele), senão a da empresa, senão 80 mm.
+ */
+export function larguraDoTalao(company: Registo = {}): 58 | 80 {
+    return larguraEfectiva(company.talao_largura as number | string | null | undefined);
+}
 
 /**
  * O PAPEL DO PWA — talão, documento, relatório de turno, em impressora e PDF.
@@ -34,12 +43,15 @@ export const PosOfflineTicket = {
     },
 
     print(sale: Registo, company: Registo = {}): void {
-        printHtml(buildTicketHtml(sale, company));
+        const l = larguraDoTalao(company);
+        printHtml(buildTicketHtml(sale, company, l), cssDoTalao(l));
     },
 
-    /** O talão da venda em PDF (80 mm), feito no aparelho. */
+    /** O talão da venda em PDF, na largura do rolo, feito no aparelho. */
     pdfDoTalao(sale: Registo, company: Registo = {}): Promise<Blob> {
-        return pdfHtml(buildTicketHtml(sale, company), PRINT_CSS, { larguraMm: 80 });
+        const l = larguraDoTalao(company);
+
+        return pdfHtml(buildTicketHtml(sale, company, l), cssDoTalao(l), { larguraMm: l });
     },
 
     /** O documento em PDF — A4; a FR vai como talão, como na impressão. */
@@ -49,7 +61,9 @@ export const PosOfflineTicket = {
         }
 
         if (String(doc.doc_type || '').toUpperCase() === 'FR') {
-            return pdfHtml(buildTicketHtml(comoTalao(doc), company), PRINT_CSS, { larguraMm: 80 });
+            const l = larguraDoTalao(company);
+
+            return pdfHtml(buildTicketHtml(comoTalao(doc), company, l), cssDoTalao(l), { larguraMm: l });
         }
 
         return pdfHtml(buildDocumentHtml(doc, company), DOCUMENT_CSS, { larguraMm: 210, a4: true });
@@ -67,7 +81,8 @@ export const PosOfflineTicket = {
         }
 
         if (String(doc.doc_type || '').toUpperCase() === 'FR') {
-            printHtml(buildTicketHtml(comoTalao(doc), company));
+            const l = larguraDoTalao(company);
+            printHtml(buildTicketHtml(comoTalao(doc), company, l), cssDoTalao(l));
 
             return;
         }
@@ -77,7 +92,7 @@ export const PosOfflineTicket = {
 
     /** `comProdutos`: o fecho com as vendas artigo a artigo e os documentos. */
     printShiftReport(shiftData: Registo, sales: Registo[], company: Registo, comProdutos = false): void {
-        printHtml(buildShiftReportHtml(shiftData, sales, company, comProdutos));
+        printHtml(buildShiftReportHtml(shiftData, sales, company, comProdutos), cssDoTalao(larguraDoTalao(company)));
     },
 };
 

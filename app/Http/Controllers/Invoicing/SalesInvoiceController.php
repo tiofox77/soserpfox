@@ -63,7 +63,14 @@ class SalesInvoiceController extends Controller
             ->tap(fn ($q) => $this->escoparAoAutor($q))
             ->findOrFail($id);
 
-        return view('pdf.invoicing.sales-invoice-ticket', ['invoice' => $invoice]);
+        // A LARGURA DO ROLO (28/09/2026): a que o aparelho pede (?largura=58,
+        // guardada no próprio aparelho) ou, sem pedido, a da empresa.
+        $pedida = (int) request()->query('largura');
+        $largura = in_array($pedida, [58, 80], true)
+            ? $pedida
+            : \App\Models\Invoicing\InvoicingSettings::forTenant(activeTenantId())->larguraDoTalao();
+
+        return view('pdf.invoicing.sales-invoice-ticket', ['invoice' => $invoice, 'largura' => $largura]);
     }
 
     public function previewHtml($id)
