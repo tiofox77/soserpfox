@@ -82,6 +82,15 @@ class InqueritoDeSatisfacaoApiController extends Controller
             trans_choice('O cliente avaliou o serviço com :n estrela.|O cliente avaliou o serviço com :n estrelas.', $s->score, ['n' => $s->score]),
             ['nota' => $s->score, 'recomenda' => $s->would_recommend]);
 
+        // O dono da empresa fica a saber, sobretudo quando a nota é baixa (28/09/2026).
+        if ($ordem = WorkOrder::withoutGlobalScopes()->find($s->work_order_id)) {
+            \App\Services\Workshop\AvisosDaOficina::donoDaOrdem($ordem, 'dono-avaliacao', [
+                'nota' => $s->score,
+                'recomenda' => $s->would_recommend === null ? '—' : ($s->would_recommend ? __('Sim') : __('Não')),
+                'comentario' => $s->comment ?: '—',
+            ]);
+        }
+
         return response()->json(['message' => __('Obrigado pela sua avaliação!')]);
     }
 

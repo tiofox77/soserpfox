@@ -22,6 +22,9 @@ class WorkOrderObserver
                 'total' => $workOrder->total,
             ]
         );
+
+        // A viatura entrou: o cliente e o dono da empresa ficam a saber (28/09/2026).
+        \App\Services\Workshop\AvisosDaOficina::ordemAberta($workOrder);
     }
 
     /**

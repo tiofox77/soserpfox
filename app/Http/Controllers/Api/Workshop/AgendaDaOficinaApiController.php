@@ -8,6 +8,7 @@ use App\Models\Workshop\Bay;
 use App\Models\Workshop\Mechanic;
 use App\Models\Workshop\Vehicle;
 use App\Models\Workshop\WorkOrderHistory;
+use App\Services\Workshop\AvisosDaOficina;
 use App\Services\Workshop\OrdensDeServico;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -88,6 +89,9 @@ class AgendaDaOficinaApiController extends Controller
 
         $marcacao = Appointment::create($dados + ['tenant_id' => activeTenantId(), 'status' => 'marcada', 'user_id' => auth()->id()]);
 
+        // O cliente e o dono da empresa ficam a saber (depois da resposta).
+        AvisosDaOficina::marcacao($marcacao, 'marcacao');
+
         return response()->json(['data' => self::paraEcra($marcacao->fresh(['vehicle', 'bay', 'mechanic'])), 'message' => __('Marcação para :quando gravada.', ['quando' => $marcacao->starts_at->format('d/m H:i')])], 201);
     }
 
@@ -98,7 +102,15 @@ class AgendaDaOficinaApiController extends Controller
 
         abort_if($marcacao->status === 'chegou', 422, __('Esta marcação já passou a ordem de serviço.'));
 
+        $antes = $marcacao->starts_at?->copy();
         $marcacao->update($this->validar($request, $marcacao));
+
+        // Só a data e a hora interessam a quem vem: mudar o elevador ou o mecânico não se avisa.
+        if ($antes && ! $antes->equalTo($marcacao->starts_at)) {
+            AvisosDaOficina::marcacao($marcacao, 'marcacao-alterada', ['antes' => $antes->format('d/m/Y H:i')]);
+            // Mudou a hora: o lembrete da véspera volta a ser devido.
+            $marcacao->forceFill(['reminder_sent_at' => null])->save();
+        }
 
         return response()->json(['data' => self::paraEcra($marcacao->fresh(['vehicle', 'bay', 'mechanic'])), 'message' => __('Marcação actualizada.')]);
     }
@@ -117,7 +129,16 @@ class AgendaDaOficinaApiController extends Controller
             $this->semChoques($marcacao->tenant_id, $marcacao->bay_id, $marcacao->mechanic_id, $marcacao->starts_at, $marcacao->ends_at, $marcacao->id);
         }
 
+        $anterior = $marcacao->status;
         $marcacao->update(['status' => $dados['estado']]);
+
+        if ($anterior !== $dados['estado'] && $dados['estado'] !== 'marcada') {
+            AvisosDaOficina::marcacao($marcacao, [
+                'confirmada' => 'marcacao-confirmada',
+                'cancelada' => 'marcacao-cancelada',
+                'faltou' => 'marcacao-faltou',
+            ][$dados['estado']]);
+        }
 
         return response()->json(['data' => self::paraEcra($marcacao->fresh(['vehicle', 'bay', 'mechanic'])), 'message' => __('Marcação: :estado.', ['estado' => __(Appointment::ESTADOS[$dados['estado']])])]);
     }

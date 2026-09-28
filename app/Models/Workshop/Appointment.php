@@ -23,7 +23,7 @@ class Appointment extends Model
         'starts_at', 'ends_at', 'service', 'status', 'notes', 'work_order_id', 'user_id',
     ];
 
-    protected $casts = ['starts_at' => 'datetime', 'ends_at' => 'datetime'];
+    protected $casts = ['starts_at' => 'datetime', 'ends_at' => 'datetime', 'reminder_sent_at' => 'datetime'];
 
     public const ESTADOS = [
         'marcada' => 'Marcada',

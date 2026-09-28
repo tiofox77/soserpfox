@@ -82,6 +82,24 @@ class SendScheduledNotifications extends Command
                 Log::warning('Lembretes da oficina falharam', ['tenant' => $empresa, 'erro' => $e->getMessage()]);
             }
         }
+
+        // A agenda da oficina: o lembrete da véspera a cada marcação (28/09/2026).
+        $comMarcacoes = $this->option('tenant')
+            ? [(int) $this->option('tenant')]
+            : \App\Models\Workshop\Appointment::withoutGlobalScopes()
+                ->whereIn('status', \App\Models\Workshop\Appointment::OCUPAM)->whereNull('reminder_sent_at')
+                ->whereBetween('starts_at', [now()->addHours(2), now()->addHours(26)])
+                ->distinct()->pluck('tenant_id')->all();
+        foreach ($comMarcacoes as $empresa) {
+            try {
+                $n = \App\Services\Workshop\AvisosDaOficina::lembrarMarcacoes((int) $empresa);
+                if ($n > 0) {
+                    $this->info("   📅 Marcações da oficina lembradas: {$n}");
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Lembretes das marcações da oficina falharam', ['tenant' => $empresa, 'erro' => $e->getMessage()]);
+            }
+        }
     }
     
     protected function processTemplate(NotificationTemplate $template)

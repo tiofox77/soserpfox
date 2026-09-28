@@ -120,6 +120,12 @@ class NotificacoesDoSistema
             }
         }
 
+        if ($tenant && $user->hasActiveModule('oficina')) {
+            foreach ($this->oficina($user, $tenant->id) as $aviso) {
+                $avisos[] = $aviso;
+            }
+        }
+
         if ($user->is_super_admin) {
             $pedidos = Order::where('status', 'pending')->count();
 
@@ -272,6 +278,58 @@ class NotificacoesDoSistema
         } catch (\Throwable $e) {
             // O sino nunca rebenta por causa das compras (uma empresa sem as
             // tabelas novas, por exemplo, a meio de um deploy).
+            report($e);
+        }
+
+        return $avisos;
+    }
+
+    /**
+     * A OFICINA NO SINO (28/09/2026) — o que o cliente fez e o dia de hoje:
+     * orçamentos respondidos pelo link, marcações de hoje, avaliações baixas.
+     * Os mesmos acontecimentos vão por email ao dono da empresa
+     * (AvisosDaOficina); aqui chegam a quem está no sistema.
+     *
+     * @return list<array<string, string>>
+     */
+    private function oficina(User $user, int $tenantId): array
+    {
+        $avisos = [];
+
+        try {
+            if (! $user->can('workshop.work-orders.view')) {
+                return [];
+            }
+
+            $respondidos = \App\Models\Workshop\WorkOrder::withoutGlobalScopes()->where('tenant_id', $tenantId)
+                ->where('approval_signed_at', '>=', now()->subDays(3))
+                ->whereNotIn('status', ['delivered', 'cancelled'])->count();
+
+            if ($respondidos > 0) {
+                $avisos[] = $this->aviso('info', 'fa-file-signature', 'green', __('Orçamentos respondidos'),
+                    __(':n cliente(s) responderam ao orçamento pelo link.', ['n' => $respondidos]),
+                    __('Nos últimos 3 dias'), route('workshop.work-orders'));
+            }
+
+            $hoje = \App\Models\Workshop\Appointment::withoutGlobalScopes()->where('tenant_id', $tenantId)
+                ->whereIn('status', \App\Models\Workshop\Appointment::OCUPAM)
+                ->whereBetween('starts_at', [now()->startOfDay(), now()->endOfDay()])->count();
+
+            if ($hoje > 0) {
+                $avisos[] = $this->aviso('info', 'fa-calendar-check', 'blue', __('Marcações de hoje'),
+                    __(':n viatura(s) marcada(s) para hoje na oficina.', ['n' => $hoje]),
+                    __('Hoje'), route('workshop.schedule'));
+            }
+
+            $baixas = \App\Models\Workshop\WorkOrderSurvey::withoutGlobalScopes()->where('tenant_id', $tenantId)
+                ->where('answered_at', '>=', now()->subDays(7))->where('score', '<=', 2)->count();
+
+            if ($baixas > 0) {
+                $avisos[] = $this->aviso('warning', 'fa-star-half-stroke', 'orange', __('Avaliações baixas'),
+                    __(':n cliente(s) avaliaram o serviço com 2 estrelas ou menos.', ['n' => $baixas]),
+                    __('Nos últimos 7 dias'), route('workshop.work-orders'));
+            }
+        } catch (\Throwable $e) {
             report($e);
         }
 

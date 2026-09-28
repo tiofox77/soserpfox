@@ -90,7 +90,10 @@ class AvisosAoClienteTest extends TenantTestCase
         $slugs = [];
         $envio = Mockery::mock(EnvioDeNotificacoes::class);
         $envio->shouldReceive('enviar')->andReturnUsing(function ($modelo, $canal, $destino, $variaveis) use (&$slugs) {
-            $slugs[] = [$modelo->slug, $variaveis['link'] ?? null];
+            // «Recebemos a sua viatura» sai da ordem criada aqui (28/09/2026); não é o que se ensaia.
+            if (! str_starts_with($modelo->slug, 'oficina-aberta-')) {
+                $slugs[] = [$modelo->slug, $variaveis['link'] ?? null];
+            }
 
             return true;
         });

@@ -212,6 +212,14 @@ class AprovacaoDoOrcamentoApiController extends Controller
                 __(':nome respondeu ao orçamento: :aprovadas aprovada(s), :recusadas recusada(s).', ['nome' => $nome, 'aprovadas' => $aprovadas, 'recusadas' => count($dados['decisoes']) - $aprovadas]));
         });
 
+        // «A oficina já recebeu a sua decisão» — e o dono da empresa também (28/09/2026).
+        $aprovadas = collect($dados['decisoes'])->filter(fn ($d) => $d === 'approved')->count();
+        \App\Services\Workshop\AvisosDaOficina::donoDaOrdem($ordem->fresh(), 'dono-orcamento-respondido', [
+            'nome' => $nome,
+            'aprovadas' => $aprovadas,
+            'recusadas' => count($dados['decisoes']) - $aprovadas,
+        ]);
+
         return response()->json(['message' => __('Obrigado, :nome. A oficina já recebeu a sua decisão.', ['nome' => $nome])]);
     }
 
