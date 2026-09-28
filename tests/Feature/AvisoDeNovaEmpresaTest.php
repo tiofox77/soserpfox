@@ -402,4 +402,52 @@ class AvisoDeNovaEmpresaTest extends TenantTestCase
             implode(' | ', array_column($this->enviados, 'assunto'))
         );
     }
+
+    /**
+     * O nome da plataforma nao se repete (28/09/2026): o logotipo ja o traz
+     * escrito; o layout punha-o outra vez em texto por baixo e o modelo ainda
+     * o repetia sob o titulo.
+     */
+    public function test_o_nome_da_plataforma_nao_se_repete_no_cabecalho(): void
+    {
+        $this->seed(\Database\Seeders\AvisoNovaEmpresaTemplateSeeder::class);
+        $this->comSmtp();
+        $admin = $this->admin();
+        $this->espiarOsEmails();
+
+        $this->empresaNova();
+
+        $corpo = $this->corpoPara($admin->email);
+        $nome = (string) config('app.name', 'SOS ERP');
+        $this->assertStringContainsString('<img src=', $corpo, 'o cabecalho leva o logotipo');
+        $this->assertStringNotContainsString('class="logo-text"', $corpo);
+        $this->assertStringNotContainsString('>' . $nome . '</p>', $corpo);
+        $this->assertStringContainsString('Nova empresa registada</h1>', $corpo);
+    }
+
+    /** A migracao tira so o paragrafo do nome ao modelo gravado; o resto fica. */
+    public function test_a_migracao_tira_o_nome_repetido_do_modelo_gravado(): void
+    {
+        $this->seed(\Database\Seeders\AvisoNovaEmpresaTemplateSeeder::class);
+        $modelo = \App\Models\EmailTemplate::where('slug', 'nova-empresa-admin')->first();
+
+        // O modelo como estava em producao, com uma frase do painel que fica.
+        $antigo = str_replace(
+            'Nova empresa registada</h1>',
+            "Nova empresa registada</h1>\n    <p style=\"margin:4px 0 0;color:#ddd6fe;font-size:13px;\">{app_name}</p>",
+            $modelo->body_html
+        );
+        $antigo = str_replace('</table>', '</table><p>Frase do painel com {app_name}</p>', $antigo);
+        $modelo->update(['body_html' => $antigo]);
+
+        $migracao = require database_path('migrations/2026_09_28_130000_nome_repetido_no_aviso_de_empresa_nova.php');
+        $migracao->up();
+        $migracao->up(); // duas vezes nao estraga
+
+        $depois = $modelo->fresh()->body_html;
+        $this->assertStringNotContainsString('>{app_name}</p>', $depois);
+        $this->assertStringContainsString('Nova empresa registada</h1>', $depois);
+        $this->assertStringContainsString('<p>Frase do painel com {app_name}</p>', $depois);
+        $this->assertStringContainsString('{plano}', $depois);
+    }
 }

@@ -48,7 +48,6 @@ class AvisoNovaEmpresaTemplateSeeder extends Seeder
 <div style="font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;max-width:540px;margin:0 auto;">
   <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:16px 16px 0 0;padding:22px 26px;">
     <h1 style="margin:0;color:#fff;font-size:20px;">Nova empresa registada</h1>
-    <p style="margin:4px 0 0;color:#ddd6fe;font-size:13px;">{app_name}</p>
   </div>
 
   <div style="border:1px solid #e2e8f0;border-top:0;border-radius:0 0 16px 16px;padding:24px 26px;">
