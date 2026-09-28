@@ -30,11 +30,12 @@ class AvisoNovaEmpresaTemplateSeeder extends Seeder
                 'is_active'   => true,
                 'variables'   => [
                     'empresa_nome', 'empresa_nif', 'empresa_email', 'empresa_telefone',
-                    'empresa_regime', 'registada_em', 'app_name', 'url_empresas',
+                    'empresa_regime', 'plano', 'revendedor', 'registada_em', 'app_name', 'url_empresas',
                 ],
                 'body_text'   => "Nova empresa registada no {app_name}.\n\n"
                     . "Nome: {empresa_nome}\nNIF: {empresa_nif}\nEmail: {empresa_email}\n"
-                    . "Telefone: {empresa_telefone}\nRegime: {empresa_regime}\nRegistada: {registada_em}\n\n"
+                    . "Telefone: {empresa_telefone}\nRegime: {empresa_regime}\nPlano: {plano}\n"
+                    . "Revendedor: {revendedor}\nRegistada: {registada_em}\n\n"
                     . "Ver empresas: {url_empresas}",
                 'body_html'   => $this->corpo(),
             ]
@@ -62,6 +63,10 @@ class AvisoNovaEmpresaTemplateSeeder extends Seeder
           <td style="padding:7px 0;color:#0f172a;">{empresa_telefone}</td></tr>
       <tr><td style="padding:7px 16px 7px 0;color:#64748b;">Regime</td>
           <td style="padding:7px 0;color:#0f172a;">{empresa_regime}</td></tr>
+      <tr><td style="padding:7px 16px 7px 0;color:#64748b;">Plano</td>
+          <td style="padding:7px 0;color:#0f172a;font-weight:600;">{plano}</td></tr>
+      <tr><td style="padding:7px 16px 7px 0;color:#64748b;">Revendedor</td>
+          <td style="padding:7px 0;color:#0f172a;">{revendedor}</td></tr>
       <tr><td style="padding:7px 16px 7px 0;color:#64748b;">Registada</td>
           <td style="padding:7px 0;color:#0f172a;">{registada_em}</td></tr>
     </table>

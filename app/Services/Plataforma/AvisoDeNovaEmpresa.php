@@ -116,7 +116,9 @@ class AvisoDeNovaEmpresa
             'empresa_nif'      => (string) ($empresa->nif ?: '—'),
             'empresa_email'    => (string) ($empresa->email ?: '—'),
             'empresa_telefone' => (string) ($empresa->phone ?: '—'),
-            'empresa_regime'   => (string) ($empresa->regime ?: '—'),
+            'empresa_regime'   => $empresa->regime ? $empresa->regimeLabel() : '—',
+            'plano'            => $this->planoDe($empresa),
+            'revendedor'       => $this->revendedorDe($empresa),
             'registada_em'     => optional($empresa->created_at)->format('d/m/Y H:i') ?: '',
             'app_name'         => (string) config('app.name', 'SOS ERP'),
             'url_empresas'     => rtrim((string) config('app.url'), '/') . '/superadmin/tenants',
@@ -216,6 +218,65 @@ class AvisoDeNovaEmpresa
     }
 
     /**
+     * O PLANO ESCOLHIDO no registo (28/09/2026): nome, preço e em que estado
+     * a subscrição nasceu — em teste, activa, ou à espera do pagamento.
+     *
+     * A subscrição mais recente, que é a do registo: o aviso sai no fim do
+     * pedido (ver TenantObserver), quando ela já está gravada.
+     */
+    private function planoDe(Tenant $empresa): string
+    {
+        $sub = $empresa->subscriptions()->with('plan')->latest('id')->first();
+
+        if (! $sub || ! $sub->plan) {
+            return 'Sem plano';
+        }
+
+        $preco = (float) ($sub->amount ?? $sub->plan->price_monthly ?? 0);
+        $ciclo = match ($sub->billing_cycle) {
+            'yearly', 'annual' => 'ano',
+            'semiannual'       => 'semestre',
+            'quarterly'        => 'trimestre',
+            default            => 'mês',
+        };
+        $estado = match ($sub->status) {
+            'trial'   => 'em teste' . ($sub->trial_ends_at ? ' até ' . $sub->trial_ends_at->format('d/m/Y') : ''),
+            'active'  => 'activa',
+            'pending' => 'a aguardar pagamento',
+            default   => (string) $sub->status,
+        };
+
+        return sprintf(
+            '%s — %s (%s)',
+            $sub->plan->name,
+            $preco > 0 ? number_format($preco, 2, ',', '.') . ' Kz/' . $ciclo : 'gratuito',
+            $estado
+        );
+    }
+
+    /**
+     * QUEM A TROUXE (28/09/2026): o revendedor, com o código e por onde veio
+     * (link, código no registo, ou criada por ele) — ou «Sem revendedor».
+     */
+    private function revendedorDe(Tenant $empresa): string
+    {
+        $revendedor = $empresa->revendedor;
+
+        if (! $revendedor) {
+            return 'Sem revendedor';
+        }
+
+        $via = \App\Services\Revenda\LigacaoAoRevendedor::VIAS[$empresa->reseller_via] ?? null;
+
+        return trim(sprintf(
+            '%s%s%s',
+            $revendedor->name,
+            $revendedor->code ? ' (' . $revendedor->code . ')' : '',
+            $via ? ' — ' . mb_strtolower($via) : ''
+        ));
+    }
+
+    /**
      * Sem depender de um template na base de dados.
      *
      * O email de boas-vindas do registo depende de uma linha em
@@ -230,8 +291,10 @@ class AvisoDeNovaEmpresa
             'NIF'       => $empresa->nif,
             'Email'     => $empresa->email,
             'Telefone'  => $empresa->phone,
-            'Regime'    => $empresa->regime,
-            'Registada' => optional($empresa->created_at)->format('d/m/Y H:i'),
+            'Regime'     => $empresa->regime ? $empresa->regimeLabel() : null,
+            'Plano'      => $this->planoDe($empresa),
+            'Revendedor' => $this->revendedorDe($empresa),
+            'Registada'  => optional($empresa->created_at)->format('d/m/Y H:i'),
         ], fn ($v) => !empty($v));
 
         $celulas = '';

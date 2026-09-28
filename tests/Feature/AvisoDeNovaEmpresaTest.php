@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Plan;
+use App\Models\Reseller;
 use App\Models\SmtpSetting;
 use App\Models\Tenant;
 use App\Models\User;
@@ -21,10 +23,14 @@ use Tests\TenantTestCase;
  *
  * O aviso e SINCRONO de proposito — a fila deste sistema tem tarefas paradas
  * desde Julho, e um aviso posto la nao chegava a lado nenhum.
+ *
+ * E sai NO FIM DO PEDIDO (28/09/2026): so entao a subscricao (o plano) e a
+ * ligacao ao revendedor estao gravadas. Nos ensaios que criam a empresa
+ * directamente, `$this->app->terminate()` faz de fim do pedido.
  */
 class AvisoDeNovaEmpresaTest extends TenantTestCase
 {
-    /** @var array<int,array{para:string,assunto:string}> */
+    /** @var array<int,array{para:string,assunto:string,corpo:string}> */
     private array $enviados = [];
 
     /**
@@ -43,6 +49,7 @@ class AvisoDeNovaEmpresaTest extends TenantTestCase
                 $this->enviados[] = [
                     'para'    => $destino->getAddress(),
                     'assunto' => (string) $evento->message->getSubject(),
+                    'corpo'   => (string) $evento->message->getHtmlBody(),
                 ];
             }
 
@@ -87,7 +94,16 @@ class AvisoDeNovaEmpresaTest extends TenantTestCase
         ]);
     }
 
+    /** Cria a empresa e termina o pedido — é aí que o aviso sai. */
     private function empresaNova(): Tenant
+    {
+        $empresa = $this->empresaSemTerminar();
+        $this->app->terminate();
+
+        return $empresa;
+    }
+
+    private function empresaSemTerminar(): Tenant
     {
         return Tenant::create([
             'name'         => 'Farmácia Nova',
@@ -97,6 +113,28 @@ class AvisoDeNovaEmpresaTest extends TenantTestCase
             'phone'        => '923000000',
             'is_active'    => true,
         ]);
+    }
+
+    private function plano(float $preco = 15000): Plan
+    {
+        return Plan::create([
+            'name' => 'Negócio', 'slug' => 'negocio-' . uniqid(), 'description' => 'Teste',
+            'price_monthly' => $preco, 'price_yearly' => $preco * 10, 'trial_days' => 0,
+            'max_users' => 5, 'max_companies' => 1, 'is_active' => true, 'order' => 9,
+        ]);
+    }
+
+    private function revendedor(): Reseller
+    {
+        $r = Reseller::create(['name' => 'João Revende', 'email' => 'rev' . uniqid() . '@exemplo.ao', 'password' => 'Senha-forte-1']);
+        $r->forceFill(['status' => 'aprovado', 'code' => Reseller::novoCodigo('João')])->save();
+
+        return $r;
+    }
+
+    private function corpoPara(string $email): string
+    {
+        return implode("\n", array_column(array_filter($this->enviados, fn ($e) => $e['para'] === $email), 'corpo'));
     }
 
     public function test_o_dono_da_plataforma_recebe_email(): void
@@ -136,6 +174,7 @@ class AvisoDeNovaEmpresaTest extends TenantTestCase
         // Sem passar por ecra nenhum — directamente no modelo, que e o que o
         // observador cobre.
         Tenant::create(['name' => 'Directa', 'company_name' => 'Directa', 'is_active' => true]);
+        $this->app->terminate();
 
         // Nao "exactamente este": a base de testes pode ter mais do que um
         // super admin, e o que importa e que TODOS os avisados o sejam.
@@ -207,6 +246,146 @@ class AvisoDeNovaEmpresaTest extends TenantTestCase
             array_diff($this->paraQuem(), User::where("is_super_admin", true)->pluck("email")->all()),
             "avisou alguem que nao e super admin"
         );
+    }
+
+    /**
+     * O PLANO E O REVENDEDOR (28/09/2026). No momento em que a empresa nasce
+     * nenhum dos dois existe ainda; o aviso espera pelo fim do pedido.
+     */
+    public function test_o_aviso_espera_pelo_fim_do_pedido_e_leva_o_plano_e_o_revendedor(): void
+    {
+        $this->comSmtp();
+        $admin = $this->admin();
+        $this->espiarOsEmails();
+
+        $empresa = $this->empresaSemTerminar();
+        $this->assertNotContains($admin->email, $this->paraQuem(), 'ainda sem plano nem revendedor: nao sai ja');
+
+        // O que o registo grava depois da empresa.
+        $plano = $this->plano(15000);
+        $empresa->subscriptions()->create([
+            'plan_id' => $plano->id, 'status' => 'pending', 'amount' => 15000, 'billing_cycle' => 'monthly',
+        ]);
+        $revendedor = $this->revendedor();
+        \App\Services\Revenda\LigacaoAoRevendedor::ligar($empresa, $revendedor, 'link');
+
+        $this->app->terminate();
+        $this->app->terminate(); // nos ensaios termina-se mais do que uma vez: um aviso so
+
+        // So os desta empresa: a do setUp do ensaio tambem sai no fim do pedido.
+        $desta = array_filter($this->enviados, fn ($e) => $e['para'] === $admin->email && str_contains($e['assunto'], $empresa->name));
+        $this->assertCount(1, $desta);
+        $corpo = $this->corpoPara($admin->email);
+        $this->assertStringContainsString('Negócio — 15.000,00 Kz/mês (a aguardar pagamento)', $corpo);
+        $this->assertStringContainsString('João Revende (' . $revendedor->code . ') — link de revendedor', $corpo);
+    }
+
+    public function test_sem_revendedor_o_aviso_diz_que_nao_ha(): void
+    {
+        $this->comSmtp();
+        $admin = $this->admin();
+        $this->espiarOsEmails();
+
+        $empresa = $this->empresaSemTerminar();
+        $empresa->forceFill(['regime' => Tenant::REGIME_SIMPLIFICADO])->save();
+        $plano = $this->plano(0);
+        $empresa->subscriptions()->create([
+            'plan_id' => $plano->id, 'status' => 'trial', 'amount' => 0, 'billing_cycle' => 'monthly',
+            'trial_ends_at' => now()->addDays(30),
+        ]);
+        $this->app->terminate();
+
+        $corpo = $this->corpoPara($admin->email);
+        $this->assertStringContainsString('Sem revendedor', $corpo);
+        $this->assertStringContainsString('gratuito (em teste até ' . now()->addDays(30)->format('d/m/Y') . ')', $corpo);
+        // O regime por extenso, e nao a chave interna.
+        $this->assertStringContainsString('Regime Simplificado', $corpo);
+        $this->assertStringNotContainsString('regime_simplificado', $corpo);
+    }
+
+    /** O modelo na base (o que vai em producao) tambem leva as duas linhas. */
+    public function test_o_modelo_da_base_leva_o_plano_e_o_revendedor(): void
+    {
+        $this->seed(\Database\Seeders\AvisoNovaEmpresaTemplateSeeder::class);
+        $this->comSmtp();
+        $admin = $this->admin();
+        $this->espiarOsEmails();
+
+        $empresa = $this->empresaSemTerminar();
+        $empresa->subscriptions()->create([
+            'plan_id' => $this->plano(9900)->id, 'status' => 'active', 'amount' => 9900, 'billing_cycle' => 'monthly',
+        ]);
+        $this->app->terminate();
+
+        $corpo = $this->corpoPara($admin->email);
+        $this->assertStringContainsString('Negócio — 9.900,00 Kz/mês (activa)', $corpo);
+        $this->assertStringContainsString('Sem revendedor', $corpo);
+        $this->assertStringNotContainsString('{plano}', $corpo);
+    }
+
+    /**
+     * A migracao acrescenta as duas linhas ao modelo que ja esta gravado, sem
+     * reescrever o resto (pode ter sido mexido no painel de emails).
+     */
+    public function test_a_migracao_acrescenta_as_linhas_ao_modelo_gravado(): void
+    {
+        $this->seed(\Database\Seeders\AvisoNovaEmpresaTemplateSeeder::class);
+        $modelo = \App\Models\EmailTemplate::where('slug', 'nova-empresa-admin')->first();
+
+        // O modelo como estava em producao: sem as duas linhas, e com uma frase
+        // acrescentada no painel que tem de sobreviver.
+        $antigo = preg_replace('~\s*<tr><td[^>]*>Plano</td>.*?</tr>\s*<tr><td[^>]*>Revendedor</td>.*?</tr>~s', '', $modelo->body_html);
+        $antigo = str_replace('</table>', '</table><p>Frase do painel</p>', $antigo);
+        $modelo->update([
+            'body_html' => $antigo,
+            'body_text' => "Regime: {empresa_regime}\nRegistada: {registada_em}",
+            'variables' => ['empresa_nome', 'registada_em'],
+        ]);
+        $this->assertStringNotContainsString('{plano}', $modelo->fresh()->body_html);
+
+        $migracao = require database_path('migrations/2026_09_28_110000_plano_e_revendedor_no_aviso_de_empresa_nova.php');
+        $migracao->up();
+        $migracao->up(); // duas vezes nao duplica
+
+        $depois = $modelo->fresh();
+        $this->assertSame(1, substr_count($depois->body_html, '{plano}'));
+        $this->assertSame(1, substr_count($depois->body_html, '{revendedor}'));
+        $this->assertLessThan(strpos($depois->body_html, '>Registada<'), strpos($depois->body_html, '{plano}'));
+        $this->assertStringContainsString('Frase do painel', $depois->body_html);
+        $this->assertStringContainsString("Plano: {plano}\nRevendedor: {revendedor}\nRegistada:", $depois->body_text);
+        $this->assertContains('revendedor', $depois->variables);
+    }
+
+    /** O registo a serio, pelo assistente, com o codigo de um revendedor. */
+    public function test_o_registo_publico_avisa_com_o_plano_e_o_revendedor(): void
+    {
+        $this->comSmtp();
+        $admin = $this->admin();
+        $revendedor = $this->revendedor();
+        // Pago, com dias de teste: entra sem comprovativo.
+        $plano = $this->plano(24900);
+        $plano->forceFill(['trial_days' => 14, 'auto_activate' => true])->save();
+        $this->espiarOsEmails();
+
+        auth()->logout();
+        $nif = '5' . random_int(100000000, 999999999);
+        $resposta = $this->postJson('/register', [
+            'passo' => 4, 'name' => 'Ana Silva', 'email' => 'ana' . uniqid() . '@exemplo.ao',
+            'password' => 'segredo-forte-123', 'password_confirmation' => 'segredo-forte-123',
+            'company_name' => 'Padaria do Revendedor', 'company_nif' => $nif,
+            'company_regime' => Tenant::REGIME_SIMPLIFICADO, 'selected_plan_id' => $plano->id,
+            'payment_method' => 'transfer',
+            'reseller_code' => $revendedor->code, 'aceito_termos' => 1,
+        ]);
+        $this->assertSame(200, $resposta->status(), json_encode($resposta->json('errors'), JSON_UNESCAPED_UNICODE));
+
+        $empresa = Tenant::where('nif', $nif)->first();
+        $this->assertNotNull($empresa, 'o registo tinha de criar a empresa');
+        $this->assertSame($revendedor->id, $empresa->reseller_id, 'o revendedor tinha de ficar ligado');
+
+        $corpo = $this->corpoPara($admin->email);
+        $this->assertStringContainsString('Negócio — 24.900,00 Kz/mês', $corpo);
+        $this->assertStringContainsString('João Revende (' . $revendedor->code . ')', $corpo);
     }
 
     /** A confirmacao ao responsavel, para o caminho que nao mandava nada. */
