@@ -235,6 +235,8 @@ class MaintenanceController extends Controller
         'artigos:corrigir-codigo',
         // Só leitura: mostra o que ficou mesmo gravado.
         'artigos:ver',
+        // Só lê: quantos clientes, e se um deles cabe nos 500 do emissor.
+        'clientes:ver',
         // Ultimos documentos emitidos e o imposto de cada um. So le.
         'documentos:ver',
         'notas-credito:ver',
