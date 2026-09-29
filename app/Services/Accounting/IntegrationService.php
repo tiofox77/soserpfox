@@ -92,17 +92,22 @@ class IntegrationService
                 'created_by' => auth()->id() ?? $invoice->created_by,
             ]);
             
-            // Débito: Clientes
+            // Débito: Clientes — com o cliente na linha, para a conta-corrente
             MoveLine::create([
+                'tenant_id' => $move->tenant_id,
                 'move_id' => $move->id,
                 'account_id' => $mapping->debit_account_id,
                 'name' => "Cliente: {$clientName}",
+                'partner_id' => $invoice->client_id,
+                'partner_type' => $invoice->client_id ? 'client' : null,
+                'document_ref' => $invoice->invoice_number,
                 'debit' => $totalDoc,
                 'credit' => 0,
             ]);
-            
+
             // Crédito: Vendas
             MoveLine::create([
+                'tenant_id' => $move->tenant_id,
                 'move_id' => $move->id,
                 'account_id' => $mapping->credit_account_id,
                 'name' => 'Vendas de Mercadorias',
@@ -113,6 +118,7 @@ class IntegrationService
             // Crédito: IVA
             if ($ivaDoc > 0 && $mapping->vat_account_id) {
                 MoveLine::create([
+                    'tenant_id' => $move->tenant_id,
                     'move_id' => $move->id,
                     'account_id' => $mapping->vat_account_id,
                     'name' => 'IVA Liquidado',
@@ -150,7 +156,16 @@ class IntegrationService
             return null;
         }
         
-        $event = $receipt->payment_method === 'cash' ? 'receipt_cash' : 'receipt_bank';
+        // Um recibo de COMPRA é um PAGAMENTO a um fornecedor, não um recebimento.
+        //
+        // Estava a usar sempre o mapeamento `receipt_*` (Dr Caixa/Banco, Cr
+        // Clientes): pagar a um fornecedor creditava Clientes e fazia ENTRAR
+        // dinheiro na caixa. O mapeamento certo (`payment_*`: Dr Fornecedores,
+        // Cr Caixa/Banco) já existia, semeado e editável nas Definições, e nada
+        // o usava.
+        $deCompra = $receipt->type === 'purchase';
+        $meio = $receipt->payment_method === 'cash' ? 'cash' : 'bank';
+        $event = ($deCompra ? 'payment_' : 'receipt_') . $meio;
         $mapping = $this->getMappingForEvent($event, $receipt->tenant_id);
         
         if (!$mapping || !$mapping->active) {
@@ -183,28 +198,41 @@ class IntegrationService
                 'period_id' => $period->id,
                 'date' => $receipt->payment_date,
                 'ref' => $receipt->receipt_number,
-                'narration' => "Recebimento {$receipt->receipt_number}",
+                'narration' => ($deCompra ? 'Pagamento ' : 'Recebimento ') . $receipt->receipt_number,
                 'state' => $mapping->auto_post ? 'posted' : 'draft',
                 'created_by' => auth()->id() ?? $receipt->created_by,
             ]);
-            
-            // Débito: Caixa/Banco
+
+            $meioNome = $meio === 'cash' ? 'Caixa' : 'Banco';
+
+            // O terceiro vai na linha da conta de terceiros: no recebimento é o
+            // crédito (Clientes), no pagamento é o débito (Fornecedores).
+            $cliente = !$deCompra && $receipt->client_id
+                ? ['partner_id' => $receipt->client_id, 'partner_type' => 'client'] : [];
+            $fornecedor = $deCompra && $receipt->supplier_id
+                ? ['partner_id' => $receipt->supplier_id, 'partner_type' => 'supplier'] : [];
+
+            // Débito: Caixa/Banco (recebimento) ou Fornecedores (pagamento)
             MoveLine::create([
+                'tenant_id' => $move->tenant_id,
                 'move_id' => $move->id,
                 'account_id' => $mapping->debit_account_id,
-                'name' => $receipt->payment_method === 'cash' ? 'Caixa' : 'Banco',
+                'name' => $deCompra ? 'Pagamento a Fornecedor' : $meioNome,
+                'document_ref' => $receipt->receipt_number,
                 'debit' => $receipt->amount_paid,
                 'credit' => 0,
-            ]);
-            
-            // Crédito: Clientes
+            ] + $fornecedor);
+
+            // Crédito: Clientes (recebimento) ou Caixa/Banco (pagamento)
             MoveLine::create([
+                'tenant_id' => $move->tenant_id,
                 'move_id' => $move->id,
                 'account_id' => $mapping->credit_account_id,
-                'name' => "Recebimento de Cliente",
+                'name' => $deCompra ? $meioNome : 'Recebimento de Cliente',
+                'document_ref' => $receipt->receipt_number,
                 'debit' => 0,
                 'credit' => $receipt->amount_paid,
-            ]);
+            ] + $cliente);
             
             DB::commit();
             
@@ -315,15 +343,20 @@ class IntegrationService
 
             // Clientes: crédito na NC (reduz a dívida), débito na ND (acresce)
             MoveLine::create([
+                'tenant_id' => $move->tenant_id,
                 'move_id' => $move->id,
                 'account_id' => $mapping->debit_account_id,
                 'name' => "Cliente: {$clientName}",
+                'partner_id' => $note->client_id,
+                'partner_type' => $note->client_id ? 'client' : null,
+                'document_ref' => $numero,
                 'debit' => $inverter ? 0 : $totalDoc,
                 'credit' => $inverter ? $totalDoc : 0,
             ]);
 
             // Vendas: débito na NC (anula o proveito), crédito na ND
             MoveLine::create([
+                'tenant_id' => $move->tenant_id,
                 'move_id' => $move->id,
                 'account_id' => $mapping->credit_account_id,
                 'name' => $inverter ? 'Devoluções e abatimentos' : 'Vendas de Mercadorias',
@@ -334,6 +367,7 @@ class IntegrationService
             // IVA liquidado: regularizado a débito na NC, liquidado a crédito na ND
             if ($impostoDoc > 0 && $mapping->vat_account_id) {
                 MoveLine::create([
+                    'tenant_id' => $move->tenant_id,
                     'move_id' => $move->id,
                     'account_id' => $mapping->vat_account_id,
                     'name' => $inverter ? 'IVA Liquidado (regularização)' : 'IVA Liquidado',
@@ -356,6 +390,155 @@ class IntegrationService
             DB::rollBack();
             Log::error("Erro ao criar lançamento da {$rotulo}", [
                 'document_id' => $note->id,
+                'error' => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Criar lançamento contabilístico a partir de uma FATURA DE COMPRA.
+     *
+     *   Dr Compras ....................... base (total − IVA)
+     *   Dr IVA dedutível ................. IVA
+     *     Cr Fornecedores ...................... total − IRT retido
+     *     Cr Retenção na fonte (serviços) ...... IRT retido
+     *
+     * Não existia: o mapeamento `purchase` estava semeado e editável nas
+     * Definições («Fatura de compra»), mas nenhum código o usava. As compras
+     * nunca chegavam à contabilidade, e a conta de Fornecedores só recebia os
+     * pagamentos — o saldo de cada fornecedor saía ao contrário.
+     */
+    public function createMoveFromPurchaseInvoice($invoice)
+    {
+        if (!$this->isEnabled($invoice->tenant_id)) {
+            return null;
+        }
+
+        $mapping = $this->getMappingForEvent('purchase', $invoice->tenant_id);
+
+        if (!$mapping || !$mapping->active) {
+            Log::warning('Mapeamento não encontrado ou inativo', ['event' => 'purchase']);
+            return null;
+        }
+
+        // Período ANTES da transacção, pelo mesmo motivo das facturas de venda.
+        $period = Period::where('tenant_id', $invoice->tenant_id)
+            ->where('state', 'open')
+            ->whereDate('date_start', '<=', $invoice->invoice_date)
+            ->whereDate('date_end', '>=', $invoice->invoice_date)
+            ->first();
+
+        if (!$period) {
+            Log::warning('Contabilidade: sem período aberto para a data — fatura de compra gravada, lançamento por fazer', [
+                'purchase_invoice_id' => $invoice->id,
+                'date'                => $invoice->invoice_date,
+                'tenant_id'           => $invoice->tenant_id,
+            ]);
+            return null;
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $supplierName = $invoice->supplier->name ?? 'Fornecedor';
+
+            $totalDoc = round((float) ($invoice->total ?? $invoice->gross_total ?? 0), 2);
+            // Sem conta de IVA no mapeamento, o imposto fica no custo da compra
+            // (é o que acontece a quem não deduz IVA — regime simplificado/isento).
+            $ivaDoc = $mapping->vat_account_id ? round((float) ($invoice->tax_amount ?? 0), 2) : 0.0;
+            $baseDoc = round($totalDoc - $ivaDoc, 2);
+
+            // IRT retido ao fornecedor (serviços): o fornecedor recebe menos e a
+            // diferença deve-se ao Estado. Sem conta de retenção no plano não se
+            // separa — fica tudo em Fornecedores e deixa-se aviso.
+            $irt = round((float) ($invoice->irt_amount ?? 0), 2);
+            $contaIrt = null;
+            if ($irt > 0) {
+                $contaIrt = \App\Models\Accounting\Account::where('tenant_id', $invoice->tenant_id)
+                    ->where('integration_key', 'withholding_services')
+                    ->where('is_view', false)
+                    ->value('id');
+                if (!$contaIrt) {
+                    Log::warning('Contabilidade: IRT retido numa compra sem conta de retenção (withholding_services) — fica em Fornecedores', [
+                        'purchase_invoice_id' => $invoice->id,
+                    ]);
+                    $irt = 0.0;
+                }
+            }
+
+            $move = Move::create([
+                'tenant_id' => $invoice->tenant_id,
+                'journal_id' => $mapping->journal_id,
+                'period_id' => $period->id,
+                'date' => $invoice->invoice_date,
+                'ref' => $invoice->invoice_number,
+                'narration' => "Fatura de compra {$invoice->invoice_number} - {$supplierName}",
+                'state' => $mapping->auto_post ? 'posted' : 'draft',
+                'created_by' => auth()->id() ?? $invoice->created_by,
+            ]);
+
+            // Débito: Compras
+            MoveLine::create([
+                'tenant_id' => $move->tenant_id,
+                'move_id' => $move->id,
+                'account_id' => $mapping->debit_account_id,
+                'name' => 'Compras - ' . $invoice->invoice_number,
+                'debit' => $baseDoc,
+                'credit' => 0,
+            ]);
+
+            // Débito: IVA dedutível
+            if ($ivaDoc > 0) {
+                MoveLine::create([
+                    'tenant_id' => $move->tenant_id,
+                    'move_id' => $move->id,
+                    'account_id' => $mapping->vat_account_id,
+                    'name' => 'IVA Dedutível',
+                    'debit' => $ivaDoc,
+                    'credit' => 0,
+                ]);
+            }
+
+            // Crédito: Fornecedores — com o fornecedor na linha, para a conta-corrente
+            MoveLine::create([
+                'tenant_id' => $move->tenant_id,
+                'move_id' => $move->id,
+                'account_id' => $mapping->credit_account_id,
+                'name' => "Fornecedor: {$supplierName}",
+                'partner_id' => $invoice->supplier_id,
+                'partner_type' => $invoice->supplier_id ? 'supplier' : null,
+                'document_ref' => $invoice->invoice_number,
+                'debit' => 0,
+                'credit' => round($totalDoc - $irt, 2),
+            ]);
+
+            // Crédito: Retenção na fonte
+            if ($irt > 0) {
+                MoveLine::create([
+                    'tenant_id' => $move->tenant_id,
+                    'move_id' => $move->id,
+                    'account_id' => $contaIrt,
+                    'name' => 'IRT retido - ' . $invoice->invoice_number,
+                    'debit' => 0,
+                    'credit' => $irt,
+                ]);
+            }
+
+            DB::commit();
+
+            Log::info('Lançamento contabilístico criado da fatura de compra', [
+                'purchase_invoice_id' => $invoice->id,
+                'move_id' => $move->id,
+                'auto_posted' => $mapping->auto_post,
+            ]);
+
+            return $move;
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Erro ao criar lançamento da fatura de compra', [
+                'purchase_invoice_id' => $invoice->id,
                 'error' => $e->getMessage(),
             ]);
             return null;

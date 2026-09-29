@@ -500,6 +500,8 @@ export const ecras: Record<string, Ecra> = {
         import('./contabilidade/Reconciliacao'),
     'contabilidade/relatorios': () =>
         import('./contabilidade/Relatorios'),
+    'contabilidade/terceiros': () =>
+        import('./contabilidade/Terceiros'),
     'contabilidade/definicoes': () =>
         import('./contabilidade/Definicoes'),
 

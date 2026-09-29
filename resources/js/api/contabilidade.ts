@@ -478,6 +478,68 @@ export type DefinicoesDaContabilidade = {
     permissoes: { editar: boolean };
 };
 
+/* ─── Conta-corrente de terceiros ─────────────────────────────────────── */
+
+export type TipoDeTerceiro = 'client' | 'supplier';
+
+/**
+ * O saldo vem no sentido natural do terceiro: positivo = em dívida (o cliente
+ * deve-nos / devemos ao fornecedor); negativo = a favor dele.
+ */
+export type SaldoDeTerceiro = {
+    id: number;
+    nome: string;
+    nif: string | null;
+    debito: number;
+    credito: number;
+    saldo: number;
+    movimentos: number;
+    ultimo_movimento: string | null;
+};
+
+export type SaldosDeTerceiros = {
+    linhas: SaldoDeTerceiro[];
+    totais: {
+        terceiros: number; com_saldo: number;
+        debito: number; credito: number; saldo: number; saldo_a_favor: number;
+    };
+};
+
+export type MovimentoDoExtrato = {
+    id: number;
+    lancamento_id: number;
+    data: string;
+    documento: string | null;
+    descricao: string | null;
+    diario: string | null;
+    conta: string | null;
+    debito: number;
+    credito: number;
+    saldo: number;
+};
+
+export type ExtratoDeTerceiro = {
+    terceiro: { id: number; tipo: TipoDeTerceiro; nome: string; nif: string | null; email: string | null; telefone: string | null };
+    de: string;
+    ate: string;
+    saldo_anterior: number;
+    movimentos: MovimentoDoExtrato[];
+    totais: { debito: number; credito: number; saldo_final: number };
+};
+
+export type EscalaoDeAntiguidade = 'ate_30' | 'de_31_60' | 'de_61_90' | 'de_91_180' | 'mais_180';
+
+export type AntiguidadeDeSaldos = {
+    data: string;
+    escaloes: EscalaoDeAntiguidade[];
+    linhas: Array<{
+        id: number; nome: string; nif: string | null;
+        escaloes: Record<EscalaoDeAntiguidade, number>;
+        total: number; a_favor: number;
+    }>;
+    totais: { escaloes: Record<EscalaoDeAntiguidade, number>; total: number; a_favor: number };
+};
+
 const C = '/contabilidade';
 
 export const contabilidade = {
@@ -631,5 +693,14 @@ export const contabilidade = {
         apagar: (id: number) => api.apagar<Recado>(`${C}/lancamentos/${id}`),
         estornar: (id: number, dados: Record<string, unknown>) =>
             api.criar<Recado & { data: Lancamento }>(`${C}/lancamentos/${id}/estornar`, dados),
+    },
+
+    terceiros: {
+        saldos: (f: { tipo: TipoDeTerceiro; ate?: string; procura?: string; com_saldo?: boolean }) =>
+            api.ler<SaldosDeTerceiros>(`${C}/terceiros`, f),
+        extrato: (tipo: TipoDeTerceiro, id: number, f: { de?: string; ate?: string }) =>
+            api.ler<ExtratoDeTerceiro>(`${C}/terceiros/${tipo}/${id}/extrato`, f),
+        antiguidade: (f: { tipo: TipoDeTerceiro; data?: string; terceiro?: number }) =>
+            api.ler<AntiguidadeDeSaldos>(`${C}/terceiros/antiguidade`, f),
     },
 };

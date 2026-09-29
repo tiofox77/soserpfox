@@ -266,6 +266,38 @@ Criar módulo de Contabilidade completo para ERP SaaS multi-tenant, com foco em 
 
 ---
 
+### **🟣 R3 - Paridade Primavera / Quianni / NegóciosMil** - 🟡 EM CURSO
+
+**Conta-corrente de terceiros** - ✅ COMPLETO (29/09/2026)
+- [x] ✅ Ecrã `contabilidade/terceiros` (menu «Conta-Corrente», permissão `accounting.partners.view`)
+  - [x] Saldos por cliente / fornecedor (saldo no sentido da dívida; só com saldo; procura por nome/NIF)
+  - [x] Extrato de um terceiro com saldo anterior e saldo acumulado
+  - [x] Antiguidade de saldos (0–30, 31–60, 61–90, 91–180, +180 dias; FIFO; excesso pago «a favor»)
+  - [x] `Services\Accounting\ContaCorrente` + `TerceirosApiController`
+- [x] ✅ O terceiro passa a ir na linha: `partner_id` + `partner_type` ('client'|'supplier') nas linhas de
+      Clientes/Fornecedores das faturas, recibos e notas de crédito/débito
+- [x] ✅ Histórico: `php artisan accounting:preencher-terceiros [--tenant=] [--simular]`
+- [ ] Antiguidade por data de VENCIMENTO (hoje conta desde a data do documento)
+- [ ] Extrato em PDF / folha de cálculo
+
+> **CORRIGIDO EM 29/09/2026, a propósito da conta-corrente.**
+> - `partner_id` existia nas linhas desde 2025 e **nenhuma integração o preenchia** — não havia forma de
+>   saber de quem era cada dívida.
+> - **As faturas de compra nunca chegavam à contabilidade**: o mapeamento `purchase` estava semeado e
+>   editável nas Definições, e nada o usava. Agora o `PurchaseInvoiceAccountingObserver` lança-as quando
+>   deixam de ser rascunho (uma só vez; IRT retido separado na conta `withholding_services`, se existir).
+> - **Um recibo de compra (pagamento a fornecedor) era lançado como recebimento de cliente**: Dr Caixa,
+>   Cr Clientes. Passa a usar o mapeamento `payment_*` (Dr Fornecedores, Cr Caixa/Banco). Os antigos não se
+>   reescrevem sozinhos — o comando acima conta-os para regularização à mão.
+> - As linhas das integrações só recebiam `tenant_id` com sessão aberta (trait `BelongsToTenant`); passam a
+>   levar sempre o do próprio lançamento.
+
+**Por fazer (ver análise de lacunas):** SAF-T (AO) contabilístico, apuramento e declaração periódica de
+IVA, abertura do exercício, orçamento vs real, reavaliação
+cambial, mapas fiscais (Modelo 1 / 106).
+
+---
+
 ## 📐 **ESTRUTURA DE PASTAS**
 
 Seguindo padrão Workshop/HR:

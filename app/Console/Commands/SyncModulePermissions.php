@@ -62,6 +62,7 @@ class SyncModulePermissions extends Command
         'accounting.periods.view'        => 'Ver Períodos Contabilísticos',
         'accounting.periods.manage'      => 'Gerir/Fechar Períodos',
         'accounting.reports.view'        => 'Ver Relatórios Contabilísticos',
+        'accounting.partners.view'       => 'Ver Conta-Corrente de Terceiros',
         'accounting.reconciliation.view' => 'Ver Reconciliação Bancária',
         'accounting.reconciliation.manage' => 'Gerir Reconciliação Bancária',
         'accounting.fixed-assets.view'   => 'Ver Imobilizado',

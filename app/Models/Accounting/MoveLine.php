@@ -19,6 +19,7 @@ class MoveLine extends Model
         'account_id',
         'name',
         'partner_id',
+        'partner_type',
         'debit',
         'credit',
         'balance',
@@ -49,6 +50,23 @@ class MoveLine extends Model
     public function tax(): BelongsTo
     {
         return $this->belongsTo(Tax::class);
+    }
+
+    /**
+     * O TERCEIRO desta linha — cliente ou fornecedor, conforme `partner_type`.
+     *
+     * Não é uma relação polimórfica clássica do Eloquent porque `partner_type`
+     * guarda 'client'/'supplier' (não o nome da classe), para o extrato e o
+     * SAF-T lerem um valor estável e legível em vez do FQCN do modelo. Resolve-se
+     * à mão para a tabela certa.
+     */
+    public function partner(): BelongsTo
+    {
+        $classe = $this->partner_type === 'supplier'
+            ? \App\Models\Supplier::class
+            : \App\Models\Client::class;
+
+        return $this->belongsTo($classe, 'partner_id');
     }
 
     /**

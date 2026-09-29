@@ -363,6 +363,7 @@ final class MenuDaCasca
                     ['rota' => 'accounting.periods', 'rotulo' => 'Períodos', 'icone' => 'fa-calendar-alt', 'cor' => 'yellow-400', 'activo' => 'accounting.periods*', 'permissao' => 'accounting.periods.view'],
                     ['separador' => true],
                     ['rota' => 'accounting.reports', 'rotulo' => 'Relatórios', 'icone' => 'fa-chart-bar', 'cor' => 'cyan-400', 'activo' => 'accounting.reports*', 'permissao' => 'accounting.reports.view'],
+                    ['rota' => 'accounting.partners', 'rotulo' => 'Conta-Corrente', 'icone' => 'fa-address-book', 'cor' => 'teal-400', 'activo' => 'accounting.partners*', 'permissao' => 'accounting.partners.view'],
                     ['separador' => true],
                     ['rota' => 'accounting.reconciliation', 'rotulo' => 'Reconciliação', 'icone' => 'fa-exchange-alt', 'cor' => 'blue-400', 'activo' => 'accounting.reconciliation*', 'permissao' => 'accounting.reconciliation.view'],
                     ['rota' => 'accounting.fixed-assets', 'rotulo' => 'Imobilizado', 'icone' => 'fa-building', 'cor' => 'purple-400', 'activo' => 'accounting.fixed-assets*', 'permissao' => 'accounting.fixed-assets.view'],

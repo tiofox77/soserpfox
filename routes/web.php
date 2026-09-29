@@ -1893,6 +1893,21 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             });
 
             /*
+             * A CONTA-CORRENTE DE TERCEIROS: saldos, extrato e antiguidade de
+             * clientes e fornecedores. Só leitura — `accounting.partners.view`.
+             */
+            Route::prefix('terceiros')->name('terceiros.')->group(function () {
+                $c = \App\Http\Controllers\Api\Contabilidade\TerceirosApiController::class;
+
+                Route::get('/', [$c, 'index'])->name('index');
+                Route::get('/antiguidade', [$c, 'antiguidade'])->name('antiguidade');
+                Route::get('/{tipo}/{id}/extrato', [$c, 'extrato'])
+                    ->whereIn('tipo', \App\Services\Accounting\ContaCorrente::TIPOS)
+                    ->whereNumber('id')
+                    ->name('extrato');
+            });
+
+            /*
              * AS DEFINIÇÕES. A página abria com `settings.view` e TODAS as
              * escritas eram livres: correr os seeders, ligar a integração
              * automática (que decide se cada factura gera lançamentos) e
@@ -3259,6 +3274,8 @@ Route::middleware(['auth', 'tenant.module:contabilidade'])->prefix('accounting')
         ->get('/periods', \App\Support\EcraReact::pagina('contabilidade/periodos', 'Períodos Contabilísticos'))->name('periods');
     Route::middleware('permission:accounting.reports.view')
         ->get('/reports', \App\Support\EcraReact::pagina('contabilidade/relatorios', 'Relatórios da Contabilidade'))->name('reports');
+    Route::middleware('permission:accounting.partners.view')
+        ->get('/partners', \App\Support\EcraReact::pagina('contabilidade/terceiros', 'Conta-Corrente de Terceiros'))->name('partners');
     /*
      * DESCARREGAR UM MAPA devolve um FICHEIRO, e por isso vive aqui e não no
      * prefixo da API: o ecrã abre-o numa janela nova e o browser guarda-o.

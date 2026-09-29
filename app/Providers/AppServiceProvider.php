@@ -211,6 +211,9 @@ class AppServiceProvider extends ServiceProvider
         // NOTA: App\Models\Invoice é legado (tabela `invoices`, vazia). As faturas
         // reais são SalesInvoice — sem esta linha nenhuma venda ia à contabilidade.
         SalesInvoice::observe(\App\Observers\SalesInvoiceAccountingObserver::class);
+        // Faturas de compra: o mapeamento `purchase` existia e ninguém o usava —
+        // Fornecedores só recebia pagamentos e o saldo saía ao contrário.
+        PurchaseInvoice::observe(\App\Observers\PurchaseInvoiceAccountingObserver::class);
         Receipt::observe(ReceiptObserver::class);
         Payment::observe(PaymentObserver::class);
         // Notas de crédito e débito: não tinham integração nenhuma, pelo que as
