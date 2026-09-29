@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Hr;
+namespace App\Services\HR;
 
 use App\Models\HR\Employee;
 use App\Models\HR\Leave;

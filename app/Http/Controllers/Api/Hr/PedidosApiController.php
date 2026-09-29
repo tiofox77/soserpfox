@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api\Hr;
 
 use App\Http\Controllers\Controller;
 use App\Models\HR\Employee;
-use App\Services\Hr\PedidosDeRh;
+use App\Services\HR\PedidosDeRh;
 use DomainException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
