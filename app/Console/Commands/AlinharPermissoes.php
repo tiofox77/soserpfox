@@ -167,10 +167,13 @@ class AlinharPermissoes extends Command
                 continue;
             }
 
+            // `unique`: há papéis ligados a duas permissões com o mesmo nome
+            // (guardas diferentes). Contados duas vezes, o relatório dizia
+            // «63 por atribuir» a papéis que já as tinham (29/09/2026).
             $papeis = DB::table('role_has_permissions as rp')
                 ->join('permissions as p', 'p.id', '=', 'rp.permission_id')
                 ->where('p.name', $fonte)
-                ->pluck('rp.role_id');
+                ->pluck('rp.role_id')->unique()->values();
 
             foreach ($destinos as $destino) {
                 $permissao = Permission::where('name', $destino)->first();
