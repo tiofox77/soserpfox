@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { stock, type ArtigoParaLote, type ItemDoLote, type LinhaDeStock, type OpcoesDoStock } from '@/api/stock';
@@ -12,6 +12,7 @@ import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { Paginacao } from '@/ui/Paginacao';
+import { ListaFlutuante } from '@/ui/ListaFlutuante';
 import { CARTAO, CORES, FOCO, RAIO, cls, kz, type Cor } from '@/ui/tokens';
 import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t, tPartes } from '@/i18n';
@@ -442,6 +443,8 @@ function Movimentos({ l, aoFechar }: { l: LinhaDeStock; aoFechar: () => void }) 
 function Lote({ o, armazemInicial, aoFechar, aoFeito }: { o: OpcoesDoStock; armazemInicial: string; aoFechar: () => void; aoFeito: (m: string) => void }) {
     const [armazem, porArmazem] = useState(armazemInicial);
     const [procura, porProcura] = useState('');
+    // As sugestões saem da zona com scroll da janela, que as cortava.
+    const campoDoArtigo = useRef<HTMLDivElement>(null);
     const [sugestoes, porSugestoes] = useState<ArtigoParaLote[]>([]);
     const [itens, porItens] = useState<ItemDoLote[]>([]);
     const [notas, porNotas] = useState('');
@@ -509,12 +512,12 @@ function Lote({ o, armazemInicial, aoFechar, aoFeito }: { o: OpcoesDoStock; arma
                 <Campo etiqueta={t('Observações')} erro={erros.notas}>
                     <input value={notas} onChange={(e) => porNotas(e.target.value)} placeholder={t('Contentor, guia do fornecedor…')} className={entrada} />
                 </Campo>
-                <div className="relative sm:col-span-2">
+                <div ref={campoDoArtigo} className="relative sm:col-span-2">
                     <Campo etiqueta={t('Juntar artigo')}>
                         <input value={procura} onChange={(e) => porProcura(e.target.value)} placeholder={t('Nome, código ou código de barras')} className={entrada} />
                     </Campo>
                     {sugestoes.length > 0 && (
-                        <ul className={cls('absolute z-10 mt-1 max-h-60 w-full overflow-auto border border-slate-200 bg-white shadow-lg', RAIO)} role="listbox">
+                        <ListaFlutuante ancora={campoDoArtigo} role="listbox">
                             {sugestoes.map((a, i) => (
                                 <li key={a.id} style={cascata(i)} className="entra border-b border-slate-100 last:border-0">
                                     <button type="button" onClick={() => juntar(a)} className={cls('flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-all duration-200 hover:bg-indigo-50/60', FOCO)}>
@@ -523,7 +526,7 @@ function Lote({ o, armazemInicial, aoFechar, aoFeito }: { o: OpcoesDoStock; arma
                                     </button>
                                 </li>
                             ))}
-                        </ul>
+                        </ListaFlutuante>
                     )}
                 </div>
             </div>

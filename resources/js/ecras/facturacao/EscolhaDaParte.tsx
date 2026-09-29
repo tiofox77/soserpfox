@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
@@ -14,7 +14,8 @@ import { AvisoDeErro } from '@/ui/AvisoDeErro';
 import { Botao } from '@/ui/Botao';
 import { Campo, entrada } from '@/ui/Campo';
 import { Modal } from '@/ui/Modal';
-import { RAIO, cls } from '@/ui/tokens';
+import { ListaFlutuante } from '@/ui/ListaFlutuante';
+import { cls } from '@/ui/tokens';
 import { t } from '@/i18n';
 
 /**
@@ -110,6 +111,8 @@ export function EscolhaDaParte({
 }) {
     const tipo = ondeProcurar(criar);
     const idDaLista = useId();
+    /* O campo de onde a lista pende — ela sai do cartão (ver `ListaFlutuante`). */
+    const campo = useRef<HTMLDivElement>(null);
     const cache = useQueryClient();
     const [procura, porProcura] = useState('');
     const [aberto, porAberto] = useState(false);
@@ -223,7 +226,7 @@ export function EscolhaDaParte({
               */}
             <Campo etiqueta={etiqueta} erro={erro} obrigatorio={obrigatorio}>
                 <div className="flex gap-2">
-                    <div className="relative min-w-0 flex-1">
+                    <div ref={campo} className="relative min-w-0 flex-1">
                         <i
                             className="fas fa-magnifying-glass pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400"
                             aria-hidden="true"
@@ -268,14 +271,7 @@ export function EscolhaDaParte({
                         )}
 
                         {aLista && (
-                            <ul
-                                id={idDaLista}
-                                role="listbox"
-                                className={cls(
-                                    'absolute z-50 mt-1 max-h-60 w-full overflow-y-auto border border-slate-200 bg-white shadow-lg',
-                                    RAIO,
-                                )}
-                            >
+                            <ListaFlutuante ancora={campo} id={idDaLista} role="listbox">
                                 {visiveis.length === 0 && aProcurar && (
                                     <li className="px-3 py-3 text-sm text-slate-400">
                                         <i className="fas fa-spinner fa-spin mr-2" aria-hidden="true" />
@@ -319,7 +315,7 @@ export function EscolhaDaParte({
                                         {t('Mais :quantos — escreva para afinar.', { quantos: visiveis.length - 50 })}
                                     </li>
                                 )}
-                            </ul>
+                            </ListaFlutuante>
                         )}
                     </div>
 

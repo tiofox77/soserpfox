@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { quebras, type Quebra } from '@/api/quebras';
@@ -12,6 +12,7 @@ import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { GraficoDeBarras } from '@/ui/GraficoDeBarras';
 import { Paginacao } from '@/ui/Paginacao';
+import { ListaFlutuante } from '@/ui/ListaFlutuante';
 import { CORES, FOCO, RAIO, cls, kz } from '@/ui/tokens';
 import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t } from '@/i18n';
@@ -205,6 +206,8 @@ export default function Quebras() {
 
 function Registo({ o, aoFeito }: { o: { motivos: Array<{ valor: string; rotulo: string }>; armazens: Array<{ id: number; name: string }>; armazem_padrao: number | null }; aoFeito: (m: string) => void }) {
     const [procura, porProcura] = useState('');
+    // A lista de sugestões sai do cartão, que a cortava (ver `ListaFlutuante`).
+    const campoDoArtigo = useRef<HTMLDivElement>(null);
     const [sugestoes, porSugestoes] = useState<Array<{ id: number; name: string; code: string | null; unit: string | null }>>([]);
     const [artigo, porArtigo] = useState<{ id: number; name: string } | null>(null);
     const [quantidade, porQuantidade] = useState('');
@@ -233,16 +236,16 @@ function Registo({ o, aoFeito }: { o: { motivos: Array<{ valor: string; rotulo: 
         <Cartao titulo={t('Registar uma quebra')} icone="fa-dumpster-fire">
             <AvisoDeErro erro={registar.error} />
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-                <div className="relative lg:col-span-2">
+                <div ref={campoDoArtigo} className="relative lg:col-span-2">
                     <Campo etiqueta={t('Artigo')} erro={erros.product_id} obrigatorio>
                         <input value={artigo ? artigo.name : procura} onChange={(e) => { porArtigo(null); porProcura(e.target.value); }} placeholder={t('Nome, código ou código de barras')} className={entrada} />
                     </Campo>
                     {sugestoes.length > 0 && (
-                        <ul className={cls('absolute z-10 mt-1 w-full overflow-hidden border border-slate-200 bg-white shadow-xl', RAIO)} role="listbox">
+                        <ListaFlutuante ancora={campoDoArtigo} role="listbox" className="shadow-xl">
                             {sugestoes.map((s, i) => (
                                 <li key={s.id} style={cascata(i)} className="entra border-b border-slate-100 last:border-0"><button type="button" onClick={() => { porArtigo(s); porSugestoes([]); }} className={cls('block w-full px-3 py-2 text-left text-sm transition-all duration-200 hover:bg-rose-50/60', FOCO)}><span className="font-semibold text-slate-900">{s.name}</span>{s.code && <span className="ml-2 font-mono text-xs text-slate-400">{s.code}</span>}{s.unit && <span className="ml-1 text-xs text-slate-400">· {s.unit}</span>}</button></li>
                             ))}
-                        </ul>
+                        </ListaFlutuante>
                     )}
                 </div>
                 <Campo etiqueta={t('Quantidade')} erro={erros.quantity} obrigatorio>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { relatorios, type Coluna, type Dados, type Esquema, type Filtro, type Formato, type Tabela } from '@/api/relatorios';
@@ -8,6 +8,7 @@ import { Cartao } from '@/ui/Cartao';
 import { CartaoNumero, type TomDoCartao } from '@/ui/CartaoNumero';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
+import { ListaFlutuante } from '@/ui/ListaFlutuante';
 import { CORES, FOCO, RAIO, cls, type Cor } from '@/ui/tokens';
 import { t } from '@/i18n';
 import { ACCAO_DA_FAIXA, Faixa, SemNada, cascata } from './faixa';
@@ -229,18 +230,21 @@ function CampoDeFiltro({ f, valor: v, aoMudar, procura, porProcura, sugestoes, e
     f: Filtro; valor: string; aoMudar: (v: string) => void; procura: string; porProcura: (v: string) => void;
     sugestoes: Array<{ id: number; name: string; nif: string | null }>; escolhido?: string; aoEscolher: (id: number, nome: string) => void; aoLimpar: () => void;
 }) {
+    // A lista de sugestões sai do cartão dos filtros, que a cortava.
+    const campo = useRef<HTMLSpanElement>(null);
+
     if (f.tipo === 'entidade') {
         return (
             <Campo etiqueta={f.rotulo} className="sm:col-span-2">
                 {escolhido ? (
                     <span className="flex items-center gap-2"><Etiqueta cor="primaria" icone="fa-user">{escolhido}</Etiqueta><button type="button" onClick={aoLimpar} className="text-xs text-slate-500 underline">{t('trocar')}</button></span>
                 ) : (
-                    <span className="relative block">
+                    <span ref={campo} className="relative block">
                         <input value={procura} onChange={(ev) => porProcura(ev.target.value)} placeholder={t('Nome ou NIF')} className={entrada} aria-autocomplete="list" />
                         {sugestoes.length > 0 && (
-                            <ul className={cls('absolute z-10 mt-1 max-h-60 w-full overflow-auto border border-slate-200 bg-white shadow-lg', RAIO)} role="listbox">
+                            <ListaFlutuante ancora={campo} role="listbox">
                                 {sugestoes.map((s) => <li key={s.id}><button type="button" role="option" aria-selected={false} onClick={() => aoEscolher(s.id, s.name)} className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50">{s.name}{s.nif && <span className="ml-2 font-mono text-xs text-slate-400">{s.nif}</span>}</button></li>)}
-                            </ul>
+                            </ListaFlutuante>
                         )}
                     </span>
                 )}

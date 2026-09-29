@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { ErroDaApi } from '@/api/cliente';
 import { ordens, pacotesDeServico, type ArtigoParaEscolher, type LinhaDoPacote, type PacoteDeServico } from '@/api/oficina';
@@ -10,6 +10,7 @@ import { Botao } from '@/ui/Botao';
 import { Carregando } from '@/ui/Carregando';
 import { Modal } from '@/ui/Modal';
 import { SemNada, cascata } from '@/ui/SemNada';
+import { ListaFlutuante } from '@/ui/ListaFlutuante';
 import { FOCO, RAIO, RAIO_GRANDE, TRANSICAO, cls, kz } from '@/ui/tokens';
 
 /**
@@ -122,6 +123,8 @@ export default function Pacotes() {
 function EditorDoPacote({ r, aoFechar, aoGravar }: { r: Rascunho; aoFechar: () => void; aoGravar: () => void }) {
     const [d, porD] = useState<Rascunho>(r);
     const [procura, porProcura] = useState('');
+    // As peças sugeridas saem da janela, que as cortava (ver `ListaFlutuante`).
+    const campoDaPeca = useRef<HTMLInputElement>(null);
     const [artigos, porArtigos] = useState<ArtigoParaEscolher[]>([]);
     const opcoes = useQuery({ queryKey: ['oficina', 'ordens', 'opcoes'], queryFn: ordens.opcoes, staleTime: 5 * 60_000 });
 
@@ -179,9 +182,9 @@ function EditorDoPacote({ r, aoFechar, aoGravar }: { r: Rascunho; aoFechar: () =
                     </label>
                     <div className="relative text-sm">
                         <span className="mb-1 block font-medium text-slate-700"><i className="fas fa-gear mr-1.5 text-emerald-500" aria-hidden="true" />{t('Peça do catálogo')}</span>
-                        <input value={procura} onChange={(e) => porProcura(e.target.value)} placeholder={t('Nome, código ou código de barras')} className={caixa} />
+                        <input ref={campoDaPeca} value={procura} onChange={(e) => porProcura(e.target.value)} placeholder={t('Nome, código ou código de barras')} className={caixa} />
                         {artigos.length > 0 && (
-                            <ul className="absolute inset-x-0 top-full z-20 mt-1 max-h-56 overflow-y-auto border border-slate-200 bg-white shadow-xl">
+                            <ListaFlutuante ancora={campoDaPeca} alturaMaxima={224} className="shadow-xl">
                                 {artigos.map((a) => (
                                     <li key={a.valor}>
                                         <button type="button" onClick={() => { juntar({ tipo: 'part', service_id: null, product_id: Number(a.valor), codigo: a.codigo, nome: a.rotulo, quantidade: 1, preco: a.preco, desconto: 0, horas: 0 }); porProcura(''); }}
@@ -191,7 +194,7 @@ function EditorDoPacote({ r, aoFechar, aoGravar }: { r: Rascunho; aoFechar: () =
                                         </button>
                                     </li>
                                 ))}
-                            </ul>
+                            </ListaFlutuante>
                         )}
                     </div>
                     <div className="flex items-end">

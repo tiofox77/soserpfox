@@ -51,13 +51,13 @@ test('Nota de Crédito: escolher a factura traz as linhas com a taxa delas', asy
     // procura (`EscolhaDaParte`), que também procura no servidor.
     const caixa = page.getByRole('combobox', { name: /^Cliente/ });
     await caixa.click();
-    const total = await page.getByRole('option').count();
+    const total = await page.getByRole('listbox').getByRole('option').count();
 
     let encontrou = false;
 
     for (let i = 0; i < Math.min(total, 15); i++) {
         await caixa.click();
-        await page.getByRole('option').nth(i).click();
+        await page.getByRole('listbox').getByRole('option').nth(i).click();
 
         const facturas = page.getByLabel(/^Factura\b/);
         await expect(facturas).toBeEnabled();

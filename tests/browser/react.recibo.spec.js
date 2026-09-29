@@ -70,7 +70,7 @@ test('escolher a factura propoe o que falta', async ({ page }) => {
 
 test('sem valor o servidor recusa e o ecra diz onde', async ({ page }) => {
     await page.getByRole('combobox', { name: /^Cliente/ }).click();
-    await page.getByRole('option').first().click();
+    await page.getByRole('listbox').getByRole('option').first().click();
     await page.getByLabel(/^Valor recebido\b/).fill('');
 
     await page.getByRole('button', { name: /Registar recibo/ }).click();

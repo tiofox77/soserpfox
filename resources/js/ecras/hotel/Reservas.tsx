@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
@@ -23,6 +23,7 @@ import { Paginacao } from '@/ui/Paginacao';
 import { PorPagina } from '@/ui/FiltrosComuns';
 import { SemNada } from '@/ui/SemNada';
 import { ACCAO_DA_FAIXA, Faixa } from '@/ecras/facturacao/faixa';
+import { ListaFlutuante } from '@/ui/ListaFlutuante';
 import { CARTAO, FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
 import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { etiquetaIntl, t, tPartes } from '@/i18n';
@@ -842,6 +843,8 @@ function EscolherHospede({ escolhido, erro, podeCriar, aoEscolher, aoCriar }: {
     const [procura, porProcura] = useState('');
     const [aberto, porAberto] = useState(false);
     const [atraso, porAtraso] = useState('');
+    // A lista de hóspedes sai da janela/cartão, que a cortavam.
+    const campo = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const id = setTimeout(() => porAtraso(procura), 300);
@@ -892,7 +895,7 @@ function EscolherHospede({ escolhido, erro, podeCriar, aoEscolher, aoCriar }: {
         <Campo etiqueta={t('Hóspede')} obrigatorio erro={erro}
             ajuda={t('Procure por nome, telefone, email ou NIF.')}>
             <div className="relative">
-                <div className="flex gap-2">
+                <div ref={campo} className="flex gap-2">
                     <input
                         type="search"
                         value={procura}
@@ -907,7 +910,7 @@ function EscolherHospede({ escolhido, erro, podeCriar, aoEscolher, aoCriar }: {
                 </div>
 
                 {aberto && (
-                    <div className={cls('absolute z-20 mt-1 max-h-64 w-full overflow-y-auto border border-slate-200 bg-white shadow-lg', RAIO)}>
+                    <ListaFlutuante ancora={campo} como="div" alturaMaxima={256}>
                         {achados.isPending ? (
                             <p className="px-3 py-4 text-center text-sm text-slate-400">{t('A procurar…')}</p>
                         ) : (achados.data?.data.length ?? 0) === 0 ? (
@@ -935,7 +938,7 @@ function EscolherHospede({ escolhido, erro, podeCriar, aoEscolher, aoCriar }: {
                                 ))}
                             </ul>
                         )}
-                    </div>
+                    </ListaFlutuante>
                 )}
             </div>
         </Campo>
