@@ -58,11 +58,17 @@ class AlinharPermissoes extends Command
         'compras.definicoes.manage' => 'Definir as regras das Compras (aprovações e tesoureiro)',
         'treasury.pagamentos.view' => 'Ver os Pagamentos a fornecedores pedidos pelas Compras',
         'treasury.pagamentos.pagar' => 'Pagar fornecedores (o dinheiro SAI da tesouraria)',
+        // O alcance nas transferências (29/09/2026): caixas e banco separados.
+        'treasury.transfers.caixas' => 'Transferir entre Caixas (ver e usar os caixas)',
+        'treasury.transfers.contas' => 'Transferir com Contas Bancárias (ver o saldo e usar o banco)',
     ];
 
     /** Quem tem a da esquerda passa a ter as da direita. */
     private const EQUIVALENTES = [
         'treasury.transfers.create' => ['treasury.transfers.delete'],
+        // Quem via as transferências via caixas e banco: continua a ver.
+        // O administrador tira depois o banco a quem não o deve ter.
+        'treasury.transfers.view' => ['treasury.transfers.caixas', 'treasury.transfers.contas'],
         'hotel.dashboard' => ['hotel.dashboard.view'],
         'workshop.dashboard' => ['workshop.dashboard.view'],
         'salon.dashboard' => ['salon.dashboard.view'],
@@ -107,6 +113,7 @@ class AlinharPermissoes extends Command
         'hr.shifts.view', 'hr.shifts.create', 'hr.shifts.edit', 'hr.shifts.delete',
         'compras.encomendas.aprovar', 'compras.encomendas.facturar', 'compras.pagamentos.solicitar',
         'compras.pagamentos.aprovar', 'compras.definicoes.manage', 'treasury.pagamentos.view', 'treasury.pagamentos.pagar',
+        'treasury.transfers.caixas', 'treasury.transfers.contas',
     ];
 
     public function handle(): int

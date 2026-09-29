@@ -93,11 +93,18 @@ export default function Transferencias() {
         <div className="space-y-4">
             <Faixa
                 titulo={t('Transferências entre Contas')}
-                subtitulo={t('Mover fundos entre contas bancárias e caixas')}
+                subtitulo={
+                    o.permissoes.contas && o.permissoes.caixas
+                        ? t('Mover fundos entre contas bancárias e caixas')
+                        : o.permissoes.caixas
+                          ? t('Mover dinheiro entre os caixas')
+                          : t('Mover fundos entre contas bancárias')
+                }
                 icone="fa-right-left"
                 cor="ciano"
                 accoes={
-                    o.permissoes.pode_criar && (
+                    /* Sem nenhum bolso no alcance não há de onde nem para onde. */
+                    o.permissoes.pode_criar && (o.permissoes.caixas || o.permissoes.contas) && (
                         <button type="button" onClick={() => porARegistar(true)} className={ACCAO_DA_FAIXA}>
                             <i className="fas fa-plus" aria-hidden="true" />
                             {t('Nova Transferência')}
@@ -105,6 +112,13 @@ export default function Transferencias() {
                     )
                 }
             />
+
+            {!o.permissoes.caixas && !o.permissoes.contas && (
+                <p role="status" className={cls('border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900', RAIO)}>
+                    <i className="fas fa-lock mr-2" aria-hidden="true" />
+                    {t('O seu papel não tem acesso aos caixas nem às contas bancárias nas transferências. Peça ao administrador.')}
+                </p>
+            )}
 
             {recado && (
                 <div role="status" className={cls('flex items-center justify-between gap-3 border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900', RAIO)}>
@@ -187,7 +201,9 @@ export default function Transferencias() {
                                         {x.taxa > 0 ? kz(x.taxa) : '—'}
                                     </td>
                                     <td className="whitespace-nowrap px-4 py-3 text-center">
-                                        {o.permissoes.pode_anular ? (
+                                        {/* Por linha: o depósito no banco vê-se, mas só o anula
+                                            quem tem o banco no alcance. */}
+                                        {x.pode_anular ? (
                                             <button
                                                 type="button"
                                                 onClick={() => porAAnular(x)}

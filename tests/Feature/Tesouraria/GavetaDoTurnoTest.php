@@ -46,7 +46,7 @@ class GavetaDoTurnoTest extends TenantTestCase
 
         $this->comModulo('invoicing')->comModulo('treasury')->comPermissoes(
             'treasury.transactions.create', 'treasury.transactions.delete',
-            'treasury.transfers.create', 'treasury.transfers.delete',
+            'treasury.transfers.create', 'treasury.transfers.caixas', 'treasury.transfers.contas', 'treasury.transfers.delete',
             'invoicing.receipts.create',
         );
 

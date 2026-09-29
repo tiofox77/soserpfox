@@ -48,6 +48,20 @@ use Illuminate\Validation\ValidationException;
  *    concluídos — se a taxa nunca chegou a ser lançada, não se devolve.
  *
  *  · A MORADA NÃO PEDIA PERMISSÃO NENHUMA.
+ *
+ * O ALCANCE DE CADA UM (29/09/2026). Quem podia transferir via o saldo da
+ * conta bancária e podia creditá-la sem a conferência do tesoureiro. Duas
+ * permissões separam agora os bolsos:
+ *
+ *  · `treasury.transfers.caixas` — os caixas físicos (o gerente recebe a
+ *    entrega do Caixa 1 no Cofre);
+ *  · `treasury.transfers.contas` — as contas bancárias (o tesoureiro regista
+ *    o depósito do Cofre na Conta Corrente, depois de o conferir).
+ *
+ * Quem não tem uma delas não recebe esses bolsos (nem o saldo), não os pode
+ * usar como origem ou destino e não anula transferências que lhes toquem. Vê
+ * na lista, só para consulta, as que tocam num bolso seu: o gerente vê o
+ * depósito que esvaziou o Cofre, mas não o saldo do banco.
  */
 class TransferenciasApiController extends Controller
 {
@@ -56,25 +70,34 @@ class TransferenciasApiController extends Controller
         $this->exigir($request, 'treasury.transfers.view');
 
         $tenantId = (int) activeTenantId();
+        $alcance = $this->alcance($request);
 
         return response()->json([
             // O SALDO VAI JUNTO com cada origem possível: escolher de onde
-            // sai o dinheiro sem ver quanto lá está é escolher às cegas.
-            'contas' => Account::where('tenant_id', $tenantId)->where('is_active', true)
-                ->orderBy('account_name')->get(['id', 'account_name', 'current_balance'])
-                ->map(fn ($c) => ['id' => $c->id, 'nome' => $c->account_name, 'saldo' => (float) $c->current_balance])
-                ->values(),
+            // sai o dinheiro sem ver quanto lá está é escolher às cegas. Mas só
+            // dos bolsos que este utilizador pode usar — o saldo do banco é
+            // informação da tesouraria.
+            'contas' => $alcance['contas']
+                ? Account::where('tenant_id', $tenantId)->where('is_active', true)
+                    ->orderBy('account_name')->get(['id', 'account_name', 'current_balance'])
+                    ->map(fn ($c) => ['id' => $c->id, 'nome' => $c->account_name, 'saldo' => (float) $c->current_balance])
+                    ->values()
+                : [],
 
-            'caixas' => CashRegister::where('tenant_id', $tenantId)->where('is_active', true)
-                ->orderBy('name')->get(['id', 'name', 'current_balance'])
-                ->map(fn ($c) => ['id' => $c->id, 'nome' => $c->name, 'saldo' => (float) $c->current_balance])
-                ->values(),
+            'caixas' => $alcance['caixas']
+                ? CashRegister::where('tenant_id', $tenantId)->where('is_active', true)
+                    ->orderBy('name')->get(['id', 'name', 'current_balance'])
+                    ->map(fn ($c) => ['id' => $c->id, 'nome' => $c->name, 'saldo' => (float) $c->current_balance])
+                    ->values()
+                : [],
 
             'moedas' => ['AOA', 'USD', 'EUR'],
 
             'permissoes' => [
                 'pode_criar' => (bool) $request->user()?->can('treasury.transfers.create'),
                 'pode_anular' => (bool) $request->user()?->can('treasury.transfers.delete'),
+                'caixas' => $alcance['caixas'],
+                'contas' => $alcance['contas'],
             ],
         ]);
     }
@@ -90,9 +113,14 @@ class TransferenciasApiController extends Controller
         ]);
 
         $tenantId = (int) activeTenantId();
+        $alcance = $this->alcance($request);
+        $podeAnular = (bool) $request->user()?->can('treasury.transfers.delete');
 
         $q = Transfer::with(['fromAccount', 'toAccount', 'fromCashRegister', 'toCashRegister', 'user'])
             ->where('tenant_id', $tenantId);
+
+        // Só as que tocam num bolso deste utilizador — e os totais também.
+        $this->soDoAlcance($q, $alcance);
 
         if (! empty($f['procura'])) {
             $p = '%' . $f['procura'] . '%';
@@ -119,6 +147,9 @@ class TransferenciasApiController extends Controller
                 'descricao' => $t->description,
                 'referencia' => $t->reference,
                 'autor' => $t->user->name ?? null,
+                // Anula-se só o que está TODO dentro do alcance: o gerente vê o
+                // depósito no banco, mas não o desfaz.
+                'pode_anular' => $podeAnular && $this->cabeNoAlcance($t, $alcance),
             ])->values(),
             'meta' => [
                 'current_page' => $pagina->currentPage(),
@@ -127,9 +158,9 @@ class TransferenciasApiController extends Controller
                 'total' => $pagina->total(),
             ],
             'resumo' => [
-                'transferencias' => Transfer::where('tenant_id', $tenantId)->count(),
-                'movido' => (float) Transfer::where('tenant_id', $tenantId)->sum('amount'),
-                'taxas' => (float) Transfer::where('tenant_id', $tenantId)->sum('fee'),
+                'transferencias' => $this->soDoAlcance(Transfer::where('tenant_id', $tenantId), $alcance)->count(),
+                'movido' => (float) $this->soDoAlcance(Transfer::where('tenant_id', $tenantId), $alcance)->sum('amount'),
+                'taxas' => (float) $this->soDoAlcance(Transfer::where('tenant_id', $tenantId), $alcance)->sum('fee'),
             ],
         ]);
     }
@@ -158,6 +189,19 @@ class TransferenciasApiController extends Controller
         // saldo intocado.
         $origem = $this->destino($d['de'], $tenantId, 'de');
         $destino = $this->destino($d['para'], $tenantId, 'para');
+
+        // E TÊM DE ESTAR NO ALCANCE de quem regista: o gerente não credita a
+        // conta bancária por conta própria — isso é do tesoureiro.
+        $alcance = $this->alcance($request);
+        foreach (['de' => $origem, 'para' => $destino] as $campo => $ponta) {
+            $eCaixa = $ponta['alvo']['cash_register_id'] !== null;
+
+            if (! $alcance[$eCaixa ? 'caixas' : 'contas']) {
+                throw ValidationException::withMessages([$campo => $eCaixa
+                    ? __('Não tem acesso aos caixas nas transferências.')
+                    : __('Não tem acesso às contas bancárias nas transferências.')]);
+            }
+        }
 
         $valor = round((float) $d['amount'], 2);
         $taxa = round((float) ($d['fee'] ?? 0), 2);
@@ -223,8 +267,15 @@ class TransferenciasApiController extends Controller
     {
         $this->exigir($request, 'treasury.transfers.delete');
 
-        DB::transaction(function () use ($id) {
+        $alcance = $this->alcance($request);
+
+        DB::transaction(function () use ($id, $alcance) {
             $t = Transfer::where('tenant_id', activeTenantId())->lockForUpdate()->findOrFail($id);
+
+            // Desfazer o depósito no banco é desfazer dinheiro do tesoureiro:
+            // só quem tem os DOIS lados no alcance.
+            abort_unless($this->cabeNoAlcance($t, $alcance), 403,
+                __('Esta transferência toca numa conta ou caixa a que não tem acesso.'));
 
             $servico = app(TreasuryMovementService::class);
 
@@ -352,5 +403,55 @@ class TransferenciasApiController extends Controller
     private function exigir(Request $request, string $permissao): void
     {
         abort_unless($request->user()?->can($permissao), 403, __('Sem permissão para esta operação.'));
+    }
+
+    /**
+     * Os bolsos que este utilizador vê e usa nas transferências.
+     *
+     * @return array{caixas: bool, contas: bool}
+     */
+    private function alcance(Request $request): array
+    {
+        $u = $request->user();
+
+        return [
+            'caixas' => (bool) $u?->can('treasury.transfers.caixas'),
+            'contas' => (bool) $u?->can('treasury.transfers.contas'),
+        ];
+    }
+
+    /**
+     * Só as transferências que tocam em pelo menos um bolso do alcance.
+     *
+     * @param  array{caixas: bool, contas: bool}  $alcance
+     */
+    private function soDoAlcance($q, array $alcance)
+    {
+        if ($alcance['caixas'] && $alcance['contas']) {
+            return $q;
+        }
+
+        if (! $alcance['caixas'] && ! $alcance['contas']) {
+            return $q->whereRaw('1 = 0');
+        }
+
+        [$a, $b] = $alcance['caixas']
+            ? ['from_cash_register_id', 'to_cash_register_id']
+            : ['from_account_id', 'to_account_id'];
+
+        return $q->where(fn ($w) => $w->whereNotNull($a)->orWhereNotNull($b));
+    }
+
+    /**
+     * As duas pontas dentro do alcance — a condição para anular.
+     *
+     * @param  array{caixas: bool, contas: bool}  $alcance
+     */
+    private function cabeNoAlcance(Transfer $t, array $alcance): bool
+    {
+        $tocaCaixa = $t->from_cash_register_id || $t->to_cash_register_id;
+        $tocaConta = $t->from_account_id || $t->to_account_id;
+
+        return (! $tocaCaixa || $alcance['caixas']) && (! $tocaConta || $alcance['contas']);
     }
 }

@@ -76,6 +76,7 @@ class UpdatePermissionsSeeder extends Seeder
                 'treasury.accounts.view',
                 'treasury.transactions.view', 'treasury.transactions.create',
                 'treasury.transfers.view', 'treasury.transfers.create',
+                'treasury.transfers.caixas', 'treasury.transfers.contas',
             ]);
             $this->command->info('✓ Caixa atualizado');
         }

@@ -13383,5 +13383,11 @@
     "58 mm — máquinas portáteis (Sunmi V2s e semelhantes)": "58 mm — handheld terminals (Sunmi V2s and similar)",
     "Cada aparelho pode escolher a sua na janela de impressão — fica guardada nesse aparelho.": "Each device can choose its own in the print window — it is saved on that device.",
     "Talão 58 mm": "58 mm receipt",
-    "Máquinas portáteis com impressora embutida (Sunmi V2s…). Fica guardado neste aparelho.": "Handheld terminals with a built-in printer (Sunmi V2s…). Saved on this device."
+    "Máquinas portáteis com impressora embutida (Sunmi V2s…). Fica guardado neste aparelho.": "Handheld terminals with a built-in printer (Sunmi V2s…). Saved on this device.",
+    "Mover dinheiro entre os caixas": "Move cash between cash registers",
+    "Mover fundos entre contas bancárias": "Move funds between bank accounts",
+    "O seu papel não tem acesso aos caixas nem às contas bancárias nas transferências. Peça ao administrador.": "Your role has no access to cash registers or bank accounts in transfers. Ask your administrator.",
+    "Não tem acesso aos caixas nas transferências.": "You have no access to cash registers in transfers.",
+    "Não tem acesso às contas bancárias nas transferências.": "You have no access to bank accounts in transfers.",
+    "Esta transferência toca numa conta ou caixa a que não tem acesso.": "This transfer involves an account or cash register you have no access to."
 }

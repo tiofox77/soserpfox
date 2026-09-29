@@ -13383,5 +13383,11 @@
     "58 mm — máquinas portáteis (Sunmi V2s e semelhantes)": "58 mm — terminaux portables (Sunmi V2s et similaires)",
     "Cada aparelho pode escolher a sua na janela de impressão — fica guardada nesse aparelho.": "Chaque appareil peut choisir la sienne dans la fenêtre d'impression — elle est enregistrée sur cet appareil.",
     "Talão 58 mm": "Ticket 58 mm",
-    "Máquinas portáteis com impressora embutida (Sunmi V2s…). Fica guardado neste aparelho.": "Terminaux portables avec imprimante intégrée (Sunmi V2s…). Enregistré sur cet appareil."
+    "Máquinas portáteis com impressora embutida (Sunmi V2s…). Fica guardado neste aparelho.": "Terminaux portables avec imprimante intégrée (Sunmi V2s…). Enregistré sur cet appareil.",
+    "Mover dinheiro entre os caixas": "Déplacer l'argent entre les caisses",
+    "Mover fundos entre contas bancárias": "Déplacer des fonds entre comptes bancaires",
+    "O seu papel não tem acesso aos caixas nem às contas bancárias nas transferências. Peça ao administrador.": "Votre rôle n'a accès ni aux caisses ni aux comptes bancaires dans les virements. Demandez à l'administrateur.",
+    "Não tem acesso aos caixas nas transferências.": "Vous n'avez pas accès aux caisses dans les virements.",
+    "Não tem acesso às contas bancárias nas transferências.": "Vous n'avez pas accès aux comptes bancaires dans les virements.",
+    "Esta transferência toca numa conta ou caixa a que não tem acesso.": "Ce virement concerne un compte ou une caisse auquel vous n'avez pas accès."
 }

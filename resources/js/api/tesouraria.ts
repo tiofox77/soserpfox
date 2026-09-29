@@ -178,13 +178,19 @@ export type Transferencia = {
     descricao: string | null;
     referencia: string | null;
     autor: string | null;
+    /** Tem as duas pontas no alcance de quem vê (e a permissão de anular). */
+    pode_anular: boolean;
 };
 
 export type OpcoesDasTransferencias = {
     contas: Bolso[];
     caixas: Bolso[];
     moedas: string[];
-    permissoes: { pode_criar: boolean; pode_anular: boolean };
+    /**
+     * `caixas` e `contas`: os bolsos que este utilizador vê e usa. O gerente
+     * tem só os caixas — não recebe as contas bancárias nem o saldo delas.
+     */
+    permissoes: { pode_criar: boolean; pode_anular: boolean; caixas: boolean; contas: boolean };
 };
 
 export type PaginaDeTransferencias = {

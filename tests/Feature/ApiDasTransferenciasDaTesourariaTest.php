@@ -112,7 +112,7 @@ class ApiDasTransferenciasDaTesourariaTest extends TenantTestCase
      */
     public function ver_nao_da_direito_a_transferir_nem_a_anular(): void
     {
-        $this->comPermissoes('treasury.transfers.view');
+        $this->comPermissoes('treasury.transfers.view', 'treasury.transfers.caixas', 'treasury.transfers.contas');
 
         $conta = $this->conta(50000);
         $caixa = $this->caixa();
@@ -132,7 +132,7 @@ class ApiDasTransferenciasDaTesourariaTest extends TenantTestCase
     /** As opções trazem os dois bolsos com o saldo à vista. @test */
     public function as_opcoes_trazem_contas_e_caixas_com_o_saldo(): void
     {
-        $this->comPermissoes('treasury.transfers.view', 'treasury.transfers.create');
+        $this->comPermissoes('treasury.transfers.view', 'treasury.transfers.caixas', 'treasury.transfers.contas', 'treasury.transfers.create');
 
         $conta = $this->conta(75000);
         $caixa = $this->caixa(1200);
@@ -160,7 +160,7 @@ class ApiDasTransferenciasDaTesourariaTest extends TenantTestCase
      */
     public function transferir_tira_da_origem_e_poe_no_destino(): void
     {
-        $this->comPermissoes('treasury.transfers.view', 'treasury.transfers.create');
+        $this->comPermissoes('treasury.transfers.view', 'treasury.transfers.caixas', 'treasury.transfers.contas', 'treasury.transfers.create');
 
         $conta = $this->conta(50000);
         $caixa = $this->caixa(0);
@@ -189,7 +189,7 @@ class ApiDasTransferenciasDaTesourariaTest extends TenantTestCase
      */
     public function a_taxa_sai_da_origem_e_nao_chega_ao_destino(): void
     {
-        $this->comPermissoes('treasury.transfers.view', 'treasury.transfers.create');
+        $this->comPermissoes('treasury.transfers.view', 'treasury.transfers.caixas', 'treasury.transfers.contas', 'treasury.transfers.create');
 
         $conta = $this->conta(50000);
         $caixa = $this->caixa(0);
@@ -218,7 +218,7 @@ class ApiDasTransferenciasDaTesourariaTest extends TenantTestCase
      */
     public function uma_conta_de_outra_empresa_nao_serve(): void
     {
-        $this->comPermissoes('treasury.transfers.view', 'treasury.transfers.create');
+        $this->comPermissoes('treasury.transfers.view', 'treasury.transfers.caixas', 'treasury.transfers.contas', 'treasury.transfers.create');
 
         $outra = \App\Models\Tenant::create(['name' => 'Outra', 'slug' => 'outra-' . uniqid(), 'is_active' => true]);
 
@@ -235,7 +235,7 @@ class ApiDasTransferenciasDaTesourariaTest extends TenantTestCase
     /** Um bolso desligado também não serve. @test */
     public function um_caixa_desactivado_nao_serve(): void
     {
-        $this->comPermissoes('treasury.transfers.view', 'treasury.transfers.create');
+        $this->comPermissoes('treasury.transfers.view', 'treasury.transfers.caixas', 'treasury.transfers.contas', 'treasury.transfers.create');
 
         $conta = $this->conta(50000);
         $caixa = $this->caixa(0);
@@ -248,7 +248,7 @@ class ApiDasTransferenciasDaTesourariaTest extends TenantTestCase
     /** Não se transfere para o mesmo sítio de onde saiu. @test */
     public function a_origem_e_o_destino_tem_de_ser_diferentes(): void
     {
-        $this->comPermissoes('treasury.transfers.view', 'treasury.transfers.create');
+        $this->comPermissoes('treasury.transfers.view', 'treasury.transfers.caixas', 'treasury.transfers.contas', 'treasury.transfers.create');
 
         $conta = $this->conta(50000);
 
@@ -267,7 +267,7 @@ class ApiDasTransferenciasDaTesourariaTest extends TenantTestCase
      */
     public function um_numero_fora_do_formato_nao_reinicia_a_sequencia(): void
     {
-        $this->comPermissoes('treasury.transfers.view', 'treasury.transfers.create');
+        $this->comPermissoes('treasury.transfers.view', 'treasury.transfers.caixas', 'treasury.transfers.contas', 'treasury.transfers.create');
 
         $conta = $this->conta(50000);
         $caixa = $this->caixa(0);
@@ -303,7 +303,7 @@ class ApiDasTransferenciasDaTesourariaTest extends TenantTestCase
      */
     public function anular_devolve_tudo_taxa_incluida(): void
     {
-        $this->comPermissoes('treasury.transfers.view', 'treasury.transfers.create', 'treasury.transfers.delete');
+        $this->comPermissoes('treasury.transfers.view', 'treasury.transfers.caixas', 'treasury.transfers.contas', 'treasury.transfers.create', 'treasury.transfers.delete');
 
         $conta = $this->conta(50000);
         $caixa = $this->caixa(0);
@@ -324,7 +324,7 @@ class ApiDasTransferenciasDaTesourariaTest extends TenantTestCase
     /** A transferência da empresa do lado não se anula. @test */
     public function uma_transferencia_de_outra_empresa_nao_se_anula(): void
     {
-        $this->comPermissoes('treasury.transfers.view', 'treasury.transfers.delete');
+        $this->comPermissoes('treasury.transfers.view', 'treasury.transfers.caixas', 'treasury.transfers.contas', 'treasury.transfers.delete');
 
         $outra = \App\Models\Tenant::create(['name' => 'Outra', 'slug' => 'outra-' . uniqid(), 'is_active' => true]);
 
@@ -343,7 +343,7 @@ class ApiDasTransferenciasDaTesourariaTest extends TenantTestCase
     /** @test */
     public function a_lista_procura_e_soma(): void
     {
-        $this->comPermissoes('treasury.transfers.view', 'treasury.transfers.create');
+        $this->comPermissoes('treasury.transfers.view', 'treasury.transfers.caixas', 'treasury.transfers.contas', 'treasury.transfers.create');
 
         $conta = $this->conta(90000);
         $caixa = $this->caixa(0);

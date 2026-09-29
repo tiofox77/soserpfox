@@ -196,6 +196,10 @@ class PermissionsSeeder extends Seeder
         // registar, e por isso tem nome próprio. Ver
         // `permissions:sync-transferencias` para as empresas que já existem.
         $createPermission('treasury.transfers.delete', 'Anular Transferências');
+        // O ALCANCE (29/09/2026): que bolsos se vêem e usam nas transferências.
+        // O gerente fica com os caixas; o tesoureiro com os caixas e o banco.
+        $createPermission('treasury.transfers.caixas', 'Transferir entre Caixas (ver e usar os caixas)');
+        $createPermission('treasury.transfers.contas', 'Transferir com Contas Bancárias (ver o saldo e usar o banco)');
 
         // Pagamentos a fornecedores pedidos pelas Compras (27/09/2026). Ver e
         // pagar à parte: pagar faz sair dinheiro, e não é do caixa do balcão.
@@ -299,6 +303,7 @@ class PermissionsSeeder extends Seeder
             'treasury.accounts.view',
             'treasury.transactions.view', 'treasury.transactions.create',
             'treasury.transfers.view', 'treasury.transfers.create', 'treasury.transfers.delete',
+            'treasury.transfers.caixas', 'treasury.transfers.contas',
         ]);
 
         // Contabilista

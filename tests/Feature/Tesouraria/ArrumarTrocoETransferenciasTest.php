@@ -36,7 +36,7 @@ class ArrumarTrocoETransferenciasTest extends TenantTestCase
     {
         parent::setUp();
 
-        $this->comModulo('treasury')->comPermissoes('treasury.transactions.view', 'treasury.transactions.edit', 'treasury.transfers.create');
+        $this->comModulo('treasury')->comPermissoes('treasury.transactions.view', 'treasury.transactions.edit', 'treasury.transfers.create', 'treasury.transfers.caixas', 'treasury.transfers.contas');
 
         $this->gaveta = CashRegister::create([
             'tenant_id' => $this->tenant->id, 'user_id' => $this->user->id, 'name' => 'Caixa do Cleiton', 'code' => 'CX' . random_int(1000, 9999),

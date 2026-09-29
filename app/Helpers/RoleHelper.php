@@ -15,7 +15,7 @@ if (!function_exists('getDefaultRolePermissionMap')) {
      */
     function getDefaultRolePermissionMap($allPermissions): array
     {
-        return [
+        $mapa = [
             'Super Admin' => $allPermissions->pluck('name')->toArray(), // TODAS
             'Admin' => $allPermissions->filter(function ($perm) {
                 // Admin tem tudo EXCETO gestão de sistema
@@ -93,6 +93,25 @@ if (!function_exists('getDefaultRolePermissionMap')) {
             'Cozinha/Bar' => $allPermissions->filter(fn($p)=>in_array($p->name,['restaurant.kitchen.view','restaurant.kitchen.manage','restaurant.orders.view']))->pluck('name')->toArray(),
             'Gestor Stock Restaurante' => $allPermissions->filter(fn($p)=>str_starts_with($p->name,'restaurant.recipes.')||str_starts_with($p->name,'restaurant.stock.')||$p->name==='restaurant.menu.view')->pluck('name')->toArray(),
         ];
+
+        /*
+         * AS TRANSFERÊNCIAS POR ALCANCE (29/09/2026). Quem vê transferências
+         * via os caixas e o banco — e continua a ver: os papéis-modelo que têm
+         * «Ver Transferências» levam os dois bolsos. O Contabilista e o
+         * Utilizador só apanham `.view` e ficariam sem nenhum. Tirar o banco a
+         * um gerente faz-se no papel dele.
+         */
+        $alcance = array_values(array_intersect(
+            ['treasury.transfers.caixas', 'treasury.transfers.contas'],
+            $allPermissions->pluck('name')->toArray()
+        ));
+
+        return array_map(
+            fn (array $nomes) => in_array('treasury.transfers.view', $nomes, true)
+                ? array_values(array_unique([...$nomes, ...$alcance]))
+                : $nomes,
+            $mapa
+        );
     }
 }
 
