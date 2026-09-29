@@ -12,6 +12,7 @@ import { Etiqueta } from '@/ui/Etiqueta';
 import { FOCO, RAIO, cls, data as fmtData, kz } from '@/ui/tokens';
 import { t } from '@/i18n';
 import { NaoAbriu, PainelDeSucesso, SemNada } from './PecasDoEditor';
+import { EscolhaDaParte, soEscolher } from './EscolhaDaParte';
 
 /**
  * REGISTAR UM RECIBO — ou abrir um que já existe, só para ler.
@@ -212,28 +213,20 @@ function Registar({ facturaId: daMorada, clienteId: clienteDaMorada }: { factura
                         </select>
                     </Campo>
 
-                    <Campo
-                        etiqueta={tipo === 'sale' ? t('Cliente') : t('Fornecedor')}
+                    {/* Com procura no servidor: as opções só trazem os 500
+                        primeiros por ordem alfabética. A `key` recomeça a
+                        procura quando se troca cliente por fornecedor. */}
+                    <EscolhaDaParte
+                        key={tipo}
+                        criar={soEscolher(tipo === 'sale' ? 'cliente' : 'fornecedor')}
+                        partes={partes}
+                        valor={parteId}
+                        aoEscolher={(escolhida) => {
+                            porParteId(escolhida);
+                            porFacturaId('');
+                        }}
                         erro={erros.client_id ?? erros.supplier_id}
-                        obrigatorio
-                    >
-                        <select
-                            value={parteId}
-                            onChange={(e) => {
-                                porParteId(e.target.value);
-                                porFacturaId('');
-                            }}
-                            className={entrada}
-                        >
-                            <option value="">{t('Escolher…')}</option>
-                            {partes.map((p) => (
-                                <option key={p.id} value={p.id}>
-                                    {p.name}
-                                    {p.nif ? ` · ${p.nif}` : ''}
-                                </option>
-                            ))}
-                        </select>
-                    </Campo>
+                    />
 
                     <Campo etiqueta={t('Data')} erro={erros.payment_date} obrigatorio>
                         <input type="date" value={dia} onChange={(e) => porDia(e.target.value)} className={entrada} />

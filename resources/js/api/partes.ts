@@ -19,6 +19,9 @@ import { api } from './cliente';
 /** Uma parte como as listas do emissor a mostram. */
 export type Parte = { id: number; name: string; nif: string | null };
 
+/** Onde se procura no servidor: `/partes/clientes` ou `/partes/fornecedores`. */
+export type TipoDeParte = 'clientes' | 'fornecedores';
+
 /**
  * O que as opções do emissor dizem sobre criar a parte aqui mesmo.
  *
@@ -44,6 +47,21 @@ export type ParteRapida = {
 export const PARTE_VAZIA: ParteRapida = { name: '', nif: '', email: '', phone: '', address: '' };
 
 export const partes = {
+    /**
+     * PROCURAR NO SERVIDOR — nome, NIF ou telefone.
+     *
+     * As opções dos emissores trazem só os 500 primeiros por ordem alfabética;
+     * numa empresa com 598 clientes, os da letra T para a frente não se
+     * encontravam. Os clientes vêm com a mesma forma das opções da factura
+     * (prazo e região fiscal incluídos).
+     */
+    procurar: async <T extends Parte = Parte>(tipo: TipoDeParte, termo: string): Promise<T[]> =>
+        (await api.ler<{ data: T[] }>(`/partes/${tipo}`, { procura: termo })).data,
+
+    /** Uma só, pelo id — a do documento que se abre, quando não veio na lista. */
+    buscar: async <T extends Parte = Parte>(tipo: TipoDeParte, id: number): Promise<T | null> =>
+        (await api.ler<{ data: T[] }>(`/partes/${tipo}`, { id })).data[0] ?? null,
+
     /** Cria pela porta de sempre e devolve a parte já pronta a escolher. */
     criar: async (onde: CriarParte, dados: ParteRapida): Promise<Parte> => {
         const corpo = {

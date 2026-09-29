@@ -12,6 +12,7 @@ import { Etiqueta } from '@/ui/Etiqueta';
 import { FOCO, RAIO, cls, data as fmtData, kz } from '@/ui/tokens';
 import { t } from '@/i18n';
 import { useImprimirAoGravar } from './imprimirAoGravar';
+import { EscolhaDaParte, soEscolher } from './EscolhaDaParte';
 import {
     CABECALHO_DA_TABELA,
     CELULA_DO_CABECALHO,
@@ -229,25 +230,19 @@ function Emitir({ tipo, facturaId: daMorada, clienteId: clienteDaMorada }: { tip
 
             <Cartao titulo={t('Documento a corrigir')} icone="fa-circle-info">
                 <div className="grid gap-4 sm:grid-cols-3">
-                    <Campo etiqueta={t('Cliente')} erro={erros.client_id} obrigatorio>
-                        <select
-                            value={clienteId}
-                            onChange={(e) => {
-                                porClienteId(e.target.value);
-                                porFacturaId('');
-                                porLinhas([]);
-                            }}
-                            className={entrada}
-                        >
-                            <option value="">{t('Escolher…')}</option>
-                            {o.clientes.map((c) => (
-                                <option key={c.id} value={c.id}>
-                                    {c.name}
-                                    {c.nif ? ` · ${c.nif}` : ''}
-                                </option>
-                            ))}
-                        </select>
-                    </Campo>
+                    {/* Procura também no servidor: as opções só trazem os 500
+                        primeiros clientes por ordem alfabética. */}
+                    <EscolhaDaParte
+                        criar={soEscolher('cliente')}
+                        partes={o.clientes}
+                        valor={clienteId}
+                        aoEscolher={(escolhido) => {
+                            porClienteId(escolhido);
+                            porFacturaId('');
+                            porLinhas([]);
+                        }}
+                        erro={erros.client_id}
+                    />
 
                     <Campo etiqueta={t('Factura')} erro={erros.invoice_id} obrigatorio>
                         <select

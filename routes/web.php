@@ -901,6 +901,10 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
 
         // Factura de venda (FT/FR). Zero lógica fiscal aqui: tudo no
         // EmissorDeFacturas, o mesmo que o Livewire chama.
+        // O cliente ou o fornecedor procurado no servidor: as opções dos
+        // emissores só trazem os 500 primeiros por ordem alfabética.
+        Route::get('/partes/{tipo}', [\App\Http\Controllers\Api\Invoicing\PartesApiController::class, 'procurar'])
+            ->whereIn('tipo', ['clientes', 'fornecedores'])->name('partes.procurar');
         Route::get('/factura/opcoes', [\App\Http\Controllers\Api\Invoicing\FacturaApiController::class, 'opcoes'])->name('factura.opcoes');
         Route::post('/factura/calcular', [\App\Http\Controllers\Api\Invoicing\FacturaApiController::class, 'calcular'])->name('factura.calcular');
         Route::post('/factura', [\App\Http\Controllers\Api\Invoicing\FacturaApiController::class, 'guardar'])->name('factura.guardar');

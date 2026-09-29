@@ -77,8 +77,8 @@ class DefinicoesApiController extends Controller
 
             'opcoes' => [
                 'armazens' => Warehouse::where('tenant_id', $tenantId)->where('is_active', true)->orderBy('name')->get(['id', 'name']),
-                'clientes' => Client::where('tenant_id', $tenantId)->where('is_active', true)->orderBy('name')->limit(500)->get(['id', 'name']),
-                'fornecedores' => Supplier::where('tenant_id', $tenantId)->where('is_active', true)->orderBy('name')->limit(500)->get(['id', 'name']),
+                'clientes' => Client::where('tenant_id', $tenantId)->where('is_active', true)->orderBy('name')->limit(500)->get(['id', 'name', 'nif']),
+                'fornecedores' => Supplier::where('tenant_id', $tenantId)->where('is_active', true)->orderBy('name')->limit(500)->get(['id', 'name', 'nif']),
                 'impostos' => Tax::where('tenant_id', $tenantId)->where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get(['id', 'name', 'rate']),
                 /*
                  * OS IMPOSTOS, SEPARADOS POR TIPO.

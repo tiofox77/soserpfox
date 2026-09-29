@@ -21,6 +21,7 @@ import { FOCO, RAIO, cls } from '@/ui/tokens';
 import { t } from '@/i18n';
 import { Faixa, SemNada, cascata } from './faixa';
 import { AvisoDeComunicacaoAgt } from './pecasDaAgt';
+import { EscolhaDaParte, soEscolher } from './EscolhaDaParte';
 
 /**
  * AS DEFINIÇÕES DA FACTURAÇÃO.
@@ -191,18 +192,26 @@ export default function Definicoes() {
                                     {o.armazens.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                                 </select>
                             </Campo>
-                            <Campo etiqueta={t('Cliente padrão')} erro={erros.default_client_id}>
-                                <select value={forma.default_client_id ?? ''} onChange={numero('default_client_id')} className={entrada}>
-                                    <option value="">{t('Nenhum')}</option>
-                                    {o.clientes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
-                            </Campo>
-                            <Campo etiqueta={t('Fornecedor padrão')} erro={erros.default_supplier_id}>
-                                <select value={forma.default_supplier_id ?? ''} onChange={numero('default_supplier_id')} className={entrada}>
-                                    <option value="">{t('Nenhum')}</option>
-                                    {o.fornecedores.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-                                </select>
-                            </Campo>
+                            {/* Com procura no servidor: as opções só trazem os 500
+                                primeiros. Limpar (o «x») é o «Nenhum». */}
+                            <EscolhaDaParte
+                                criar={soEscolher('cliente')}
+                                etiqueta={t('Cliente padrão')}
+                                obrigatorio={false}
+                                partes={o.clientes}
+                                valor={forma.default_client_id ? String(forma.default_client_id) : ''}
+                                aoEscolher={(escolhido) => mudar('default_client_id', (escolhido ? Number(escolhido) : null) as never)}
+                                erro={erros.default_client_id}
+                            />
+                            <EscolhaDaParte
+                                criar={soEscolher('fornecedor')}
+                                etiqueta={t('Fornecedor padrão')}
+                                obrigatorio={false}
+                                partes={o.fornecedores}
+                                valor={forma.default_supplier_id ? String(forma.default_supplier_id) : ''}
+                                aoEscolher={(escolhido) => mudar('default_supplier_id', (escolhido ? Number(escolhido) : null) as never)}
+                                erro={erros.default_supplier_id}
+                            />
                             <Campo etiqueta={t('Imposto padrão')} erro={erros.default_tax_id}>
                                 <select value={forma.default_tax_id ?? ''} onChange={numero('default_tax_id')} className={entrada}>
                                     <option value="">{t('Nenhum')}</option>

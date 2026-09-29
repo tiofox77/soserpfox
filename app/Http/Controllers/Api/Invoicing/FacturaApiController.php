@@ -16,9 +16,9 @@ use App\Models\Invoicing\Warehouse;
 use App\Models\Product;
 use App\Models\Treasury\PaymentMethod;
 use App\Services\Invoicing\CalculadoraDeDocumento;
+use App\Services\Invoicing\ClienteDoEmissor;
 use App\Services\Invoicing\DuplicaDocumento;
 use App\Services\Invoicing\EmissorDeFacturas;
-use App\Services\Invoicing\TaxResolver;
 use App\Support\Geografia;
 use DomainException;
 use Illuminate\Http\JsonResponse;
@@ -155,26 +155,12 @@ class FacturaApiController extends Controller
         $tenantId = activeTenantId();
 
         return response()->json([
-            // `payment_term_days` vai junto de propósito: é dele que sai o
-            // vencimento quando se escolhe o cliente. O ecrã em Livewire
-            // preenchia-o no `selectClient`; sem este campo, o ecrã em React
-            // não teria por onde o saber e a factura nascia sem prazo.
+            // Os primeiros 500 por ordem alfabética, para a lista abrir já
+            // cheia. Os outros chegam pela procura no servidor (`/partes`),
+            // com a mesma forma — ver `ClienteDoEmissor`.
             'clientes' => Client::where('tenant_id', $tenantId)->with('paymentTerm')->orderBy('name')->limit(500)
                 ->get(['id', 'name', 'nif', 'province', 'payment_term_id', 'payment_term_days'])
-                ->map(fn ($c) => [
-                    'id' => $c->id, 'name' => $c->name, 'nif' => $c->nif, 'province' => $c->province,
-                    'payment_term_days' => $this->diasDaCondicao($c),
-                    /*
-                     * A REGIÃO FISCAL QUE ESTE CLIENTE IMPLICA — decidida cá.
-                     *
-                     * Cabinda tem regime próprio (AO-CAB) e a regra é do
-                     * `TaxResolver`. O ecrã mostra o crachá «a aplicar: X» que
-                     * o formulário de sempre tinha, sem ter de repetir a regra
-                     * em JavaScript — duas versões da mesma regra fiscal
-                     * divergem, e esta decide quanto imposto se cobra.
-                     */
-                    'regiao' => TaxResolver::regionForClient($c),
-                ]),
+                ->map(fn ($c) => ClienteDoEmissor::linha($c)),
             'artigos' => Product::where('tenant_id', $tenantId)->where('is_active', true)
                 ->orderBy('name')->limit(500)->get(['id', 'name', 'code', 'price', 'unit', 'type']),
 
@@ -420,9 +406,7 @@ class FacturaApiController extends Controller
      */
     private function diasDaCondicao(Client $cliente): int
     {
-        return $cliente->payment_term_id
-            ? (int) ($cliente->paymentTerm?->days ?? 0)
-            : (int) ($cliente->payment_term_days ?? 0);
+        return ClienteDoEmissor::diasDaCondicao($cliente);
     }
 
     /**

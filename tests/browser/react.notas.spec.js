@@ -47,14 +47,17 @@ test('Nota de Crédito: escolher a factura traz as linhas com a taxa delas', asy
     await page.goto('/invoicing/credit-notes/create');
     await expect(page.getByLabel(/^Cliente\b/)).toBeVisible({ timeout: 20_000 });
 
-    // O primeiro cliente com facturas por creditar.
-    const clientes = page.getByLabel(/^Cliente\b/);
-    const total = await clientes.locator('option').count();
+    // O primeiro cliente com facturas por creditar. Escolhe-se na caixa com
+    // procura (`EscolhaDaParte`), que também procura no servidor.
+    const caixa = page.getByRole('combobox', { name: /^Cliente/ });
+    await caixa.click();
+    const total = await page.getByRole('option').count();
 
     let encontrou = false;
 
-    for (let i = 1; i < Math.min(total, 15); i++) {
-        await clientes.selectOption({ index: i });
+    for (let i = 0; i < Math.min(total, 15); i++) {
+        await caixa.click();
+        await page.getByRole('option').nth(i).click();
 
         const facturas = page.getByLabel(/^Factura\b/);
         await expect(facturas).toBeEnabled();

@@ -81,8 +81,8 @@ export type EcraDasDefinicoes = {
     definicoes: Definicoes;
     opcoes: {
         armazens: Nomeado[];
-        clientes: Nomeado[];
-        fornecedores: Nomeado[];
+        clientes: Array<Nomeado & { nif: string | null }>;
+        fornecedores: Array<Nomeado & { nif: string | null }>;
         impostos: Array<{ id: number; name: string; rate: number }>;
         /** Só o IVA e afins — o IRT tem caixa própria. */
         impostos_de_iva: Array<{ id: number; name: string; rate: number }>;

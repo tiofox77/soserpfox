@@ -11,7 +11,7 @@ import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
 import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
 import { t } from '@/i18n';
-import { EscolhaDaParte } from './EscolhaDaParte';
+import { EscolhaDaParte, useParteEscolhida } from './EscolhaDaParte';
 import { CampoDoArtigo, EscolhaDeArtigo, juntarArtigo, trocarArtigo, useArtigosConhecidos, type ArtigoDaLinha } from './EscolhaDeArtigo';
 import { useImprimirAoGravar } from './imprimirAoGravar';
 import {
@@ -159,14 +159,21 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
      * dele (pronto pagamento vence no próprio dia). Continua a poder mudar-se
      * à mão, e uma factura já aberta traz o vencimento que tem.
      */
+    /* O cliente escolhido — da lista das opções ou, se ficou de fora dos 500
+       primeiros, do servidor (ver `useParteEscolhida`). */
+    const clienteEscolhido = useParteEscolhida('clientes', clienteId, opcoes.data?.clientes ?? []);
+
     useEffect(() => {
-        if (!opcoes.data || id !== undefined || !clienteId) return;
-        const cliente = opcoes.data.clientes.find((c) => String(c.id) === clienteId);
-        if (!cliente) return;
+        if (id !== undefined || !clienteEscolhido) return;
         const d = new Date(dia + 'T00:00:00');
-        d.setDate(d.getDate() + (cliente.payment_term_days ?? 0));
-        porVencimento(d.toISOString().slice(0, 10));
-    }, [opcoes.data, clienteId, dia, id]);
+        d.setDate(d.getDate() + (clienteEscolhido.payment_term_days ?? 0));
+        /* Em hora LOCAL. O `toISOString()` passava a UTC: em Angola (UTC+1) a
+           meia-noite local é 23h do dia anterior, e o vencimento saía um dia
+           antes — «pronto pagamento» vencia na véspera da factura. */
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        porVencimento(`${d.getFullYear()}-${mm}-${dd}`);
+    }, [clienteEscolhido, dia, id]);
 
     /* Uma linha sem artigo, sem preço e sem descrição ainda não é uma linha. */
     const comConteudo = (l: { product_id: number | null; quantity: number | string; price: number | string; description: string }) =>
@@ -289,7 +296,7 @@ export default function EmitirFactura({ id, duplicarDe }: { id?: number; duplica
      * que Cabinda tem regime próprio não se reescreve aqui em JavaScript,
      * porque decide quanto imposto se cobra.
      */
-    const regiaoAplicada = regiao || o.clientes.find((c) => String(c.id) === clienteId)?.regiao || 'AO';
+    const regiaoAplicada = regiao || clienteEscolhido?.regiao || 'AO';
 
     const mudarLinha = (i: number, campo: keyof LinhaDaFactura, valor: string) =>
         porLinhas((ls) =>

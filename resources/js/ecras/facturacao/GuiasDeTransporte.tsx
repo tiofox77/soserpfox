@@ -14,6 +14,7 @@ import { Paginacao } from '@/ui/Paginacao';
 import { CORES, FOCO, RAIO, cls, data, type Cor } from '@/ui/tokens';
 import { useRecadoNoCanto } from '@/ui/useRecadoNoCanto';
 import { t, tPartes } from '@/i18n';
+import { EscolhaDaParte, soEscolher } from './EscolhaDaParte';
 
 /**
  * AS GUIAS DE TRANSPORTE E DE REMESSA — a lista e o registo.
@@ -275,12 +276,10 @@ function NovaGuia({ aoFechar, aoRegistar }: { aoFechar: () => void; aoRegistar: 
                                 {o.facturas.map((f) => <option key={f.id} value={f.id}>{f.invoice_number}</option>)}
                             </select>
                         </Campo>
-                        <Campo etiqueta={t('Cliente')} erro={erros.client_id} obrigatorio>
-                            <select value={clienteId} onChange={(e) => porClienteId(e.target.value)} className={entrada}>
-                                <option value="">{t('Escolher…')}</option>
-                                {o.clientes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                            </select>
-                        </Campo>
+                        {/* Com procura no servidor: as opções só trazem os 500
+                            primeiros; e o cliente copiado da factura mostra-se
+                            mesmo que não esteja entre eles. */}
+                        <EscolhaDaParte criar={soEscolher('cliente')} partes={o.clientes} valor={clienteId} aoEscolher={porClienteId} erro={erros.client_id} />
                         <Campo etiqueta={t('Data')} erro={erros.issue_date} obrigatorio>
                             <input type="date" value={dia} onChange={(e) => porDia(e.target.value)} className={entrada} />
                         </Campo>

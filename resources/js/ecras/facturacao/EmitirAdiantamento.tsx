@@ -11,6 +11,7 @@ import { Carregando } from '@/ui/Carregando';
 import { cls, kz } from '@/ui/tokens';
 import { t } from '@/i18n';
 import { useImprimirAoGravar } from './imprimirAoGravar';
+import { EscolhaDaParte, soEscolher } from './EscolhaDaParte';
 import { Aviso, NaoAbriu, PainelDeSucesso, PapelBloqueado } from './PecasDoEditor';
 
 /**
@@ -112,12 +113,17 @@ export default function EmitirAdiantamento({ id }: { id?: number }) {
                 icone="fa-hand-holding-dollar"
             >
                 <div className="grid gap-4 sm:grid-cols-2">
-                    <Campo etiqueta={t('Cliente')} erro={erros.client_id} obrigatorio className="sm:col-span-2">
-                        <select value={clienteId} onChange={(e) => porClienteId(e.target.value)} disabled={bloqueado} className={entrada}>
-                            <option value="">{t('Escolher…')}</option>
-                            {o.clientes.map((c) => <option key={c.id} value={c.id}>{c.name}{c.nif ? ` · ${c.nif}` : ''}</option>)}
-                        </select>
-                    </Campo>
+                    {/* Com procura no servidor: as opções só trazem os 500
+                        primeiros clientes por ordem alfabética. */}
+                    <EscolhaDaParte
+                        criar={soEscolher('cliente')}
+                        partes={o.clientes}
+                        valor={clienteId}
+                        aoEscolher={porClienteId}
+                        erro={erros.client_id}
+                        desactivado={bloqueado}
+                        className="sm:col-span-2"
+                    />
                     <Campo etiqueta={t('Data do pagamento')} erro={erros.payment_date} obrigatorio>
                         <input type="date" value={dia} onChange={(e) => porDia(e.target.value)} disabled={bloqueado} className={entrada} />
                     </Campo>
