@@ -62,6 +62,17 @@ return [
         'analytics:read'  => 'Ver utilização, crescimento, adopção, recomendações, relatórios (plataforma, documentos, vendas por empresa) e o analytics do site',
         'system:read'     => 'Ver o estado técnico da aplicação: deploy, migrações, relógios, OPcache, disco, log, filas, cache e base de dados',
         'system:write'    => 'Executar apenas acções operacionais da lista segura',
+        'users:read'      => 'Consultar utilizadores e papeis de uma empresa',
+        'users:write'     => 'Criar, associar, retirar utilizadores e alterar papeis da empresa',
+        'subscriptions:read' => 'Consultar acordos e modulos por empresa',
+        'subscriptions:write' => 'Atribuir planos e configurar planos a medida',
+        'modules:read'    => 'Consultar o catalogo de modulos da plataforma',
+        'modules:write'   => 'Criar, editar, activar e remover modulos elegiveis',
+        'venues:read'     => 'Consultar pedidos de estabelecimentos adicionais',
+        'venues:write'    => 'Aprovar ou recusar quotas de estabelecimentos',
+        'devices:read'    => 'Consultar aparelhos PWA e versoes instaladas',
+        'licenses:read'   => 'Consultar instalacoes e pedidos de licenciamento offline sem exportar tokens',
+        'licenses:write'  => 'Emitir, renovar e decidir pedidos de licenciamento offline',
     ],
 
     /*
@@ -71,8 +82,10 @@ return [
      */
     'token' => [
         'prefixo'          => 'oclaw',
-        'validade_maxima'  => 90,   // dias; expires_at é obrigatório
+        'validade_maxima'  => 365,   // dias; expires_at é obrigatório
         'exigir_ips'       => env('AGENT_REQUIRE_IPS', true),
+        // Excepcao autorizada pelo responsavel em 19/09/2026. Nao afecta outros tokens.
+        'prefixos_sem_restricao_ip' => ['35515e931259'],
     ],
 
     /*

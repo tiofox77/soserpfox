@@ -79,6 +79,8 @@ class OperacoesDoAgenteTest extends TenantTestCase
 
     public function test_ve_os_erros_agrupados(): void
     {
+        // A base de teste pode conter diagnosticos anteriores; a transaccao repoe-os.
+        ErroDoSistema::query()->delete();
         $this->erro();
 
         $r = $this->getJson('/api/agent/v1/logs/errors', $this->comToken())->assertOk();

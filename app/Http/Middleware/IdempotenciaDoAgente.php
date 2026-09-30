@@ -37,8 +37,17 @@ class IdempotenciaDoAgente
         }
 
         $agente = app(AgenteAutenticado::class);
+        // Uma resposta guardada nao pode contornar uma permissao entretanto retirada.
+        foreach ($request->route()?->gatherMiddleware() ?? [] as $middleware) {
+            if (is_string($middleware) && str_starts_with($middleware, 'agent.scope:')) {
+                $scope = substr($middleware, strlen('agent.scope:'));
+                if (!$agente->pode($scope)) {
+                    return response()->json(['erro' => 'escopo_em_falta', 'escopo' => $scope], 403);
+                }
+            }
+        }
         $rota   = $request->path();
-        $hash   = hash('sha256', json_encode($request->all()));
+        $hash   = hash('sha256', $request->method().' '.$rota.' '.json_encode($request->all()));
 
         $anterior = AgentRequest::where('agent_token_id', $agente->id())
             ->where('idempotency_key', $chave)

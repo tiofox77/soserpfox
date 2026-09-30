@@ -181,6 +181,8 @@ class MaintenanceController extends Controller
         // que emite credenciais, continua de fora de propósito — a resposta
         // desta rota é texto simples e ficaria com o segredo em claro.
         'agente:escopos',
+        // Requer pedido privado via FTP; aceita apenas hash, nunca o segredo.
+        'agente:provisionar',
         'agente:responsavel-telefone',
         // Os erros do sistema, agrupados. Só lê (fechar e empurrar exigem
         // ?args=--resolver=N ou --empurrar, explícitos).

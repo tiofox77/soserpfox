@@ -67,6 +67,11 @@ class AgentToken extends Model
      */
     public function aceitaIp(?string $ip): bool
     {
+        // A autenticacao do segredo, validade e revogacao continuam obrigatorias.
+        if (in_array($this->prefix, config('agent.token.prefixos_sem_restricao_ip', []), true)) {
+            return true;
+        }
+
         $lista = $this->allowed_ips ?? [];
 
         if (empty($lista)) {

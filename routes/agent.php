@@ -31,6 +31,7 @@ Route::prefix('api/agent/v1')
         'agent.token',
     ])
     ->group(function () {
+        require __DIR__.'/agent-admin.php';
 
         // Identidade — qualquer token válido.
         Route::get('me', [AgentController::class, 'me']);

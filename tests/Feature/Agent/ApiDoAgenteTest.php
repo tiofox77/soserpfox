@@ -165,6 +165,18 @@ class ApiDoAgenteTest extends TenantTestCase
             ->assertJsonPath('erro', 'ip_nao_autorizado');
     }
 
+    public function test_excepcao_de_ip_so_se_aplica_ao_prefixo_autorizado(): void
+    {
+        config(['agent.token.exigir_ips' => true,
+            'agent.token.prefixos_sem_restricao_ip' => [$this->token->prefix]]);
+        $this->token->update(['allowed_ips' => ['203.0.113.7']]);
+        $this->getJson('/api/agent/v1/me', $this->comToken())->assertOk();
+        $outro = new AgentToken(['prefix' => 'outro-prefixo', 'allowed_ips' => ['203.0.113.7']]);
+        $this->assertFalse($outro->aceitaIp('192.0.2.1'));
+        $this->token->update(['revoked_at' => now()]);
+        $this->getJson('/api/agent/v1/me', $this->comToken())->assertUnauthorized();
+    }
+
     public function test_a_api_pode_ser_desligada_toda(): void
     {
         config(['agent.activa' => false]);

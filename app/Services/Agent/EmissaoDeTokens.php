@@ -31,6 +31,9 @@ class EmissaoDeTokens
         ?User $criadoPor = null
     ): array {
         $validos = array_keys(config('agent.escopos', []));
+        if (array_diff($escopos, $validos)) {
+            throw new \InvalidArgumentException('A credencial pede escopos desconhecidos.');
+        }
         $pedidos = array_values(array_intersect($escopos, $validos));
 
         if (empty($pedidos)) {

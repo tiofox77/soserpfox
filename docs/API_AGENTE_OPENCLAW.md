@@ -6,6 +6,9 @@ fazer seguimento de clientes por email e SMS.
 
 **Base:** `https://soserp.vip/api/agent/v1`
 
+Extensão administrativa de 19/09/2026: consultar também
+[PRD e contratos novos](PRD_OPENCLAW_ADMIN_2026-09-19.md). O catálogo HTTP é a fonte das rotas activas.
+
 ---
 
 ## A ideia em duas linhas
@@ -22,9 +25,8 @@ Três decisões de desenho explicam quase todas as regras que se seguem:
    `cliente:123`) que o servidor resolve. Sem isto, a API seria uma forma
    de exfiltrar contactos e de enviar, em nome do soserp, para onde
    quisesse.
-2. **O agente não escreve o texto das mensagens.** Escolhe um modelo de uma
-   lista fechada e fornece as variáveis. Texto livre com a marca do soserp,
-   para clientes reais, é responsabilidade que ninguém quer assinar.
+2. **Texto livre exige permissão própria.** Os modelos continuam disponíveis;
+   `followup:free` permite texto livre para handles autorizados, com motivo e limites.
 3. **Aprovar não é reversível.** Ao aprovar um pedido, a subscrição anterior
    é cancelada. Por isso há tectos, prova de leitura e `dry_run`.
 
@@ -43,7 +45,7 @@ curl https://soserp.vip/api/agent/v1/me \
   `Referer` e no histórico do browser.
 - O segredo é mostrado **uma vez**, na emissão. Não há maneira de o
   recuperar: em base de dados só existe o `sha256`.
-- Cada credencial tem **validade obrigatória** (máximo 90 dias) e **lista de
+- Cada credencial tem **validade obrigatória** (máximo 365 dias) e **lista de
   IPs**. Fora do IP, `403`.
 - A revogação é **imediata** — a linha é lida a cada pedido, sem cache.
 
@@ -707,28 +709,20 @@ Nem com todos os escopos:
 
 - Emitir, renovar ou alargar as próprias credenciais.
 - Abrir sessão web. O token não se converte num browser autenticado.
-- Escolher destinatários ou escrever o texto das mensagens.
+- Enviar mensagens a números/emails arbitrários fora dos handles autorizados.
 - Enviar em massa. Um envio = uma empresa = um destinatário.
-- Alterar subscrições directamente: dar dias, mudar datas, activar sem
-  pedido, prolongar teste, marcar como pago. O único caminho de escrita é o
-  estado do pedido; o resto decide-o o sistema.
-- Criar, editar ou apagar empresas, utilizadores ou permissões. (**Suspender
-  e reactivar** passou a ser possível com `tenants:write`, com motivo escrito
-  obrigatório — mas continua a não poder criar nem apagar nada.)
+- Contornar as regras de subscrição e permissões. Atribuição de planos e
+  gestão de utilizadores existem agora nas rotas administrativas com escopos próprios.
 - Tocar em matéria fiscal DAS EMPRESAS: facturas de venda, notas, séries,
   ATCUD, numeração ou comunicação à AGT. (As facturas de **subscrição** —
   o que a plataforma cobra ao cliente — são outra coisa e podem ser emitidas
   com `billing:write`, sempre com `so_ver: false` explícito.)
-- Executar comandos, migrações ou seeders. As verificações de saúde são
-  sempre de leitura, de uma lista fechada, sem argumentos vindos do pedido.
-- **Corrigir** inconsistências. Detectar e descrever, sim; aplicar, não.
-- Apagar seja o que for, incluindo os próprios registos de envio.
+- Executar comandos arbitrários, scripts ou seeders. `system:write` autoriza
+  somente a lista fechada de acções publicada pelo servidor.
+- Apagar os próprios registos de envio ou auditoria.
 - Desligar ou contornar os próprios controlos.
-- Ler dados operacionais das empresas — vendas, stock, clientes, salários.
-  O que vê é o estado COMERCIAL (plano, subscrição, facturas da plataforma) e
-  o que precisa para dar apoio. **Isto continua a ser o limite**, e é onde a
-  linha está desenhada agora que os contactos deixaram de ir mascarados: o
-  agente vê quem é o cliente e como lhe falar, não o negócio dele.
+- Obter acesso irrestrito à base: os relatórios expõem apenas os campos dos
+  respectivos contratos. Não existe consulta SQL nem exportação geral por esta API.
 
 ---
 
