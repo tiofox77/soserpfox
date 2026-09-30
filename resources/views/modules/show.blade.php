@@ -70,6 +70,91 @@
     </div>
 </section>
 
+{{-- MÓDULO EM FOCO: PERFIL + FLUXO + RESULTADOS --}}
+<section class="py-16 bg-slate-50 border-y border-slate-200">
+    <div class="max-w-7xl mx-auto px-4">
+        <div class="grid lg:grid-cols-3 gap-8">
+            <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-lg flex items-center justify-center text-white" style="background: linear-gradient(135deg, {{ $module['gradient_from'] }}, {{ $module['gradient_to'] }});">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <h3 class="font-bold text-lg text-gray-900">Para quem é este módulo?</h3>
+                </div>
+                <div class="space-y-3">
+                    @foreach($module['targets'] ?? [] as $target)
+                        <div class="flex items-center gap-2 text-sm text-gray-700">
+                            <i class="fas {{ $target['icon'] ?? 'fa-bullseye' }} text-slate-500"></i>
+                            <span>{{ $target['label'] }}</span>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm lg:col-span-2">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-lg flex items-center justify-center text-white" style="background: linear-gradient(135deg, {{ $module['gradient_from'] }}, {{ $module['gradient_to'] }});">
+                        <i class="fas fa-route"></i>
+                    </div>
+                    <h3 class="font-bold text-lg text-gray-900">Como funciona na prática (em 4 passos)</h3>
+                </div>
+                <div class="grid sm:grid-cols-2 gap-4">
+                    @foreach($module['workflow'] ?? [] as $idx => $item)
+                        <div class="relative pl-10">
+                            <span class="absolute left-2 top-2 flex items-center justify-center h-6 w-6 rounded-full text-white text-xs font-bold" style="background: {{ $module['gradient_from'] }};">{{ $idx + 1 }}</span>
+                            <div class="pl-2">
+                                <p class="font-semibold text-sm text-gray-900 flex items-center gap-2">
+                                    <i class="fas {{ $item['icone'] ?? 'fa-circle-check' }}" style="color: {{ $module['gradient_from'] }};"></i>
+                                    {{ $item['passo'] }}
+                                </p>
+                                <p class="text-sm text-gray-600 mt-1">{{ $item['detalhe'] }}</p>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{{-- INDICADORES E INTEGRAÇÕES --}}
+<section class="py-16 bg-white">
+    <div class="max-w-7xl mx-auto px-4">
+        <div class="grid md:grid-cols-2 gap-8">
+            <div>
+                <h3 class="text-2xl md:text-3xl font-bold text-gray-900 mb-5">Indicadores que importam</h3>
+                <p class="text-sm text-gray-600 mb-5">O impacto esperado para este módulo:</p>
+                <div class="grid sm:grid-cols-2 gap-4">
+                    @foreach($module['metrics'] ?? [] as $metric)
+                        <div class="border border-slate-200 rounded-xl p-4 bg-slate-50">
+                            <p class="text-sm font-bold text-gray-900">{{ $metric['valor'] }}</p>
+                            <p class="text-xs text-gray-600 mt-2">{{ $metric['texto'] }}</p>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-2xl md:text-3xl font-bold text-gray-900 mb-5">Integra com</h3>
+                <p class="text-sm text-gray-600 mb-4">Módulos e áreas que puxam mais valor quando ligados a este módulo.</p>
+                <div class="flex flex-wrap gap-2">
+                    @foreach($module['integrations'] ?? [] as $integration)
+                        <span class="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-slate-200 bg-slate-50 text-sm text-gray-700">
+                            <i class="fas fa-plug text-gray-400"></i>{{ $integration }}
+                        </span>
+                    @endforeach
+                </div>
+                <div class="mt-6 rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100 p-5">
+                    <p class="font-semibold text-gray-900 mb-2">
+                        <i class="fas fa-bullseye mr-2" style="color: {{ $module['gradient_from'] }};"></i>Objetivo da implementação
+                    </p>
+                    <p class="text-sm text-gray-600">Padronizar operação, reduzir retrabalho e deixar toda a informação pronta para controlo financeiro, fiscal e operacional.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
 {{-- FEATURES GRID --}}
 <section class="py-16 md:py-24 bg-white">
     <div class="max-w-7xl mx-auto px-4">

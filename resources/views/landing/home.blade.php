@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     @php
-        $canonical = $settings['seo_canonical_url'] ?? $settings['schema_app_url'] ?? 'https://soserp.vip';
+        $canonical = \App\Support\DadosEstruturados::raiz() . '/';
         $appName = $settings['app_name'] ?? 'SOS ERP';
         $seoTitle = $settings['seo_title'] ?? 'SOS ERP — Software de Gestão Empresarial em Angola | Faturação Certificada AGT';
         // Os sectores entram na descrição e nas palavras-chave porque é assim

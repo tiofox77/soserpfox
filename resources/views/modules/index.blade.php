@@ -61,7 +61,7 @@
                     <div class="p-6 text-white relative overflow-hidden" style="background: linear-gradient(135deg, {{ $m['gradient_from'] }}, {{ $m['gradient_to'] }});">
                         <div class="absolute -top-8 -right-8 w-32 h-32 bg-white/10 rounded-full"></div>
                         <i class="fas {{ $m['icon'] }} text-4xl mb-3 relative"></i>
-                        <h3 class="text-xl font-bold relative">{{ $m['name'] }}</h3>
+                        <h2 class="text-xl font-bold relative">{{ $m['name'] }}</h2>
                     </div>
                     <div class="p-6">
                         <p class="text-sm text-gray-600 mb-4 min-h-[60px]">{{ $m['tagline'] }}</p>
@@ -117,6 +117,7 @@
                                 @elseif($m['slug'] === 'hotel') Hotéis, pousadas, residenciais
                                 @elseif($m['slug'] === 'salao') Salões, barbearias, spas
                                 @elseif($m['slug'] === 'oficina') Oficinas auto e mecânicas
+                                @elseif($m['slug'] === 'restaurant') Restaurantes, bares e cafés
                                 @endif
                             </td>
                             <td class="px-4 py-3 text-center text-gray-600">{{ $m['plan']?->max_users ?? '—' }}</td>

@@ -25,7 +25,9 @@
     {{-- O que se vê antes de o JavaScript chegar. Sem isto a página pisca a
          branco no primeiro carregamento, que num telemóvel de balcão com rede
          fraca é meio segundo a olhar para o nada. --}}
-    @if($esqueleto)
+    @if($slot->isNotEmpty())
+        {{ $slot }}
+    @elseif($esqueleto)
     <div class="animate-pulse space-y-3">
         <div class="h-9 w-1/3 rounded-xl bg-slate-200"></div>
         <div class="h-12 rounded-xl bg-slate-100"></div>

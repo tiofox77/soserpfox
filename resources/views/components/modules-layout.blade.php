@@ -26,7 +26,12 @@
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ $tituloDaPagina }}">
+    <meta name="twitter:description" content="{{ $description }}">
     <meta name="twitter:image" content="{{ $imagemDePartilha }}">
+    <meta property="og:image:alt" content="SOSERP — Software de gestão empresarial em Angola">
+    <meta name="twitter:image:alt" content="SOSERP — Software de gestão empresarial em Angola">
+    <link rel="sitemap" type="application/xml" href="{{ \App\Support\DadosEstruturados::raiz() }}/sitemap.xml">
     {{ $dadosEstruturados }}
     @include('partials.favicon')
     {{-- Pixel Meta nas páginas dos módulos (é por elas que os anúncios entram),

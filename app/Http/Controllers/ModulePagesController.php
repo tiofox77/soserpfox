@@ -28,6 +28,24 @@ class ModulePagesController extends Controller
                 'Multi-utilizador e multi-dispositivo',
                 'Relatórios em tempo real',
             ],
+            'targets' => [
+                ['label' => 'Lojas e supermercados', 'icon' => 'fa-store'],
+                ['label' => 'Padarias, farmácias e mercearias', 'icon' => 'fa-store'],
+                ['label' => 'Distribuição e atacado', 'icon' => 'fa-boxes-stacked'],
+                ['label' => 'Atividades com balcão e equipa móvel', 'icon' => 'fa-users'],
+            ],
+            'workflow' => [
+                ['icone' => 'fa-box-open', 'passo' => 'Cadastro', 'detalhe' => 'Produtos, preços, clientes e regras fiscais carregados uma vez.'],
+                ['icone' => 'fa-cash-register', 'passo' => 'Venda', 'detalhe' => 'Emite FR/RC no balcão, em mesa ou na rua, mesmo sem internet.'],
+                ['icone' => 'fa-arrows-rotate', 'passo' => 'Sincronização', 'detalhe' => 'Os documentos em fila sincronizam automaticamente quando há sinal disponível.'],
+                ['icone' => 'fa-file-lines', 'passo' => 'Controlo', 'detalhe' => 'Consulta relatórios e acompanha margem, fluxo de caixa e contas por pagar/receber.'],
+            ],
+            'metrics' => [
+                ['valor' => 'Redução de atraso', 'texto' => 'Emissões em segundos, sem perda de documentos offline'],
+                ['valor' => 'Maior controlo', 'texto' => 'Stock e caixa consolidados por utilizador e turno'],
+                ['valor' => 'Conformidade', 'texto' => 'Documentação fiscal acompanhando o AGT e as séries corretas'],
+            ],
+            'integrations' => ['RH', 'Tesouraria', 'Inventário', 'BI/Indicadores'],
             'features' => [
                 ['icon' => 'fa-file-invoice', 'title' => 'Faturação Completa', 'desc' => 'Emite FT, FR, NC e Proformas com numeração legal AGT, hash SAFT e séries fiscais.'],
                 ['icon' => 'fa-mobile-screen-button', 'title' => 'POS Offline (PWA)', 'desc' => 'App instalável no telemóvel/tablet. Vende sem internet — sincroniza automaticamente ao reconectar.'],
@@ -63,6 +81,24 @@ class ModulePagesController extends Controller
                 'Recibo de vencimento em PDF',
                 'Ficha do trabalhador completa',
             ],
+            'targets' => [
+                ['label' => 'Empresas com funcionários fixos e eventuais', 'icon' => 'fa-user-tie'],
+                ['label' => 'Serviços de produção, comércio e retalho', 'icon' => 'fa-industry'],
+                ['label' => 'Pequenas e médias empresas', 'icon' => 'fa-building'],
+                ['label' => 'Equipas com horários de turno', 'icon' => 'fa-business-time'],
+            ],
+            'workflow' => [
+                ['icone' => 'fa-user', 'passo' => 'Cadastro', 'detalhe' => 'Regista empregados, contratos, turnos e rubricas aplicáveis por cargo.'],
+                ['icone' => 'fa-clock', 'passo' => 'Registo diário', 'detalhe' => 'Controla assiduidade, atrasos, faltas e horas extra por pessoa.'],
+                ['icone' => 'fa-money-bill-wave', 'passo' => 'Processamento', 'detalhe' => 'Gera remuneração com INSS + IRT e aplica adiantamentos/ descontos.'],
+                ['icone' => 'fa-file-invoice', 'passo' => 'Validação', 'detalhe' => 'Valida folha, emite recibos e partilha com o gestor responsável.'],
+            ],
+            'metrics' => [
+                ['valor' => 'Cálculo ágil', 'texto' => 'Folha mensal calculada com regras angolanas em minutos'],
+                ['valor' => 'Erros reduzidos', 'texto' => 'Processo único e auditável em vez de cálculo manual'],
+                ['valor' => 'Transparência', 'texto' => 'Registo de aprovação, adiantamentos e histórico completo por trabalhador'],
+            ],
+            'integrations' => ['Faturação', 'Tesouraria', 'Contabilidade', 'Portal do colaborador'],
             'features' => [
                 ['icon' => 'fa-id-card', 'title' => 'Ficha do Trabalhador', 'desc' => 'Dados pessoais, documentos, dependentes, contactos de emergência e formação académica.'],
                 ['icon' => 'fa-clock', 'title' => 'Assiduidade', 'desc' => 'Registo de entrada/saída, faltas, atrasos e horas extras. Relatórios mensais.'],
@@ -98,6 +134,24 @@ class ModulePagesController extends Controller
                 'Check-in / Check-out rápido',
                 'Housekeeping e gestão de quartos',
             ],
+            'targets' => [
+                ['label' => 'Hotéis e pousadas independentes', 'icon' => 'fa-hotel'],
+                ['label' => 'Hostels e residenciais', 'icon' => 'fa-house-user'],
+                ['label' => 'Apartamentos e alojamentos', 'icon' => 'fa-building'],
+                ['label' => 'Propriedade com receitas de serviços auxiliares', 'icon' => 'fa-concierge-bell'],
+            ],
+            'workflow' => [
+                ['icone' => 'fa-calendar-check', 'passo' => 'Entrada de reserva', 'detalhe' => 'Reserva direta ou por canais, com regras de política comercial e política de cancelamento.'],
+                ['icone' => 'fa-door-open', 'passo' => 'Alocação', 'detalhe' => 'Atribui quartos por tipo, vista e status de arrumação em tempo real.'],
+                ['icone' => 'fa-clipboard-list', 'passo' => 'Consumo', 'detalhe' => 'Consumos (restaurante, minibar, serviços) agregados à estada.'],
+                ['icone' => 'fa-file-invoice', 'passo' => 'Fecho', 'detalhe' => 'Gera conta/receita do hóspede e faturação com histórico por reserva.'],
+            ],
+            'metrics' => [
+                ['valor' => 'Mais ocupação', 'texto' => 'Reservas diretas com menos dependência de comissões externas'],
+                ['valor' => 'Operação fluida', 'texto' => 'Menos duplos registos entre receção, serviço e faturação'],
+                ['valor' => 'Rentabilidade', 'texto' => 'Cálculo de ADR e RevPAR por período com filtros de origem'],
+            ],
+            'integrations' => ['Restaurante', 'Contabilidade', 'Tesouraria', 'Faturação'],
             'features' => [
                 ['icon' => 'fa-globe', 'title' => 'Booking Engine', 'desc' => 'Motor de reservas online no teu website. Recebe reservas diretas 24/7 sem comissões a terceiros.'],
                 ['icon' => 'fa-network-wired', 'title' => 'Channel Manager', 'desc' => 'Sincronização com Booking.com, Airbnb, Expedia. Disponibilidade e preços em tempo real.'],
@@ -133,6 +187,24 @@ class ModulePagesController extends Controller
                 'Fidelização de clientes',
                 'Lembretes por SMS / WhatsApp',
             ],
+            'targets' => [
+                ['label' => 'Salões e barbearias', 'icon' => 'fa-chair'],
+                ['label' => 'Spas e estúdios de beleza', 'icon' => 'fa-spa'],
+                ['label' => 'Serviços de estética e bem-estar', 'icon' => 'fa-heart'],
+                ['label' => 'Equipas com comissão por serviço', 'icon' => 'fa-hand-holding-dollar'],
+            ],
+            'workflow' => [
+                ['icone' => 'fa-calendar-plus', 'passo' => 'Agendamento', 'detalhe' => 'Cliente marca em 24h e entra na agenda com profissional disponível.'],
+                ['icone' => 'fa-scissors', 'passo' => 'Execução', 'detalhe' => 'Atendimento no ponto de venda com ficha e serviços executados.'],
+                ['icone' => 'fa-wallet', 'passo' => 'Pagamento', 'detalhe' => 'Fecho rápido com métodos múltiplos e venda de produtos de apoio.'],
+                ['icone' => 'fa-gift', 'passo' => 'Retenção', 'detalhe' => 'Programa de fidelização e histórico de atendimento para retorno recorrente.'],
+            ],
+            'metrics' => [
+                ['valor' => 'Mais agendamentos', 'texto' => 'Menos cancelamentos por confirmação automática'],
+                ['valor' => 'Produtividade', 'texto' => 'Agenda otimizada por profissional e duração padrão por serviço'],
+                ['valor' => 'Ticket médio', 'texto' => 'Vendas adicionais de serviços e produtos integradas no checkout'],
+            ],
+            'integrations' => ['POS', 'RH', 'Marketing', 'Faturação'],
             'features' => [
                 ['icon' => 'fa-calendar-plus', 'title' => 'Agendamento Online', 'desc' => 'Os clientes marcam pelo telemóvel a qualquer hora. Vê a agenda dos profissionais em tempo real.'],
                 ['icon' => 'fa-user-tie', 'title' => 'Gestão de Profissionais', 'desc' => 'Horário, especialidades, comissões por serviço e disponibilidade individual.'],
@@ -168,6 +240,24 @@ class ModulePagesController extends Controller
                 'Histórico completo por viatura',
                 'Gestão de mecânicos e tempo',
             ],
+            'targets' => [
+                ['label' => 'Oficinas mecânicas', 'icon' => 'fa-wrench'],
+                ['label' => 'Centros de inspeção e manutenção', 'icon' => 'fa-car-burst'],
+                ['label' => 'Frotas e locadoras', 'icon' => 'fa-people-carry-box'],
+                ['label' => 'Auto-varejo de peças e serviços', 'icon' => 'fa-cogs'],
+            ],
+            'workflow' => [
+                ['icone' => 'fa-clipboard-list', 'passo' => 'Diagnóstico', 'detalhe' => 'Regista a entrada, sintomas e responsável técnico por viatura.'],
+                ['icone' => 'fa-file-signature', 'passo' => 'Orçamento', 'detalhe' => 'Gera proposta detalhada e aguarda validação do cliente.'],
+                ['icone' => 'fa-screwdriver-wrench', 'passo' => 'Execução', 'detalhe' => 'Acompanha peças, tempo de mão de obra e regista evolução por técnico.'],
+                ['icone' => 'fa-file-invoice', 'passo' => 'Encerramento', 'detalhe' => 'Conclui OS, entrega documento e fatura com IVA e detalhado de serviços.'],
+            ],
+            'metrics' => [
+                ['valor' => 'Mais controlo', 'texto' => 'Todas as viaturas e ordens em histórico único e rastreável'],
+                ['valor' => 'Mais margem', 'texto' => 'Custos por peça e mão de obra visíveis antes do fecho final'],
+                ['valor' => 'Mais confiança', 'texto' => 'Orçamento aprovado e documentação completa para o cliente'],
+            ],
+            'integrations' => ['Inventário', 'Faturação', 'Tesouraria', 'RH'],
             'features' => [
                 ['icon' => 'fa-car', 'title' => 'Base de Veículos', 'desc' => 'Cadastro com matrícula, VIN, marca/modelo, seguros e inspeção. Alertas de vencimento.'],
                 ['icon' => 'fa-clipboard-list', 'title' => 'Ordens de Reparação', 'desc' => 'OS digital com problema, diagnóstico, trabalhos e peças. Estados visuais (em curso, aguarda peças, etc).'],
@@ -203,6 +293,24 @@ class ModulePagesController extends Controller
                 'Cozinha/KDS com tickets e tempos',
                 'Faturação AGT e pagamentos integrados',
             ],
+            'targets' => [
+                ['label' => 'Restaurantes familiares', 'icon' => 'fa-utensils'],
+                ['label' => 'Bares e cafés', 'icon' => 'fa-mug-hot'],
+                ['label' => 'Pastelarias e fast-food', 'icon' => 'fa-burger'],
+                ['label' => 'Delivery e takeaway', 'icon' => 'fa-motorcycle'],
+            ],
+            'workflow' => [
+                ['icone' => 'fa-chair', 'passo' => 'Abertura', 'detalhe' => 'Define turno, mesa, equipa e estado inicial da sala.'],
+                ['icone' => 'fa-receipt', 'passo' => 'Pedido', 'detalhe' => 'Cria comanda por mesa ou balcão com observações e taxas aplicadas.'],
+                ['icone' => 'fa-fire-burner', 'passo' => 'Preparação', 'detalhe' => 'O KDS repassa para cozinha com prioridade por tempo e origem do pedido.'],
+                ['icone' => 'fa-wallet', 'passo' => 'Entrega e fecho', 'detalhe' => 'Entrega para mesa, divide a conta e emite fatura certificada.'],
+            ],
+            'metrics' => [
+                ['valor' => 'Mais velocidade', 'texto' => 'Comandas aprovadas em segundos, sem filas desnecessárias'],
+                ['valor' => 'Menos erros', 'texto' => 'KDS e observações claras para equipa de cozinha'],
+                ['valor' => 'Maior receita', 'texto' => 'Up-sell de cartas, receitas controladas e rastreio por prato'],
+            ],
+            'integrations' => ['POS', 'Faturação', 'Tesouraria', 'Stock'],
             'features' => [
                 ['icon' => 'fa-chair', 'title' => 'Sala e Mesas', 'desc' => 'Zonas, capacidade, estados, reservas, transferência e junção de mesas numa vista tátil e responsiva.'],
                 ['icon' => 'fa-receipt', 'title' => 'Comandas Digitais', 'desc' => 'Pedidos por mesa, balcão, takeaway ou delivery, com observações, histórico e auditoria.'],
@@ -232,6 +340,24 @@ class ModulePagesController extends Controller
      * página de RH porque não existe.
      */
     protected array $paginas = [
+        'hotel' => [
+            'titulo' => 'Software de Gestão Hoteleira em Angola',
+            'descricao' => 'Gerencie reservas, quartos, check-in, check-out e faturação do seu hotel em Angola com o SOSERP. Consulte funcionalidades e planos de hotelaria.',
+            'categoria' => 'Gestão hoteleira',
+            'migalha' => 'Hotel',
+        ],
+        'salao' => [
+            'titulo' => 'Software para Salão de Beleza em Angola',
+            'descricao' => 'Organize marcações, serviços, profissionais e faturação do seu salão de beleza em Angola. Conheça o módulo SOSERP para salões e barbearias.',
+            'categoria' => 'Gestão de salão de beleza',
+            'migalha' => 'Salão de beleza',
+        ],
+        'oficina' => [
+            'titulo' => 'Software de Gestão de Oficinas Auto em Angola',
+            'descricao' => 'Acompanhe viaturas, ordens de reparação, peças e faturação da sua oficina em Angola. Conheça as funcionalidades e os planos do SOSERP.',
+            'categoria' => 'Gestão de oficina auto',
+            'migalha' => 'Oficina auto',
+        ],
         'vendas' => [
             'titulo' => 'Software de Faturação e POS em Angola, certificado AGT',
             'descricao' => 'Faturação certificada pela AGT, POS que vende sem internet, stock por armazém e SAFT-AO. Para lojas, farmácias e mercearias em Angola. Experimente grátis.',

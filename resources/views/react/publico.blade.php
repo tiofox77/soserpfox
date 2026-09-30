@@ -104,6 +104,18 @@
     @include('partials.css-publico')
 </head>
 <body class="bg-white">
-    <x-ecra-react :nome="$ecra" :props="$props ?? []" class="min-h-screen" />
+    <x-ecra-react :nome="$ecra" :props="$props ?? []" class="min-h-screen">
+        {{-- Conteudo publico real, legivel antes do JavaScript. O React substitui
+             este bloco ao montar, sem duplicar titulos na pagina interactiva. --}}
+        <main class="max-w-4xl mx-auto px-6 py-12" data-conteudo-publico-inicial>
+            <h1 class="text-3xl font-bold text-slate-900">{{ $titulo }}</h1>
+            @if(filled($descricao))
+                <p class="mt-4 text-lg text-slate-700">{{ $descricao }}</p>
+            @endif
+            <noscript>
+                <p class="mt-6">{{ __('Active o JavaScript para utilizar as reservas, marcações ou pedidos online.') }}</p>
+            </noscript>
+        </main>
+    </x-ecra-react>
 </body>
 </html>

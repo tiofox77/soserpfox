@@ -168,6 +168,27 @@ class SeoDoSitePublicoTest extends TenantTestCase
             ->assertSee('<meta name="robots" content="noindex, follow">', false);
     }
 
+    public function test_pagina_react_publica_tem_conteudo_inicial_escapado_sem_javascript(): void
+    {
+        $html = view('react.publico', [
+            'ecra' => 'hotel/reservar', 'props' => ['slug' => 'teste'],
+            'titulo' => 'Hotel <Teste>', 'descricao' => 'Quartos e reservas <script>alert(1)</script>',
+            'imagem' => null, 'canonico' => 'https://soserp.vip/hotel/booking/teste',
+        ])->render();
+        $this->assertStringContainsString('data-conteudo-publico-inicial', $html);
+        $this->assertStringContainsString('Hotel &lt;Teste&gt;</h1>', $html);
+        $this->assertStringContainsString('Quartos e reservas &lt;script&gt;', $html);
+        $this->assertStringNotContainsString('<script>alert(1)</script>', $html);
+        $this->assertStringContainsString('data-ecra="hotel/reservar"', $html);
+    }
+
+    public function test_componentes_internos_preservam_esqueleto_sem_slot(): void
+    {
+        $html = \Illuminate\Support\Facades\Blade::render('<x-ecra-react nome="teste" />');
+        $this->assertStringContainsString('animate-pulse', $html);
+        $this->assertStringNotContainsString('data-conteudo-publico-inicial', $html);
+    }
+
     public function test_a_lista_dos_modulos_tem_canonico_e_a_itemlist_dos_cartoes(): void
     {
         $html = $this->get('/modulos')->assertOk()
